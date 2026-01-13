@@ -278,7 +278,7 @@ Based on GitHub issues #1-11, the app requires:
   - Mobile-first design approach
   
 #### Backend
-- **Runtime**: Java 17+ with Quarkus Framework
+- **Runtime**: Java 21 (LTS) with Quarkus Framework
   - Supersonic Subatomic Java - fast startup, low memory footprint
   - Native compilation with GraalVM (optional)
   - Reactive and imperative programming models
@@ -352,10 +352,11 @@ Based on GitHub issues #1-11, the app requires:
   - Round-robin load balancing
 
 #### Development Tools
-- **Build Tool**: Maven or Gradle
+- **Build Tool**: Gradle
   - Dependency management
   - Multi-module projects
   - Integration with Quarkus tooling
+  - Kotlin DSL or Groovy DSL support
   
 - **Testing**: 
   - JUnit 5 for unit tests
@@ -661,7 +662,8 @@ vlettenrally-app/
 │   │               └── TeamServiceTest.java
 │   ├── Dockerfile.jvm
 │   ├── Dockerfile.native
-│   ├── pom.xml                   # Maven build file
+│   ├── build.gradle                  # Gradle build file
+│   ├── settings.gradle               # Gradle settings
 │   └── README.md
 │
 ├── docker-compose.yml            # Local development setup
@@ -803,7 +805,7 @@ docker-compose up -d
 
 # Quarkus dev mode for live reload
 cd backend
-./mvnw quarkus:dev
+./gradlew quarkusDev
 ```
 
 #### Production Deployment - Containerized with External Cache
@@ -839,15 +841,15 @@ cd backend
 JVM Mode (Fast build, larger image ~150MB):
 ```dockerfile
 # Dockerfile.jvm
-FROM registry.access.redhat.com/ubi8/openjdk-17:latest
+FROM registry.access.redhat.com/ubi8/openjdk-21:latest
 
 ENV LANGUAGE='en_US:en'
 
 # Copy built jar
-COPY --chown=185 target/quarkus-app/lib/ /deployments/lib/
-COPY --chown=185 target/quarkus-app/*.jar /deployments/
-COPY --chown=185 target/quarkus-app/app/ /deployments/app/
-COPY --chown=185 target/quarkus-app/quarkus/ /deployments/quarkus/
+COPY --chown=185 build/quarkus-app/lib/ /deployments/lib/
+COPY --chown=185 build/quarkus-app/*.jar /deployments/
+COPY --chown=185 build/quarkus-app/app/ /deployments/app/
+COPY --chown=185 build/quarkus-app/quarkus/ /deployments/quarkus/
 
 EXPOSE 8080
 USER 185
@@ -860,7 +862,7 @@ Native Mode (Slower build, tiny image ~50MB, faster startup):
 # Dockerfile.native
 FROM quay.io/quarkus/quarkus-micro-image:2.0
 
-COPY --chown=1001:root target/*-runner /application
+COPY --chown=1001:root build/*-runner /application
 
 EXPOSE 8080
 USER 1001
@@ -1261,7 +1263,7 @@ The containerized Java Quarkus application is ideal for the Vlettenrally app bec
 ## Next Steps
 
 1. **Set up development environment**
-   - Install Java 17+ and Maven
+   - Install Java 21 (LTS) and Gradle
    - Initialize Quarkus project with extensions
    - Set up Docker Compose for local development
    - Configure IDE (IntelliJ IDEA recommended)
