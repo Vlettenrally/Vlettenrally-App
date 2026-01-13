@@ -63,7 +63,7 @@ Based on GitHub issues #1-11, the app requires:
 
 ## Architecture Options
 
-### Option 1: Self-Hosted Web Application (Recommended)
+### Option 1: Containerized Web Application with External Cache (Recommended)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -80,55 +80,59 @@ Based on GitHub issues #1-11, the app requires:
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                      Backend Server                              │
-│  ┌─────────────────────────────────────────────────────────────┐│
-│  │  API Layer (REST + WebSocket)                               ││
-│  │  - Express.js or Fastify                                    ││
-│  │  - Socket.IO or ws for WebSocket                            ││
-│  │  - JWT Authentication                                       ││
-│  └─────────────────────────────────────────────────────────────┘│
-│  ┌─────────────────────────────────────────────────────────────┐│
-│  │  Business Logic Layer                                       ││
-│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐ ││
-│  │  │ Game Service │  │ Team Service │  │ Message Service  │ ││
-│  │  │              │  │              │  │ - Broadcasting   │ ││
-│  │  │              │  │              │  │ - Rate Limiting  │ ││
-│  │  └──────────────┘  └──────────────┘  └──────────────────┘ ││
-│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐ ││
-│  │  │ Automation   │  │ Analytics    │  │ Notification     │ ││
-│  │  │ Engine       │  │ Service      │  │ Service          │ ││
-│  │  │ - Scheduler  │  │ - Rankings   │  │ - Rules Engine   │ ││
-│  │  └──────────────┘  └──────────────┘  └──────────────────┘ ││
-│  └─────────────────────────────────────────────────────────────┘│
+│              Backend Containers (Scalable)                       │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐ │
+│  │  Container 1 │  │  Container 2 │  │  Container N         │ │
+│  │  ┌────────────────────────────────────────────────────┐  │ │
+│  │  │  Quarkus Application (Java)                        │  │ │
+│  │  │  ┌──────────────────────────────────────────────┐  │  │ │
+│  │  │  │  API Layer (REST + WebSocket)                │  │  │ │
+│  │  │  │  - JAX-RS (RESTEasy) for REST endpoints      │  │  │ │
+│  │  │  │  - Quarkus WebSockets for real-time          │  │  │ │
+│  │  │  │  - SmallRye JWT for authentication           │  │  │ │
+│  │  │  └──────────────────────────────────────────────┘  │  │ │
+│  │  │  ┌──────────────────────────────────────────────┐  │  │ │
+│  │  │  │  Business Logic (CDI Beans)                  │  │  │ │
+│  │  │  │  - GameService                               │  │  │ │
+│  │  │  │  - TeamService                               │  │  │ │
+│  │  │  │  - MessageService (Broadcasting)             │  │  │ │
+│  │  │  │  - AutomationEngine (Quartz Scheduler)       │  │  │ │
+│  │  │  │  - AnalyticsService                          │  │  │ │
+│  │  │  │  - NotificationService (Rules Engine)        │  │  │ │
+│  │  │  └──────────────────────────────────────────────┘  │  │ │
+│  │  └────────────────────────────────────────────────────┘  │ │
+│  └──────────────┘  └──────────────┘  └──────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                      Data Layer                                  │
+│                  External Data Layer                             │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐ │
-│  │  PostgreSQL  │  │    Redis     │  │  File Storage        │ │
-│  │  - Games     │  │  - Sessions  │  │  - Local/S3          │ │
+│  │  PostgreSQL  │  │ Redis Cache  │  │  File Storage        │ │
+│  │  (External)  │  │  (External)  │  │  - S3 Compatible     │ │
+│  │  - Games     │  │  - Sessions  │  │  - MinIO/S3          │ │
 │  │  - Teams     │  │  - Cache     │  │  - Documents         │ │
 │  │  - Messages  │  │  - Pub/Sub   │  │  - Exports           │ │
 │  │  - Audit Log │  │  - WebSocket │  │                      │ │
+│  │              │  │    State     │  │                      │ │
 │  └──────────────┘  └──────────────┘  └──────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 **Pros:**
 - No vendor lock-in - full control over infrastructure
-- Single codebase, easier to maintain
-- Can be self-hosted on any VPS
-- WebSocket for real-time updates (no dependency on external push services)
-- Suitable for 500 concurrent users
-- Lower long-term costs
+- Horizontal scalability - add more containers as needed
+- Stateless containers - can scale up/down freely
+- External Redis enables WebSocket clustering
+- Container orchestration ready (Kubernetes, Docker Swarm)
+- Quarkus fast startup and low memory footprint
+- Native compilation option with GraalVM for even better performance
 - Progressive Web App provides app-like experience
-- Can run offline with service workers
 
 **Cons:**
-- Requires server management
-- Manual scaling if needed
-- Must implement own monitoring
+- Slightly more complex than single server
+- Requires container orchestration for multiple instances
+- Need external Redis for session sharing
 
 ### Option 2: Containerized Microservices Architecture
 
@@ -261,7 +265,7 @@ Based on GitHub issues #1-11, the app requires:
 - Single point of failure (mitigated with PM2 or clustering)
 - Requires restart for deployment
 
-## Recommended Architecture: Self-Hosted Web Application (Option 1)
+## Recommended Architecture: Containerized Web Application with Java Quarkus (Option 1)
 
 ### Technology Stack
 
@@ -274,22 +278,41 @@ Based on GitHub issues #1-11, the app requires:
   - Mobile-first design approach
   
 #### Backend
-- **Runtime**: Node.js with Express.js or Fastify
-  - Lightweight and performant
-  - Large ecosystem of packages
-  - Good TypeScript support
+- **Runtime**: Java 17+ with Quarkus Framework
+  - Supersonic Subatomic Java - fast startup, low memory footprint
+  - Native compilation with GraalVM (optional)
+  - Reactive and imperative programming models
+  - Developer joy with live reload
   
-- **Real-time Communication**: Socket.IO
-  - WebSocket with fallback to polling
-  - Room-based broadcasting
-  - Automatic reconnection
-  - Easy integration with Redis for scaling
+- **REST API**: RESTEasy Reactive (JAX-RS)
+  - Standard Java API for RESTful web services
+  - Reactive programming support
+  - OpenAPI/Swagger integration
+  - JSON-B or Jackson for JSON serialization
   
-- **Database ORM**: Prisma
-  - Type-safe database access
-  - Automatic migrations
-  - Works with PostgreSQL
-  - No vendor lock-in
+- **Real-time Communication**: Quarkus WebSockets
+  - JSR 356 WebSocket API
+  - Server-sent events (SSE) support
+  - Integration with Redis for clustering
+  - Automatic reconnection handling
+  
+- **Database Access**: Hibernate ORM with Panache
+  - Repository pattern with minimal boilerplate
+  - Type-safe queries
+  - Transaction management
+  - Database migrations with Flyway or Liquibase
+  
+- **Scheduling**: Quartz Scheduler
+  - Cron-based job scheduling
+  - Persistent job store
+  - Cluster support
+  - Automation engine execution
+
+- **Authentication**: SmallRye JWT
+  - JWT token generation and validation
+  - Role-based access control (RBAC)
+  - MicroProfile JWT standard
+  - Integration with external identity providers
 
 #### Infrastructure
 - **Database**: PostgreSQL
@@ -298,42 +321,53 @@ Based on GitHub issues #1-11, the app requires:
   - JSONB for flexible data
   - Can host anywhere
   
-- **Cache/Session Store**: Redis
+- **Cache/Session Store**: Redis (External)
   - Fast in-memory storage
-  - Pub/Sub for WebSocket scaling
-  - Session management
-  - Rate limiting
+  - Pub/Sub for WebSocket clustering
+  - Session management across containers
+  - Rate limiting and distributed locks
+  - Enables horizontal scaling
   
-- **Process Manager**: PM2
-  - Process clustering for reliability
-  - Zero-downtime deployments
-  - Monitoring and logging
+- **Container Runtime**: Docker
+  - Containerized Quarkus application
+  - Multi-stage build for optimized images
+  - Native image support (GraalVM)
+  - Small container size (~150MB JVM, ~50MB native)
+  
+- **Container Orchestration**:
+  - **Simple**: Docker Compose (development/small deployments)
+  - **Scalable**: Kubernetes or Docker Swarm (production)
+  - **Managed**: Cloud-agnostic (works on any provider)
   
 - **Hosting Options**:
-  - DigitalOcean Droplet ($20-40/month)
-  - Hetzner Cloud (€5-20/month)
+  - Hetzner Cloud with Kubernetes (€20-40/month)
+  - DigitalOcean Kubernetes ($40-80/month)
   - Any VPS with Docker support
+  - On-premises with Docker/Kubernetes
   
-- **Reverse Proxy**: Nginx or Caddy
+- **Load Balancer**: Nginx or Traefik
   - SSL/TLS termination
   - Static file serving
   - WebSocket proxying
-  - Load balancing if needed
+  - Round-robin load balancing
 
 #### Development Tools
-- **Monorepo**: Turborepo or Nx
-  - Shared types between frontend and backend
-  - Fast builds
-  - Code sharing
+- **Build Tool**: Maven or Gradle
+  - Dependency management
+  - Multi-module projects
+  - Integration with Quarkus tooling
   
-- **Testing**: Jest + Playwright
-  - Unit tests for business logic
-  - E2E tests for critical flows
+- **Testing**: 
+  - JUnit 5 for unit tests
+  - RestAssured for API testing
+  - Testcontainers for integration tests
+  - Playwright for E2E frontend tests
   
-- **Monitoring**: Self-hosted options
-  - Grafana + Prometheus for metrics
-  - Loki for logs
-  - Or simple logging to files with log rotation
+- **Monitoring**: 
+  - Quarkus Micrometer for metrics
+  - Prometheus endpoint
+  - Grafana for visualization
+  - Health checks and readiness probes
 
 ### Database Schema
 
@@ -519,131 +553,201 @@ CREATE INDEX idx_automations_game_id ON automations(game_id);
 
 ### Application Architecture Details
 
-#### Project Structure (Monorepo)
+#### Project Structure
 ```
 vlettenrally-app/
-├── packages/
-│   ├── frontend/              # React web application
-│   │   ├── src/
-│   │   │   ├── pages/
-│   │   │   │   ├── participant/
-│   │   │   │   │   ├── CheckIn.tsx
-│   │   │   │   │   ├── Dashboard.tsx
-│   │   │   │   │   ├── Messages.tsx
-│   │   │   │   │   ├── Rankings.tsx
-│   │   │   │   │   └── Rivals.tsx
-│   │   │   │   └── admin/
-│   │   │   │       ├── Dashboard.tsx
-│   │   │   │       ├── Games.tsx
-│   │   │   │       ├── Teams.tsx
-│   │   │   │       ├── Messages.tsx
-│   │   │   │       ├── Automations.tsx
-│   │   │   │       └── Analytics.tsx
-│   │   │   ├── components/
-│   │   │   │   ├── layout/
-│   │   │   │   ├── forms/
-│   │   │   │   ├── CountdownTimer.tsx
-│   │   │   │   ├── NotificationCard.tsx
-│   │   │   │   └── RankingTable.tsx
-│   │   │   ├── hooks/
-│   │   │   │   ├── useSocket.ts
-│   │   │   │   ├── useAuth.ts
-│   │   │   │   ├── useGame.ts
-│   │   │   │   └── useRealtime.ts
-│   │   │   ├── services/
-│   │   │   │   ├── api.ts
-│   │   │   │   ├── socket.ts
-│   │   │   │   └── storage.ts
-│   │   │   ├── store/
-│   │   │   │   ├── authSlice.ts
-│   │   │   │   ├── gameSlice.ts
-│   │   │   │   └── messagesSlice.ts
-│   │   │   └── utils/
-│   │   │       ├── dateTime.ts
-│   │   │       └── validators.ts
-│   │   ├── public/
-│   │   │   ├── manifest.json     # PWA manifest
-│   │   │   └── service-worker.js  # Service worker for offline
-│   │   ├── vite.config.ts
-│   │   └── package.json
-│   │
-│   ├── backend/               # Node.js server
-│   │   ├── src/
-│   │   │   ├── modules/
-│   │   │   │   ├── auth/
-│   │   │   │   │   ├── auth.controller.ts
-│   │   │   │   │   ├── auth.service.ts
-│   │   │   │   │   └── auth.routes.ts
-│   │   │   │   ├── games/
-│   │   │   │   ├── teams/
-│   │   │   │   ├── messages/
-│   │   │   │   ├── automations/
-│   │   │   │   ├── analytics/
-│   │   │   │   └── notifications/
-│   │   │   ├── websocket/
-│   │   │   │   ├── socket.handler.ts
-│   │   │   │   ├── rooms.service.ts
-│   │   │   │   └── events.ts
-│   │   │   ├── jobs/
-│   │   │   │   ├── automation.job.ts
-│   │   │   │   ├── countdown.job.ts
-│   │   │   │   └── analytics.job.ts
-│   │   │   ├── middleware/
-│   │   │   │   ├── auth.middleware.ts
-│   │   │   │   ├── validation.middleware.ts
-│   │   │   │   └── rateLimit.middleware.ts
-│   │   │   ├── utils/
-│   │   │   ├── config/
-│   │   │   └── server.ts
-│   │   ├── prisma/
-│   │   │   ├── schema.prisma
-│   │   │   └── migrations/
-│   │   └── package.json
-│   │
-│   └── shared/                # Shared types and utilities
-│       ├── src/
-│       │   ├── types/
-│       │   │   ├── game.types.ts
-│       │   │   ├── team.types.ts
-│       │   │   ├── message.types.ts
-│       │   │   └── api.types.ts
-│       │   └── utils/
-│       │       ├── constants.ts
-│       │       └── validation.ts
-│       └── package.json
+├── frontend/                  # React web application
+│   ├── src/
+│   │   ├── pages/
+│   │   │   ├── participant/
+│   │   │   │   ├── CheckIn.tsx
+│   │   │   │   ├── Dashboard.tsx
+│   │   │   │   ├── Messages.tsx
+│   │   │   │   ├── Rankings.tsx
+│   │   │   │   └── Rivals.tsx
+│   │   │   └── admin/
+│   │   │       ├── Dashboard.tsx
+│   │   │       ├── Games.tsx
+│   │   │       ├── Teams.tsx
+│   │   │       ├── Messages.tsx
+│   │   │       ├── Automations.tsx
+│   │   │       └── Analytics.tsx
+│   │   ├── components/
+│   │   │   ├── layout/
+│   │   │   ├── forms/
+│   │   │   ├── CountdownTimer.tsx
+│   │   │   ├── NotificationCard.tsx
+│   │   │   └── RankingTable.tsx
+│   │   ├── hooks/
+│   │   │   ├── useWebSocket.ts
+│   │   │   ├── useAuth.ts
+│   │   │   ├── useGame.ts
+│   │   │   └── useRealtime.ts
+│   │   ├── services/
+│   │   │   ├── api.ts
+│   │   │   ├── websocket.ts
+│   │   │   └── storage.ts
+│   │   ├── store/
+│   │   │   ├── authSlice.ts
+│   │   │   ├── gameSlice.ts
+│   │   │   └── messagesSlice.ts
+│   │   └── utils/
+│   │       ├── dateTime.ts
+│   │       └── validators.ts
+│   ├── public/
+│   │   ├── manifest.json         # PWA manifest
+│   │   └── service-worker.js     # Service worker for offline
+│   ├── Dockerfile
+│   ├── vite.config.ts
+│   └── package.json
 │
-├── docker-compose.yml         # Local development setup
-├── .env.example
-├── turbo.json                 # Turborepo config
-└── package.json               # Root package.json
+├── backend/                   # Quarkus application
+│   ├── src/
+│   │   ├── main/
+│   │   │   ├── java/
+│   │   │   │   └── com/vlettenrally/
+│   │   │   │       ├── config/
+│   │   │   │       │   ├── SecurityConfig.java
+│   │   │   │       │   ├── WebSocketConfig.java
+│   │   │   │       │   └── RedisConfig.java
+│   │   │   │       ├── domain/
+│   │   │   │       │   ├── entity/
+│   │   │   │       │   │   ├── Game.java
+│   │   │   │       │   │   ├── Team.java
+│   │   │   │       │   │   ├── Checkpoint.java
+│   │   │   │       │   │   ├── Message.java
+│   │   │   │       │   │   ├── Automation.java
+│   │   │   │       │   │   └── TeamAchievement.java
+│   │   │   │       │   └── repository/
+│   │   │   │       │       ├── GameRepository.java
+│   │   │   │       │       ├── TeamRepository.java
+│   │   │   │       │       └── MessageRepository.java
+│   │   │   │       ├── service/
+│   │   │   │       │   ├── GameService.java
+│   │   │   │       │   ├── TeamService.java
+│   │   │   │       │   ├── MessageService.java
+│   │   │   │       │   ├── AutomationService.java
+│   │   │   │       │   ├── AnalyticsService.java
+│   │   │   │       │   └── NotificationService.java
+│   │   │   │       ├── rest/
+│   │   │   │       │   ├── GameResource.java
+│   │   │   │       │   ├── TeamResource.java
+│   │   │   │       │   ├── MessageResource.java
+│   │   │   │       │   ├── AutomationResource.java
+│   │   │   │       │   └── AnalyticsResource.java
+│   │   │   │       ├── websocket/
+│   │   │   │       │   ├── GameWebSocket.java
+│   │   │   │       │   ├── MessageBroadcaster.java
+│   │   │   │       │   └── WebSocketSessionManager.java
+│   │   │   │       ├── scheduler/
+│   │   │   │       │   ├── AutomationJob.java
+│   │   │   │       │   ├── CountdownJob.java
+│   │   │   │       │   └── AnalyticsJob.java
+│   │   │   │       ├── dto/
+│   │   │   │       │   ├── request/
+│   │   │   │       │   └── response/
+│   │   │   │       └── security/
+│   │   │   │           ├── JwtService.java
+│   │   │   │           └── SecurityIdentity.java
+│   │   │   └── resources/
+│   │   │       ├── application.properties
+│   │   │       ├── application-dev.properties
+│   │   │       └── db/migration/
+│   │   │           └── V1__initial_schema.sql
+│   │   └── test/
+│   │       └── java/
+│   │           └── com/vlettenrally/
+│   │               ├── GameResourceTest.java
+│   │               └── TeamServiceTest.java
+│   ├── Dockerfile.jvm
+│   ├── Dockerfile.native
+│   ├── pom.xml                   # Maven build file
+│   └── README.md
+│
+├── docker-compose.yml            # Local development setup
+├── docker-compose.prod.yml       # Production setup
+├── kubernetes/                   # Kubernetes manifests (optional)
+│   ├── deployment.yaml
+│   ├── service.yaml
+│   ├── ingress.yaml
+│   └── configmap.yaml
+└── README.md
 ```
 
-#### WebSocket Events Architecture
-```typescript
-// Client → Server Events
-interface ClientToServerEvents {
-  'join:game': (gameId: string) => void;
-  'join:team': (teamId: string) => void;
-  'location:update': (data: LocationUpdate) => void;
-  'message:read': (messageId: string) => void;
+#### WebSocket Communication Architecture
+```java
+// WebSocket Endpoint
+@ServerEndpoint("/ws/game/{gameId}")
+@ApplicationScoped
+public class GameWebSocket {
+    
+    @Inject
+    MessageBroadcaster broadcaster;
+    
+    @Inject
+    RedisClient redisClient;
+    
+    @OnOpen
+    public void onOpen(Session session, @PathParam("gameId") String gameId) {
+        // Join game room
+        session.getUserProperties().put("gameId", gameId);
+        broadcaster.addSession(gameId, session);
+    }
+    
+    @OnMessage
+    public void onMessage(String message, Session session) {
+        // Handle incoming messages
+        String gameId = (String) session.getUserProperties().get("gameId");
+        // Process and broadcast via Redis pub/sub for clustering
+        redisClient.publish("game:" + gameId, message);
+    }
+    
+    @OnClose
+    public void onClose(Session session) {
+        String gameId = (String) session.getUserProperties().get("gameId");
+        broadcaster.removeSession(gameId, session);
+    }
 }
 
-// Server → Client Events
-interface ServerToClientEvents {
-  'message:new': (message: Message) => void;
-  'countdown:update': (countdown: CountdownData) => void;
-  'team:achievement': (achievement: Achievement) => void;
-  'rival:update': (rivalData: RivalUpdate) => void;
-  'ranking:update': (rankings: Ranking[]) => void;
-  'game:status': (status: GameStatus) => void;
-  'admin:alert': (alert: Alert) => void;
+// Message Broadcaster with Redis for Clustering
+@ApplicationScoped
+public class MessageBroadcaster {
+    
+    @Inject
+    RedisClient redisClient;
+    
+    private final Map<String, Set<Session>> gameSessions = new ConcurrentHashMap<>();
+    
+    public void broadcastToGame(String gameId, Message message) {
+        // Broadcast locally
+        Set<Session> sessions = gameSessions.get(gameId);
+        if (sessions != null) {
+            String json = Json.encode(message);
+            sessions.forEach(session -> session.getAsyncRemote().sendText(json));
+        }
+        
+        // Publish to Redis for other instances
+        redisClient.publish("broadcast:game:" + gameId, Json.encode(message));
+    }
+    
+    @ConsumeEvent("broadcast:game:*")
+    public void onRedisBroadcast(String channel, String message) {
+        String gameId = extractGameId(channel);
+        // Broadcast to local sessions
+        broadcastToLocalSessions(gameId, message);
+    }
 }
 
-// Room Strategy
-// - game:{gameId} - All participants in a game
-// - team:{teamId} - Specific team members
-// - admin:{gameId} - Admin users for a game
-// - rival:{teamId}:{rivalTeamId} - Rival-specific updates
+// Event Types
+public enum WebSocketEventType {
+    MESSAGE_NEW,
+    COUNTDOWN_UPDATE,
+    TEAM_ACHIEVEMENT,
+    RIVAL_UPDATE,
+    RANKING_UPDATE,
+    GAME_STATUS,
+    ADMIN_ALERT
+}
 ```
 
 ### Key Features Implementation
@@ -694,32 +798,80 @@ docker-compose up -d
 # Services:
 # - PostgreSQL on port 5432
 # - Redis on port 6379
-# - Backend on port 3000
+# - Backend (Quarkus) on port 8080 (with live reload)
 # - Frontend on port 5173 (Vite dev server)
+
+# Quarkus dev mode for live reload
+cd backend
+./mvnw quarkus:dev
 ```
 
-#### Production Deployment Options
+#### Production Deployment - Containerized with External Cache
 
-**Option A: Single VPS (Recommended for 500 users)**
-- Hetzner Cloud CPX31 (4 vCPU, 8GB RAM): ~€12/month
-- DigitalOcean Droplet (2 vCPU, 4GB RAM): $24/month
-- Setup:
-  1. Install Docker & Docker Compose
-  2. Clone repository
-  3. Configure environment variables
-  4. Run `docker-compose -f docker-compose.prod.yml up -d`
-  5. Setup Caddy/Nginx for SSL (Let's Encrypt)
-  6. Configure firewall (UFW)
+**Architecture Overview:**
+```
+                    ┌─────────────────┐
+                    │  Load Balancer  │
+                    │   (Nginx/       │
+                    │    Traefik)     │
+                    └────────┬────────┘
+                             │
+              ┌──────────────┼──────────────┐
+              │              │              │
+         ┌────▼────┐    ┌────▼────┐   ┌────▼────┐
+         │Container│    │Container│   │Container│
+         │    1    │    │    2    │   │    N    │
+         │ Quarkus │    │ Quarkus │   │ Quarkus │
+         └────┬────┘    └────┬────┘   └────┬────┘
+              │              │              │
+              └──────────────┼──────────────┘
+                             │
+              ┌──────────────┼──────────────┐
+              │              │              │
+         ┌────▼────┐    ┌────▼────┐   ┌────▼────┐
+         │PostgreSQL│   │  Redis  │   │ MinIO/  │
+         │(External)│   │(External)│   │   S3    │
+         └──────────┘    └──────────┘   └─────────┘
+```
 
-**Option B: Separate Database Hosting**
-- App server: VPS as above
-- Database: Managed PostgreSQL (DigitalOcean, Hetzner, etc.)
-- Redis: Managed Redis or same VPS
-- Benefits: Easier backups, automatic updates
+**Container Build:**
 
-**Docker Compose Production Setup**
+JVM Mode (Fast build, larger image ~150MB):
+```dockerfile
+# Dockerfile.jvm
+FROM registry.access.redhat.com/ubi8/openjdk-17:latest
+
+ENV LANGUAGE='en_US:en'
+
+# Copy built jar
+COPY --chown=185 target/quarkus-app/lib/ /deployments/lib/
+COPY --chown=185 target/quarkus-app/*.jar /deployments/
+COPY --chown=185 target/quarkus-app/app/ /deployments/app/
+COPY --chown=185 target/quarkus-app/quarkus/ /deployments/quarkus/
+
+EXPOSE 8080
+USER 185
+
+ENTRYPOINT ["java", "-jar", "/deployments/quarkus-run.jar"]
+```
+
+Native Mode (Slower build, tiny image ~50MB, faster startup):
+```dockerfile
+# Dockerfile.native
+FROM quay.io/quarkus/quarkus-micro-image:2.0
+
+COPY --chown=1001:root target/*-runner /application
+
+EXPOSE 8080
+USER 1001
+
+CMD ["./application", "-Dquarkus.http.host=0.0.0.0"]
+```
+
+**Docker Compose Production Setup:**
 ```yaml
 version: '3.8'
+
 services:
   postgres:
     image: postgres:15-alpine
@@ -729,41 +881,180 @@ services:
       POSTGRES_DB: vlettenrally
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
-  
+    networks:
+      - backend
+    restart: unless-stopped
+
   redis:
     image: redis:7-alpine
+    command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
-  
+    networks:
+      - backend
+    restart: unless-stopped
+
   backend:
-    build: ./packages/backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.jvm
+    environment:
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://postgres:5432/vlettenrally
+      QUARKUS_DATASOURCE_USERNAME: ${DB_USER}
+      QUARKUS_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      QUARKUS_REDIS_HOSTS: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
     depends_on:
       - postgres
       - redis
-    environment:
-      DATABASE_URL: ${DATABASE_URL}
-      REDIS_URL: ${REDIS_URL}
-      JWT_SECRET: ${JWT_SECRET}
-    restart: unless-stopped
-  
-  frontend:
-    build: ./packages/frontend
-    depends_on:
+    networks:
       - backend
+      - frontend
     restart: unless-stopped
-  
+    deploy:
+      replicas: 2                # Run 2 instances
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    networks:
+      - frontend
+    restart: unless-stopped
+
   nginx:
     image: nginx:alpine
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
-      - ./ssl:/etc/nginx/ssl
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
     depends_on:
       - frontend
       - backend
+    networks:
+      - frontend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  backend:
+  frontend:
 ```
+
+**Kubernetes Deployment (For Scalable Production):**
+
+```yaml
+# deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vlettenrally-backend
+spec:
+  replicas: 3                    # Start with 3 instances
+  selector:
+    matchLabels:
+      app: vlettenrally-backend
+  template:
+    metadata:
+      labels:
+        app: vlettenrally-backend
+    spec:
+      containers:
+      - name: backend
+        image: vlettenrally/backend:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: QUARKUS_DATASOURCE_JDBC_URL
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: database.url
+        - name: QUARKUS_REDIS_HOSTS
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: redis.url
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /q/health/live
+            port: 8080
+          initialDelaySeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /q/health/ready
+            port: 8080
+          initialDelaySeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vlettenrally-backend
+spec:
+  selector:
+    app: vlettenrally-backend
+  ports:
+  - port: 8080
+    targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: vlettenrally-backend-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: vlettenrally-backend
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+```
+
+#### Deployment Options
+
+**Option A: Docker Compose on VPS (Simple, 1-3 containers)**
+- Single VPS with Docker Compose
+- Hetzner CPX21 (3 vCPU, 4GB RAM): €10/month
+- Manual scaling by adjusting replicas
+- Good for 500 concurrent users
+- Setup time: 1-2 hours
+
+**Option B: Kubernetes Cluster (Advanced, auto-scaling)**
+- Managed Kubernetes (Hetzner, DigitalOcean)
+- Auto-scaling based on CPU/memory
+- Rolling updates with zero downtime
+- Handles 500-5000+ users
+- Setup time: 4-8 hours
+
+**Option C: Cloud-Agnostic Container Platform**
+- Deploy to any cloud provider
+- Kubernetes or Docker Swarm
+- Full portability
+- No vendor lock-in
 
 #### Deployment Phases
 
@@ -773,13 +1064,15 @@ services:
 - Simple countdown notifications
 - Team and game management
 - Real-time message delivery via WebSocket
+- Deploy: Docker Compose with 1-2 containers
 
 **Phase 2: Automation (2-3 months)**
-- Full automation system
+- Full automation system with Quartz
 - Advanced trigger rules
 - Statistics and rankings
 - Rival tracking and notifications
 - Speed monitoring and alerts
+- Deploy: Docker Compose with 2-3 containers or Kubernetes
 
 **Phase 3: Enhancement (Ongoing)**
 - Weather API integration
@@ -787,162 +1080,249 @@ services:
 - Export functionality (CSV, PDF)
 - Historical data visualization
 - Performance optimization
+- Deploy: Kubernetes with auto-scaling
 
 ### Scalability Considerations
 
-**Current Design (500 concurrent users)**
-- Single VPS with 4 vCPU, 8GB RAM can easily handle 500 concurrent WebSocket connections
-- PostgreSQL can handle thousands of queries per second
-- Redis provides sub-millisecond response times
-- Nginx efficiently serves static files
+**Current Design with External Cache (500+ concurrent users)**
+- Container-based deployment enables horizontal scaling
+- External Redis enables WebSocket clustering across containers
+- Load balancer distributes traffic across container instances
+- Stateless containers can be added/removed dynamically
+- PostgreSQL connection pooling handles concurrent requests
+- Quarkus low memory footprint allows more containers per server
 
-**If Growth is Needed (> 1000 users)**
-1. **Vertical Scaling**: Upgrade VPS to more CPU/RAM
-2. **Horizontal Scaling**: 
-   - Multiple backend instances behind load balancer
-   - Redis adapter for Socket.IO to share connections
-   - Read replicas for PostgreSQL
-3. **CDN**: CloudFlare for static assets (free tier available)
-4. **Database Optimization**: Connection pooling, query optimization, indexes
+**Scaling Strategy:**
 
-**Monitoring & Performance**
-- PM2 for process monitoring and clustering
-- Node.js built-in monitoring (CPU, memory)
-- PostgreSQL slow query log
-- Nginx access logs
-- Custom metrics endpoint for Prometheus (optional)
+1. **Start Small (0-500 users)**:
+   - 2 backend containers
+   - Single VPS (4 vCPU, 8GB RAM)
+   - External Redis for session sharing
+   - Cost: ~€10-15/month
+
+2. **Medium Scale (500-2000 users)**:
+   - 3-5 backend containers
+   - Larger VPS or multiple VPS
+   - Managed Redis cluster
+   - Load balancer (Nginx/Traefik)
+   - Cost: ~€30-50/month
+
+3. **Large Scale (2000+ users)**:
+   - Kubernetes cluster with auto-scaling (2-10 pods)
+   - Managed PostgreSQL with read replicas
+   - Redis cluster for high availability
+   - CDN for static assets
+   - Cost: ~€100-200/month
+
+**Performance Characteristics:**
+
+- **Quarkus JVM**: ~50MB memory per instance, 200ms startup
+- **Quarkus Native**: ~20MB memory per instance, 10ms startup
+- **WebSocket**: 10,000+ concurrent connections per instance
+- **Throughput**: 5,000+ requests/second per instance
+- **Database**: 10,000+ queries/second with proper indexing
+
+**Monitoring & Auto-scaling:**
+- Prometheus metrics exposed by Quarkus
+- Grafana dashboards for visualization
+- Kubernetes HPA (Horizontal Pod Autoscaler) based on CPU/memory
+- Alert manager for threshold notifications
+- Health checks ensure only healthy containers receive traffic
 
 ### Cost Estimation (Annual)
 
-**Self-Hosted Option (Recommended)**
-- VPS (Hetzner CPX31): €12/month = €144/year
+**Option 1: Docker Compose on Single VPS (Recommended for Start)**
+- VPS (Hetzner CPX21): €10/month = €120/year
 - Domain name: €10/year
 - SSL: Free (Let's Encrypt)
 - Backups: €5/month = €60/year
-- **Total: ~€214/year (~$235 USD)**
+- **Total: ~€190/year (~$210 USD)**
+- **Capacity**: 500-1000 concurrent users
 
-**Alternative: Separate Database**
-- VPS (smaller): €8/month = €96/year
+**Option 2: Docker Compose with Managed Services**
+- VPS (smaller): €7/month = €84/year
 - Managed PostgreSQL: €15/month = €180/year
+- Managed Redis: €10/month = €120/year
 - Domain & SSL: €10/year
-- **Total: ~€286/year (~$315 USD)**
+- **Total: ~€394/year (~$430 USD)**
+- **Capacity**: 1000-2000 concurrent users
+- **Benefits**: Automated backups, updates, high availability
 
-**Comparison with Serverless (Previous Recommendation)**
-- Supabase Pro: $25/month = $300/year
-- Less control, vendor lock-in
-- Self-hosted is cheaper and more flexible
+**Option 3: Kubernetes Cluster (For High Scale)**
+- Managed Kubernetes (Hetzner): €30/month = €360/year
+- Managed PostgreSQL: €20/month = €240/year
+- Managed Redis: €15/month = €180/year
+- Domain & SSL: €10/year
+- **Total: ~€790/year (~$870 USD)**
+- **Capacity**: 2000-5000+ concurrent users
+- **Benefits**: Auto-scaling, zero-downtime updates, high availability
+
+**Cost per User:**
+- Option 1: €0.19-0.38/user/year
+- Option 2: €0.20-0.39/user/year
+- Option 3: €0.16-0.40/user/year
+
+**Comparison:**
+- Docker Compose: Simplest, lowest cost, manual scaling
+- Kubernetes: More complex, auto-scaling, enterprise-grade
 
 ## Alternative Architectures Comparison
 
-| Criteria | Self-Hosted Web App | Containerized Microservices | Monorepo Modular |
-|----------|---------------------|----------------------------|------------------|
+| Criteria | Containerized Web App (Java) | Containerized Microservices | Monorepo Modular |
+|----------|------------------------------|----------------------------|------------------|
 | Development Speed | Fast | Slow | Very Fast |
 | Operational Complexity | Low-Medium | High | Low |
-| Scalability | Vertical + Basic Horizontal | Full Horizontal | Vertical |
-| Cost (Initial) | Low | Medium | Very Low |
-| Cost (at 500 users) | ~€215/year | ~€400/year | ~€180/year |
+| Scalability | Horizontal (Containers) | Full Horizontal | Vertical |
+| Technology | Java Quarkus | Java/Polyglot | Java Quarkus |
+| Cost (at 500 users) | ~€190/year | ~€400/year | ~€180/year |
 | Team Size Required | Small (1-2) | Medium (3-5) | Small (1-2) |
 | Time to Market | Fast | Slow | Very Fast |
 | Vendor Lock-in | None | None | None |
-| Real-time via WebSocket | Yes | Yes | Yes |
+| Real-time via WebSocket | Yes (Quarkus) | Yes | Yes |
 | Mobile Support | PWA | PWA | PWA |
+| Container Deployment | Yes | Yes | Optional |
+| External Cache Support | Yes | Yes | Optional |
+| Auto-scaling Ready | Yes | Yes | Limited |
 | **Recommendation** | **Best Choice** | Overkill | Good for MVP |
 
-### Why Self-Hosted Web App (Option 1) is Recommended
+### Why Containerized Web App with Java Quarkus (Option 1) is Recommended
 
-1. **No Vendor Lock-in**: Complete control over infrastructure
-2. **WebSocket Real-time**: Native Socket.IO support without external services
-3. **Cost-effective**: ~€215/year for 500 concurrent users
-4. **PWA Benefits**: App-like experience without app store hassle
-5. **Responsive Design**: Works on all devices (phones, tablets, desktops)
-6. **Simple Deployment**: Single VPS or Docker Compose setup
-7. **Easy to Maintain**: Monolithic but well-organized with modules
-8. **Room to Grow**: Can scale to 1000+ users with minor adjustments
+1. **Java Quarkus Benefits**:
+   - Fast startup time (~200ms JVM, ~10ms native)
+   - Low memory footprint (~50MB JVM, ~20MB native)
+   - Developer-friendly with live reload
+   - Enterprise-grade with strong typing
+   - Excellent WebSocket support
+   - Built-in metrics and health checks
+
+2. **Container Benefits**:
+   - Easy horizontal scaling
+   - Consistent across environments
+   - Simple deployment and rollback
+   - Resource isolation
+   - Works with any orchestrator
+
+3. **External Cache (Redis)**:
+   - Enables multi-container deployments
+   - Session sharing across instances
+   - WebSocket clustering
+   - Distributed locking
+   - Pub/Sub for real-time events
+
+4. **No Vendor Lock-in**:
+   - Open-source stack (Quarkus, PostgreSQL, Redis)
+   - Deploy anywhere (VPS, cloud, on-premises)
+   - Standard Docker containers
+   - Can migrate to any provider
+
+5. **Cost-Effective**:
+   - ~€190/year for 500 users
+   - Scales to 2000+ users for ~€400/year
+   - Java efficiency reduces resource needs
+
+6. **Production-Ready**:
+   - Battle-tested Java ecosystem
+   - Excellent monitoring and debugging tools
+   - Strong community support
+   - Enterprise adoption
 
 ### Migration Path
 
 If the application grows beyond expectations:
-1. **Phase 1** (Current): Monolithic web app
-2. **Phase 2** (If > 1000 users): Add load balancer, multiple backend instances
-3. **Phase 3** (If > 5000 users): Split into microservices (already modular)
+1. **Phase 1** (Current): 1-2 containers on single VPS
+2. **Phase 2** (If > 1000 users): Multiple containers with load balancer
+3. **Phase 3** (If > 2000 users): Kubernetes with auto-scaling
+4. **Phase 4** (If > 5000 users): Microservices split (already modular)
 
 ## Conclusion
 
-**Recommended Architecture: Self-Hosted Web Application (Option 1)**
+**Recommended Architecture: Containerized Web Application with Java Quarkus (Option 1)**
 
 This architecture provides:
-1. **No vendor lock-in** - Full control over all components
-2. **WebSocket real-time** - Socket.IO for bidirectional communication
-3. **Responsive web app** - PWA works on all devices without app stores
-4. **Cost-effective** - ~€215/year for infrastructure
-5. **Scalable enough** - Handles 500 concurrent users easily
-6. **Modern stack** - React, TypeScript, Node.js, PostgreSQL, Redis
-7. **Simple operations** - Single VPS deployment or Docker Compose
-8. **Room to grow** - Can scale to 1000+ users with minor adjustments
+1. **Java Quarkus backend** - Fast, efficient, enterprise-grade
+2. **Container deployment** - Easy scaling with Docker
+3. **External Redis cache** - Enables horizontal scaling across containers
+4. **No vendor lock-in** - Open-source stack, deploy anywhere
+5. **WebSocket real-time** - Quarkus WebSocket API for bidirectional communication
+6. **Responsive web app** - PWA works on all devices without app stores
+7. **Cost-effective** - ~€190/year for 500 users, scales to €400/year for 2000+ users
+8. **Production-ready** - Battle-tested Java ecosystem with excellent tooling
 
-The self-hosted web application is ideal for the Vlettenrally app because:
-- No mobile app needed - responsive web works everywhere
-- WebSocket provides real-time features without push notification services
-- 500 concurrent users is well within capacity of a single VPS
-- Avoids vendor lock-in (no Firebase, Supabase, or cloud-specific services)
-- Small team can manage it easily
-- Progressive Web App provides app-like experience
-- Can be installed on home screen just like native apps
-- Open-source stack ensures long-term viability
+The containerized Java Quarkus application is ideal for the Vlettenrally app because:
+- Container deployment enables easy horizontal scaling
+- External Redis allows multiple backend instances to share WebSocket state
+- Quarkus provides fast startup and low memory footprint
+- Java ecosystem offers enterprise-grade reliability and tooling
+- 500 concurrent users start with 2 containers, can scale to 10+ as needed
+- No vendor lock-in - standard Docker containers work anywhere
+- Progressive Web App provides app-like experience on all devices
+- Open-source stack ensures long-term viability and cost control
 
 ## Next Steps
 
 1. **Set up development environment**
-   - Initialize monorepo with Turborepo
-   - Configure TypeScript and ESLint
+   - Install Java 17+ and Maven
+   - Initialize Quarkus project with extensions
    - Set up Docker Compose for local development
+   - Configure IDE (IntelliJ IDEA recommended)
 
 2. **Create database schema**
-   - Set up Prisma
+   - Set up Flyway or Liquibase
    - Define schema based on requirements
    - Create initial migrations
+   - Configure Hibernate ORM with Panache
 
 3. **Develop backend API**
-   - Express.js server with TypeScript
-   - Implement authentication (JWT)
-   - Create REST endpoints for core features
-   - Integrate Socket.IO for real-time
+   - Set up Quarkus project structure
+   - Implement authentication (SmallRye JWT)
+   - Create REST endpoints with JAX-RS
+   - Integrate WebSocket support
+   - Configure Redis for caching
 
 4. **Build frontend application**
    - React + TypeScript + Vite
    - Responsive layouts (mobile-first)
-   - Socket.IO client integration
+   - WebSocket client integration
    - PWA configuration
 
 5. **Implement core features**
    - Check-in system
-   - Message broadcasting
-   - Countdown timers
+   - Message broadcasting via WebSocket
+   - Countdown timers with Quartz
    - Game & team management
 
-6. **Deploy to production**
-   - Provision VPS
-   - Configure Nginx/Caddy
-   - Set up SSL certificates
-   - Deploy with Docker Compose
+6. **Containerize application**
+   - Create Dockerfile for Quarkus (JVM mode)
+   - Optional: Create native image Dockerfile
+   - Set up Docker Compose for production
+   - Configure environment variables
 
-7. **Monitor and iterate**
-   - Set up basic monitoring
+7. **Deploy to production**
+   - Provision VPS or Kubernetes cluster
+   - Deploy PostgreSQL and Redis
+   - Deploy backend containers
+   - Configure Nginx/Traefik load balancer
+   - Set up SSL certificates
+
+8. **Monitor and iterate**
+   - Configure Prometheus metrics
+   - Set up Grafana dashboards
    - Gather user feedback
    - Implement automation system
    - Add analytics features
 
 ## Appendix: Technology Alternatives
 
+### Backend Framework
+- **Quarkus**: Recommended - Fast, efficient, modern Java, great for containers
+- **Spring Boot**: Alternative - More mature, larger ecosystem, heavier
+- **Micronaut**: Alternative - Similar to Quarkus, good performance
+- **Vert.x**: Alternative - Reactive, lower-level, more flexibility needed
+
 ### Frontend Framework
 - **React + TypeScript**: Recommended - Popular, great ecosystem, TypeScript support
 - **Vue.js**: Alternative - Simpler learning curve, good for small teams
-- **Svelte**: Alternative - Excellent performance, smaller bundle size
-
-### Backend Framework
-- **Express.js**: Recommended - Mature, flexible, large ecosystem
-- **Fastify**: Alternative - Better performance, modern design
-- **NestJS**: Alternative - More structure, TypeScript-first, overkill for this size
+- **Angular**: Alternative - Full-featured, more opinionated, TypeScript-first
 
 ### Database
 - **PostgreSQL**: Recommended - Relational, JSONB for flexibility, open-source
@@ -950,19 +1330,31 @@ The self-hosted web application is ideal for the Vlettenrally app because:
 - **MongoDB**: Not recommended - Overkill for structured data
 
 ### WebSocket Library
-- **Socket.IO**: Recommended - Reliable, auto-reconnection, room support
-- **ws**: Alternative - Lightweight, lower-level, more control needed
-- **uWebSockets.js**: Alternative - Best performance, less features
+- **Quarkus WebSockets**: Recommended - Built-in, JSR 356 standard, easy clustering
+- **Vert.x**: Alternative - High performance, more complex
+- **Spring WebSocket**: Alternative - If using Spring Boot
+
+### ORM/Database Access
+- **Hibernate with Panache**: Recommended - Repository pattern, minimal boilerplate
+- **jOOQ**: Alternative - Type-safe SQL, more control
+- **JDBC Template**: Alternative - Lower-level, more verbose
+
+### Container Orchestration
+- **Docker Compose**: Recommended for simple deployments (1-5 containers)
+- **Kubernetes**: Recommended for production scale (auto-scaling, HA)
+- **Docker Swarm**: Alternative - Simpler than K8s, less features
+- **Nomad**: Alternative - Lightweight, good for small teams
 
 ### Hosting Provider (No Vendor Lock-in)
-- **Hetzner Cloud**: Recommended - Best price/performance, EU-based
-- **DigitalOcean**: Alternative - Good docs, slightly more expensive
-- **Linode**: Alternative - Similar to DigitalOcean
+- **Hetzner Cloud**: Recommended - Best price/performance, EU-based, €10-40/month
+- **DigitalOcean**: Alternative - Good docs, slightly more expensive, $20-80/month
+- **Linode/Akamai**: Alternative - Similar to DigitalOcean
 - **OVH**: Alternative - European provider, competitive pricing
+- **On-premises**: Full control, requires infrastructure management
 
 ---
 
-*Document Version: 2.0*  
+*Document Version: 3.0*  
 *Last Updated: 2026-01-13*  
 *Author: Architecture Team*  
-*Updated: Based on feedback - Web app with WebSockets, no vendor lock-in*
+*Updated: Java Quarkus backend with containerized deployment and external cache*
