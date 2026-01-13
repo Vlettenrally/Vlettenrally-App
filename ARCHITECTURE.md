@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This document outlines the architecture for the Vlettenrally App, a comprehensive mobile application for managing and participating in Dutch scouting boat rally events. The app serves two primary user groups: participants (teams on boats) and administrators (rally organizers).
+This document outlines the architecture for the Vlettenrally App, a comprehensive responsive web application for managing and participating in Dutch scouting boat rally events. The app serves two primary user groups: participants (teams on boats) and administrators (rally organizers). The application uses WebSockets for real-time communication and is designed to support up to 500 concurrent participants.
 
 ## Requirements Analysis
 
@@ -63,86 +63,102 @@ Based on GitHub issues #1-11, the app requires:
 
 ## Architecture Options
 
-### Option 1: Monolithic Mobile-First Architecture
+### Option 1: Self-Hosted Web Application (Recommended)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         Mobile App Layer                         │
+│                    Responsive Web Frontend                       │
 │  ┌──────────────────────┐          ┌──────────────────────────┐ │
-│  │  Participant UI      │          │  Admin UI (Web)          │ │
-│  │  - React Native      │          │  - React Web             │ │
-│  │  - Check-in          │          │  - Admin Dashboard       │ │
-│  │  - Notifications     │          │  - Configuration         │ │
+│  │  Participant UI      │          │  Admin UI                │ │
+│  │  - React + TypeScript│          │  - React + TypeScript    │ │
+│  │  - Responsive Design │          │  - Admin Dashboard       │ │
+│  │  - Progressive Web   │          │  - Configuration         │ │
+│  │    App (PWA)         │          │  - Management            │ │
 │  └──────────────────────┘          └──────────────────────────┘ │
+│           WebSocket Connection ←──────────────────→              │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                      API Gateway (REST)                          │
-│                      - Express.js / NestJS                       │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    Business Logic Layer                          │
-│  ┌──────────────┐  ┌──────────────┐  ┌────────────────────────┐│
-│  │ Game Service │  │ Team Service │  │ Notification Service   ││
-│  │              │  │              │  │ - Rules Engine         ││
-│  │              │  │              │  │ - Scheduler            ││
-│  └──────────────┘  └──────────────┘  └────────────────────────┘│
+│                      Backend Server                              │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │  API Layer (REST + WebSocket)                               ││
+│  │  - Express.js or Fastify                                    ││
+│  │  - Socket.IO or ws for WebSocket                            ││
+│  │  - JWT Authentication                                       ││
+│  └─────────────────────────────────────────────────────────────┘│
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │  Business Logic Layer                                       ││
+│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐ ││
+│  │  │ Game Service │  │ Team Service │  │ Message Service  │ ││
+│  │  │              │  │              │  │ - Broadcasting   │ ││
+│  │  │              │  │              │  │ - Rate Limiting  │ ││
+│  │  └──────────────┘  └──────────────┘  └──────────────────┘ ││
+│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐ ││
+│  │  │ Automation   │  │ Analytics    │  │ Notification     │ ││
+│  │  │ Engine       │  │ Service      │  │ Service          │ ││
+│  │  │ - Scheduler  │  │ - Rankings   │  │ - Rules Engine   │ ││
+│  │  └──────────────┘  └──────────────┘  └──────────────────┘ ││
+│  └─────────────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                      Data Layer                                  │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐ │
-│  │  PostgreSQL  │  │    Redis     │  │  Firebase/FCM        │ │
-│  │  - Games     │  │  - Sessions  │  │  - Push Notifications│ │
-│  │  - Teams     │  │  - Cache     │  │                      │ │
-│  │  - Messages  │  │  - Pub/Sub   │  │                      │ │
+│  │  PostgreSQL  │  │    Redis     │  │  File Storage        │ │
+│  │  - Games     │  │  - Sessions  │  │  - Local/S3          │ │
+│  │  - Teams     │  │  - Cache     │  │  - Documents         │ │
+│  │  - Messages  │  │  - Pub/Sub   │  │  - Exports           │ │
+│  │  - Audit Log │  │  - WebSocket │  │                      │ │
 │  └──────────────┘  └──────────────┘  └──────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 **Pros:**
-- Simpler to develop and deploy
-- Single codebase for business logic
-- Easier to maintain initially
-- Lower infrastructure costs
-- Good for MVP
+- No vendor lock-in - full control over infrastructure
+- Single codebase, easier to maintain
+- Can be self-hosted on any VPS
+- WebSocket for real-time updates (no dependency on external push services)
+- Suitable for 500 concurrent users
+- Lower long-term costs
+- Progressive Web App provides app-like experience
+- Can run offline with service workers
 
 **Cons:**
-- Harder to scale specific components
-- Single point of failure
-- Deployment affects entire system
+- Requires server management
+- Manual scaling if needed
+- Must implement own monitoring
 
-### Option 2: Microservices Architecture
+### Option 2: Containerized Microservices Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                         Frontend Layer                           │
 │  ┌──────────────────────┐          ┌──────────────────────────┐ │
-│  │  Mobile App          │          │  Admin Dashboard         │ │
-│  │  - React Native      │          │  - React + TypeScript    │ │
-│  │  - Expo              │          │  - Material-UI           │ │
+│  │  Participant Web App │          │  Admin Dashboard         │ │
+│  │  - React + TypeScript│          │  - React + TypeScript    │ │
+│  │  - Responsive Design │          │  - Material-UI           │ │
+│  │  - PWA               │          │  - Advanced Features     │ │
 │  └──────────────────────┘          └──────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                    API Gateway                                   │
-│                    - Kong / AWS API Gateway                      │
+│                    API Gateway / Reverse Proxy                   │
+│                    - Nginx or Traefik                            │
 │                    - Authentication                              │
-│                    - Rate Limiting                               │
+│                    - Load Balancing                              │
+│                    - WebSocket Upgrade                           │
 └─────────────────────────────────────────────────────────────────┘
                               │
             ┌─────────────────┼─────────────────┐
             ▼                 ▼                 ▼
 ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────────┐
-│  Game Service    │ │  Team Service    │ │ Notification Service │
-│  - REST API      │ │  - REST API      │ │  - WebSocket         │
-│  - PostgreSQL    │ │  - PostgreSQL    │ │  - Redis Pub/Sub     │
-│  - Node.js       │ │  - Node.js       │ │  - Rules Engine      │
+│  Game Service    │ │  Team Service    │ │ WebSocket Service    │
+│  - REST API      │ │  - REST API      │ │  - Socket.IO         │
+│  - Node.js       │ │  - Node.js       │ │  - Real-time Events  │
+│  - Docker        │ │  - Docker        │ │  - Docker            │
 └──────────────────┘ └──────────────────┘ └──────────────────────┘
                                                      │
             ┌────────────────────────────────────────┤
@@ -150,134 +166,174 @@ Based on GitHub issues #1-11, the app requires:
 ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────────┐
 │ Message Service  │ │ Automation       │ │  Analytics Service   │
 │ - Templates      │ │ Service          │ │  - Statistics        │
-│ - PostgreSQL     │ │  - Scheduler     │ │  - Rankings          │
-│ - Node.js        │ │  - Event-driven  │ │  - Speed tracking    │
+│  - Node.js       │ │  - Scheduler     │ │  - Rankings          │
+│  - Docker        │ │  - Docker        │ │  - Docker            │
 └──────────────────┘ └──────────────────┘ └──────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Shared Infrastructure                         │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐ │
-│  │  PostgreSQL  │  │    Redis     │  │  Firebase Cloud      │ │
-│  │  - Primary   │  │  - Cache     │  │  Messaging (FCM)     │ │
-│  │    Data      │  │  - Queue     │  │  - Push Delivery     │ │
-│  └──────────────┘  └──────────────┘  └──────────────────────┘ │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐ │
-│  │   RabbitMQ   │  │    Logging   │  │    Monitoring        │ │
-│  │  - Events    │  │  - ELK Stack │  │  - Prometheus        │ │
-│  │  - Messages  │  │              │  │  - Grafana           │ │
+│  │  PostgreSQL  │  │    Redis     │  │  Message Queue       │ │
+│  │  - Docker    │  │  - Docker    │  │  - RabbitMQ/Redis    │ │
+│  │  - Primary   │  │  - Cache     │  │  - Docker            │ │
+│  │    Data      │  │  - Pub/Sub   │  │                      │ │
 │  └──────────────┘  └──────────────┘  └──────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 **Pros:**
-- Each service can scale independently
+- Services can scale independently
+- Fault isolation between components
 - Technology flexibility per service
-- Fault isolation
-- Team autonomy
-- Better for long-term growth
+- Docker provides consistency across environments
+- Can deploy on any Docker host
+- No vendor lock-in
 
 **Cons:**
-- More complex to develop
+- More complex to develop and maintain
+- Requires orchestration (Docker Compose or Kubernetes)
 - Higher operational overhead
-- Distributed system challenges
-- Higher infrastructure costs
-- Overkill for initial MVP
+- More moving parts to monitor
+- Overkill for 500 concurrent users
 
-### Option 3: Serverless Architecture (Recommended)
+### Option 3: Monorepo with Modular Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         Frontend Layer                           │
-│  ┌──────────────────────┐          ┌──────────────────────────┐ │
-│  │  Mobile App          │          │  Admin Web App           │ │
-│  │  - React Native      │          │  - React + TypeScript    │ │
-│  │  - Expo              │          │  - Hosted on Vercel/     │ │
-│  │  - Offline-first     │          │    Netlify               │ │
-│  └──────────────────────┘          └──────────────────────────┘ │
+│                    Single Monorepo Application                   │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │  Frontend (Shared Codebase)                                 ││
+│  │  - React + TypeScript + Vite                                ││
+│  │  - Responsive Design (Mobile & Desktop)                     ││
+│  │  - Participant Views + Admin Views                          ││
+│  │  - Progressive Web App (PWA)                                ││
+│  │  - Socket.IO Client for real-time                           ││
+│  └─────────────────────────────────────────────────────────────┘│
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │  Backend (Single Node.js Process)                           ││
+│  │  ┌──────────────────────────────────────────────────────┐  ││
+│  │  │  API Layer                                           │  ││
+│  │  │  - Express.js / Fastify                              │  ││
+│  │  │  - REST endpoints                                    │  ││
+│  │  │  - Socket.IO for WebSocket                           │  ││
+│  │  │  - JWT Authentication                                │  ││
+│  │  └──────────────────────────────────────────────────────┘  ││
+│  │  ┌──────────────────────────────────────────────────────┐  ││
+│  │  │  Modules (Logical Separation)                        │  ││
+│  │  │  - games/    - teams/      - messages/               │  ││
+│  │  │  - automations/  - analytics/  - notifications/      │  ││
+│  │  │  Each module: routes, services, controllers          │  ││
+│  │  └──────────────────────────────────────────────────────┘  ││
+│  │  ┌──────────────────────────────────────────────────────┐  ││
+│  │  │  Background Jobs                                     │  ││
+│  │  │  - Node-cron for scheduling                          │  ││
+│  │  │  - Automation evaluation                             │  ││
+│  │  │  - Countdown timers                                  │  ││
+│  │  └──────────────────────────────────────────────────────┘  ││
+│  └─────────────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                    Firebase / Supabase                           │
-│  ┌─────────────────────────────────────────────────────────────┐│
-│  │  Authentication - JWT tokens, Role-based access             ││
-│  └─────────────────────────────────────────────────────────────┘│
-│  ┌─────────────────────────────────────────────────────────────┐│
-│  │  Firestore / PostgreSQL (Supabase)                          ││
-│  │  Collections/Tables:                                        ││
-│  │  - games, teams, checkpoints, messages, automations         ││
-│  │  - Real-time subscriptions                                  ││
-│  └─────────────────────────────────────────────────────────────┘│
-│  ┌─────────────────────────────────────────────────────────────┐│
-│  │  Cloud Functions / Edge Functions                           ││
-│  │  - Check-in logic                                           ││
-│  │  - Message processing                                       ││
-│  │  - Automation triggers                                      ││
-│  │  - Statistics calculation                                   ││
-│  └─────────────────────────────────────────────────────────────┘│
-│  ┌─────────────────────────────────────────────────────────────┐│
-│  │  Cloud Messaging (FCM)                                      ││
-│  │  - Push notifications to devices                            ││
-│  └─────────────────────────────────────────────────────────────┘│
-│  ┌─────────────────────────────────────────────────────────────┐│
-│  │  Cloud Scheduler                                            ││
-│  │  - Countdown timers                                         ││
-│  │  - Periodic statistics                                      ││
-│  │  - Automation evaluation                                    ││
-│  └─────────────────────────────────────────────────────────────┘│
+│                      Data Layer                                  │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐ │
+│  │  PostgreSQL  │  │    Redis     │  │  Local Storage       │ │
+│  │  - All data  │  │  - Sessions  │  │  - Uploads           │ │
+│  │  - Prisma ORM│  │  - Cache     │  │  - Exports           │ │
+│  │              │  │  - Pub/Sub   │  │                      │ │
+│  └──────────────┘  └──────────────┘  └──────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 **Pros:**
-- Scales automatically
-- Pay-per-use pricing
-- Reduced operational burden
-- Fast development with BaaS features
-- Real-time capabilities built-in
-- Good balance for this use case
+- Simplest architecture to develop and deploy
+- Single deployment unit
+- Shared types and utilities between frontend and backend
+- Easy to refactor and reorganize
+- Perfect for 500 concurrent users
+- Lower operational complexity
+- No vendor lock-in
+- Can upgrade to microservices later if needed
 
 **Cons:**
-- Vendor lock-in (mitigated by using standard APIs)
-- Cold start latency
-- Limited control over infrastructure
+- All components scale together
+- Single point of failure (mitigated with PM2 or clustering)
+- Requires restart for deployment
 
-## Recommended Architecture: Serverless with Supabase
+## Recommended Architecture: Self-Hosted Web Application (Option 1)
 
 ### Technology Stack
 
 #### Frontend
-- **Mobile App**: React Native + Expo
-  - Cross-platform (iOS/Android)
-  - Rapid development
-  - Good community support
-  - Native push notification support
+- **Web Application**: React + TypeScript + Vite
+  - Single responsive application for both participants and admins
+  - Progressive Web App (PWA) for app-like experience on mobile
+  - Works offline with service workers
+  - Material-UI or Tailwind CSS for responsive design
+  - Mobile-first design approach
   
-- **Admin Dashboard**: React + TypeScript
-  - Modern, maintainable
-  - Component reuse with mobile app
-  - Hosted on Vercel/Netlify
-
 #### Backend
-- **Backend-as-a-Service**: Supabase
-  - Open-source (less vendor lock-in than Firebase)
-  - PostgreSQL database (familiar, powerful)
-  - Real-time subscriptions
-  - Built-in authentication
-  - Edge Functions (Deno)
-  - Row Level Security (RLS)
-
-- **Alternative**: Firebase
-  - More mature ecosystem
-  - Better mobile SDK integration
-  - Firestore for real-time data
-  - Cloud Functions (Node.js)
+- **Runtime**: Node.js with Express.js or Fastify
+  - Lightweight and performant
+  - Large ecosystem of packages
+  - Good TypeScript support
+  
+- **Real-time Communication**: Socket.IO
+  - WebSocket with fallback to polling
+  - Room-based broadcasting
+  - Automatic reconnection
+  - Easy integration with Redis for scaling
+  
+- **Database ORM**: Prisma
+  - Type-safe database access
+  - Automatic migrations
+  - Works with PostgreSQL
+  - No vendor lock-in
 
 #### Infrastructure
-- **Push Notifications**: Firebase Cloud Messaging (FCM)
-- **File Storage**: Supabase Storage / Firebase Storage
-- **Monitoring**: Sentry for error tracking
-- **Analytics**: Mixpanel or PostHog
+- **Database**: PostgreSQL
+  - Open-source, battle-tested
+  - Excellent for relational data
+  - JSONB for flexible data
+  - Can host anywhere
+  
+- **Cache/Session Store**: Redis
+  - Fast in-memory storage
+  - Pub/Sub for WebSocket scaling
+  - Session management
+  - Rate limiting
+  
+- **Process Manager**: PM2
+  - Process clustering for reliability
+  - Zero-downtime deployments
+  - Monitoring and logging
+  
+- **Hosting Options**:
+  - DigitalOcean Droplet ($20-40/month)
+  - Hetzner Cloud (€5-20/month)
+  - Any VPS with Docker support
+  
+- **Reverse Proxy**: Nginx or Caddy
+  - SSL/TLS termination
+  - Static file serving
+  - WebSocket proxying
+  - Load balancing if needed
+
+#### Development Tools
+- **Monorepo**: Turborepo or Nx
+  - Shared types between frontend and backend
+  - Fast builds
+  - Code sharing
+  
+- **Testing**: Jest + Playwright
+  - Unit tests for business logic
+  - E2E tests for critical flows
+  
+- **Monitoring**: Self-hosted options
+  - Grafana + Prometheus for metrics
+  - Loki for logs
+  - Or simple logging to files with log rotation
 
 ### Database Schema
 
@@ -463,234 +519,450 @@ CREATE INDEX idx_automations_game_id ON automations(game_id);
 
 ### Application Architecture Details
 
-#### Mobile App Structure (React Native)
+#### Project Structure (Monorepo)
 ```
-src/
-├── screens/
-│   ├── CheckInScreen.tsx
-│   ├── HomeScreen.tsx
-│   ├── MessagesScreen.tsx
-│   ├── RankingsScreen.tsx
-│   └── RivalsScreen.tsx
-├── components/
-│   ├── CountdownTimer.tsx
-│   ├── NotificationCard.tsx
-│   ├── TeamSelector.tsx
-│   └── CheckpointMap.tsx
-├── services/
-│   ├── supabaseClient.ts
-│   ├── notificationService.ts
-│   ├── locationService.ts
-│   └── authService.ts
-├── hooks/
-│   ├── useGame.ts
-│   ├── useTeam.ts
-│   ├── useMessages.ts
-│   └── useRealtime.ts
-├── store/
-│   ├── gameSlice.ts
-│   ├── teamSlice.ts
-│   └── messagesSlice.ts
-├── navigation/
-│   └── AppNavigator.tsx
-└── utils/
-    ├── dateTime.ts
-    └── validators.ts
+vlettenrally-app/
+├── packages/
+│   ├── frontend/              # React web application
+│   │   ├── src/
+│   │   │   ├── pages/
+│   │   │   │   ├── participant/
+│   │   │   │   │   ├── CheckIn.tsx
+│   │   │   │   │   ├── Dashboard.tsx
+│   │   │   │   │   ├── Messages.tsx
+│   │   │   │   │   ├── Rankings.tsx
+│   │   │   │   │   └── Rivals.tsx
+│   │   │   │   └── admin/
+│   │   │   │       ├── Dashboard.tsx
+│   │   │   │       ├── Games.tsx
+│   │   │   │       ├── Teams.tsx
+│   │   │   │       ├── Messages.tsx
+│   │   │   │       ├── Automations.tsx
+│   │   │   │       └── Analytics.tsx
+│   │   │   ├── components/
+│   │   │   │   ├── layout/
+│   │   │   │   ├── forms/
+│   │   │   │   ├── CountdownTimer.tsx
+│   │   │   │   ├── NotificationCard.tsx
+│   │   │   │   └── RankingTable.tsx
+│   │   │   ├── hooks/
+│   │   │   │   ├── useSocket.ts
+│   │   │   │   ├── useAuth.ts
+│   │   │   │   ├── useGame.ts
+│   │   │   │   └── useRealtime.ts
+│   │   │   ├── services/
+│   │   │   │   ├── api.ts
+│   │   │   │   ├── socket.ts
+│   │   │   │   └── storage.ts
+│   │   │   ├── store/
+│   │   │   │   ├── authSlice.ts
+│   │   │   │   ├── gameSlice.ts
+│   │   │   │   └── messagesSlice.ts
+│   │   │   └── utils/
+│   │   │       ├── dateTime.ts
+│   │   │       └── validators.ts
+│   │   ├── public/
+│   │   │   ├── manifest.json     # PWA manifest
+│   │   │   └── service-worker.js  # Service worker for offline
+│   │   ├── vite.config.ts
+│   │   └── package.json
+│   │
+│   ├── backend/               # Node.js server
+│   │   ├── src/
+│   │   │   ├── modules/
+│   │   │   │   ├── auth/
+│   │   │   │   │   ├── auth.controller.ts
+│   │   │   │   │   ├── auth.service.ts
+│   │   │   │   │   └── auth.routes.ts
+│   │   │   │   ├── games/
+│   │   │   │   ├── teams/
+│   │   │   │   ├── messages/
+│   │   │   │   ├── automations/
+│   │   │   │   ├── analytics/
+│   │   │   │   └── notifications/
+│   │   │   ├── websocket/
+│   │   │   │   ├── socket.handler.ts
+│   │   │   │   ├── rooms.service.ts
+│   │   │   │   └── events.ts
+│   │   │   ├── jobs/
+│   │   │   │   ├── automation.job.ts
+│   │   │   │   ├── countdown.job.ts
+│   │   │   │   └── analytics.job.ts
+│   │   │   ├── middleware/
+│   │   │   │   ├── auth.middleware.ts
+│   │   │   │   ├── validation.middleware.ts
+│   │   │   │   └── rateLimit.middleware.ts
+│   │   │   ├── utils/
+│   │   │   ├── config/
+│   │   │   └── server.ts
+│   │   ├── prisma/
+│   │   │   ├── schema.prisma
+│   │   │   └── migrations/
+│   │   └── package.json
+│   │
+│   └── shared/                # Shared types and utilities
+│       ├── src/
+│       │   ├── types/
+│       │   │   ├── game.types.ts
+│       │   │   ├── team.types.ts
+│       │   │   ├── message.types.ts
+│       │   │   └── api.types.ts
+│       │   └── utils/
+│       │       ├── constants.ts
+│       │       └── validation.ts
+│       └── package.json
+│
+├── docker-compose.yml         # Local development setup
+├── .env.example
+├── turbo.json                 # Turborepo config
+└── package.json               # Root package.json
 ```
 
-#### Admin Dashboard Structure (React)
-```
-admin/
-├── src/
-│   ├── pages/
-│   │   ├── Dashboard.tsx
-│   │   ├── Games/
-│   │   │   ├── GameList.tsx
-│   │   │   ├── GameForm.tsx
-│   │   │   └── CheckpointManager.tsx
-│   │   ├── Teams/
-│   │   │   ├── TeamList.tsx
-│   │   │   ├── TeamForm.tsx
-│   │   │   └── TeamImport.tsx
-│   │   ├── Messages/
-│   │   │   ├── MessageTemplates.tsx
-│   │   │   ├── SendMessage.tsx
-│   │   │   └── MessageHistory.tsx
-│   │   ├── Automations/
-│   │   │   ├── AutomationList.tsx
-│   │   │   └── AutomationForm.tsx
-│   │   ├── Analytics/
-│   │   │   ├── RankingsView.tsx
-│   │   │   ├── SpeedTracking.tsx
-│   │   │   └── ActivityLog.tsx
-│   │   └── Settings/
-│   │       ├── SystemConfig.tsx
-│   │       └── AdminAlerts.tsx
-│   ├── components/
-│   │   ├── Layout/
-│   │   ├── Forms/
-│   │   └── Tables/
-│   ├── services/
-│   │   └── api.ts
-│   └── hooks/
-│       └── useAdmin.ts
-```
+#### WebSocket Events Architecture
+```typescript
+// Client → Server Events
+interface ClientToServerEvents {
+  'join:game': (gameId: string) => void;
+  'join:team': (teamId: string) => void;
+  'location:update': (data: LocationUpdate) => void;
+  'message:read': (messageId: string) => void;
+}
 
-#### Edge Functions (Supabase)
-```
-supabase/functions/
-├── check-in/
-│   └── index.ts           # Handle team check-in
-├── send-notification/
-│   └── index.ts           # Send push notifications
-├── evaluate-automations/
-│   └── index.ts           # Periodic automation evaluation
-├── calculate-rankings/
-│   └── index.ts           # Update team rankings
-├── process-achievement/
-│   └── index.ts           # Handle checkpoint achievements
-└── speed-alert/
-    └── index.ts           # Alert admins of speed violations
+// Server → Client Events
+interface ServerToClientEvents {
+  'message:new': (message: Message) => void;
+  'countdown:update': (countdown: CountdownData) => void;
+  'team:achievement': (achievement: Achievement) => void;
+  'rival:update': (rivalData: RivalUpdate) => void;
+  'ranking:update': (rankings: Ranking[]) => void;
+  'game:status': (status: GameStatus) => void;
+  'admin:alert': (alert: Alert) => void;
+}
+
+// Room Strategy
+// - game:{gameId} - All participants in a game
+// - team:{teamId} - Specific team members
+// - admin:{gameId} - Admin users for a game
+// - rival:{teamId}:{rivalTeamId} - Rival-specific updates
 ```
 
 ### Key Features Implementation
 
-#### 1. Real-time Notifications
-- Use Supabase real-time subscriptions for data updates
-- FCM for push notifications when app is in background
-- Local notifications for countdown timers
+#### 1. Real-time Communication via WebSockets
+- Socket.IO for bidirectional real-time communication
+- Automatic reconnection handling
+- Room-based broadcasting for efficiency
+- Redis adapter for horizontal scaling (if needed)
+- Fallback to long-polling for restrictive networks
 
-#### 2. Automation Engine
-- Scheduled Edge Function runs every minute
+#### 2. Progressive Web App (PWA)
+- Service worker for offline functionality
+- App manifest for "Add to Home Screen"
+- Cache-first strategy for static assets
+- Network-first for API calls with offline queue
+- Background sync for pending actions
+
+#### 3. Automation Engine
+- Node-cron for scheduled jobs (runs every minute)
 - Evaluates automation rules against current game state
-- Rate limiting using sent_messages table
+- Rate limiting using database queries
 - Event-driven triggers on achievements
+- Configurable through admin UI
 
-#### 3. Offline Support
-- Use React Query for caching
-- Store critical data locally using AsyncStorage
-- Queue messages for sending when online
-- Sync on reconnection
+#### 4. Authentication & Authorization
+- JWT tokens stored in httpOnly cookies
+- Role-based access control (RBAC)
+  - Participant: Read own team data, read rival data
+  - Admin: Full access to game management
+- Session management with Redis
+- CSRF protection
 
-#### 4. Security
-- Row Level Security (RLS) policies in Supabase
-- Teams can only read their own data and rival data
-- Admins have elevated permissions
-- JWT tokens for authentication
-- API rate limiting
+#### 5. Responsive Design
+- Mobile-first approach
+- Breakpoints: Mobile (< 768px), Tablet (768-1024px), Desktop (> 1024px)
+- Touch-friendly UI elements
+- Different layouts for participant vs admin views
+- Works on phones, tablets, and desktops
 
 ### Deployment Strategy
 
-#### Phase 1: MVP (3-4 months)
+#### Development Environment
+```bash
+# Start all services with Docker Compose
+docker-compose up -d
+
+# Services:
+# - PostgreSQL on port 5432
+# - Redis on port 6379
+# - Backend on port 3000
+# - Frontend on port 5173 (Vite dev server)
+```
+
+#### Production Deployment Options
+
+**Option A: Single VPS (Recommended for 500 users)**
+- Hetzner Cloud CPX31 (4 vCPU, 8GB RAM): ~€12/month
+- DigitalOcean Droplet (2 vCPU, 4GB RAM): $24/month
+- Setup:
+  1. Install Docker & Docker Compose
+  2. Clone repository
+  3. Configure environment variables
+  4. Run `docker-compose -f docker-compose.prod.yml up -d`
+  5. Setup Caddy/Nginx for SSL (Let's Encrypt)
+  6. Configure firewall (UFW)
+
+**Option B: Separate Database Hosting**
+- App server: VPS as above
+- Database: Managed PostgreSQL (DigitalOcean, Hetzner, etc.)
+- Redis: Managed Redis or same VPS
+- Benefits: Easier backups, automatic updates
+
+**Docker Compose Production Setup**
+```yaml
+version: '3.8'
+services:
+  postgres:
+    image: postgres:15-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: vlettenrally
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+  
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+  
+  backend:
+    build: ./packages/backend
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      JWT_SECRET: ${JWT_SECRET}
+    restart: unless-stopped
+  
+  frontend:
+    build: ./packages/frontend
+    depends_on:
+      - backend
+    restart: unless-stopped
+  
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - frontend
+      - backend
+```
+
+#### Deployment Phases
+
+**Phase 1: MVP (3-4 months)**
 - Basic check-in functionality
-- Manual message sending
+- Manual message sending from admin
 - Simple countdown notifications
 - Team and game management
+- Real-time message delivery via WebSocket
 
-#### Phase 2: Automation (2-3 months)
+**Phase 2: Automation (2-3 months)**
 - Full automation system
-- Advanced triggers
+- Advanced trigger rules
 - Statistics and rankings
-- Rival tracking
+- Rival tracking and notifications
+- Speed monitoring and alerts
 
-#### Phase 3: Enhancement (Ongoing)
-- Weather integration
-- Advanced analytics
+**Phase 3: Enhancement (Ongoing)**
+- Weather API integration
+- Advanced analytics and reporting
+- Export functionality (CSV, PDF)
+- Historical data visualization
 - Performance optimization
-- Additional features based on user feedback
 
 ### Scalability Considerations
 
-- Supabase can handle 100-1000 concurrent users easily
-- FCM handles notification delivery at scale
-- PostgreSQL can scale vertically
-- Can add read replicas if needed
-- Edge Functions scale automatically
+**Current Design (500 concurrent users)**
+- Single VPS with 4 vCPU, 8GB RAM can easily handle 500 concurrent WebSocket connections
+- PostgreSQL can handle thousands of queries per second
+- Redis provides sub-millisecond response times
+- Nginx efficiently serves static files
+
+**If Growth is Needed (> 1000 users)**
+1. **Vertical Scaling**: Upgrade VPS to more CPU/RAM
+2. **Horizontal Scaling**: 
+   - Multiple backend instances behind load balancer
+   - Redis adapter for Socket.IO to share connections
+   - Read replicas for PostgreSQL
+3. **CDN**: CloudFlare for static assets (free tier available)
+4. **Database Optimization**: Connection pooling, query optimization, indexes
+
+**Monitoring & Performance**
+- PM2 for process monitoring and clustering
+- Node.js built-in monitoring (CPU, memory)
+- PostgreSQL slow query log
+- Nginx access logs
+- Custom metrics endpoint for Prometheus (optional)
 
 ### Cost Estimation (Annual)
 
-**Serverless Option (Supabase + FCM)**
+**Self-Hosted Option (Recommended)**
+- VPS (Hetzner CPX31): €12/month = €144/year
+- Domain name: €10/year
+- SSL: Free (Let's Encrypt)
+- Backups: €5/month = €60/year
+- **Total: ~€214/year (~$235 USD)**
+
+**Alternative: Separate Database**
+- VPS (smaller): €8/month = €96/year
+- Managed PostgreSQL: €15/month = €180/year
+- Domain & SSL: €10/year
+- **Total: ~€286/year (~$315 USD)**
+
+**Comparison with Serverless (Previous Recommendation)**
 - Supabase Pro: $25/month = $300/year
-- Firebase (FCM): Free tier likely sufficient
-- Vercel/Netlify: Free tier for admin
-- Expo: Free
-- Total: ~$300-500/year
-
-**Traditional Hosting**
-- VPS (DigitalOcean): $20-40/month
-- Database: Included or $15/month
-- Total: ~$240-660/year
-
-### Monitoring and Observability
-
-- Supabase Dashboard for database monitoring
-- Sentry for error tracking
-- Custom logging in Edge Functions
-- FCM delivery reports
-- Admin dashboard analytics
+- Less control, vendor lock-in
+- Self-hosted is cheaper and more flexible
 
 ## Alternative Architectures Comparison
 
-| Criteria | Monolithic | Microservices | Serverless |
-|----------|-----------|---------------|------------|
-| Development Speed | Fast | Slow | Fast |
-| Operational Complexity | Low | High | Low |
-| Scalability | Vertical | Horizontal | Auto |
-| Cost (Initial) | Low | High | Very Low |
-| Cost (Scale) | Medium | High | Medium |
-| Team Size Required | Small | Large | Small |
-| Time to Market | Fast | Slow | Fast |
-| **Recommendation** | Good for MVP | Overkill | **Best Choice** |
+| Criteria | Self-Hosted Web App | Containerized Microservices | Monorepo Modular |
+|----------|---------------------|----------------------------|------------------|
+| Development Speed | Fast | Slow | Very Fast |
+| Operational Complexity | Low-Medium | High | Low |
+| Scalability | Vertical + Basic Horizontal | Full Horizontal | Vertical |
+| Cost (Initial) | Low | Medium | Very Low |
+| Cost (at 500 users) | ~€215/year | ~€400/year | ~€180/year |
+| Team Size Required | Small (1-2) | Medium (3-5) | Small (1-2) |
+| Time to Market | Fast | Slow | Very Fast |
+| Vendor Lock-in | None | None | None |
+| Real-time via WebSocket | Yes | Yes | Yes |
+| Mobile Support | PWA | PWA | PWA |
+| **Recommendation** | **Best Choice** | Overkill | Good for MVP |
+
+### Why Self-Hosted Web App (Option 1) is Recommended
+
+1. **No Vendor Lock-in**: Complete control over infrastructure
+2. **WebSocket Real-time**: Native Socket.IO support without external services
+3. **Cost-effective**: ~€215/year for 500 concurrent users
+4. **PWA Benefits**: App-like experience without app store hassle
+5. **Responsive Design**: Works on all devices (phones, tablets, desktops)
+6. **Simple Deployment**: Single VPS or Docker Compose setup
+7. **Easy to Maintain**: Monolithic but well-organized with modules
+8. **Room to Grow**: Can scale to 1000+ users with minor adjustments
+
+### Migration Path
+
+If the application grows beyond expectations:
+1. **Phase 1** (Current): Monolithic web app
+2. **Phase 2** (If > 1000 users): Add load balancer, multiple backend instances
+3. **Phase 3** (If > 5000 users): Split into microservices (already modular)
 
 ## Conclusion
 
-**Recommended Architecture: Serverless (Option 3) with Supabase**
+**Recommended Architecture: Self-Hosted Web Application (Option 1)**
 
 This architecture provides:
-1. **Fast development** - Leverage BaaS features
-2. **Real-time capabilities** - Built-in subscriptions
-3. **Scalability** - Automatic scaling
-4. **Cost-effective** - Pay per use, low initial cost
-5. **Modern stack** - React Native, React, TypeScript, PostgreSQL
-6. **Reduced ops burden** - Managed infrastructure
-7. **Good migration path** - Can self-host Supabase if needed
+1. **No vendor lock-in** - Full control over all components
+2. **WebSocket real-time** - Socket.IO for bidirectional communication
+3. **Responsive web app** - PWA works on all devices without app stores
+4. **Cost-effective** - ~€215/year for infrastructure
+5. **Scalable enough** - Handles 500 concurrent users easily
+6. **Modern stack** - React, TypeScript, Node.js, PostgreSQL, Redis
+7. **Simple operations** - Single VPS deployment or Docker Compose
+8. **Room to grow** - Can scale to 1000+ users with minor adjustments
 
-The serverless architecture is ideal for the Vlettenrally app because:
-- Event has ~100-500 concurrent users (within Supabase capacity)
-- Real-time features are crucial (notifications, rankings)
-- Small team needs to move fast
-- Budget is likely constrained
-- Seasonal usage pattern benefits from pay-per-use pricing
+The self-hosted web application is ideal for the Vlettenrally app because:
+- No mobile app needed - responsive web works everywhere
+- WebSocket provides real-time features without push notification services
+- 500 concurrent users is well within capacity of a single VPS
+- Avoids vendor lock-in (no Firebase, Supabase, or cloud-specific services)
+- Small team can manage it easily
+- Progressive Web App provides app-like experience
+- Can be installed on home screen just like native apps
+- Open-source stack ensures long-term viability
 
 ## Next Steps
 
-1. **Set up Supabase project**
+1. **Set up development environment**
+   - Initialize monorepo with Turborepo
+   - Configure TypeScript and ESLint
+   - Set up Docker Compose for local development
+
 2. **Create database schema**
-3. **Develop mobile app MVP** (Check-in + Messages)
-4. **Build admin dashboard** (Game & Team management)
-5. **Implement automation system**
-6. **Testing and refinement**
-7. **Deploy and monitor**
+   - Set up Prisma
+   - Define schema based on requirements
+   - Create initial migrations
+
+3. **Develop backend API**
+   - Express.js server with TypeScript
+   - Implement authentication (JWT)
+   - Create REST endpoints for core features
+   - Integrate Socket.IO for real-time
+
+4. **Build frontend application**
+   - React + TypeScript + Vite
+   - Responsive layouts (mobile-first)
+   - Socket.IO client integration
+   - PWA configuration
+
+5. **Implement core features**
+   - Check-in system
+   - Message broadcasting
+   - Countdown timers
+   - Game & team management
+
+6. **Deploy to production**
+   - Provision VPS
+   - Configure Nginx/Caddy
+   - Set up SSL certificates
+   - Deploy with Docker Compose
+
+7. **Monitor and iterate**
+   - Set up basic monitoring
+   - Gather user feedback
+   - Implement automation system
+   - Add analytics features
 
 ## Appendix: Technology Alternatives
 
+### Frontend Framework
+- **React + TypeScript**: Recommended - Popular, great ecosystem, TypeScript support
+- **Vue.js**: Alternative - Simpler learning curve, good for small teams
+- **Svelte**: Alternative - Excellent performance, smaller bundle size
+
+### Backend Framework
+- **Express.js**: Recommended - Mature, flexible, large ecosystem
+- **Fastify**: Alternative - Better performance, modern design
+- **NestJS**: Alternative - More structure, TypeScript-first, overkill for this size
+
 ### Database
-- **PostgreSQL (Supabase)**: Recommended - Relational, powerful, open-source
-- **Firestore (Firebase)**: Alternative - Document-based, real-time, easy to use
-- **MongoDB**: Not recommended - Overkill for this use case
+- **PostgreSQL**: Recommended - Relational, JSONB for flexibility, open-source
+- **MySQL/MariaDB**: Alternative - Similar features, slightly different syntax
+- **MongoDB**: Not recommended - Overkill for structured data
 
-### Mobile Framework
-- **React Native + Expo**: Recommended - Cross-platform, fast development
-- **Flutter**: Alternative - Good performance, different ecosystem
-- **Native (Swift/Kotlin)**: Not recommended - Double development effort
+### WebSocket Library
+- **Socket.IO**: Recommended - Reliable, auto-reconnection, room support
+- **ws**: Alternative - Lightweight, lower-level, more control needed
+- **uWebSockets.js**: Alternative - Best performance, less features
 
-### Backend
-- **Supabase**: Recommended - Open-source, PostgreSQL, feature-rich
-- **Firebase**: Alternative - More mature, Google ecosystem
-- **Custom Node.js**: Not recommended - More work, more maintenance
+### Hosting Provider (No Vendor Lock-in)
+- **Hetzner Cloud**: Recommended - Best price/performance, EU-based
+- **DigitalOcean**: Alternative - Good docs, slightly more expensive
+- **Linode**: Alternative - Similar to DigitalOcean
+- **OVH**: Alternative - European provider, competitive pricing
 
 ---
 
-*Document Version: 1.0*  
+*Document Version: 2.0*  
 *Last Updated: 2026-01-13*  
-*Author: Architecture Team*
+*Author: Architecture Team*  
+*Updated: Based on feedback - Web app with WebSockets, no vendor lock-in*
