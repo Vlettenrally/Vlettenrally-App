@@ -61,9 +61,17 @@ Based on GitHub issues #1-11, the app requires:
    - Speed limit alerts
    - Configurable thresholds
 
-## Architecture Options
+9. **Location Data Polling** (Issue #13)
+   - Periodic REST API data retrieval
+   - Location information extraction and processing
+   - Location data storage for analysis
+   - Event triggering on new data
+   - Error and connection handling
+   - Configurable endpoint URL and polling frequency
 
-### Option 1: Containerized Web Application with External Cache (Recommended)
+## Architecture
+
+### Containerized Web Application with External Cache
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -99,6 +107,7 @@ Based on GitHub issues #1-11, the app requires:
 │  │  │  │  - AutomationEngine (Quartz Scheduler)       │  │  │ │
 │  │  │  │  - AnalyticsService                          │  │  │ │
 │  │  │  │  - NotificationService (Rules Engine)        │  │  │ │
+│  │  │  │  - LocationPollingService (REST Client)      │  │  │ │
 │  │  │  └──────────────────────────────────────────────┘  │  │ │
 │  │  └────────────────────────────────────────────────────┘  │ │
 │  └──────────────┘  └──────────────┘  └──────────────────────┘ │
@@ -134,138 +143,7 @@ Based on GitHub issues #1-11, the app requires:
 - Requires container orchestration for multiple instances
 - Need external Redis for session sharing
 
-### Option 2: Containerized Microservices Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Frontend Layer                           │
-│  ┌──────────────────────┐          ┌──────────────────────────┐ │
-│  │  Participant Web App │          │  Admin Dashboard         │ │
-│  │  - React + TypeScript│          │  - React + TypeScript    │ │
-│  │  - Responsive Design │          │  - Material-UI           │ │
-│  │  - PWA               │          │  - Advanced Features     │ │
-│  └──────────────────────┘          └──────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    API Gateway / Reverse Proxy                   │
-│                    - Nginx or Traefik                            │
-│                    - Authentication                              │
-│                    - Load Balancing                              │
-│                    - WebSocket Upgrade                           │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-            ┌─────────────────┼─────────────────┐
-            ▼                 ▼                 ▼
-┌──────────────────┐ ┌──────────────────┐ ┌──────────────────────┐
-│  Game Service    │ │  Team Service    │ │ WebSocket Service    │
-│  - REST API      │ │  - REST API      │ │  - Socket.IO         │
-│  - Node.js       │ │  - Node.js       │ │  - Real-time Events  │
-│  - Docker        │ │  - Docker        │ │  - Docker            │
-└──────────────────┘ └──────────────────┘ └──────────────────────┘
-                                                     │
-            ┌────────────────────────────────────────┤
-            ▼                 ▼                      ▼
-┌──────────────────┐ ┌──────────────────┐ ┌──────────────────────┐
-│ Message Service  │ │ Automation       │ │  Analytics Service   │
-│ - Templates      │ │ Service          │ │  - Statistics        │
-│  - Node.js       │ │  - Scheduler     │ │  - Rankings          │
-│  - Docker        │ │  - Docker        │ │  - Docker            │
-└──────────────────┘ └──────────────────┘ └──────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    Shared Infrastructure                         │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐ │
-│  │  PostgreSQL  │  │    Redis     │  │  Message Queue       │ │
-│  │  - Docker    │  │  - Docker    │  │  - RabbitMQ/Redis    │ │
-│  │  - Primary   │  │  - Cache     │  │  - Docker            │ │
-│  │    Data      │  │  - Pub/Sub   │  │                      │ │
-│  └──────────────┘  └──────────────┘  └──────────────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-**Pros:**
-- Services can scale independently
-- Fault isolation between components
-- Technology flexibility per service
-- Docker provides consistency across environments
-- Can deploy on any Docker host
-- No vendor lock-in
-
-**Cons:**
-- More complex to develop and maintain
-- Requires orchestration (Docker Compose or Kubernetes)
-- Higher operational overhead
-- More moving parts to monitor
-- Overkill for 500 concurrent users
-
-### Option 3: Monorepo with Modular Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Single Monorepo Application                   │
-│  ┌─────────────────────────────────────────────────────────────┐│
-│  │  Frontend (Shared Codebase)                                 ││
-│  │  - React + TypeScript + Vite                                ││
-│  │  - Responsive Design (Mobile & Desktop)                     ││
-│  │  - Participant Views + Admin Views                          ││
-│  │  - Progressive Web App (PWA)                                ││
-│  │  - Socket.IO Client for real-time                           ││
-│  └─────────────────────────────────────────────────────────────┘│
-│  ┌─────────────────────────────────────────────────────────────┐│
-│  │  Backend (Single Node.js Process)                           ││
-│  │  ┌──────────────────────────────────────────────────────┐  ││
-│  │  │  API Layer                                           │  ││
-│  │  │  - Express.js / Fastify                              │  ││
-│  │  │  - REST endpoints                                    │  ││
-│  │  │  - Socket.IO for WebSocket                           │  ││
-│  │  │  - JWT Authentication                                │  ││
-│  │  └──────────────────────────────────────────────────────┘  ││
-│  │  ┌──────────────────────────────────────────────────────┐  ││
-│  │  │  Modules (Logical Separation)                        │  ││
-│  │  │  - games/    - teams/      - messages/               │  ││
-│  │  │  - automations/  - analytics/  - notifications/      │  ││
-│  │  │  Each module: routes, services, controllers          │  ││
-│  │  └──────────────────────────────────────────────────────┘  ││
-│  │  ┌──────────────────────────────────────────────────────┐  ││
-│  │  │  Background Jobs                                     │  ││
-│  │  │  - Node-cron for scheduling                          │  ││
-│  │  │  - Automation evaluation                             │  ││
-│  │  │  - Countdown timers                                  │  ││
-│  │  └──────────────────────────────────────────────────────┘  ││
-│  └─────────────────────────────────────────────────────────────┘│
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      Data Layer                                  │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐ │
-│  │  PostgreSQL  │  │    Redis     │  │  Local Storage       │ │
-│  │  - All data  │  │  - Sessions  │  │  - Uploads           │ │
-│  │  - Prisma ORM│  │  - Cache     │  │  - Exports           │ │
-│  │              │  │  - Pub/Sub   │  │                      │ │
-│  └──────────────┘  └──────────────┘  └──────────────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-**Pros:**
-- Simplest architecture to develop and deploy
-- Single deployment unit
-- Shared types and utilities between frontend and backend
-- Easy to refactor and reorganize
-- Perfect for 500 concurrent users
-- Lower operational complexity
-- No vendor lock-in
-- Can upgrade to microservices later if needed
-
-**Cons:**
-- All components scale together
-- Single point of failure (mitigated with PM2 or clustering)
-- Requires restart for deployment
-
-## Recommended Architecture: Containerized Web Application with Java Quarkus (Option 1)
+## Recommended Architecture: Containerized Web Application with Java Quarkus
 
 ### Technology Stack
 
@@ -313,6 +191,14 @@ Based on GitHub issues #1-11, the app requires:
   - Role-based access control (RBAC)
   - MicroProfile JWT standard
   - Integration with external identity providers
+
+- **Location Polling**: Quarkus REST Client + Quartz
+  - MicroProfile REST Client for external API calls
+  - Quartz scheduler for periodic polling
+  - Configurable polling intervals per endpoint
+  - CDI events for internal event distribution
+  - Automatic retry and error handling
+  - Location data storage in PostgreSQL
 
 #### Infrastructure
 - **Database**: PostgreSQL
@@ -542,6 +428,34 @@ CREATE TABLE admin_alert_config (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
+-- API Endpoint Configuration (for location polling)
+CREATE TABLE api_endpoint_config (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name VARCHAR(255) NOT NULL,
+  endpoint_url TEXT NOT NULL,
+  polling_frequency_seconds INTEGER NOT NULL DEFAULT 60,
+  is_active BOOLEAN DEFAULT TRUE,
+  last_poll_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Location Data (polled from external API)
+CREATE TABLE location_data (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
+  latitude DECIMAL(10, 8) NOT NULL,
+  longitude DECIMAL(11, 8) NOT NULL,
+  altitude DECIMAL(8, 2),
+  speed DECIMAL(5, 2),
+  heading DECIMAL(5, 2),
+  accuracy DECIMAL(8, 2),
+  timestamp TIMESTAMP NOT NULL,
+  api_endpoint_id UUID REFERENCES api_endpoint_config(id),
+  raw_data JSONB,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
 -- Indexes for performance
 CREATE INDEX idx_teams_game_id ON teams(game_id);
 CREATE INDEX idx_checkpoints_game_id ON checkpoints(game_id);
@@ -550,6 +464,9 @@ CREATE INDEX idx_sent_messages_team_id ON sent_messages(team_id);
 CREATE INDEX idx_sent_messages_sent_at ON sent_messages(sent_at);
 CREATE INDEX idx_speed_records_team_id ON speed_records(team_id);
 CREATE INDEX idx_automations_game_id ON automations(game_id);
+CREATE INDEX idx_location_data_team_id ON location_data(team_id);
+CREATE INDEX idx_location_data_timestamp ON location_data(timestamp);
+CREATE INDEX idx_location_data_api_endpoint_id ON location_data(api_endpoint_id);
 ```
 
 ### Application Architecture Details
@@ -618,7 +535,9 @@ vlettenrally-app/
 │   │   │   │       │   │   ├── Checkpoint.java
 │   │   │   │       │   │   ├── Message.java
 │   │   │   │       │   │   ├── Automation.java
-│   │   │   │       │   │   └── TeamAchievement.java
+│   │   │   │       │   │   ├── TeamAchievement.java
+│   │   │   │       │   │   ├── LocationData.java
+│   │   │   │       │   │   └── ApiEndpointConfig.java
 │   │   │   │       │   └── repository/
 │   │   │   │       │       ├── GameRepository.java
 │   │   │   │       │       ├── TeamRepository.java
@@ -629,7 +548,8 @@ vlettenrally-app/
 │   │   │   │       │   ├── MessageService.java
 │   │   │   │       │   ├── AutomationService.java
 │   │   │   │       │   ├── AnalyticsService.java
-│   │   │   │       │   └── NotificationService.java
+│   │   │   │       │   ├── NotificationService.java
+│   │   │   │       │   └── LocationPollingService.java
 │   │   │   │       ├── rest/
 │   │   │   │       │   ├── GameResource.java
 │   │   │   │       │   ├── TeamResource.java
@@ -643,7 +563,8 @@ vlettenrally-app/
 │   │   │   │       ├── scheduler/
 │   │   │   │       │   ├── AutomationJob.java
 │   │   │   │       │   ├── CountdownJob.java
-│   │   │   │       │   └── AnalyticsJob.java
+│   │   │   │       │   ├── AnalyticsJob.java
+│   │   │   │       │   └── LocationPollingJob.java
 │   │   │   │       ├── dto/
 │   │   │   │       │   ├── request/
 │   │   │   │       │   └── response/
@@ -1074,6 +995,8 @@ spec:
 - Statistics and rankings
 - Rival tracking and notifications
 - Speed monitoring and alerts
+- Location data polling from external APIs
+- Event-driven notifications based on location data
 - Deploy: Docker Compose with 2-3 containers or Kubernetes
 
 **Phase 3: Enhancement (Ongoing)**
@@ -1133,7 +1056,7 @@ spec:
 
 ### Cost Estimation (Annual)
 
-**Option 1: Docker Compose on Single VPS (Recommended for Start)**
+**Deployment 1: Docker Compose on Single VPS (Recommended for Start)**
 - VPS (Hetzner CPX21): €10/month = €120/year
 - Domain name: €10/year
 - SSL: Free (Let's Encrypt)
@@ -1141,7 +1064,7 @@ spec:
 - **Total: ~€190/year (~$210 USD)**
 - **Capacity**: 500-1000 concurrent users
 
-**Option 2: Docker Compose with Managed Services**
+**Deployment 2: Docker Compose with Managed Services**
 - VPS (smaller): €7/month = €84/year
 - Managed PostgreSQL: €15/month = €180/year
 - Managed Redis: €10/month = €120/year
@@ -1150,7 +1073,7 @@ spec:
 - **Capacity**: 1000-2000 concurrent users
 - **Benefits**: Automated backups, updates, high availability
 
-**Option 3: Kubernetes Cluster (For High Scale)**
+**Deployment 3: Kubernetes Cluster (For High Scale)**
 - Managed Kubernetes (Hetzner): €30/month = €360/year
 - Managed PostgreSQL: €20/month = €240/year
 - Managed Redis: €15/month = €180/year
@@ -1160,34 +1083,15 @@ spec:
 - **Benefits**: Auto-scaling, zero-downtime updates, high availability
 
 **Cost per User:**
-- Option 1: €0.19-0.38/user/year
-- Option 2: €0.20-0.39/user/year
-- Option 3: €0.16-0.40/user/year
+- Deployment 1: €0.19-0.38/user/year
+- Deployment 2: €0.20-0.39/user/year
+- Deployment 3: €0.16-0.40/user/year
 
 **Comparison:**
 - Docker Compose: Simplest, lowest cost, manual scaling
 - Kubernetes: More complex, auto-scaling, enterprise-grade
 
-## Alternative Architectures Comparison
-
-| Criteria | Containerized Web App (Java) | Containerized Microservices | Monorepo Modular |
-|----------|------------------------------|----------------------------|------------------|
-| Development Speed | Fast | Slow | Very Fast |
-| Operational Complexity | Low-Medium | High | Low |
-| Scalability | Horizontal (Containers) | Full Horizontal | Vertical |
-| Technology | Java Quarkus | Java/Polyglot | Java Quarkus |
-| Cost (at 500 users) | ~€190/year | ~€400/year | ~€180/year |
-| Team Size Required | Small (1-2) | Medium (3-5) | Small (1-2) |
-| Time to Market | Fast | Slow | Very Fast |
-| Vendor Lock-in | None | None | None |
-| Real-time via WebSocket | Yes (Quarkus) | Yes | Yes |
-| Mobile Support | PWA | PWA | PWA |
-| Container Deployment | Yes | Yes | Optional |
-| External Cache Support | Yes | Yes | Optional |
-| Auto-scaling Ready | Yes | Yes | Limited |
-| **Recommendation** | **Best Choice** | Overkill | Good for MVP |
-
-### Why Containerized Web App with Java Quarkus (Option 1) is Recommended
+### Architecture Benefits
 
 1. **Java Quarkus Benefits**:
    - Fast startup time (~200ms JVM, ~10ms native)
@@ -1238,7 +1142,7 @@ If the application grows beyond expectations:
 
 ## Conclusion
 
-**Recommended Architecture: Containerized Web Application with Java Quarkus (Option 1)**
+**Architecture: Containerized Web Application with Java Quarkus**
 
 This architecture provides:
 1. **Java Quarkus backend** - Fast, efficient, enterprise-grade
@@ -1249,6 +1153,7 @@ This architecture provides:
 6. **Responsive web app** - PWA works on all devices without app stores
 7. **Cost-effective** - ~€190/year for 500 users, scales to €400/year for 2000+ users
 8. **Production-ready** - Battle-tested Java ecosystem with excellent tooling
+9. **Location polling** - Scheduled REST API polling for location data with event triggering
 
 The containerized Java Quarkus application is ideal for the Vlettenrally app because:
 - Container deployment enables easy horizontal scaling
@@ -1259,6 +1164,8 @@ The containerized Java Quarkus application is ideal for the Vlettenrally app bec
 - No vendor lock-in - standard Docker containers work anywhere
 - Progressive Web App provides app-like experience on all devices
 - Open-source stack ensures long-term viability and cost control
+- Quartz scheduler enables periodic location polling with configurable intervals
+- REST client support for external API integration with error handling
 
 ## Next Steps
 
@@ -1356,7 +1263,7 @@ The containerized Java Quarkus application is ideal for the Vlettenrally app bec
 
 ---
 
-*Document Version: 3.0*  
-*Last Updated: 2026-01-13*  
+*Document Version: 4.0*  
+*Last Updated: 2026-01-16*  
 *Author: Architecture Team*  
-*Updated: Java Quarkus backend with containerized deployment and external cache*
+*Updated: Added Issue #13 (Location Data Polling), removed alternative architecture options*
