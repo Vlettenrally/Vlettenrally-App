@@ -1,5 +1,7 @@
 /**
  * WebSocket Service - Handles real-time communication with the backend
+ * 
+ * Supports both team and admin connections with automatic reconnection
  */
 
 const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8080/ws';
@@ -12,17 +14,38 @@ export const WebSocketEventType = {
   RANKING_UPDATE: 'RANKING_UPDATE',
   GAME_STATUS: 'GAME_STATUS',
   ADMIN_ALERT: 'ADMIN_ALERT',
+  TEAM_CHECKIN: 'TEAM_CHECKIN',
+  TEAM_UPDATE: 'TEAM_UPDATE',
 } as const;
 
 export type WebSocketEventTypeValue = typeof WebSocketEventType[keyof typeof WebSocketEventType];
 
 export interface WebSocketMessage {
-  type: WebSocketEventTypeValue;
+  type: WebSocketEventTypeValue | string;
   payload: unknown;
   timestamp: string;
+  targetGameId?: string;
+  targetTeamId?: string;
+  adminOnly?: boolean;
 }
 
+export type ConnectionType = 'team' | 'admin';
+
+export interface TeamConnectionConfig {
+  type: 'team';
+  gameId: string;
+  teamId: string;
+}
+
+export interface AdminConnectionConfig {
+  type: 'admin';
+  gameId: string;
+}
+
+export type ConnectionConfig = TeamConnectionConfig | AdminConnectionConfig;
+
 type MessageHandler = (message: WebSocketMessage) => void;
+type ConnectionStateHandler = (connected: boolean) => void;
 
 class WebSocketService {
   private socket: WebSocket | null = null;
@@ -30,37 +53,83 @@ class WebSocketService {
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 10;
   private reconnectDelay = 1000; // Start with 1 second
-  private handlers = new Map<WebSocketEventTypeValue | 'all', Set<MessageHandler>>();
+  private messageHandlers = new Map<WebSocketEventTypeValue | string | 'all', Set<MessageHandler>>();
+  private connectionStateHandlers = new Set<ConnectionStateHandler>();
   private isIntentionallyClosed = false;
-  private gameId: string | null = null;
+  private config: ConnectionConfig | null = null;
 
-  connect(gameId: string): void {
+  /**
+   * Connect as a team member
+   */
+  connectAsTeam(gameId: string, teamId: string): void {
+    this.connect({ type: 'team', gameId, teamId });
+  }
+
+  /**
+   * Connect as an admin
+   */
+  connectAsAdmin(gameId: string): void {
+    this.connect({ type: 'admin', gameId });
+  }
+
+  /**
+   * Generic connect method
+   */
+  connect(config: ConnectionConfig): void {
     if (this.socket?.readyState === WebSocket.OPEN) {
-      console.log('WebSocket already connected');
-      return;
+      // Check if it's the same connection
+      if (this.isSameConfig(config)) {
+        console.log('WebSocket already connected with same config');
+        return;
+      }
+      // Different config, disconnect first
+      this.disconnect();
     }
 
-    this.gameId = gameId;
+    this.config = config;
     this.isIntentionallyClosed = false;
     this.createConnection();
   }
 
+  private isSameConfig(config: ConnectionConfig): boolean {
+    if (!this.config) return false;
+    if (this.config.type !== config.type) return false;
+    if (this.config.gameId !== config.gameId) return false;
+    if (config.type === 'team' && this.config.type === 'team') {
+      return this.config.teamId === config.teamId;
+    }
+    return true;
+  }
+
+  private buildUrl(): string {
+    if (!this.config) {
+      throw new Error('Connection config not set');
+    }
+
+    if (this.config.type === 'team') {
+      return `${WS_BASE_URL}/game/${this.config.gameId}/team/${this.config.teamId}`;
+    } else {
+      return `${WS_BASE_URL}/game/${this.config.gameId}/admin`;
+    }
+  }
+
   private createConnection(): void {
-    if (!this.gameId) {
-      console.error('Cannot connect: gameId not set');
+    if (!this.config) {
+      console.error('Cannot connect: config not set');
       return;
     }
 
-    const url = `${WS_BASE_URL}/game/${this.gameId}`;
+    const url = this.buildUrl();
     console.log('Connecting to WebSocket:', url);
 
     try {
       this.socket = new WebSocket(url);
 
       this.socket.onopen = () => {
-        console.log('WebSocket connected');
+        console.log('WebSocket connected as', this.config?.type);
         this.reconnectAttempts = 0;
         this.reconnectDelay = 1000;
+        this.notifyConnectionState(true);
       };
 
       this.socket.onmessage = (event) => {
@@ -79,6 +148,7 @@ class WebSocketService {
       this.socket.onclose = () => {
         console.log('WebSocket disconnected');
         this.socket = null;
+        this.notifyConnectionState(false);
 
         if (!this.isIntentionallyClosed) {
           this.scheduleReconnect();
@@ -112,34 +182,57 @@ class WebSocketService {
 
   private handleMessage(message: WebSocketMessage): void {
     // Call handlers for specific message type
-    const typeHandlers = this.handlers.get(message.type);
+    const typeHandlers = this.messageHandlers.get(message.type);
     if (typeHandlers) {
       typeHandlers.forEach((handler) => handler(message));
     }
 
     // Call handlers for all messages
-    const allHandlers = this.handlers.get('all');
+    const allHandlers = this.messageHandlers.get('all');
     if (allHandlers) {
       allHandlers.forEach((handler) => handler(message));
     }
   }
 
-  on(type: WebSocketEventTypeValue | 'all', handler: MessageHandler): () => void {
-    if (!this.handlers.has(type)) {
-      this.handlers.set(type, new Set());
+  private notifyConnectionState(connected: boolean): void {
+    this.connectionStateHandlers.forEach((handler) => handler(connected));
+  }
+
+  /**
+   * Subscribe to messages of a specific type
+   */
+  on(type: WebSocketEventTypeValue | string | 'all', handler: MessageHandler): () => void {
+    if (!this.messageHandlers.has(type)) {
+      this.messageHandlers.set(type, new Set());
     }
-    this.handlers.get(type)!.add(handler);
+    this.messageHandlers.get(type)!.add(handler);
 
     // Return unsubscribe function
     return () => {
-      this.handlers.get(type)?.delete(handler);
+      this.messageHandlers.get(type)?.delete(handler);
     };
   }
 
-  off(type: WebSocketEventTypeValue | 'all', handler: MessageHandler): void {
-    this.handlers.get(type)?.delete(handler);
+  /**
+   * Unsubscribe from messages of a specific type
+   */
+  off(type: WebSocketEventTypeValue | string | 'all', handler: MessageHandler): void {
+    this.messageHandlers.get(type)?.delete(handler);
   }
 
+  /**
+   * Subscribe to connection state changes
+   */
+  onConnectionChange(handler: ConnectionStateHandler): () => void {
+    this.connectionStateHandlers.add(handler);
+    return () => {
+      this.connectionStateHandlers.delete(handler);
+    };
+  }
+
+  /**
+   * Send a message through the WebSocket
+   */
   send(message: unknown): void {
     if (this.socket?.readyState === WebSocket.OPEN) {
       this.socket.send(JSON.stringify(message));
@@ -148,6 +241,9 @@ class WebSocketService {
     }
   }
 
+  /**
+   * Disconnect from the WebSocket
+   */
   disconnect(): void {
     this.isIntentionallyClosed = true;
 
@@ -161,12 +257,40 @@ class WebSocketService {
       this.socket = null;
     }
 
-    this.handlers.clear();
-    this.gameId = null;
+    this.messageHandlers.clear();
+    this.connectionStateHandlers.clear();
+    this.config = null;
   }
 
+  /**
+   * Check if currently connected
+   */
   isConnected(): boolean {
     return this.socket?.readyState === WebSocket.OPEN;
+  }
+
+  /**
+   * Get the current connection type
+   */
+  getConnectionType(): ConnectionType | null {
+    return this.config?.type ?? null;
+  }
+
+  /**
+   * Get the current game ID
+   */
+  getGameId(): string | null {
+    return this.config?.gameId ?? null;
+  }
+
+  /**
+   * Get the current team ID (only for team connections)
+   */
+  getTeamId(): string | null {
+    if (this.config?.type === 'team') {
+      return this.config.teamId;
+    }
+    return null;
   }
 }
 

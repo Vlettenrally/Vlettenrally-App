@@ -11,9 +11,9 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material';
-import api from '../services/api';
-import { storage } from '../services/storage';
-import { useTeamStore, type Team } from '../store/useTeamStore';
+import api from '../../services/api';
+import { storage } from '../../services/storage';
+import { useTeamStore, type Team } from '../../store/useTeamStore';
 
 export function CheckInPage() {
   const navigate = useNavigate();

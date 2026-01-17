@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { storage } from '../services/storage';
 
@@ -14,18 +14,14 @@ interface MockUser {
   gameId: string;
 }
 
-const MOCK_USERS: MockUser[] = [
-  { id: 'team-001', name: 'Team Alpha', role: 'team', gameId: 'game-001' },
-  { id: 'team-002', name: 'Team Beta', role: 'team', gameId: 'game-001' },
-  { id: 'admin-001', name: 'Admin User', role: 'admin', gameId: 'game-001' },
-];
-
 export default function DevTokenPage() {
   const navigate = useNavigate();
-  const [selectedUser, setSelectedUser] = useState<string>(MOCK_USERS[0].id);
+  const [mockUsers, setMockUsers] = useState<MockUser[]>([]);
+  const [selectedUser, setSelectedUser] = useState<string>('');
   const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingUsers, setLoadingUsers] = useState(true);
   const [saved, setSaved] = useState(false);
 
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
@@ -35,6 +31,29 @@ export default function DevTokenPage() {
   const currentStoredToken = storage.getAuthToken();
   const currentStoredGameId = storage.getGameId();
   const isCurrentlyCheckedIn = storage.isCheckedIn();
+
+  // Fetch available mock users on mount
+  useEffect(() => {
+    const fetchMockUsers = async () => {
+      try {
+        const response = await fetch(`${apiUrl}/auth/mock-users`);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        const users: MockUser[] = await response.json();
+        setMockUsers(users);
+        if (users.length > 0) {
+          setSelectedUser(users[0].id);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch mock users');
+      } finally {
+        setLoadingUsers(false);
+      }
+    };
+
+    fetchMockUsers();
+  }, [apiUrl]);
 
   const fetchToken = async () => {
     setLoading(true);
@@ -67,7 +86,7 @@ export default function DevTokenPage() {
   const saveToStorage = () => {
     if (!token) return;
 
-    const user = MOCK_USERS.find((u) => u.id === selectedUser);
+    const user = mockUsers.find((u) => u.id === selectedUser);
     if (!user) return;
 
     // Store using the storage service
@@ -150,27 +169,33 @@ export default function DevTokenPage() {
 
       <div style={{ marginTop: '2rem' }}>
         <h2>Select User</h2>
-        <select
-          value={selectedUser}
-          onChange={(e) => setSelectedUser(e.target.value)}
-          style={{ padding: '0.5rem', fontSize: '1rem', width: '100%' }}
-        >
-          {MOCK_USERS.map((user) => (
-            <option key={user.id} value={user.id}>
-              {user.name} ({user.role}) - {user.id}
-            </option>
-          ))}
-        </select>
+        {loadingUsers ? (
+          <p>Loading teams...</p>
+        ) : mockUsers.length === 0 ? (
+          <p style={{ color: '#c00' }}>No teams available. Make sure mock data is loaded.</p>
+        ) : (
+          <select
+            value={selectedUser}
+            onChange={(e) => setSelectedUser(e.target.value)}
+            style={{ padding: '0.5rem', fontSize: '1rem', width: '100%' }}
+          >
+            {mockUsers.map((user) => (
+              <option key={user.id} value={user.id}>
+                {user.name} ({user.role}) - {user.id}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
         <button
           onClick={fetchToken}
-          disabled={loading}
+          disabled={loading || loadingUsers || mockUsers.length === 0}
           style={{
             padding: '0.75rem 1.5rem',
             fontSize: '1rem',
-            cursor: loading ? 'not-allowed' : 'pointer',
+            cursor: loading || loadingUsers || mockUsers.length === 0 ? 'not-allowed' : 'pointer',
             background: '#007bff',
             color: 'white',
             border: 'none',
