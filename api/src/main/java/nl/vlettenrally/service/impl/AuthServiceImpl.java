@@ -1,11 +1,13 @@
 package nl.vlettenrally.service.impl;
 
+import io.smallrye.jwt.build.Jwt;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import nl.vlettenrally.domain.Team;
 import nl.vlettenrally.repository.TeamRepository;
 import nl.vlettenrally.repository.GameRepository;
 import nl.vlettenrally.service.AuthService;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.Instant;
 import java.util.*;
@@ -23,6 +25,9 @@ public class AuthServiceImpl implements AuthService {
 
     @Inject
     GameRepository gameRepository;
+
+    @ConfigProperty(name = "mp.jwt.verify.issuer", defaultValue = "vlettenrally")
+    String issuer;
 
     // In-memory storage for registration tokens
     private final Map<String, RegistrationTokenData> registrationTokens = new ConcurrentHashMap<>();
@@ -228,5 +233,16 @@ public class AuthServiceImpl implements AuthService {
         registrationTokens.entrySet().removeIf(e -> e.getValue().expiresAt < now);
         refreshTokens.entrySet().removeIf(e -> e.getValue().expiresAt < now);
         accessTokens.entrySet().removeIf(e -> e.getValue().expiresAt < now);
+    }
+
+    @Override
+    public String generateMockToken(String userId, String name, String role, Instant expiresAt) {
+        return Jwt.issuer(issuer)
+            .subject(userId)
+            .claim("name", name)
+            .claim("role", role)
+            .groups(Set.of(role))
+            .expiresAt(expiresAt)
+            .sign();
     }
 }

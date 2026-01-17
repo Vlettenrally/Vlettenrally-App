@@ -32,4 +32,9 @@ public interface TeamService {
     Team updatePoints(UUID teamId, int points);
     
     void delete(UUID id);
+
+    /**
+     * Find all rival teams for a given team
+     */
+    List<Team> findRivalTeams(UUID teamId);
 }

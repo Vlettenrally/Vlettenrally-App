@@ -6,10 +6,16 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import nl.vlettenrally.api.v1.Dto.*;
 import nl.vlettenrally.service.AuthService;
+import nl.vlettenrally.service.TeamService;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
+
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 /**
  * REST Resource for Authentication operations
@@ -18,6 +24,8 @@ import java.util.List;
  * - POST /api/v1/auth/register - Register a new team
  * - POST /api/v1/auth/token - Exchange registration token for access tokens
  * - POST /api/v1/auth/refresh - Refresh access token
+ * - POST /api/v1/auth/mock-login - Development only: get token for mock user
+ * - GET /api/v1/auth/mock-users - Development only: list available mock users
  */
 @Path("/api/v1/auth")
 @Produces(MediaType.APPLICATION_JSON)
@@ -26,6 +34,12 @@ public class AuthResource {
 
     @Inject
     AuthService authService;
+
+    @Inject
+    TeamService teamService;
+
+    @ConfigProperty(name = "vlettenrally.mock.enabled", defaultValue = "false")
+    boolean mockEnabled;
 
     /**
      * Register a new team from third party registration system
@@ -59,7 +73,7 @@ public class AuthResource {
             return Response.ok(new RegistrationTokenDto(
                 result.registrationToken(),
                 result.teamId(),
-                result.expiresAt()
+                Instant.ofEpochSecond(result.expiresAt())
             )).build();
 
         } catch (Exception e) {
@@ -130,8 +144,117 @@ public class AuthResource {
         }
     }
 
+    /**
+     * Development only: List available mock users (teams from repository)
+     */
+    @GET
+    @Path("/mock-users")
+    public Response listMockUsers() {
+        if (!mockEnabled) {
+            return Response.status(Response.Status.NOT_FOUND)
+                .entity(new AuthenticationErrorDto("Endpoint not available"))
+                .build();
+        }
+
+        List<MockUserDto> mockUsers = teamService.findAll().stream()
+            .map(team -> new MockUserDto(
+                team.getId().toString(),
+                team.getName(),
+                "team",
+                team.getGameId() != null ? team.getGameId().toString() : null
+            ))
+            .toList();
+
+        return Response.ok(mockUsers).build();
+    }
+
+    /**
+     * Development only: Generate a token for a mock user
+     * This endpoint should only be enabled when mocks are active
+     */
+    @POST
+    @Path("/mock-login")
+    public Response mockLogin(MockLoginRequestDto request) {
+        // Only allow in mock mode
+        if (!mockEnabled) {
+            return Response.status(Response.Status.NOT_FOUND)
+                .entity(new AuthenticationErrorDto("Endpoint not available"))
+                .build();
+        }
+
+        try {
+            if (request.userId == null || request.userId.isBlank()) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new AuthenticationErrorDto("userId is required"))
+                    .build();
+            }
+
+            UUID teamId;
+            try {
+                teamId = UUID.fromString(request.userId);
+            } catch (IllegalArgumentException e) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new AuthenticationErrorDto("Invalid userId format, expected UUID: " + request.userId))
+                    .build();
+            }
+
+            return teamService.findById(teamId)
+                .map(team -> {
+                    Instant expiresAt = Instant.now().plus(24, ChronoUnit.HOURS);
+                                      
+                    String token = authService.generateMockToken(
+                        request.userId,
+                        team.getName(),
+                        "team",
+                        expiresAt
+                    );
+
+                    return Response.ok(new MockLoginResponseDto(token, expiresAt.toString())).build();
+                })
+                .orElse(Response.status(Response.Status.NOT_FOUND)
+                    .entity(new AuthenticationErrorDto("Team not found: " + request.userId))
+                    .build());
+
+        } catch (Exception e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                .entity(new AuthenticationErrorDto("Mock login failed: " + e.getMessage()))
+                .build();
+        }
+    }
+
     // DTO for refresh token request
     public static class RefreshTokenRequestDto {
         public String refreshToken;
+    }
+
+    // DTO for mock login request
+    public static class MockLoginRequestDto {
+        public String userId;
+    }
+
+    // DTO for mock login response
+    public static class MockLoginResponseDto {
+        public String token;
+        public String expiresAt;
+
+        public MockLoginResponseDto(String token, String expiresAt) {
+            this.token = token;
+            this.expiresAt = expiresAt;
+        }
+    }
+
+    // DTO for mock user listing
+    public static class MockUserDto {
+        public String id;
+        public String name;
+        public String role;
+        public String gameId;
+
+        public MockUserDto(String id, String name, String role, String gameId) {
+            this.id = id;
+            this.name = name;
+            this.role = role;
+            this.gameId = gameId;
+        }
     }
 }

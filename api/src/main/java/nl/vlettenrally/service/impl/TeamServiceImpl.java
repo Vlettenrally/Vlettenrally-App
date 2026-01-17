@@ -87,4 +87,15 @@ public class TeamServiceImpl implements TeamService {
     public void delete(UUID id) {
         teamRepository.delete(id);
     }
+
+    @Override
+    public List<Team> findRivalTeams(UUID teamId) {
+        return findById(teamId)
+            .map(team -> team.getRivals().stream()
+                .map(this::findById)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .toList())
+            .orElse(List.of());
+    }
 }

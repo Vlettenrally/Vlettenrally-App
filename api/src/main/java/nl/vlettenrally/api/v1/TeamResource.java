@@ -58,14 +58,13 @@ public class TeamResource {
     }
 
     /**
-     * Get rival team for a team
+     * Get rival teams for a team
      */
     @GET
-    @Path("/teams/{teamId}/rival")
-    public Response getRivalTeam(@PathParam("teamId") UUID teamId) {
-        return teamService.findRivalTeam(teamId)
-            .map(team -> Response.ok(toDto(team)).build())
-            .orElse(Response.ok().build()); // Return empty if no rival
+    @Path("/teams/{teamId}/rivals")
+    public Response getRivalTeams(@PathParam("teamId") UUID teamId) {
+        List<Team> rivals = teamService.findRivalTeams(teamId);
+        return Response.ok(rivals.stream().map(this::toDto).toList()).build();
     }
 
     /**

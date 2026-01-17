@@ -1,11 +1,13 @@
 package nl.vlettenrally.api.v1.Dto;
 
+import java.time.Instant;
+
 public class RegistrationTokenDto {
     public String registrationToken;
     public String teamId;
-    public long expiresAt; // Unix timestamp in seconds
+    public Instant expiresAt; // Unix timestamp in seconds
     
-    public RegistrationTokenDto(String registrationToken, String teamId, long expiresAt) {
+    public RegistrationTokenDto(String registrationToken, String teamId, Instant expiresAt) {
         this.registrationToken = registrationToken;
         this.teamId = teamId;
         this.expiresAt = expiresAt;
