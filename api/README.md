@@ -1,8 +1,6 @@
-# code-with-quarkus
+# Vlettenrally API
 
-This project uses Quarkus, the Supersonic Subatomic Java Framework.
-
-If you want to learn more about Quarkus, please visit its website: <https://quarkus.io/>.
+Quarkus-based REST API for the Vlettenrally application.
 
 ## Running the application in dev mode
 
@@ -13,6 +11,35 @@ You can run your application in dev mode that enables live coding using:
 ```
 
 > **_NOTE:_**  Quarkus now ships with a Dev UI, which is available in dev mode only at <http://localhost:8080/q/dev/>.
+
+## Mock Data (Development Mode)
+
+In dev mode, the API automatically uses mock repositories with prefilled data. This allows frontend development without needing a database.
+
+### Available Mock Data
+
+| Entity | Count | Description |
+|--------|-------|-------------|
+| **Games** | 2 | 1 active rally, 1 planned summer edition |
+| **Teams** | 4 | With rivalries, points, and participants |
+| **Checkpoints** | 5 | Across Amsterdam with coordinates |
+| **Achievements** | 10 | Checkpoint completions for teams |
+| **Messages** | 9 | Various types (checkpoint, rival, achievement, rallydesk) |
+
+### Key Mock IDs
+
+Use these UUIDs for testing:
+
+- **Main Game**: `a1b2c3d4-e5f6-7890-abcd-ef1234567890`
+- **Team "De Watervlooien"**: `11111111-1111-1111-1111-111111111111` (main player team, 350 points)
+- **Team "Windkracht Tien"**: `22222222-2222-2222-2222-222222222222` (rival team, 300 points)
+- **Device ID**: `aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa`
+
+### Running with Mock Profile Explicitly
+
+```shell script
+./mvnw quarkus:dev -Dquarkus.profile=mock
+```
 
 ## Packaging and running the application
 

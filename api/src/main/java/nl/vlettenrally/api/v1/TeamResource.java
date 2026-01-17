@@ -1,144 +1,190 @@
 package nl.vlettenrally.api.v1;
 
-import java.util.List;
-import java.util.UUID;
-
-import jakarta.annotation.Resource;
-import jakarta.ws.rs.Consumes;
-import jakarta.ws.rs.GET;
-import jakarta.ws.rs.HeaderParam;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.PathParam;
-import jakarta.ws.rs.Produces;
+import jakarta.inject.Inject;
+import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import nl.vlettenrally.api.v1.Dto.GameDto;
-import nl.vlettenrally.api.v1.Dto.TeamDto;
+import nl.vlettenrally.domain.Team;
+import nl.vlettenrally.service.AuthService;
+import nl.vlettenrally.service.TeamService;
 
-@Resource
-@Path("team")
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+/**
+ * REST Resource for Team operations
+ * 
+ * Endpoints:
+ * - GET /api/v1/teams - Get all teams
+ * - GET /api/v1/teams/{teamId} - Get team by ID
+ * - GET /api/v1/teams/{teamId}/rival - Get rival team
+ * - GET /api/v1/team/me - Get current authenticated team
+ * - POST /api/v1/teams/{teamId}/check-in - Check in a team
+ * - PUT /api/v1/teams/{teamId}/emergency-phones - Update emergency phone numbers
+ */
+@Path("/api/v1")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class TeamResource {
-    
-    private List<TeamDto> teams;
 
-    public TeamResource() {
-        GameDto game = new GameDto(
-            "Vletten Rally 2026",
-            "Annual Vletten boat rally event.",
-            "2026-02-01T10:00:00Z",
-            "2026-02-01T18:00:00Z"
-        );
+    @Inject
+    TeamService teamService;
 
-        TeamDto team1 = new TeamDto(
-            game,
-            "Vletten Masters",
-            "Veteran team with years of experience.",
-            "VL-01",
-            "Blue",
-            List.of("Alice", "Bob", "Eve"),
-            UUID.randomUUID(),
-            true,
-            120,
-            List.of(),
-            "Prefers early start.",
-            "2026-01-10T09:00:00Z",
-            "2026-01-15T12:00:00Z"
-        );
+    @Inject
+    AuthService authService;
 
-        TeamDto team2 = new TeamDto(
-            game,
-            "Speedy Scouts",
-            "Young and energetic team.",
-            "VL-02",
-            "Red",
-            List.of("Charlie", "David"),
-            UUID.randomUUID(),
-            false,
-            95,
-            List.of(team1.id()),
-            "Needs assistance with check-in.",
-            "2026-01-11T10:00:00Z",
-            "2026-01-15T12:30:00Z"
-        );
-        teams = List.of(team1, team2);
+    /**
+     * Get all teams
+     */
+    @GET
+    @Path("/teams")
+    public Response getAllTeams() {
+        List<Team> teams = teamService.findAll();
+        return Response.ok(teams.stream().map(this::toDto).toList()).build();
     }
 
+    /**
+     * Get team by ID
+     */
     @GET
-    @Produces(MediaType.APPLICATION_JSON)
-    public List<TeamDto> GetAllTeams()
-    {
-        return teams;
+    @Path("/teams/{teamId}")
+    public Response getTeamById(@PathParam("teamId") UUID teamId) {
+        return teamService.findById(teamId)
+            .map(team -> Response.ok(toDto(team)).build())
+            .orElse(Response.status(Response.Status.NOT_FOUND)
+                .entity(new ErrorResponse("Team not found"))
+                .build());
     }
-    
+
+    /**
+     * Get rival team for a team
+     */
     @GET
-    @Path("{teamId}")
-    @Produces(MediaType.APPLICATION_JSON)
-    public TeamDto GetTeamById(@PathParam("teamId") UUID teamId)
-    {
-        return teams.stream().filter(team -> team.id().equals(teamId)).findFirst().orElse(null);
+    @Path("/teams/{teamId}/rival")
+    public Response getRivalTeam(@PathParam("teamId") UUID teamId) {
+        return teamService.findRivalTeam(teamId)
+            .map(team -> Response.ok(toDto(team)).build())
+            .orElse(Response.ok().build()); // Return empty if no rival
     }
 
     /**
      * Get current authenticated team's data
      * Requires authentication via access token
-     * 
-     * GET /api/v1/team/me
      */
     @GET
-    @Path("/me")
-    @Produces(MediaType.APPLICATION_JSON)
+    @Path("/team/me")
     public Response getMyTeam(@HeaderParam("Authorization") String authHeader) {
+        String token = extractToken(authHeader);
+
+        if (token == null) {
+            return Response.status(Response.Status.UNAUTHORIZED)
+                .entity(new ErrorResponse("Missing or invalid authorization token"))
+                .build();
+        }
+
+        Optional<UUID> teamIdOpt = authService.validateAccessToken(token);
+
+        if (teamIdOpt.isEmpty()) {
+            return Response.status(Response.Status.UNAUTHORIZED)
+                .entity(new ErrorResponse("Invalid or expired access token"))
+                .build();
+        }
+
+        return teamService.findById(teamIdOpt.get())
+            .map(team -> Response.ok(toDto(team)).build())
+            .orElse(Response.status(Response.Status.NOT_FOUND)
+                .entity(new ErrorResponse("Team not found"))
+                .build());
+    }
+
+    /**
+     * Check in a team
+     */
+    @POST
+    @Path("/teams/{teamId}/check-in")
+    public Response checkInTeam(
+            @PathParam("teamId") UUID teamId,
+            @HeaderParam("Authorization") String authHeader) {
+        
+        String token = extractToken(authHeader);
+        if (token == null) {
+            return Response.status(Response.Status.UNAUTHORIZED)
+                .entity(new ErrorResponse("Missing or invalid authorization token"))
+                .build();
+        }
+
+        Optional<UUID> authTeamId = authService.validateAccessToken(token);
+        if (authTeamId.isEmpty()) {
+            return Response.status(Response.Status.UNAUTHORIZED)
+                .entity(new ErrorResponse("Invalid or expired access token"))
+                .build();
+        }
+
+        // Verify the authenticated team matches the requested team
+        if (!authTeamId.get().equals(teamId)) {
+            return Response.status(Response.Status.FORBIDDEN)
+                .entity(new ErrorResponse("Cannot check in another team"))
+                .build();
+        }
+
         try {
-            // Extract token from Authorization header
-            String token = extractToken(authHeader);
-            
-            if (token == null) {
-                return Response.status(Response.Status.UNAUTHORIZED)
-                    .entity("{\"message\": \"Missing or invalid authorization token\"}")
+            Team team = teamService.checkIn(teamId);
+            return Response.ok(toDto(team)).build();
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.NOT_FOUND)
+                .entity(new ErrorResponse(e.getMessage()))
+                .build();
+        }
+    }
+
+    /**
+     * Update emergency phone numbers for a team
+     */
+    @PUT
+    @Path("/teams/{teamId}/emergency-phones")
+    public Response updateEmergencyPhoneNumbers(
+            @PathParam("teamId") UUID teamId,
+            @HeaderParam("Authorization") String authHeader,
+            EmergencyPhoneUpdateRequest request) {
+        
+        String token = extractToken(authHeader);
+        if (token == null) {
+            return Response.status(Response.Status.UNAUTHORIZED)
+                .entity(new ErrorResponse("Missing or invalid authorization token"))
+                .build();
+        }
+
+        Optional<UUID> authTeamId = authService.validateAccessToken(token);
+        if (authTeamId.isEmpty()) {
+            return Response.status(Response.Status.UNAUTHORIZED)
+                .entity(new ErrorResponse("Invalid or expired access token"))
+                .build();
+        }
+
+        // Verify the authenticated team matches the requested team
+        if (!authTeamId.get().equals(teamId)) {
+            return Response.status(Response.Status.FORBIDDEN)
+                .entity(new ErrorResponse("Cannot update another team's phone numbers"))
+                .build();
+        }
+
+        try {
+            Optional<Team> teamOpt = teamService.findById(teamId);
+            if (teamOpt.isEmpty()) {
+                return Response.status(Response.Status.NOT_FOUND)
+                    .entity(new ErrorResponse("Team not found"))
                     .build();
             }
 
-            // TODO: Validate JWT token and extract team ID
-            String teamId = validateAccessToken(token);
+            Team team = teamOpt.get();
+            team.setEmergencyPhoneNumbers(request.phoneNumbers());
+            Team updatedTeam = teamService.save(team);
             
-            if (teamId == null) {
-                return Response.status(Response.Status.UNAUTHORIZED)
-                    .entity("{\"message\": \"Invalid or expired access token\"}")
-                    .build();
-            }
-
-            // TODO: Fetch team from database
-            // For now, return mock data
-            GameDto game = new GameDto(
-                "Vletten Rally 2026",
-                "Annual Vletten boat rally event.",
-                "2026-02-01T10:00:00Z",
-                "2026-02-01T18:00:00Z"
-            );
-
-            TeamDto team = new TeamDto(
-                game,
-                "Scouting Nederland",
-                "Team from Scouting Nederland",
-                "42",
-                "blue",
-                List.of("Jan", "Piet", "Klaas"),
-                null,
-                true,
-                0,
-                List.of(),
-                null,
-                "2026-01-16T10:00:00Z",
-                "2026-01-16T10:00:00Z"
-            );
-
-            return Response.ok(team).build();
-            
-        } catch (Exception e) {
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                .entity("{\"message\": \"Failed to fetch team data\"}")
+            return Response.ok(toDto(updatedTeam)).build();
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse(e.getMessage()))
                 .build();
         }
     }
@@ -152,15 +198,46 @@ public class TeamResource {
         return null;
     }
 
-    private String validateAccessToken(String token) {
-        // TODO: Implement JWT validation using SmallRye JWT
-        // For now, extract teamId from mock token
-        if (token != null && token.startsWith("access_")) {
-            String[] parts = token.split("_");
-            if (parts.length >= 2) {
-                return parts[1]; // Return teamId
-            }
-        }
-        return null;
+    private TeamDto toDto(Team team) {
+        return new TeamDto(
+            team.getId(),
+            team.getGameId(),
+            team.getName(),
+            team.getDescription(),
+            team.getBoatNumber(),
+            team.getColor(),
+            team.getParticipants(),
+            team.getDeviceId(),
+            team.isCheckedIn(),
+            team.getPoints(),
+            team.getRivals(),
+            team.getNotes(),
+            team.getEmergencyPhoneNumbers(),
+            team.getCreatedAt() != null ? team.getCreatedAt().toString() : null,
+            team.getUpdatedAt() != null ? team.getUpdatedAt().toString() : null
+        );
     }
+
+    // DTOs
+    public record TeamDto(
+        UUID id,
+        UUID game,
+        String name,
+        String description,
+        String boatNumber,
+        String color,
+        List<String> participants,
+        UUID deviceId,
+        boolean checkedIn,
+        int points,
+        List<UUID> rivals,
+        String notes,
+        List<String> emergencyPhoneNumbers,
+        String createdAt,
+        String updatedAt
+    ) {}
+
+    public record ErrorResponse(String message) {}
+
+    public record EmergencyPhoneUpdateRequest(List<String> phoneNumbers) {}
 }

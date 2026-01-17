@@ -16,10 +16,11 @@ public record TeamDto (
     int points,
     List<UUID> rivals,
     String notes,
+    List<String> emergencyPhoneNumbers,
     String createdAt,
     String updatedAt
 ) {
-    public TeamDto(GameDto game, String name, String description, String boatNumber, String color, List<String> participants, UUID deviceId, boolean checkedIn, int points, List<UUID> rivals, String notes, String createdAt, String updatedAt) {
+    public TeamDto(GameDto game, String name, String description, String boatNumber, String color, List<String> participants, UUID deviceId, boolean checkedIn, int points, List<UUID> rivals, String notes, List<String> emergencyPhoneNumbers, String createdAt, String updatedAt) {
         this(
             UUID.randomUUID(),
             game.id(),
@@ -33,6 +34,7 @@ public record TeamDto (
             points,
             rivals,
             notes,
+            emergencyPhoneNumbers,
             createdAt,
             updatedAt
         );
