@@ -19,6 +19,15 @@ public class MockRepositoryConfig {
     @Produces
     @ApplicationScoped
     @IfBuildProfile(anyOf = {"dev", "mock"})
+    public AdminRepository adminRepository() {
+        MockAdminRepository repo = new MockAdminRepository();
+        repo.initializeData();
+        return repo;
+    }
+
+    @Produces
+    @ApplicationScoped
+    @IfBuildProfile(anyOf = {"dev", "mock"})
     public GameRepository gameRepository() {
         MockGameRepository repo = new MockGameRepository();
         repo.initializeData();

@@ -2,6 +2,8 @@
  * Storage Service - Handles local storage operations
  */
 
+import type { UserRole } from './auth';
+
 const STORAGE_KEYS = {
   AUTH_TOKEN: 'auth_token',
   REFRESH_TOKEN: 'refresh_token',
@@ -10,6 +12,8 @@ const STORAGE_KEYS = {
   TEAM_DATA: 'team_data',
   MESSAGES: 'messages',
   PREFERENCES: 'preferences',
+  USER_ROLE: 'user_role',
+  ADMIN_SELECTED_GAME: 'admin_selected_game',
 } as const;
 
 class StorageService {
@@ -145,6 +149,37 @@ class StorageService {
     return !!(this.getTeamId() && this.getGameId());
   }
 
+  // User role
+  getUserRole(): UserRole | null {
+    return this.getItem<UserRole>(STORAGE_KEYS.USER_ROLE);
+  }
+
+  setUserRole(role: UserRole): void {
+    this.setItem(STORAGE_KEYS.USER_ROLE, role);
+  }
+
+  removeUserRole(): void {
+    this.removeItem(STORAGE_KEYS.USER_ROLE);
+  }
+
+  // Check if current user is an admin
+  isAdmin(): boolean {
+    return this.getUserRole() === 'admin';
+  }
+
+  // Admin's selected game (admins can switch between games)
+  getAdminSelectedGame(): string | null {
+    return this.getItem<string>(STORAGE_KEYS.ADMIN_SELECTED_GAME);
+  }
+
+  setAdminSelectedGame(gameId: string): void {
+    this.setItem(STORAGE_KEYS.ADMIN_SELECTED_GAME, gameId);
+  }
+
+  removeAdminSelectedGame(): void {
+    this.removeItem(STORAGE_KEYS.ADMIN_SELECTED_GAME);
+  }
+
   // Clear all session data (logout)
   clearSession(): void {
     this.removeAuthToken();
@@ -152,6 +187,8 @@ class StorageService {
     this.removeTeamId();
     this.removeGameId();
     this.removeTeamData();
+    this.removeUserRole();
+    this.removeAdminSelectedGame();
   }
 }
 

@@ -31,7 +31,7 @@ export function DashboardPage() {
   const { unreadCount } = useMessageStore();
   const gameId = storage.getGameId();
   
-  useRealtime(gameId, team?.id);
+  useRealtime({ gameId, teamId: team?.id || null });
 
   const [countdown, setCountdown] = useState(0);
 

@@ -4,3 +4,4 @@ export { default as Teams } from './Teams';
 export { default as AdminMessages } from './Messages';
 export { default as Automations } from './Automations';
 export { default as Analytics } from './Analytics';
+export { default as AdminLogin } from './AdminLogin';

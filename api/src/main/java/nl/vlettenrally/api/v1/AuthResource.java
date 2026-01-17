@@ -5,8 +5,11 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import nl.vlettenrally.api.v1.Dto.*;
+import nl.vlettenrally.repository.AdminRepository;
 import nl.vlettenrally.service.AuthService;
 import nl.vlettenrally.service.TeamService;
+
+import io.quarkus.elytron.security.common.BcryptUtil;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -24,6 +27,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
  * - POST /api/v1/auth/register - Register a new team
  * - POST /api/v1/auth/token - Exchange registration token for access tokens
  * - POST /api/v1/auth/refresh - Refresh access token
+ * - POST /api/v1/auth/admin/login - Admin login with username/password
  * - POST /api/v1/auth/mock-login - Development only: get token for mock user
  * - GET /api/v1/auth/mock-users - Development only: list available mock users
  */
@@ -37,6 +41,9 @@ public class AuthResource {
 
     @Inject
     TeamService teamService;
+
+    @Inject
+    AdminRepository adminRepository;
 
     @ConfigProperty(name = "vlettenrally.mock.enabled", defaultValue = "false")
     boolean mockEnabled;
@@ -140,6 +147,56 @@ public class AuthResource {
         } catch (Exception e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                 .entity(new AuthenticationErrorDto("Token refresh failed: " + e.getMessage()))
+                .build();
+        }
+    }
+
+    /**
+     * Admin login with username and password
+     * Returns a JWT token with role "admin"
+     */
+    @POST
+    @Path("/admin/login")
+    public Response adminLogin(AdminLoginRequestDto request) {
+        try {
+            if (request.username == null || request.username.isBlank()) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new AuthenticationErrorDto("username is required"))
+                    .build();
+            }
+            if (request.password == null || request.password.isBlank()) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new AuthenticationErrorDto("password is required"))
+                    .build();
+            }
+
+            return adminRepository.findByUsername(request.username)
+                .filter(admin -> admin.isActive())
+                .filter(admin -> BcryptUtil.matches(request.password, admin.getPasswordHash()))
+                .map(admin -> { 
+                    Instant expiresAt = Instant.now().plus(24, ChronoUnit.HOURS);
+                    
+                    String token = authService.generateMockToken(
+                        admin.getId().toString(),
+                        admin.getUsername(),
+                        "admin",
+                        expiresAt
+                    );
+
+                    return Response.ok(new AdminLoginResponseDto(
+                        token,
+                        admin.getId().toString(),
+                        admin.getUsername(),
+                        expiresAt.toString()
+                    )).build();
+                })
+                .orElse(Response.status(Response.Status.UNAUTHORIZED)
+                    .entity(new AuthenticationErrorDto("Invalid username or password"))
+                    .build());
+
+        } catch (Exception e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                .entity(new AuthenticationErrorDto("Admin login failed: " + e.getMessage()))
                 .build();
         }
     }
@@ -255,6 +312,27 @@ public class AuthResource {
             this.name = name;
             this.role = role;
             this.gameId = gameId;
+        }
+    }
+
+    // DTO for admin login request
+    public static class AdminLoginRequestDto {
+        public String username;
+        public String password;
+    }
+
+    // DTO for admin login response
+    public static class AdminLoginResponseDto {
+        public String token;
+        public String adminId;
+        public String username;
+        public String expiresAt;
+
+        public AdminLoginResponseDto(String token, String adminId, String username, String expiresAt) {
+            this.token = token;
+            this.adminId = adminId;
+            this.username = username;
+            this.expiresAt = expiresAt;
         }
     }
 }

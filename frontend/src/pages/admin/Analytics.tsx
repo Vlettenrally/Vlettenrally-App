@@ -1,17 +1,37 @@
+import { Box, Typography, Card, CardContent, Grid } from '@mui/material';
+
 export default function Analytics() {
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-6">Analytics</h1>
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="bg-white rounded-lg shadow p-4">
-          <h2 className="font-semibold mb-2">Team Activity</h2>
-          <p className="text-gray-600">No data available</p>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <h2 className="font-semibold mb-2">Message Delivery</h2>
-          <p className="text-gray-600">No data available</p>
-        </div>
-      </div>
-    </div>
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h4" component="h1" sx={{ mb: 4, fontWeight: 'bold' }}>
+        Analytics
+      </Typography>
+      <Grid container spacing={3}>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Team Activity
+              </Typography>
+              <Typography color="text.secondary">
+                No data available
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Message Delivery
+              </Typography>
+              <Typography color="text.secondary">
+                No data available
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+    </Box>
   );
 }

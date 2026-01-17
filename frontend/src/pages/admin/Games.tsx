@@ -1,15 +1,24 @@
+import { Box, Typography, Button, Card, CardContent } from '@mui/material';
+import { Add as AddIcon } from '@mui/icons-material';
+
 export default function Games() {
   return (
-    <div className="container mx-auto p-4">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Games</h1>
-        <button className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+    <Box sx={{ p: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+        <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold' }}>
+          Games
+        </Typography>
+        <Button variant="contained" startIcon={<AddIcon />}>
           Create Game
-        </button>
-      </div>
-      <div className="bg-white rounded-lg shadow">
-        <p className="p-4 text-gray-600">No games created yet</p>
-      </div>
-    </div>
+        </Button>
+      </Box>
+      <Card>
+        <CardContent>
+          <Typography color="text.secondary">
+            No games created yet
+          </Typography>
+        </CardContent>
+      </Card>
+    </Box>
   );
 }
