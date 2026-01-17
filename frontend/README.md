@@ -1,4 +1,54 @@
-# React + TypeScript + Vite
+# Player App - Vlettenrally
+
+React + TypeScript + Vite application for rally participants.
+
+## Development
+
+### Quick Start
+
+```bash
+npm install
+npm run dev
+```
+
+### Mock Mode (Recommended for Frontend Development)
+
+The app supports a **mock mode** that provides pre-filled data without needing the backend running. This is ideal for frontend development and testing.
+
+**Enable mock mode** by creating a `.env` file:
+
+```bash
+cp .env.example .env
+# or simply:
+echo "VITE_USE_MOCKS=true" > .env
+```
+
+Or run with mock mode directly:
+
+```bash
+VITE_USE_MOCKS=true npm run dev
+```
+
+### Mock Data Includes
+
+- **Team**: "De Watervlooien" (Boot 42) with 350 points
+- **Rival Team**: "Windkracht Tien" (Boot 17)
+- **Game**: Active rally "Vlettenrally 2026"
+- **Checkpoints**: 5 checkpoints across Amsterdam
+- **Messages**: Various message types (checkpoint, rival, achievement, rallydesk)
+- **Achievements**: 4 completed checkpoints
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `VITE_USE_MOCKS` | Enable mock data mode | `false` |
+| `VITE_API_URL` | Backend API URL | `http://localhost:8080/api/v1` |
+| `VITE_WS_URL` | WebSocket URL | `ws://localhost:8080/ws` |
+
+---
+
+## Original Vite Template Info
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 

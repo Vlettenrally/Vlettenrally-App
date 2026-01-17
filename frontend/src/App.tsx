@@ -10,6 +10,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { MessagesPage } from './pages/MessagesPage';
 import { AppLayout } from './components/AppLayout';
 import { storage } from './services/storage';
+import DevTokenPage from './pages/DevTokenPage';
 
 const theme = createTheme({
   palette: {
@@ -76,6 +77,7 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/dev/tokens" element={<DevTokenPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

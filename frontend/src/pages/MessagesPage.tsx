@@ -23,9 +23,11 @@ import {
   CompareArrows as RivalIcon,
 } from '@mui/icons-material';
 import { useMessageStore } from '../store/useMessageStore';
-import { api } from '../services/api';
+import api from '../services/api';
 import { storage } from '../services/storage';
 import { formatRelativeTime } from '../utils/dateTime';
+
+import type { Message } from '../store/useMessageStore';
 
 const getMessageIcon = (type: string) => {
   switch (type) {
@@ -54,7 +56,7 @@ export function MessagesPage() {
     const loadMessages = async () => {
       const response = await api.getMessages(teamId);
       if (response.data) {
-        setMessages(response.data as Array<any>);
+        setMessages(response.data as Message[]);
       }
     };
 

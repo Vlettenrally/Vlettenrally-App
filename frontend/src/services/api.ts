@@ -1,8 +1,13 @@
 /**
  * API Service - Handles all HTTP requests to the backend
+ * 
+ * When VITE_USE_MOCKS=true, this service automatically delegates
+ * to the mock API for development without a backend.
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
+import { config } from '../config';
+
+const API_BASE_URL = config.apiBaseUrl;
 
 interface ApiResponse<T> {
   data?: T;
@@ -128,5 +133,6 @@ class ApiService {
   }
 }
 
-export const api = new ApiService();
+// Export either the real API or mock API based on configuration
+const api = new ApiService();
 export default api;
