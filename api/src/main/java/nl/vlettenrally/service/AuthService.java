@@ -12,7 +12,7 @@ public interface AuthService {
 
     // Record types for results
     record RegistrationResult(String registrationToken, String teamId, long expiresAt) {}
-    record TokenResult(String accessToken, String refreshToken, long expiresIn, String teamId, String gameId) {}
+    record TokenResult(String accessToken, String refreshToken, long expiresIn, String subject, String name, String role) {}
 
     /**
      * Register a new team and return a one-time registration token

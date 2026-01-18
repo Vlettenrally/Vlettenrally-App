@@ -6,6 +6,7 @@
  */
 
 import { config } from '../config';
+import storage from './storage';
 
 const API_BASE_URL = config.apiBaseUrl;
 
@@ -20,7 +21,7 @@ class ApiService {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
-    const token = localStorage.getItem('auth_token');
+    const token = storage.getAuthToken();
     
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
@@ -105,6 +106,10 @@ class ApiService {
   }
 
   // Game endpoints
+async getGames() {
+    return this.get('/games');
+  }
+  
   async getGame(gameId: string) {
     return this.get(`/games/${gameId}`);
   }

@@ -39,40 +39,46 @@ public class AuthServiceImpl implements AuthService {
     private final Map<String, AccessTokenData> accessTokens = new ConcurrentHashMap<>();
 
     private static class RegistrationTokenData {
-        final String teamId;
-        final String gameId;
+        final String subject;
+        final String name;
+        final String role;
         final long expiresAt;
         boolean used;
 
-        RegistrationTokenData(String teamId, String gameId, long expiresAt) {
-            this.teamId = teamId;
-            this.gameId = gameId;
+        RegistrationTokenData(String subject, String name, String role, long expiresAt) {
+            this.subject = subject;
+            this.name = name;
+            this.role = role;
             this.expiresAt = expiresAt;
             this.used = false;
         }
     }
 
     private static class RefreshTokenData {
-        final UUID teamId;
-        final UUID gameId;
+        final String subject;
+        final String name;
+        final String role;
         final long expiresAt;
 
-        RefreshTokenData(UUID teamId, UUID gameId, long expiresAt) {
-            this.teamId = teamId;
-            this.gameId = gameId;
+        RefreshTokenData(String subject, String name, String role, long expiresAt) {
+            this.subject = subject;
+            this.name = name;
+            this.role = role;
             this.expiresAt = expiresAt;
         }
     }
 
     @SuppressWarnings("unused") // gameId stored for future audit/logging purposes
     private static class AccessTokenData {
-        final UUID teamId;
-        final UUID gameId;
-        final long expiresAt;
+        String subject = null;
+        String name = null;
+        String role = null;
+        long expiresAt;
 
-        AccessTokenData(UUID teamId, UUID gameId, long expiresAt) {
-            this.teamId = teamId;
-            this.gameId = gameId;
+        AccessTokenData(String subject, String name, String role, long expiresAt) {
+            this.subject = subject;
+            this.name = name;
+            this.role = role;
             this.expiresAt = expiresAt;
         }
     }
@@ -104,7 +110,7 @@ public class AuthServiceImpl implements AuthService {
         long expiresAt = Instant.now().plusSeconds(900).getEpochSecond();
 
         registrationTokens.put(registrationToken, 
-            new RegistrationTokenData(savedTeam.getId().toString(), gameId, expiresAt));
+            new RegistrationTokenData(savedTeam.getId().toString(), team.getName(), "team", expiresAt));
 
         cleanupExpiredTokens();
 
@@ -131,12 +137,12 @@ public class AuthServiceImpl implements AuthService {
         // Mark as used
         tokenData.used = true;
 
-        UUID teamId = UUID.fromString(tokenData.teamId);
-        UUID gameId = UUID.fromString(tokenData.gameId);
+        UUID teamId = UUID.fromString(tokenData.subject);
+        UUID gameId = UUID.fromString(tokenData.subject); // Placeholder, adjust as needed
 
         // Generate tokens
-        String accessToken = generateAccessToken(teamId, gameId);
-        String refreshToken = generateRefreshToken(teamId, gameId);
+        String accessToken = generateMockToken(tokenData.subject, tokenData.name, tokenData.role, Instant.now().plusSeconds(3600));
+        String refreshToken = generateMockToken(tokenData.subject, tokenData.name, tokenData.role, Instant.now().plusSeconds(86400));
 
         // Remove used registration token
         registrationTokens.remove(registrationToken);
@@ -145,8 +151,10 @@ public class AuthServiceImpl implements AuthService {
             accessToken,
             refreshToken,
             3600, // 1 hour
-            tokenData.teamId,
-            tokenData.gameId
+            tokenData.subject,
+            tokenData.name,
+            tokenData.role
+   
         ));
     }
 
@@ -164,14 +172,15 @@ public class AuthServiceImpl implements AuthService {
         }
 
         // Generate new access token
-        String newAccessToken = generateAccessToken(tokenData.teamId, tokenData.gameId);
+        String newAccessToken = generateMockToken(tokenData.subject, tokenData.name, tokenData.role, Instant.now().plusSeconds(3600));
 
         return Optional.of(new TokenResult(
             newAccessToken,
             refreshToken,
             3600,
-            tokenData.teamId.toString(),
-            tokenData.gameId.toString()
+            tokenData.subject,
+            tokenData.name,
+            tokenData.role
         ));
     }
 
@@ -188,19 +197,7 @@ public class AuthServiceImpl implements AuthService {
                 accessTokens.remove(accessToken);
                 return Optional.empty();
             }
-            return Optional.of(tokenData.teamId);
-        }
-
-        // Fallback: parse mock token format (access_teamId_timestamp)
-        if (accessToken.startsWith("access_")) {
-            String[] parts = accessToken.split("_");
-            if (parts.length >= 2) {
-                try {
-                    return Optional.of(UUID.fromString(parts[1]));
-                } catch (IllegalArgumentException e) {
-                    // Not a valid UUID
-                }
-            }
+            return Optional.of(UUID.fromString(tokenData.subject));
         }
 
         return Optional.empty();
@@ -209,23 +206,8 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public void revokeTokens(UUID teamId) {
         // Remove all tokens for the team
-        accessTokens.entrySet().removeIf(e -> e.getValue().teamId.equals(teamId));
-        refreshTokens.entrySet().removeIf(e -> e.getValue().teamId.equals(teamId));
-    }
-
-    private String generateAccessToken(UUID teamId, UUID gameId) {
-        // In production, use JWT. For now, use a simple format.
-        String token = "access_" + teamId + "_" + System.currentTimeMillis();
-        long expiresAt = Instant.now().plusSeconds(3600).getEpochSecond(); // 1 hour
-        accessTokens.put(token, new AccessTokenData(teamId, gameId, expiresAt));
-        return token;
-    }
-
-    private String generateRefreshToken(UUID teamId, UUID gameId) {
-        String token = "refresh_" + teamId + "_" + UUID.randomUUID();
-        long expiresAt = Instant.now().plusSeconds(604800).getEpochSecond(); // 7 days
-        refreshTokens.put(token, new RefreshTokenData(teamId, gameId, expiresAt));
-        return token;
+        accessTokens.entrySet().removeIf(e -> e.getValue().subject.equals(teamId.toString()));
+        refreshTokens.entrySet().removeIf(e -> e.getValue().subject.equals(teamId.toString()));
     }
 
     private void cleanupExpiredTokens() {

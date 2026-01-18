@@ -1,5 +1,6 @@
 package nl.vlettenrally.api.v1;
 
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -26,6 +27,7 @@ import java.util.UUID;
  * - GET /api/v1/games/{gameId}/rankings - Get team rankings for a game
  */
 @Path("/api/v1/games")
+@RolesAllowed({"admin", "team"})
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class GameResource {
@@ -86,6 +88,26 @@ public class GameResource {
 
         List<Checkpoint> checkpoints = checkpointService.findByGameId(gameId);
         return Response.ok(checkpoints.stream().map(this::toCheckpointDto).toList()).build();
+    }
+
+    /** Get teams for a game */
+    @GET
+    @Path("/{gameId}/teams")
+    public Response getTeamsForGame(@PathParam("gameId") UUID gameId) {
+        // Verify game exists
+        if (gameService.findById(gameId).isEmpty()) {
+            return Response.status(Response.Status.NOT_FOUND)
+                    .entity(new ErrorResponse("Game not found"))
+                    .build();
+        }
+        List<Team> teams = teamService.findByGameId(gameId);
+        return Response.ok(teams.stream().map(team -> new TeamResource.TeamDto(
+                team.getId(),
+                gameId, team.getName(),
+                team.getBoatNumber(),
+                null, null, null, gameId, team.isCheckedIn(),
+                team.getPoints(), null, null, null, null, null
+        )).toList()).build();
     }
 
     /**
