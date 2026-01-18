@@ -1,12 +1,12 @@
 package nl.vlettenrally.data.converter;
 
 import jakarta.enterprise.context.ApplicationScoped;
-import nl.vlettenrally.data.Dto.TeamDto;
+import nl.vlettenrally.data.dto.team.TeamResponse;
 import nl.vlettenrally.data.domain.Team;
 
 @ApplicationScoped
 public class TeamConverter {
-    public Team toDomain(TeamDto dto) {
+    public Team toDomain(TeamResponse dto) {
         if (dto == null) {
             return null;
         }
@@ -20,11 +20,11 @@ public class TeamConverter {
         return team;
     }
     
-    public TeamDto toDto(Team domain) {
+    public TeamResponse toDto(Team domain) {
         if (domain == null) {
             return null;
         }
-        return new TeamDto(
+        return new TeamResponse(
                 domain.getId(),
                 domain.getGameId(),
                 domain.getName(),

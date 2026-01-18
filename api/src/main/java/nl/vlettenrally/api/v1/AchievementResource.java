@@ -5,6 +5,10 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import nl.vlettenrally.data.domain.Achievement;
+import nl.vlettenrally.data.dto.achievement.AchievementResponse;
+import nl.vlettenrally.data.dto.achievement.ProximityDetectionRequest;
+import nl.vlettenrally.data.dto.achievement.VerificationRequest;
+import nl.vlettenrally.data.dto.common.ErrorResponse;
 import nl.vlettenrally.service.AchievementService;
 import nl.vlettenrally.service.AuthService;
 
@@ -92,7 +96,7 @@ public class AchievementResource {
             VerificationRequest request) {
         // TODO: Add game master authentication and get gameMasterId from token
         UUID gameMasterId = null; // Will come from auth later
-        String notes = request != null ? request.notes : null;
+        String notes = request != null ? request.notes() : null;
 
         return achievementService.verifyAchievement(achievementId, gameMasterId, notes)
             .map(achievement -> Response.ok(toDto(achievement)).build())
@@ -112,7 +116,7 @@ public class AchievementResource {
             VerificationRequest request) {
         // TODO: Add game master authentication and get gameMasterId from token
         UUID gameMasterId = null; // Will come from auth later
-        String notes = request != null ? request.notes : null;
+        String notes = request != null ? request.notes() : null;
 
         if (notes == null || notes.isBlank()) {
             return Response.status(Response.Status.BAD_REQUEST)
@@ -141,14 +145,14 @@ public class AchievementResource {
     public Response detectProximity(ProximityDetectionRequest request) {
         // TODO: Add internal API key or system authentication
         
-        if (request.teamId == null || request.checkpointId == null) {
+        if (request.teamId() == null || request.checkpointId() == null) {
             return Response.status(Response.Status.BAD_REQUEST)
                 .entity(new ErrorResponse("teamId and checkpointId are required"))
                 .build();
         }
 
         try {
-            return achievementService.detectProximity(request.teamId, request.checkpointId)
+            return achievementService.detectProximity(request.teamId(), request.checkpointId())
                 .map(achievement -> Response.status(Response.Status.CREATED)
                     .entity(toDto(achievement))
                     .build())
@@ -164,8 +168,8 @@ public class AchievementResource {
 
     // ==================== Helper Methods ====================
 
-    private AchievementDto toDto(Achievement achievement) {
-        return new AchievementDto(
+    private AchievementResponse toDto(Achievement achievement) {
+        return new AchievementResponse(
             achievement.getId(),
             achievement.getTeamId(),
             achievement.getCheckpointId(),
@@ -176,28 +180,4 @@ public class AchievementResource {
             achievement.getNotes()
         );
     }
-
-    // ==================== DTOs ====================
-
-    public record AchievementDto(
-        UUID id,
-        UUID teamId,
-        UUID checkpointId,
-        int pointsEarned,
-        String status,
-        String detectedAt,
-        String verifiedAt,
-        String notes
-    ) {}
-
-    public record ProximityDetectionRequest(
-        UUID teamId,
-        UUID checkpointId
-    ) {}
-
-    public record VerificationRequest(
-        String notes
-    ) {}
-
-    public record ErrorResponse(String message) {}
 }

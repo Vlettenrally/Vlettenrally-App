@@ -6,6 +6,8 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import nl.vlettenrally.data.converter.TeamConverter;
 import nl.vlettenrally.data.domain.Team;
+import nl.vlettenrally.data.dto.common.ErrorResponse;
+import nl.vlettenrally.data.dto.team.EmergencyPhoneUpdateRequest;
 import nl.vlettenrally.service.AuthService;
 import nl.vlettenrally.service.TeamService;
 
@@ -200,7 +202,4 @@ public class TeamResource {
         }
         return null;
     }
-    public record ErrorResponse(String message) {}
-
-    public record EmergencyPhoneUpdateRequest(List<String> phoneNumbers) {}
 }

@@ -4,7 +4,8 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import nl.vlettenrally.data.Dto.*;
+import nl.vlettenrally.data.dto.auth.*;
+import nl.vlettenrally.data.dto.common.ErrorResponse;
 import nl.vlettenrally.data.repository.AdminRepository;
 import nl.vlettenrally.service.AuthService;
 import nl.vlettenrally.service.TeamService;
@@ -54,30 +55,30 @@ public class AuthResource {
      */
     @POST
     @Path("/register")
-    public Response registerTeam(TeamRegistrationDto registration) {
+    public Response registerTeam(TeamRegistrationRequest registration) {
         try {
             // Validate input
-            if (registration.gameId == null || registration.boatNumber == null) {
+            if (registration.gameId() == null || registration.boatNumber() == null) {
                 return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new AuthenticationErrorDto("gameId and boatNumber are required"))
+                    .entity(new ErrorResponse("gameId and boatNumber are required"))
                     .build();
             }
 
             // Convert array to list
-            List<String> participants = registration.participantNames != null 
-                ? Arrays.asList(registration.participantNames) 
+            List<String> participants = registration.participantNames() != null 
+                ? Arrays.asList(registration.participantNames()) 
                 : Collections.emptyList();
 
             AuthService.RegistrationResult result = authService.registerTeam(
-                registration.gameId,
-                registration.boatNumber,
-                registration.scoutingGroup,
-                registration.emergencyContact,
+                registration.gameId(),
+                registration.boatNumber(),
+                registration.scoutingGroup(),
+                registration.emergencyContact(),
                 participants,
-                registration.bookingId
+                registration.bookingId()
             );
 
-            return Response.ok(new RegistrationTokenDto(
+            return Response.ok(new RegistrationTokenResponse(
                 result.registrationToken(),
                 result.teamId(),
                 Instant.ofEpochSecond(result.expiresAt())
@@ -85,7 +86,7 @@ public class AuthResource {
 
         } catch (Exception e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                .entity(new AuthenticationErrorDto("Registration failed: " + e.getMessage()))
+                .entity(new ErrorResponse("Registration failed: " + e.getMessage()))
                 .build();
         }
     }
@@ -96,27 +97,27 @@ public class AuthResource {
      */
     @POST
     @Path("/token")
-    public Response exchangeToken(TokenExchangeRequestDto request) {
+    public Response exchangeToken(TokenExchangeRequest request) {
         try {
-            if (request.registrationToken == null) {
+            if (request.registrationToken() == null) {
                 return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new AuthenticationErrorDto("registrationToken is required"))
+                    .entity(new ErrorResponse("registrationToken is required"))
                     .build();
             }
 
-            return authService.exchangeToken(request.registrationToken)
-                .map(result -> Response.ok(new TokenResponseDto(
+            return authService.exchangeToken(request.registrationToken())
+                .map(result -> Response.ok(new TokenResponse(
                     result.accessToken(),
                     result.refreshToken(),
                     result.expiresIn()
                 )).build())
                 .orElse(Response.status(Response.Status.UNAUTHORIZED)
-                    .entity(new AuthenticationErrorDto("Invalid, expired, or already used registration token"))
+                    .entity(new ErrorResponse("Invalid, expired, or already used registration token"))
                     .build());
 
         } catch (Exception e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                .entity(new AuthenticationErrorDto("Token exchange failed: " + e.getMessage()))
+                .entity(new ErrorResponse("Token exchange failed: " + e.getMessage()))
                 .build();
         }
     }
@@ -126,27 +127,27 @@ public class AuthResource {
      */
     @POST
     @Path("/refresh")
-    public Response refreshToken(RefreshTokenRequestDto request) {
+    public Response refreshToken(RefreshTokenRequest request) {
         try {
-            if (request.refreshToken == null) {
+            if (request.refreshToken() == null) {
                 return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new AuthenticationErrorDto("refreshToken is required"))
+                    .entity(new ErrorResponse("refreshToken is required"))
                     .build();
             }
 
-            return authService.refreshToken(request.refreshToken)
-                .map(result -> Response.ok(new TokenResponseDto(
+            return authService.refreshToken(request.refreshToken())
+                .map(result -> Response.ok(new TokenResponse(
                     result.accessToken(),
                     result.refreshToken(),
                     result.expiresIn()
                 )).build())
                 .orElse(Response.status(Response.Status.UNAUTHORIZED)
-                    .entity(new AuthenticationErrorDto("Invalid or expired refresh token"))
+                    .entity(new ErrorResponse("Invalid or expired refresh token"))
                     .build());
 
         } catch (Exception e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                .entity(new AuthenticationErrorDto("Token refresh failed: " + e.getMessage()))
+                .entity(new ErrorResponse("Token refresh failed: " + e.getMessage()))
                 .build();
         }
     }
@@ -157,22 +158,22 @@ public class AuthResource {
      */
     @POST
     @Path("/admin/login")
-    public Response adminLogin(AdminLoginRequestDto request) {
+    public Response adminLogin(AdminLoginRequest request) {
         try {
-            if (request.username == null || request.username.isBlank()) {
+            if (request.username() == null || request.username().isBlank()) {
                 return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new AuthenticationErrorDto("username is required"))
+                    .entity(new ErrorResponse("username is required"))
                     .build();
             }
-            if (request.password == null || request.password.isBlank()) {
+            if (request.password() == null || request.password().isBlank()) {
                 return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new AuthenticationErrorDto("password is required"))
+                    .entity(new ErrorResponse("password is required"))
                     .build();
             }
 
-            return adminRepository.findByUsername(request.username)
+            return adminRepository.findByUsername(request.username())
                 .filter(admin -> admin.isActive())
-                .filter(admin -> BcryptUtil.matches(request.password, admin.getPasswordHash()))
+                .filter(admin -> BcryptUtil.matches(request.password(), admin.getPasswordHash()))
                 .map(admin -> { 
                     Instant expiresAt = Instant.now().plus(24, ChronoUnit.HOURS);
                     
@@ -183,7 +184,7 @@ public class AuthResource {
                         expiresAt
                     );
 
-                    return Response.ok(new AdminLoginResponseDto(
+                    return Response.ok(new AdminLoginResponse(
                         token,
                         admin.getId().toString(),
                         admin.getUsername(),
@@ -191,12 +192,12 @@ public class AuthResource {
                     )).build();
                 })
                 .orElse(Response.status(Response.Status.UNAUTHORIZED)
-                    .entity(new AuthenticationErrorDto("Invalid username or password"))
+                    .entity(new ErrorResponse("Invalid username or password"))
                     .build());
 
         } catch (Exception e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                .entity(new AuthenticationErrorDto("Admin login failed: " + e.getMessage()))
+                .entity(new ErrorResponse("Admin login failed: " + e.getMessage()))
                 .build();
         }
     }
@@ -209,12 +210,12 @@ public class AuthResource {
     public Response listMockUsers() {
         if (!mockEnabled) {
             return Response.status(Response.Status.NOT_FOUND)
-                .entity(new AuthenticationErrorDto("Endpoint not available"))
+                .entity(new ErrorResponse("Endpoint not available"))
                 .build();
         }
 
-        List<MockUserDto> mockUsers = teamService.findAll().stream()
-            .map(team -> new MockUserDto(
+        List<MockUserResponse> mockUsers = teamService.findAll().stream()
+            .map(team -> new MockUserResponse(
                 team.getId().toString(),
                 team.getName(),
                 "team",
@@ -231,27 +232,27 @@ public class AuthResource {
      */
     @POST
     @Path("/mock-login")
-    public Response mockLogin(MockLoginRequestDto request) {
+    public Response mockLogin(MockLoginRequest request) {
         // Only allow in mock mode
         if (!mockEnabled) {
             return Response.status(Response.Status.NOT_FOUND)
-                .entity(new AuthenticationErrorDto("Endpoint not available"))
+                .entity(new ErrorResponse("Endpoint not available"))
                 .build();
         }
 
         try {
-            if (request.userId == null || request.userId.isBlank()) {
+            if (request.userId() == null || request.userId().isBlank()) {
                 return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new AuthenticationErrorDto("userId is required"))
+                    .entity(new ErrorResponse("userId is required"))
                     .build();
             }
 
             UUID teamId;
             try {
-                teamId = UUID.fromString(request.userId);
+                teamId = UUID.fromString(request.userId());
             } catch (IllegalArgumentException e) {
                 return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new AuthenticationErrorDto("Invalid userId format, expected UUID: " + request.userId))
+                    .entity(new ErrorResponse("Invalid userId format, expected UUID: " + request.userId()))
                     .build();
             }
 
@@ -260,79 +261,22 @@ public class AuthResource {
                     Instant expiresAt = Instant.now().plus(24, ChronoUnit.HOURS);
                                       
                     String token = authService.generateMockToken(
-                        request.userId,
+                        request.userId(),
                         team.getName(),
                         "team",
                         expiresAt
                     );
 
-                    return Response.ok(new MockLoginResponseDto(token, expiresAt.toString())).build();
+                    return Response.ok(new MockLoginResponse(token, expiresAt.toString())).build();
                 })
                 .orElse(Response.status(Response.Status.NOT_FOUND)
-                    .entity(new AuthenticationErrorDto("Team not found: " + request.userId))
+                    .entity(new ErrorResponse("Team not found: " + request.userId()))
                     .build());
 
         } catch (Exception e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                .entity(new AuthenticationErrorDto("Mock login failed: " + e.getMessage()))
+                .entity(new ErrorResponse("Mock login failed: " + e.getMessage()))
                 .build();
-        }
-    }
-
-    // DTO for refresh token request
-    public static class RefreshTokenRequestDto {
-        public String refreshToken;
-    }
-
-    // DTO for mock login request
-    public static class MockLoginRequestDto {
-        public String userId;
-    }
-
-    // DTO for mock login response
-    public static class MockLoginResponseDto {
-        public String token;
-        public String expiresAt;
-
-        public MockLoginResponseDto(String token, String expiresAt) {
-            this.token = token;
-            this.expiresAt = expiresAt;
-        }
-    }
-
-    // DTO for mock user listing
-    public static class MockUserDto {
-        public String id;
-        public String name;
-        public String role;
-        public String gameId;
-
-        public MockUserDto(String id, String name, String role, String gameId) {
-            this.id = id;
-            this.name = name;
-            this.role = role;
-            this.gameId = gameId;
-        }
-    }
-
-    // DTO for admin login request
-    public static class AdminLoginRequestDto {
-        public String username;
-        public String password;
-    }
-
-    // DTO for admin login response
-    public static class AdminLoginResponseDto {
-        public String token;
-        public String adminId;
-        public String username;
-        public String expiresAt;
-
-        public AdminLoginResponseDto(String token, String adminId, String username, String expiresAt) {
-            this.token = token;
-            this.adminId = adminId;
-            this.username = username;
-            this.expiresAt = expiresAt;
         }
     }
 }

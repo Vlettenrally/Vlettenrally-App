@@ -1,9 +1,9 @@
-package nl.vlettenrally.data.Dto;
+package nl.vlettenrally.data.dto.team;
 
 import java.util.List;
 import java.util.UUID;
 
-public record TeamDto (
+public record TeamResponse(
     UUID id,
     UUID game,
     String name,

@@ -5,6 +5,10 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import nl.vlettenrally.data.domain.Message;
+import nl.vlettenrally.data.dto.common.ErrorResponse;
+import nl.vlettenrally.data.dto.common.SuccessResponse;
+import nl.vlettenrally.data.dto.message.MessageResponse;
+import nl.vlettenrally.data.dto.message.UnreadCountResponse;
 import nl.vlettenrally.service.AuthService;
 import nl.vlettenrally.service.MessageService;
 
@@ -66,7 +70,7 @@ public class MessageResource {
         }
 
         int count = messageService.countUnreadByTeamId(teamId);
-        return Response.ok(new UnreadCountDto(count)).build();
+        return Response.ok(new UnreadCountResponse(count)).build();
     }
 
     /**
@@ -161,8 +165,8 @@ public class MessageResource {
         return null;
     }
 
-    private MessageDto toDto(Message message) {
-        return new MessageDto(
+    private MessageResponse toDto(Message message) {
+        return new MessageResponse(
             message.getId(),
             message.getTeamId(),
             message.getMessageType() != null ? message.getMessageType().name().toLowerCase() : null,
@@ -173,22 +177,4 @@ public class MessageResource {
             message.isRead()
         );
     }
-
-    // DTOs
-    public record MessageDto(
-        UUID id,
-        UUID teamId,
-        String messageType,
-        String content,
-        String icon,
-        String sentAt,
-        boolean delivered,
-        boolean read
-    ) {}
-
-    public record UnreadCountDto(int count) {}
-
-    public record SuccessResponse(boolean success) {}
-
-    public record ErrorResponse(String message) {}
 }

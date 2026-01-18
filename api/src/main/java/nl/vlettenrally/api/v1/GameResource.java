@@ -5,7 +5,11 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import nl.vlettenrally.data.Dto.TeamDto;
+import nl.vlettenrally.data.dto.common.ErrorResponse;
+import nl.vlettenrally.data.dto.game.CheckpointResponse;
+import nl.vlettenrally.data.dto.game.GameResponse;
+import nl.vlettenrally.data.dto.game.RankingResponse;
+import nl.vlettenrally.data.dto.team.TeamResponse;
 import nl.vlettenrally.data.domain.Checkpoint;
 import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.Team;
@@ -102,11 +106,12 @@ public class GameResource {
                     .build();
         }
         List<Team> teams = teamService.findByGameId(gameId);
-        return Response.ok(teams.stream().map(team -> new TeamDto(
+        return Response.ok(teams.stream().map(team -> new TeamResponse(
                 team.getId(),
                 gameId, team.getName(),
+                null,
                 team.getBoatNumber(),
-                null, null, null, gameId, team.isCheckedIn(),
+                null, null, null, team.isCheckedIn(),
                 team.getPoints(), null, null, null, null, null
         )).toList()).build();
     }
@@ -127,7 +132,7 @@ public class GameResource {
         List<Team> teams = teamService.findByGameId(gameId);
         
         // Sort by points descending
-        List<RankingDto> rankings = teams.stream()
+        List<RankingResponse> rankings = teams.stream()
             .filter(Team::isCheckedIn) // Only include checked-in teams
             .sorted(Comparator.comparingInt(Team::getPoints).reversed())
             .map(team -> {
@@ -137,7 +142,7 @@ public class GameResource {
                         position++;
                     }
                 }
-                return new RankingDto(
+                return new RankingResponse(
                     position,
                     team.getId(),
                     team.getName(),
@@ -152,8 +157,8 @@ public class GameResource {
 
     // Helper methods
 
-    private GameDto toDto(Game game) {
-        return new GameDto(
+    private GameResponse toDto(Game game) {
+        return new GameResponse(
             game.getId(),
             game.getName(),
             game.getDescription(),
@@ -165,8 +170,8 @@ public class GameResource {
         );
     }
 
-    private CheckpointDto toCheckpointDto(Checkpoint checkpoint) {
-        return new CheckpointDto(
+    private CheckpointResponse toCheckpointDto(Checkpoint checkpoint) {
+        return new CheckpointResponse(
             checkpoint.getId(),
             checkpoint.getGameId(),
             checkpoint.getName(),
@@ -177,37 +182,4 @@ public class GameResource {
             checkpoint.getLongitude()
         );
     }
-
-    // DTOs
-    public record GameDto(
-        UUID id,
-        String name,
-        String description,
-        String startTime,
-        String endTime,
-        String startingAreaActiveTime,
-        String startSignalTime,
-        String status
-    ) {}
-
-    public record CheckpointDto(
-        UUID id,
-        UUID gameId,
-        String name,
-        String openingTime,
-        String closingTime,
-        int points,
-        Double latitude,
-        Double longitude
-    ) {}
-
-    public record RankingDto(
-        int position,
-        UUID teamId,
-        String teamName,
-        String boatNumber,
-        int points
-    ) {}
-
-    public record ErrorResponse(String message) {}
 }
