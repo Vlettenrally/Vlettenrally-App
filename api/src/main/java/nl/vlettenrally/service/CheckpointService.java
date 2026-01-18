@@ -1,10 +1,10 @@
 package nl.vlettenrally.service;
 
-import nl.vlettenrally.domain.Checkpoint;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+
+import nl.vlettenrally.data.domain.Checkpoint;
 
 /**
  * Service interface for Checkpoint operations

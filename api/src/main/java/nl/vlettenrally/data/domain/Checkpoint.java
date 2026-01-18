@@ -1,4 +1,4 @@
-package nl.vlettenrally.domain;
+package nl.vlettenrally.data.domain;
 
 import java.time.Instant;
 import java.util.UUID;

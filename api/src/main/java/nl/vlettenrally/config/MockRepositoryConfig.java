@@ -3,8 +3,8 @@ package nl.vlettenrally.config;
 import io.quarkus.arc.profile.IfBuildProfile;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
-import nl.vlettenrally.repository.*;
-import nl.vlettenrally.repository.mock.*;
+import nl.vlettenrally.data.repository.*;
+import nl.vlettenrally.data.repository.mock.*;
 
 /**
  * Configuration for mock repositories.

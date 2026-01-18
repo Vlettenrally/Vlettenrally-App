@@ -4,7 +4,8 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import nl.vlettenrally.domain.Team;
+import nl.vlettenrally.data.converter.TeamConverter;
+import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.service.AuthService;
 import nl.vlettenrally.service.TeamService;
 
@@ -29,10 +30,13 @@ import java.util.UUID;
 public class TeamResource {
 
     @Inject
-    TeamService teamService;
+    private TeamService teamService;
 
     @Inject
-    AuthService authService;
+    private AuthService authService;
+
+    @Inject
+    private TeamConverter teamConverter;
 
     /**
      * Get all teams
@@ -41,7 +45,7 @@ public class TeamResource {
     @Path("/teams")
     public Response getAllTeams() {
         List<Team> teams = teamService.findAll();
-        return Response.ok(teams.stream().map(this::toDto).toList()).build();
+        return Response.ok(teams.stream().map(teamConverter::toDto).toList()).build();
     }
 
     /**
@@ -51,7 +55,7 @@ public class TeamResource {
     @Path("/teams/{teamId}")
     public Response getTeamById(@PathParam("teamId") UUID teamId) {
         return teamService.findById(teamId)
-            .map(team -> Response.ok(toDto(team)).build())
+            .map(team -> Response.ok().build())
             .orElse(Response.status(Response.Status.NOT_FOUND)
                 .entity(new ErrorResponse("Team not found"))
                 .build());
@@ -64,7 +68,7 @@ public class TeamResource {
     @Path("/teams/{teamId}/rivals")
     public Response getRivalTeams(@PathParam("teamId") UUID teamId) {
         List<Team> rivals = teamService.findRivalTeams(teamId);
-        return Response.ok(rivals.stream().map(this::toDto).toList()).build();
+        return Response.ok(rivals.stream().map(teamConverter::toDto).toList()).build();
     }
 
     /**
@@ -91,7 +95,7 @@ public class TeamResource {
         }
 
         return teamService.findById(teamIdOpt.get())
-            .map(team -> Response.ok(toDto(team)).build())
+            .map(team -> Response.ok(teamConverter.toDto(team)).build())
             .orElse(Response.status(Response.Status.NOT_FOUND)
                 .entity(new ErrorResponse("Team not found"))
                 .build());
@@ -129,7 +133,7 @@ public class TeamResource {
 
         try {
             Team team = teamService.checkIn(teamId);
-            return Response.ok(toDto(team)).build();
+            return Response.ok(teamConverter.toDto(team)).build();
         } catch (IllegalArgumentException e) {
             return Response.status(Response.Status.NOT_FOUND)
                 .entity(new ErrorResponse(e.getMessage()))
@@ -180,7 +184,7 @@ public class TeamResource {
             team.setEmergencyPhoneNumbers(request.phoneNumbers());
             Team updatedTeam = teamService.save(team);
             
-            return Response.ok(toDto(updatedTeam)).build();
+            return Response.ok(teamConverter.toDto(updatedTeam)).build();
         } catch (IllegalArgumentException e) {
             return Response.status(Response.Status.BAD_REQUEST)
                 .entity(new ErrorResponse(e.getMessage()))
@@ -196,46 +200,6 @@ public class TeamResource {
         }
         return null;
     }
-
-    private TeamDto toDto(Team team) {
-        return new TeamDto(
-            team.getId(),
-            team.getGameId(),
-            team.getName(),
-            team.getDescription(),
-            team.getBoatNumber(),
-            team.getColor(),
-            team.getParticipants(),
-            team.getDeviceId(),
-            team.isCheckedIn(),
-            team.getPoints(),
-            team.getRivals(),
-            team.getNotes(),
-            team.getEmergencyPhoneNumbers(),
-            team.getCreatedAt() != null ? team.getCreatedAt().toString() : null,
-            team.getUpdatedAt() != null ? team.getUpdatedAt().toString() : null
-        );
-    }
-
-    // DTOs
-    public record TeamDto(
-        UUID id,
-        UUID game,
-        String name,
-        String description,
-        String boatNumber,
-        String color,
-        List<String> participants,
-        UUID deviceId,
-        boolean checkedIn,
-        int points,
-        List<UUID> rivals,
-        String notes,
-        List<String> emergencyPhoneNumbers,
-        String createdAt,
-        String updatedAt
-    ) {}
-
     public record ErrorResponse(String message) {}
 
     public record EmergencyPhoneUpdateRequest(List<String> phoneNumbers) {}

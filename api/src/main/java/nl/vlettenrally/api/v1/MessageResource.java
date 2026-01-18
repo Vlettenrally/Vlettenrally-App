@@ -4,7 +4,7 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import nl.vlettenrally.domain.Message;
+import nl.vlettenrally.data.domain.Message;
 import nl.vlettenrally.service.AuthService;
 import nl.vlettenrally.service.MessageService;
 

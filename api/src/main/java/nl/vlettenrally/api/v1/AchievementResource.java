@@ -4,7 +4,7 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import nl.vlettenrally.domain.Achievement;
+import nl.vlettenrally.data.domain.Achievement;
 import nl.vlettenrally.service.AchievementService;
 import nl.vlettenrally.service.AuthService;
 

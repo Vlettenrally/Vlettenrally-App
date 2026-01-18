@@ -2,13 +2,13 @@ package nl.vlettenrally.service.impl;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import nl.vlettenrally.domain.Achievement;
-import nl.vlettenrally.domain.Achievement.Status;
-import nl.vlettenrally.domain.Checkpoint;
-import nl.vlettenrally.domain.Team;
-import nl.vlettenrally.repository.AchievementRepository;
-import nl.vlettenrally.repository.CheckpointRepository;
-import nl.vlettenrally.repository.TeamRepository;
+import nl.vlettenrally.data.domain.Achievement;
+import nl.vlettenrally.data.domain.Checkpoint;
+import nl.vlettenrally.data.domain.Team;
+import nl.vlettenrally.data.domain.Achievement.Status;
+import nl.vlettenrally.data.repository.AchievementRepository;
+import nl.vlettenrally.data.repository.CheckpointRepository;
+import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.service.AchievementService;
 
 import java.time.Instant;

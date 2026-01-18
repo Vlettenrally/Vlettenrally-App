@@ -5,9 +5,10 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import nl.vlettenrally.domain.Game;
-import nl.vlettenrally.domain.Checkpoint;
-import nl.vlettenrally.domain.Team;
+import nl.vlettenrally.data.Dto.TeamDto;
+import nl.vlettenrally.data.domain.Checkpoint;
+import nl.vlettenrally.data.domain.Game;
+import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.service.GameService;
 import nl.vlettenrally.service.CheckpointService;
 import nl.vlettenrally.service.TeamService;
@@ -101,7 +102,7 @@ public class GameResource {
                     .build();
         }
         List<Team> teams = teamService.findByGameId(gameId);
-        return Response.ok(teams.stream().map(team -> new TeamResource.TeamDto(
+        return Response.ok(teams.stream().map(team -> new TeamDto(
                 team.getId(),
                 gameId, team.getName(),
                 team.getBoatNumber(),

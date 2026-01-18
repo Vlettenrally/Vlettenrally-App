@@ -1,10 +1,10 @@
-package nl.vlettenrally.repository;
-
-import nl.vlettenrally.domain.Game;
+package nl.vlettenrally.data.repository;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+
+import nl.vlettenrally.data.domain.Game;
 
 /**
  * Repository interface for Game entities

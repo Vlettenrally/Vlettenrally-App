@@ -1,11 +1,10 @@
-package nl.vlettenrally.repository.mock;
+package nl.vlettenrally.data.repository.mock;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
-import nl.vlettenrally.domain.Admin;
-import nl.vlettenrally.repository.AdminRepository;
-
+import nl.vlettenrally.data.domain.Admin;
+import nl.vlettenrally.data.repository.AdminRepository;
 import io.quarkus.elytron.security.common.BcryptUtil;
 
 import java.util.List;

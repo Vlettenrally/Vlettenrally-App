@@ -4,8 +4,8 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import nl.vlettenrally.api.v1.Dto.*;
-import nl.vlettenrally.repository.AdminRepository;
+import nl.vlettenrally.data.Dto.*;
+import nl.vlettenrally.data.repository.AdminRepository;
 import nl.vlettenrally.service.AuthService;
 import nl.vlettenrally.service.TeamService;
 

@@ -1,4 +1,4 @@
-package nl.vlettenrally.api.v1.Dto;
+package nl.vlettenrally.data.Dto;
 
 public class TeamRegistrationDto {
     public String gameId;

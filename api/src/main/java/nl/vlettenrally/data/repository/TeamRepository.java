@@ -1,10 +1,10 @@
-package nl.vlettenrally.repository;
-
-import nl.vlettenrally.domain.Team;
+package nl.vlettenrally.data.repository;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+
+import nl.vlettenrally.data.domain.Team;
 
 /**
  * Repository interface for Team entities

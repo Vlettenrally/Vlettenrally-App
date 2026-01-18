@@ -2,8 +2,8 @@ package nl.vlettenrally.service.impl;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import nl.vlettenrally.domain.Message;
-import nl.vlettenrally.repository.MessageRepository;
+import nl.vlettenrally.data.domain.Message;
+import nl.vlettenrally.data.repository.MessageRepository;
 import nl.vlettenrally.service.MessageService;
 
 import java.time.Instant;

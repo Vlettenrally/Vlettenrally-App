@@ -1,10 +1,10 @@
-package nl.vlettenrally.repository;
-
-import nl.vlettenrally.domain.Message;
+package nl.vlettenrally.data.repository;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+
+import nl.vlettenrally.data.domain.Message;
 
 /**
  * Repository interface for Message entities

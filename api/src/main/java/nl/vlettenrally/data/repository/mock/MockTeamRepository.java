@@ -1,10 +1,10 @@
-package nl.vlettenrally.repository.mock;
+package nl.vlettenrally.data.repository.mock;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
-import nl.vlettenrally.domain.Team;
-import nl.vlettenrally.repository.TeamRepository;
+import nl.vlettenrally.data.domain.Team;
+import nl.vlettenrally.data.repository.TeamRepository;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;

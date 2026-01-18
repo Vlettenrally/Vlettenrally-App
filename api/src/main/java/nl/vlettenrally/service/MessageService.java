@@ -1,10 +1,10 @@
 package nl.vlettenrally.service;
 
-import nl.vlettenrally.domain.Message;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+
+import nl.vlettenrally.data.domain.Message;
 
 /**
  * Service interface for Message operations

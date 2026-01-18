@@ -1,4 +1,4 @@
-package nl.vlettenrally.domain;
+package nl.vlettenrally.data.domain;
 
 import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;

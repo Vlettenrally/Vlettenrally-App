@@ -2,8 +2,8 @@ package nl.vlettenrally.service.impl;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import nl.vlettenrally.domain.Game;
-import nl.vlettenrally.repository.GameRepository;
+import nl.vlettenrally.data.domain.Game;
+import nl.vlettenrally.data.repository.GameRepository;
 import nl.vlettenrally.service.GameService;
 
 import java.util.List;

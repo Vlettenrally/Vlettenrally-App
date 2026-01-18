@@ -3,9 +3,9 @@ package nl.vlettenrally.service.impl;
 import io.smallrye.jwt.build.Jwt;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import nl.vlettenrally.domain.Team;
-import nl.vlettenrally.repository.TeamRepository;
-import nl.vlettenrally.repository.GameRepository;
+import nl.vlettenrally.data.domain.Team;
+import nl.vlettenrally.data.repository.GameRepository;
+import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.service.AuthService;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 

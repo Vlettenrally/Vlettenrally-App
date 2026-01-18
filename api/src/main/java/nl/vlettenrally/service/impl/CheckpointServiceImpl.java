@@ -2,8 +2,8 @@ package nl.vlettenrally.service.impl;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import nl.vlettenrally.domain.Checkpoint;
-import nl.vlettenrally.repository.CheckpointRepository;
+import nl.vlettenrally.data.domain.Checkpoint;
+import nl.vlettenrally.data.repository.CheckpointRepository;
 import nl.vlettenrally.service.CheckpointService;
 
 import java.util.List;
