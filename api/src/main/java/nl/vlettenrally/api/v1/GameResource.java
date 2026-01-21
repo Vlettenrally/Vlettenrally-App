@@ -66,6 +66,16 @@ public class GameResource {
     }
 
     /**
+     * Get count of games
+     */
+    @GET
+    @Path("/count")
+    public Response getGameCount() {
+        long count = gameService.countGames();
+        return Response.ok(count).build();
+    }
+
+    /**
      * Get game by ID
      */
     @GET
@@ -102,7 +112,7 @@ public class GameResource {
         // Verify game exists
         if (gameService.findById(gameId).isEmpty()) {
             return Response.status(Response.Status.NOT_FOUND)
-                    .entity(new ErrorResponse("Game not found"))
+                    .entity(new ErrorResponse("Game not fo  und"))
                     .build();
         }
         List<Team> teams = teamService.findByGameId(gameId);

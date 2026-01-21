@@ -40,7 +40,7 @@ public class MockGameRepository implements GameRepository {
         Game game1 = new Game();
         game1.setId(GAME_2026_ID);
         game1.setName("Vlettenrally 2026");
-        game1.setDescription("De jaarlijkse Vlettenrally door de Amsterdamse grachten");
+        game1.setDescription("De jaarlijkse Vlettenrally");
         game1.setStartTime(now.minus(2, ChronoUnit.HOURS));
         game1.setEndTime(now.plus(4, ChronoUnit.HOURS));
         game1.setStartingAreaActiveTime(now.minus(3, ChronoUnit.HOURS));
@@ -101,5 +101,10 @@ public class MockGameRepository implements GameRepository {
     @Override
     public void delete(UUID id) {
         games.remove(id);
+    }
+
+    @Override
+    public int count() {
+        return games.size();
     }
 }

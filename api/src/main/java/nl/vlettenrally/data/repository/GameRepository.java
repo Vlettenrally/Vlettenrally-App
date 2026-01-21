@@ -18,6 +18,8 @@ public interface GameRepository {
     List<Game> findByStatus(Game.GameStatus status);
     
     List<Game> findActiveGames();
+
+    int count();
     
     Game save(Game game);
     

@@ -22,4 +22,6 @@ public interface GameService {
     Game save(Game game);
     
     void delete(UUID id);
+
+    long countGames();
 }

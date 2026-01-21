@@ -93,7 +93,7 @@ public class AuthResource {
 
     /**
      * Exchange registration token for access + refresh tokens
-     * This is called by the player app after receiving the registration token
+     * This is called by the app after receiving the registration token
      */
     @POST
     @Path("/token")

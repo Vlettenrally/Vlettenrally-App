@@ -48,4 +48,9 @@ public class GameServiceImpl implements GameService {
     public void delete(UUID id) {
         gameRepository.delete(id);
     }
+
+    @Override
+    public long countGames() {
+        return gameRepository.count();
+    }
 }
