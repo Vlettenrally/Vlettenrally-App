@@ -3,6 +3,7 @@ package nl.vlettenrally.service;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import nl.vlettenrally.data.enums.MessageType;
 
 import nl.vlettenrally.data.domain.Message;
 
@@ -21,7 +22,7 @@ public interface MessageService {
     
     int countUnreadByTeamId(UUID teamId);
     
-    Message send(UUID teamId, Message.MessageType type, String content, String icon);
+    Message send(UUID teamId, MessageType type, String content, String icon);
     
     void markAsRead(UUID id);
     

@@ -5,7 +5,7 @@ import jakarta.inject.Inject;
 import nl.vlettenrally.data.domain.Achievement;
 import nl.vlettenrally.data.domain.Checkpoint;
 import nl.vlettenrally.data.domain.Team;
-import nl.vlettenrally.data.domain.Achievement.Status;
+import nl.vlettenrally.data.enums.AchievementStatus;
 import nl.vlettenrally.data.repository.AchievementRepository;
 import nl.vlettenrally.data.repository.CheckpointRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
@@ -64,14 +64,14 @@ public class AchievementServiceImpl implements AchievementService {
     @Override
     public List<Achievement> findPendingByCheckpointId(UUID checkpointId) {
         return achievementRepository.findByCheckpointId(checkpointId).stream()
-            .filter(a -> a.getStatus() == Status.PENDING)
+            .filter(a -> a.getStatus() == AchievementStatus.PENDING)
             .toList();
     }
 
     @Override
     public List<Achievement> findAllPending() {
         return achievementRepository.findAll().stream()
-            .filter(a -> a.getStatus() == Status.PENDING)
+            .filter(a -> a.getStatus() == AchievementStatus.PENDING)
             .toList();
     }
 
@@ -96,7 +96,7 @@ public class AchievementServiceImpl implements AchievementService {
         achievement.setTeamId(teamId);
         achievement.setCheckpointId(checkpointId);
         achievement.setPointsEarned(checkpoint.getPoints()); // Points to be awarded upon verification
-        achievement.setStatus(Status.PENDING);
+        achievement.setStatus(AchievementStatus.PENDING);
         achievement.setDetectedAt(Instant.now());
 
         Achievement saved = achievementRepository.save(achievement);
@@ -117,12 +117,12 @@ public class AchievementServiceImpl implements AchievementService {
         Achievement achievement = optAchievement.get();
         
         // Can only verify PENDING achievements
-        if (achievement.getStatus() != Status.PENDING) {
+        if (achievement.getStatus() != AchievementStatus.PENDING) {
             return Optional.empty();
         }
 
         // Update achievement status
-        achievement.setStatus(Status.VERIFIED);
+        achievement.setStatus(AchievementStatus.VERIFIED);
         achievement.setVerifiedAt(Instant.now());
         achievement.setVerifiedBy(gameMasterId);
         achievement.setNotes(notes);
@@ -131,7 +131,7 @@ public class AchievementServiceImpl implements AchievementService {
         Team team = teamRepository.findById(achievement.getTeamId())
             .orElseThrow(() -> new IllegalStateException("Team not found: " + achievement.getTeamId()));
         
-        team.setPoints(team.getPoints() + achievement.getPointsEarned());
+        team.setTotalPoints(team.getTotalPoints() + achievement.getPointsEarned());
         team.setUpdatedAt(Instant.now());
         teamRepository.save(team);
 
@@ -148,12 +148,12 @@ public class AchievementServiceImpl implements AchievementService {
         Achievement achievement = optAchievement.get();
         
         // Can only reject PENDING achievements
-        if (achievement.getStatus() != Status.PENDING) {
+        if (achievement.getStatus() != AchievementStatus.PENDING) {
             return Optional.empty();
         }
 
         // Update achievement status (no points awarded)
-        achievement.setStatus(Status.REJECTED);
+        achievement.setStatus(AchievementStatus.REJECTED);
         achievement.setVerifiedAt(Instant.now());
         achievement.setVerifiedBy(gameMasterId);
         achievement.setNotes(notes);

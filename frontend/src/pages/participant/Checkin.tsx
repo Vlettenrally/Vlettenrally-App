@@ -13,7 +13,8 @@ import {
 } from '@mui/material';
 import api from '../../services/api';
 import { storage } from '../../services/storage';
-import { useTeamStore, type Team } from '../../store/useTeamStore';
+import { useTeamStore } from '../../store/useTeamStore';
+import type { PlayerTeam } from '../../types/entities';
 
 export function CheckInPage() {
   const navigate = useNavigate();
@@ -59,16 +60,17 @@ export function CheckInPage() {
 
           if (teamResponse.error) {
             setError('Kon teamgegevens niet ophalen: ' + teamResponse.error);
+            storage.clearCache();
             storage.clearSession();
             return;
           }
 
           if (teamResponse.data) {
-            const teamData = teamResponse.data as Team;
+            const teamData = teamResponse.data as PlayerTeam;
             
             // Store team and game data
             storage.setTeamId(teamData.id);
-            storage.setGameId(teamData.game);
+            storage.setGameId(teamData.gameId);
             storage.setTeamData(teamData);
             setTeam(teamData);
 

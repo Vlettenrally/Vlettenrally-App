@@ -5,8 +5,11 @@
  */
 import { useEffect } from 'react';
 import { useTeamWebSocket, useAdminWebSocket } from './useWebSocket';
+import teamService from '../services/teamService';
+import { storage } from '../services/storage';
 import { useMessageStore, type Message } from '../store/useMessageStore';
-import { useTeamStore, type Team, type Achievement } from '../store/useTeamStore';
+import { useTeamStore, type Achievement } from '../store/useTeamStore';
+import type { PublicTeam } from '../types/entities';
 
 interface UseRealtimeTeamOptions {
   gameId: string | null;
@@ -47,7 +50,21 @@ export function useTeamRealtime({ gameId, teamId }: UseRealtimeTeamOptions) {
 
     // Subscribe to rival updates
     const unsubscribeRival = subscribe('RIVAL_UPDATE', (message) => {
-      setRivalTeam(message.payload as Team);
+      // update rival immediately
+      setRivalTeam(message.payload as PublicTeam);
+      // fetch authoritative team data in background to refresh cache and store
+      (async () => {
+        try {
+          const team = await teamService.getMyTeam({ forceRefresh: true });
+          if (team) {
+            // ensure zustand store is up to date
+            // updatePoints may already have been called; set full team if available
+            useTeamStore.getState().setTeam(team as any);
+          }
+        } catch (e) {
+          console.warn('Failed to refresh team after rival update', e);
+        }
+      })();
     });
 
     // Subscribe to ranking updates
@@ -101,6 +118,27 @@ export function useAdminRealtime({ gameId }: UseRealtimeAdminOptions) {
     // Subscribe to team updates
     const unsubscribeTeamUpdates = subscribe('TEAM_UPDATE', (message) => {
       console.log('Team updated:', message.payload);
+      // admin: refresh the specific team data
+      (async () => {
+        try {
+          // payload might contain team id
+          const payload: any = message.payload || {};
+          const teamId = payload.id || payload.teamId || null;
+          if (teamId) {
+            const fresh = await teamService.getTeam(teamId, { forceRefresh: true });
+            // If admin UI has a team store, it should be updated by caller; here we at least update cached team if matches
+            if (fresh) {
+              // if this team is the current cached team, update storage and team store
+              const current = storage.getTeamData();
+              if (current && current.id === (fresh as any).id) {
+                useTeamStore.getState().setTeam(fresh as any);
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to refresh team data for admin TEAM_UPDATE', e);
+        }
+      })();
     });
 
     // Subscribe to game status changes

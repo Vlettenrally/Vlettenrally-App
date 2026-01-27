@@ -4,12 +4,17 @@ import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 import nl.vlettenrally.data.domain.Achievement;
-import nl.vlettenrally.data.domain.Achievement.Status;
+import nl.vlettenrally.data.enums.AchievementStatus;
 import nl.vlettenrally.data.repository.AchievementRepository;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -142,28 +147,28 @@ public class MockAchievementRepository implements AchievementRepository {
         achievements.put(ach11.getId(), ach11);
 
         System.out.println("🎭 MockAchievementRepository initialized with " + achievements.size() + " achievements " +
-            "(including " + countByStatus(Status.PENDING) + " pending, " + countByStatus(Status.REJECTED) + " rejected)");
+            "(including " + countByStatus(AchievementStatus.PENDING) + " pending, " + countByStatus(AchievementStatus.REJECTED) + " rejected)");
     }
 
     // Helper methods for creating achievements with different statuses
     private Achievement createVerifiedAchievement(UUID id, UUID teamId, UUID checkpointId, int points, Instant detectedAt) {
-        Achievement a = new Achievement(id, teamId, checkpointId, points, Status.VERIFIED, detectedAt);
+        Achievement a = new Achievement(id, teamId, checkpointId, points, AchievementStatus.VERIFIED, detectedAt);
         a.setVerifiedAt(detectedAt.plus(2, ChronoUnit.MINUTES)); // Verified 2 minutes after detection
         return a;
     }
 
     private Achievement createPendingAchievement(UUID id, UUID teamId, UUID checkpointId, int points, Instant detectedAt) {
-        return new Achievement(id, teamId, checkpointId, points, Status.PENDING, detectedAt);
+        return new Achievement(id, teamId, checkpointId, points, AchievementStatus.PENDING, detectedAt);
     }
 
     private Achievement createRejectedAchievement(UUID id, UUID teamId, UUID checkpointId, int points, Instant detectedAt, String reason) {
-        Achievement a = new Achievement(id, teamId, checkpointId, points, Status.REJECTED, detectedAt);
+        Achievement a = new Achievement(id, teamId, checkpointId, points, AchievementStatus.REJECTED, detectedAt);
         a.setVerifiedAt(detectedAt.plus(1, ChronoUnit.MINUTES));
         a.setNotes(reason);
         return a;
     }
 
-    private long countByStatus(Status status) {
+    private long countByStatus(AchievementStatus status) {
         return achievements.values().stream().filter(a -> a.getStatus() == status).count();
     }
 

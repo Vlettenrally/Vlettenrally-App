@@ -3,6 +3,10 @@
  */
 
 import type { UserRole } from './auth';
+import type { AdminTeam, PlayerTeam, Game } from '../types/entities';
+
+/** Team data that can be stored - either full admin view or player view */
+type StoredTeam = AdminTeam | PlayerTeam;
 
 const STORAGE_KEYS = {
   AUTH_TOKEN: 'auth_token',
@@ -13,7 +17,7 @@ const STORAGE_KEYS = {
   MESSAGES: 'messages',
   PREFERENCES: 'preferences',
   USER_ROLE: 'user_role',
-  ADMIN_SELECTED_GAME: 'admin_selected_game',
+  SIDEBAR_COLLAPSED: 'sidebar_collapsed',
 } as const;
 
 class StorageService {
@@ -108,16 +112,34 @@ class StorageService {
   }
 
   // Team data
-  getTeamData(): unknown | null {
-    return this.getItem(STORAGE_KEYS.TEAM_DATA);
+  getTeamData(): StoredTeam | null {
+    return this.getItem<StoredTeam>(STORAGE_KEYS.TEAM_DATA);
   }
 
-  setTeamData(data: unknown): void {
-    this.setItem(STORAGE_KEYS.TEAM_DATA, data);
+  setTeamData(data: StoredTeam): void {
+    this.setItem<StoredTeam>(STORAGE_KEYS.TEAM_DATA, data);
+    // store timestamp for cache freshness if needed
+    this.setItem<number>(`${STORAGE_KEYS.TEAM_DATA}_ts`, Date.now());
   }
 
   removeTeamData(): void {
     this.removeItem(STORAGE_KEYS.TEAM_DATA);
+    this.removeItem(`${STORAGE_KEYS.TEAM_DATA}_ts`);
+  }
+
+  // Game data (optional cached whole game)
+  getGameData(): Game | null {
+    return this.getItem<Game>(STORAGE_KEYS.GAME_ID /* key for id only; whole game not persisted by default */);
+  }
+
+  setGameData(game: Game): void {
+    this.setItem<Game>(STORAGE_KEYS.GAME_ID, game);
+    this.setItem<number>(`${STORAGE_KEYS.GAME_ID}_ts`, Date.now());
+  }
+
+  removeGameData(): void {
+    this.removeItem(STORAGE_KEYS.GAME_ID);
+    this.removeItem(`${STORAGE_KEYS.GAME_ID}_ts`);
   }
 
   // Messages (for offline support)
@@ -167,17 +189,13 @@ class StorageService {
     return this.getUserRole() === 'admin';
   }
 
-  // Admin's selected game (admins can switch between games)
-  getAdminSelectedGame(): string | null {
-    return this.getItem<string>(STORAGE_KEYS.ADMIN_SELECTED_GAME);
+  // Sidebar collapsed state (admin UI)
+  getSidebarCollapsed(): boolean {
+    return this.getItem<boolean>(STORAGE_KEYS.SIDEBAR_COLLAPSED) ?? false;
   }
 
-  setAdminSelectedGame(gameId: string): void {
-    this.setItem(STORAGE_KEYS.ADMIN_SELECTED_GAME, gameId);
-  }
-
-  removeAdminSelectedGame(): void {
-    this.removeItem(STORAGE_KEYS.ADMIN_SELECTED_GAME);
+  setSidebarCollapsed(collapsed: boolean): void {
+    this.setItem(STORAGE_KEYS.SIDEBAR_COLLAPSED, collapsed);
   }
 
   // Clear all session data (logout)
@@ -188,7 +206,22 @@ class StorageService {
     this.removeGameId();
     this.removeTeamData();
     this.removeUserRole();
-    this.removeAdminSelectedGame();
+  }
+
+  // Clear cached app data but keep auth tokens (if desired)
+  clearCache(): void {
+    try {
+      this.removeTeamId();
+      this.removeGameId();
+      this.removeTeamData();
+      this.removeGameData();
+      const messages = this.getMessages();
+      if (messages) {
+        this.removeItem(STORAGE_KEYS.MESSAGES);
+      }
+    } catch (error) {
+      console.error('Error clearing cache:', error);
+    }
   }
 }
 

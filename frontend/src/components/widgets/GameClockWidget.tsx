@@ -10,15 +10,9 @@ import {
   Chip,
 } from '@mui/material';
 import { Schedule as ClockIcon } from '@mui/icons-material';
-import { storage } from '../../services/storage';
-
-interface Game {
-  id: string;
-  name: string;
-  startTime: string;
-  endTime: string;
-  status: 'planned' | 'active' | 'completed';
-}
+import { useGameStore } from '../../store/useGameStore';
+import type { Game } from '../../types/entities';
+import { gameService } from '../../services/gameService';
 
 interface GameClockWidgetProps {
   collapsed?: boolean;
@@ -40,42 +34,41 @@ export function GameClockWidget({ collapsed = false }: GameClockWidgetProps) {
   const [game, setGame] = useState<Game | null>(null);
   const [timeDisplay, setTimeDisplay] = useState('--:--');
   const [status, setStatus] = useState<'before' | 'during' | 'after'>('before');
+  const selectedGameId = useGameStore((s) => s.selectedGameId);
 
   useEffect(() => {
-    const fetchGame = async () => {
-      try {
-        const token = storage.getAuthToken();
-        const gameId = storage.getAdminSelectedGame();
-        if (!gameId) return;
+    if (!selectedGameId) {
+      setGame(null);
+      return;
+    }
 
-        const response = await fetch(`/api/v1/games/${gameId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setGame(data);
-        }
-      } catch (error) {
-        console.error('Failed to fetch game:', error);
-      }
-    };
-    fetchGame();
-  }, []);
+    gameService.getGame(selectedGameId).then((data) => {
+      setGame(data);
+    });
+  }, [selectedGameId]);
 
   useEffect(() => {
     if (!game) return;
 
     const updateClock = () => {
       const now = new Date();
-      const start = new Date(game.startTime);
-      const end = new Date(game.endTime);
+      const start = game.startTime;
+      const end = game.endTime;
 
-      if (now < start) {
+      if (!start || !end) {
+        setTimeDisplay('N/A');
+        return;
+      }
+
+      const startDate = new Date(start);
+      const endDate = new Date(end);  
+
+      if (now < startDate) {
         setStatus('before');
-        setTimeDisplay(formatDuration(start.getTime() - now.getTime()));
-      } else if (now >= start && now <= end) {
+        setTimeDisplay(formatDuration(startDate.getTime() - now.getTime()));
+      } else if (now >= startDate && now <= endDate) {
         setStatus('during');
-        setTimeDisplay(formatDuration(now.getTime() - start.getTime()));
+        setTimeDisplay(formatDuration(endDate.getTime() - now.getTime()));
       } else {
         setStatus('after');
         setTimeDisplay('Finished');
@@ -89,7 +82,7 @@ export function GameClockWidget({ collapsed = false }: GameClockWidgetProps) {
 
   const statusConfig = {
     before: { label: 'Starts in', color: 'warning' as const },
-    during: { label: 'Elapsed', color: 'success' as const },
+    during: { label: 'Remaining', color: 'success' as const },
     after: { label: 'Completed', color: 'disabled' as const },
   };
 

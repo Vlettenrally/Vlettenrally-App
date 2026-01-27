@@ -18,11 +18,10 @@ public class Team {
     private String name;
     private String description;
     private String boatNumber;
-    private String color;
     private List<String> participants;
     private UUID deviceId;
     private boolean checkedIn;
-    private int points;
+    private int totalPoints;
     private List<UUID> rivals;
     private String notes;
     private List<String> emergencyPhoneNumbers;
@@ -35,19 +34,18 @@ public class Team {
         this.rivals = new ArrayList<>();
         this.emergencyPhoneNumbers = new ArrayList<>();
         this.checkedIn = false;
-        this.points = 0;
+        this.totalPoints = 0;
         this.createdAt = Instant.now();
         this.updatedAt = Instant.now();
     }
 
-    public Team(UUID id, UUID gameId, String name, String description, String boatNumber, String color) {
+    public Team(UUID id, UUID gameId, String name, String description, String boatNumber) {
         this();
         this.id = id;
         this.gameId = gameId;
         this.name = name;
         this.description = description;
         this.boatNumber = boatNumber;
-        this.color = color;
     }
 
     // Getters and Setters
@@ -66,9 +64,6 @@ public class Team {
     public String getBoatNumber() { return boatNumber; }
     public void setBoatNumber(String boatNumber) { this.boatNumber = boatNumber; }
 
-    public String getColor() { return color; }
-    public void setColor(String color) { this.color = color; }
-
     public List<String> getParticipants() { return participants; }
     public void setParticipants(List<String> participants) { this.participants = participants; }
 
@@ -78,8 +73,8 @@ public class Team {
     public boolean isCheckedIn() { return checkedIn; }
     public void setCheckedIn(boolean checkedIn) { this.checkedIn = checkedIn; }
 
-    public int getPoints() { return points; }
-    public void setPoints(int points) { this.points = points; }
+    public int getTotalPoints() { return totalPoints; }
+    public void setTotalPoints(int totalPoints) { this.totalPoints = totalPoints; }
 
     public List<UUID> getRivals() { return rivals; }
     public void setRivals(List<UUID> rivals) { this.rivals = rivals; }

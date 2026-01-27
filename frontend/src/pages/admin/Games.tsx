@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Box, Typography, Button, Card, CardContent } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
-import apiService from '../../services/api';
+import { gameService } from '../../services/gameService';
 
 type Game = {
   id: string;
@@ -19,11 +19,11 @@ const Games = () => {
     const fetchGames = async () => {
       try {
         setLoading(true);
-        const response = await apiService.getGames();
-        if (response.data) {
-          setGames(response.data as Game[]);
+        const games = await gameService.getGames();
+        if (games) {
+          setGames(games as Game[]);
         } else {
-          setError(response.error || 'Failed to fetch games.');
+          setError('Failed to fetch games.');
         }
       } catch (err) {
         console.error(err);

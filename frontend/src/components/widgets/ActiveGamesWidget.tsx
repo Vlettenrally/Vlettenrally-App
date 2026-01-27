@@ -11,13 +11,8 @@ import {
   Chip,
 } from '@mui/material';
 import { SportsScore as GamesIcon } from '@mui/icons-material';
-import { storage } from '../../services/storage';
-
-interface Game {
-  id: string;
-  name: string;
-  status: 'planned' | 'active' | 'completed';
-}
+import { gameService } from '../../services/gameService';
+import type { Game } from '../../types/entities';
 
 interface ActiveGamesWidgetProps {
   collapsed?: boolean;
@@ -28,23 +23,10 @@ export function ActiveGamesWidget({ collapsed = false }: ActiveGamesWidgetProps)
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchGames = async () => {
-      try {
-        const token = storage.getAuthToken();
-        const response = await fetch('/api/v1/games', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setGames(data);
-        }
-      } catch (error) {
-        console.error('Failed to fetch games:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchGames();
+    gameService.getGames().then((data) => {
+      setGames(data);
+      setLoading(false);
+    });    
   }, []);
 
   const activeGames = games.filter((g) => g.status === 'active');

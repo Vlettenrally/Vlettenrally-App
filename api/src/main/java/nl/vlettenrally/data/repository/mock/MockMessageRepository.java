@@ -4,11 +4,18 @@ import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 import nl.vlettenrally.data.domain.Message;
+import nl.vlettenrally.data.enums.MessageType;
 import nl.vlettenrally.data.repository.MessageRepository;
+
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -37,7 +44,7 @@ public class MockMessageRepository implements MessageRepository {
         Message msg1 = new Message();
         msg1.setId(UUID.fromString("bbbb0001-0000-0000-0000-000000000001"));
         msg1.setTeamId(teamId);
-        msg1.setMessageType(Message.MessageType.GENERAL);
+        msg1.setMessageType(MessageType.GENERAL);
         msg1.setContent("Welkom bij de Vlettenrally 2026! Veel succes vandaag!");
         msg1.setSentAt(now.minus(2, ChronoUnit.HOURS));
         msg1.setDelivered(true);
@@ -48,7 +55,7 @@ public class MockMessageRepository implements MessageRepository {
         Message msg2 = new Message();
         msg2.setId(UUID.fromString("bbbb0002-0000-0000-0000-000000000002"));
         msg2.setTeamId(teamId);
-        msg2.setMessageType(Message.MessageType.COUNTDOWN);
+        msg2.setMessageType(MessageType.COUNTDOWN);
         msg2.setContent("De rally start over 5 minuten. Maak je klaar!");
         msg2.setIcon("⏱️");
         msg2.setSentAt(now.minus(2, ChronoUnit.HOURS));
@@ -60,7 +67,7 @@ public class MockMessageRepository implements MessageRepository {
         Message msg3 = new Message();
         msg3.setId(UUID.fromString("bbbb0003-0000-0000-0000-000000000003"));
         msg3.setTeamId(teamId);
-        msg3.setMessageType(Message.MessageType.CHECKPOINT);
+        msg3.setMessageType(MessageType.CHECKPOINT);
         msg3.setContent("Checkpoint Amstel bereikt! +100 punten verdiend.");
         msg3.setIcon("🏁");
         msg3.setSentAt(now.minus(90, ChronoUnit.MINUTES));
@@ -72,7 +79,7 @@ public class MockMessageRepository implements MessageRepository {
         Message msg4 = new Message();
         msg4.setId(UUID.fromString("bbbb0004-0000-0000-0000-000000000004"));
         msg4.setTeamId(teamId);
-        msg4.setMessageType(Message.MessageType.CHECKPOINT);
+        msg4.setMessageType(MessageType.CHECKPOINT);
         msg4.setContent("Checkpoint Prinsengracht bereikt! +150 punten verdiend.");
         msg4.setIcon("🏁");
         msg4.setSentAt(now.minus(45, ChronoUnit.MINUTES));
@@ -84,7 +91,7 @@ public class MockMessageRepository implements MessageRepository {
         Message msg5 = new Message();
         msg5.setId(UUID.fromString("bbbb0005-0000-0000-0000-000000000005"));
         msg5.setTeamId(teamId);
-        msg5.setMessageType(Message.MessageType.RIVAL);
+        msg5.setMessageType(MessageType.RIVAL);
         msg5.setContent("Je rivaal \"Windkracht Tien\" heeft Checkpoint Amstel bereikt!");
         msg5.setIcon("⚔️");
         msg5.setSentAt(now.minus(75, ChronoUnit.MINUTES));
@@ -96,7 +103,7 @@ public class MockMessageRepository implements MessageRepository {
         Message msg6 = new Message();
         msg6.setId(UUID.fromString("bbbb0006-0000-0000-0000-000000000006"));
         msg6.setTeamId(teamId);
-        msg6.setMessageType(Message.MessageType.RALLYDESK);
+        msg6.setMessageType(MessageType.RALLYDESK);
         msg6.setContent("Let op: Door drukte op de Amstel is er een kleine vertraging mogelijk bij Checkpoint 2.");
         msg6.setIcon("📢");
         msg6.setSentAt(now.minus(45, ChronoUnit.MINUTES));
@@ -108,7 +115,7 @@ public class MockMessageRepository implements MessageRepository {
         Message msg7 = new Message();
         msg7.setId(UUID.fromString("bbbb0007-0000-0000-0000-000000000007"));
         msg7.setTeamId(teamId);
-        msg7.setMessageType(Message.MessageType.ACHIEVEMENT);
+        msg7.setMessageType(MessageType.ACHIEVEMENT);
         msg7.setContent("Gefeliciteerd! Je hebt de \"Snelste Starter\" badge verdiend!");
         msg7.setIcon("🏆");
         msg7.setSentAt(now.minus(30, ChronoUnit.MINUTES));
@@ -120,7 +127,7 @@ public class MockMessageRepository implements MessageRepository {
         Message msg8 = new Message();
         msg8.setId(UUID.fromString("bbbb0008-0000-0000-0000-000000000008"));
         msg8.setTeamId(teamId);
-        msg8.setMessageType(Message.MessageType.CHECKPOINT);
+        msg8.setMessageType(MessageType.CHECKPOINT);
         msg8.setContent("Checkpoint Keizersgracht bereikt! +100 punten verdiend.");
         msg8.setIcon("🏁");
         msg8.setSentAt(now.minus(15, ChronoUnit.MINUTES));
@@ -132,7 +139,7 @@ public class MockMessageRepository implements MessageRepository {
         Message msg9 = new Message();
         msg9.setId(UUID.fromString("bbbb0009-0000-0000-0000-000000000009"));
         msg9.setTeamId(teamId);
-        msg9.setMessageType(Message.MessageType.RIVAL);
+        msg9.setMessageType(MessageType.RIVAL);
         msg9.setContent("Je staat nu 50 punten voor op je rivaal \"Windkracht Tien\"!");
         msg9.setIcon("🎯");
         msg9.setSentAt(now.minus(10, ChronoUnit.MINUTES));

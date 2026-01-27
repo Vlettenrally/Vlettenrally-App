@@ -97,14 +97,20 @@ export default function DevTokenPage() {
     storage.setTeamData({
       id: user.id,
       name: user.name,
-      role: user.role,
       gameId: user.gameId,
+      boatNumber: '99',
+      totalPoints: 0,
+      description: '',
+      checkedIn: true,
+      rivals: [],
+      createdAt: new Date().toISOString(),
     });
 
     setSaved(true);
   };
 
   const clearStorage = () => {
+    storage.clearCache();
     storage.clearSession();
     setSaved(false);
     setToken(null);

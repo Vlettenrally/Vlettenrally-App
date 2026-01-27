@@ -1,4 +1,4 @@
-# Player App - Vlettenrally
+# Vlettenrally-App - Vlettenrally
 
 React + TypeScript + Vite application for rally participants.
 

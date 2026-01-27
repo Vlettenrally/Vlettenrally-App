@@ -3,6 +3,8 @@ package nl.vlettenrally.data.domain;
 import java.time.Instant;
 import java.util.UUID;
 
+import nl.vlettenrally.data.enums.AchievementStatus;
+
 /**
  * Achievement entity representing a team's checkpoint completion.
  * 
@@ -13,18 +15,11 @@ import java.util.UUID;
  * 4. Points are awarded only upon verification
  */
 public class Achievement {
-    
-    public enum Status {
-        PENDING,    // Detected by system, awaiting game master verification
-        VERIFIED,   // Confirmed by game master, points awarded
-        REJECTED    // Rejected by game master (e.g., team didn't actually complete checkpoint)
-    }
-    
     private UUID id;
     private UUID teamId;
     private UUID checkpointId;
     private int pointsEarned;
-    private Status status;
+    private AchievementStatus status;
     private Instant detectedAt;     // When system detected proximity
     private Instant verifiedAt;     // When game master verified/rejected
     private UUID verifiedBy;        // Game master who verified (future use)
@@ -33,10 +28,10 @@ public class Achievement {
     public Achievement() {
         this.id = UUID.randomUUID();
         this.detectedAt = Instant.now();
-        this.status = Status.PENDING;
+        this.status = AchievementStatus.PENDING;
     }
 
-    public Achievement(UUID id, UUID teamId, UUID checkpointId, int pointsEarned, Status status, Instant detectedAt) {
+    public Achievement(UUID id, UUID teamId, UUID checkpointId, int pointsEarned, AchievementStatus status, Instant detectedAt) {
         this.id = id;
         this.teamId = teamId;
         this.checkpointId = checkpointId;
@@ -58,8 +53,8 @@ public class Achievement {
     public int getPointsEarned() { return pointsEarned; }
     public void setPointsEarned(int pointsEarned) { this.pointsEarned = pointsEarned; }
 
-    public Status getStatus() { return status; }
-    public void setStatus(Status status) { this.status = status; }
+    public AchievementStatus getStatus() { return status; }
+    public void setStatus(AchievementStatus status) { this.status = status; }
 
     public Instant getDetectedAt() { return detectedAt; }
     public void setDetectedAt(Instant detectedAt) { this.detectedAt = detectedAt; }
@@ -75,6 +70,6 @@ public class Achievement {
     
     // Convenience method for backward compatibility
     public Instant getAchievedAt() { 
-        return status == Status.VERIFIED ? verifiedAt : detectedAt; 
+        return status == AchievementStatus.VERIFIED ? verifiedAt : detectedAt; 
     }
 }

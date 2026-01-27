@@ -2,14 +2,18 @@ package nl.vlettenrally.api.v1;
 
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
-import jakarta.ws.rs.*;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
 import nl.vlettenrally.data.dto.game.CheckpointResponse;
 import nl.vlettenrally.data.dto.game.GameResponse;
 import nl.vlettenrally.data.dto.game.RankingResponse;
-import nl.vlettenrally.data.dto.team.TeamResponse;
+import nl.vlettenrally.data.converter.TeamConverter;
 import nl.vlettenrally.data.domain.Checkpoint;
 import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.Team;
@@ -45,6 +49,9 @@ public class GameResource {
 
     @Inject
     TeamService teamService;
+
+    @Inject
+    TeamConverter teamConverter;
 
     /**
      * Get all games
@@ -116,14 +123,7 @@ public class GameResource {
                     .build();
         }
         List<Team> teams = teamService.findByGameId(gameId);
-        return Response.ok(teams.stream().map(team -> new TeamResponse(
-                team.getId(),
-                gameId, team.getName(),
-                null,
-                team.getBoatNumber(),
-                null, null, null, team.isCheckedIn(),
-                team.getPoints(), null, null, null, null, null
-        )).toList()).build();
+        return Response.ok(teams.stream().map(teamConverter::toDto).toList()).build();
     }
 
     /**
@@ -144,11 +144,11 @@ public class GameResource {
         // Sort by points descending
         List<RankingResponse> rankings = teams.stream()
             .filter(Team::isCheckedIn) // Only include checked-in teams
-            .sorted(Comparator.comparingInt(Team::getPoints).reversed())
+            .sorted(Comparator.comparingInt(Team::getTotalPoints).reversed())
             .map(team -> {
                 int position = 1;
                 for (Team t : teams) {
-                    if (t.isCheckedIn() && t.getPoints() > team.getPoints()) {
+                    if (t.isCheckedIn() && t.getTotalPoints() > team.getTotalPoints()) {
                         position++;
                     }
                 }
@@ -157,7 +157,7 @@ public class GameResource {
                     team.getId(),
                     team.getName(),
                     team.getBoatNumber(),
-                    team.getPoints()
+                    team.getTotalPoints()
                 );
             })
             .toList();

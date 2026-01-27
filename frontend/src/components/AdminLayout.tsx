@@ -29,18 +29,18 @@ import {
 import type { SelectChangeEvent } from '@mui/material';
 import {
   Menu as MenuIcon,
-  Dashboard as DashboardIcon,
   SportsScore as GamesIcon,
   Groups as TeamsIcon,
   Message as MessageIcon,
   AutoFixHigh as AutomationsIcon,
-  Analytics as AnalyticsIcon,
   Logout as LogoutIcon,
   AdminPanelSettings as AdminIcon,
   ChevronLeft as CollapseIcon,
   ChevronRight as ExpandIcon,
+  Map as MapIcon,
 } from '@mui/icons-material';
 import { storage } from '../services/storage';
+import { useGameStore } from '../store/useGameStore';
 import {
   ActiveGamesWidget,
   CheckInProgressWidget,
@@ -55,11 +55,6 @@ interface AdminLayoutProps {
   children: ReactNode;
 }
 
-interface Game {
-  id: string;
-  name: string;
-}
-
 export function AdminLayout({ children }: AdminLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -67,47 +62,27 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
   
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [games, setGames] = useState<Game[]>([]);
-  const [selectedGameId, setSelectedGameId] = useState<string>('');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => storage.getSidebarCollapsed());
+  
+  // Use game store instead of local state
+  const { games, selectedGameId, setSelectedGameId, fetchGames } = useGameStore();
 
-  // Load games and selected game on mount
+  // Load games on mount
   useEffect(() => {
-    const loadGames = async () => {
-      try {
-        const token = storage.getAuthToken();
-        const response = await fetch('/api/v1/games', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setGames(data);
-          
-          // Set selected game from storage or default to first game
-          const storedGameId = storage.getAdminSelectedGame();
-          if (storedGameId && data.some((g: Game) => g.id === storedGameId)) {
-            setSelectedGameId(storedGameId);
-          } else if (data.length > 0) {
-            setSelectedGameId(data[0].id);
-            storage.setAdminSelectedGame(data[0].id);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to load games:', error);
-      }
-    };
-    loadGames();
-  }, []);
+    fetchGames();
+  }, [fetchGames]);
+
+  // Persist sidebar collapsed state
+  useEffect(() => {
+    storage.setSidebarCollapsed(sidebarCollapsed);
+  }, [sidebarCollapsed]);
 
   const menuItems = [
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/admin' },
+    { text: 'Kaart', icon: <MapIcon />, path: '/admin/map' },
     { text: 'Games', icon: <GamesIcon />, path: '/admin/games' },
     { text: 'Teams', icon: <TeamsIcon />, path: '/admin/teams' },
     { text: 'Berichten', icon: <MessageIcon />, path: '/admin/messages' },
     { text: 'Automations', icon: <AutomationsIcon />, path: '/admin/automations' },
-    { text: 'Analytics', icon: <AnalyticsIcon />, path: '/admin/analytics' },
   ];
 
   const handleNavigate = (path: string) => {
@@ -116,6 +91,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   };
 
   const handleLogout = () => {
+    // Clear cached app data and session
+    storage.clearCache();
     storage.clearSession();
     navigate('/admin/login');
   };
@@ -123,7 +100,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const handleGameChange = (event: SelectChangeEvent) => {
     const gameId = event.target.value;
     setSelectedGameId(gameId);
-    storage.setAdminSelectedGame(gameId);
   };
 
   const sidebarWidth = sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH;
@@ -279,7 +255,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                 <InputLabel id="game-select-label" sx={{ color: 'white' }}>Game</InputLabel>
                 <Select
                   labelId="game-select-label"
-                  value={selectedGameId}
+                  value={selectedGameId || ''}
                   label="Game"
                   onChange={handleGameChange}
                   sx={{

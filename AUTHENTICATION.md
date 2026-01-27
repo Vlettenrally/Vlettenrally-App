@@ -59,7 +59,6 @@ Content-Type: application/json
   "name": "Scouting Nederland",
   "description": "Team description",
   "boatNumber": "42",
-  "color": "blue",
   "participants": ["Jan", "Piet", "Klaas"],
   "notes": "Optional notes"
 }
@@ -118,7 +117,6 @@ Response (200 OK):
   "name": "Scouting Nederland",
   "description": "Team description",
   "boatNumber": "42",
-  "color": "blue",
   "participants": ["Jan", "Piet", "Klaas"],
   "deviceId": null,
   "checkedIn": true,

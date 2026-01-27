@@ -2,6 +2,7 @@ package nl.vlettenrally.data.domain;
 
 import java.time.Instant;
 import java.util.UUID;
+import nl.vlettenrally.data.enums.MessageType;
 
 /**
  * Message entity representing a message sent to a team
@@ -16,14 +17,6 @@ public class Message {
     private boolean delivered;
     private boolean read;
 
-    public enum MessageType {
-        GENERAL,
-        COUNTDOWN,
-        CHECKPOINT,
-        RALLYDESK,
-        ACHIEVEMENT,
-        RIVAL
-    }
 
     public Message() {
         this.id = UUID.randomUUID();

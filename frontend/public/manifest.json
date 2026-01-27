@@ -1,5 +1,5 @@
 {
-  "name": "Vlettenrally Player App",
+  "name": "Vlettenrally App",
   "short_name": "Vlettenrally",
   "icons": [
     {
@@ -18,5 +18,5 @@
   "display": "standalone",
   "scope": "/",
   "start_url": "/",
-  "description": "Vlettenrally participant application for managing rally participation"
+  "description": "Vlettenrally app for managing rally participation"
 }

@@ -8,7 +8,13 @@ import nl.vlettenrally.data.repository.TeamRepository;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -45,11 +51,10 @@ public class MockTeamRepository implements TeamRepository {
         team1.setName("De Watervlooien");
         team1.setDescription("Snelle en wendbare vlettenvaarders");
         team1.setBoatNumber("42");
-        team1.setColor("#1976d2");
         team1.setParticipants(Arrays.asList("Jan Janssen", "Piet Pietersen", "Klaas Kansen"));
         team1.setDeviceId(UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"));
         team1.setCheckedIn(true);
-        team1.setPoints(350);
+        team1.setTotalPoints(350);
         team1.setRivals(Collections.singletonList(TEAM_WINDKRACHT_ID));
         team1.setNotes("Favoriet voor de winst!");
         team1.setEmergencyPhoneNumbers(Arrays.asList("+31 6 12345678", "+31 6 87654321"));
@@ -64,11 +69,10 @@ public class MockTeamRepository implements TeamRepository {
         team2.setName("Windkracht Tien");
         team2.setDescription("Altijd volle kracht vooruit");
         team2.setBoatNumber("17");
-        team2.setColor("#d32f2f");
         team2.setParticipants(Arrays.asList("Anna de Groot", "Marie Storm", "Lisa Wind"));
         team2.setDeviceId(UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"));
         team2.setCheckedIn(true);
-        team2.setPoints(300);
+        team2.setTotalPoints(300);
         team2.setRivals(Collections.singletonList(TEAM_WATERVLOOIEN_ID));
         team2.setEmergencyPhoneNumbers(Arrays.asList("+31 6 11111111"));
         team2.setCreatedAt(now.minus(47, ChronoUnit.HOURS));
@@ -82,10 +86,9 @@ public class MockTeamRepository implements TeamRepository {
         team3.setName("De Grachtengorrillas");
         team3.setDescription("Rustig maar doeltreffend");
         team3.setBoatNumber("8");
-        team3.setColor("#388e3c");
         team3.setParticipants(Arrays.asList("Tom de Vries", "Henk Boot"));
         team3.setCheckedIn(true);
-        team3.setPoints(250);
+        team3.setTotalPoints(250);
         team3.setRivals(Collections.emptyList());
         team3.setEmergencyPhoneNumbers(Arrays.asList("+31 6 22222222", "+31 6 33333333", "+31 6 44444444"));
         team3.setCreatedAt(now.minus(46, ChronoUnit.HOURS));
@@ -99,10 +102,9 @@ public class MockTeamRepository implements TeamRepository {
         team4.setName("Kapitein Haak");
         team4.setDescription("Piraten van de grachten");
         team4.setBoatNumber("23");
-        team4.setColor("#7b1fa2");
         team4.setParticipants(Arrays.asList("Peter Pan", "Wendy Darling", "Tinkerbell"));
         team4.setCheckedIn(false);
-        team4.setPoints(0);
+        team4.setTotalPoints(0);
         team4.setRivals(Collections.emptyList());
         team4.setEmergencyPhoneNumbers(Arrays.asList("+31 6 55555555"));
         team4.setCreatedAt(now.minus(45, ChronoUnit.HOURS));

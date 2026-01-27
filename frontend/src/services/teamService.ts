@@ -1,88 +1,149 @@
-const API_BASE = '/api/v1';
+import api from "./api";
+import { storage } from './storage';
+import type { AdminTeam, PlayerTeam, PublicTeam } from '../types/entities';
 
-export interface Team {
-  id: string;
-  game: string;
-  name: string;
-  description: string;
-  boatNumber: string;
-  color: string;
-  participants: string[];
-  deviceId: string;
-  checkedIn: boolean;
-  points: number;
-  rivals: string[];
-  notes: string;
-  emergencyPhoneNumbers: string[];
-  createdAt: string;
-  updatedAt: string;
-}
+let teams: AdminTeam[] = [];
+let myTeam: PlayerTeam | null = null;
+let fetchMyTeamPromise: Promise<PlayerTeam | null> | null = null;
+let fetchTeamsPromise: Promise<AdminTeam[] | null> | null = null;
 
-export async function getAllTeams(): Promise<Team[]> {
-  const response = await fetch(`${API_BASE}/teams`);
-  if (!response.ok) {
-    throw new Error('Failed to fetch teams');
-  }
-  return response.json();
-}
+export const teamService = {
+  getMyTeam: async (options?: { forceRefresh?: boolean }) : Promise<PlayerTeam | null> => {
+    const forceRefresh = options?.forceRefresh === true;
 
-export async function getTeamById(teamId: string): Promise<Team> {
-  const response = await fetch(`${API_BASE}/teams/${teamId}`);
-  if (!response.ok) {
-    throw new Error('Failed to fetch team');
-  }
-  return response.json();
-}
+    if (!forceRefresh && myTeam !== null) {
+      return myTeam;
+    }
 
-export async function getRivalTeams(teamId: string): Promise<Team[]> {
-  const response = await fetch(`${API_BASE}/teams/${teamId}/rivals`);
-  if (!response.ok) {
-    throw new Error('Failed to fetch rival teams');
-  }
-  return response.json();
-}
+    if (fetchMyTeamPromise) {
+      try {
+        return await fetchMyTeamPromise;
+      } catch (e) {
+        fetchMyTeamPromise = null;
+        throw e;
+      }
+    }
 
-export async function getMyTeam(accessToken: string): Promise<Team> {
-  const response = await fetch(`${API_BASE}/team/me`, {
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-    },
-  });
-  if (!response.ok) {
-    throw new Error('Failed to fetch current team');
-  }
-  return response.json();
-}
+    fetchMyTeamPromise = (async () => {
+      try {
+        const response = await api.getMyTeam();
+        if (response && response.data) {
+          const team = response.data as PlayerTeam;
+          try {
+            myTeam = team;
+            storage.setTeamId(team.id);
+            storage.setGameId(team.gameId);
+          } catch (e) {
+            console.warn('Failed to persist team data to storage', e);
+          }
+        }
+        return response.data ?? null;
+      } finally {
+        fetchMyTeamPromise = null;
+      }
+    })();
 
-export async function checkInTeam(teamId: string, accessToken: string): Promise<Team> {
-  const response = await fetch(`${API_BASE}/teams/${teamId}/check-in`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-  });
-  if (!response.ok) {
-    throw new Error('Failed to check in team');
-  }
-  return response.json();
-}
+    return fetchMyTeamPromise;
+  },
 
-export async function updateEmergencyPhones(
-  teamId: string,
-  phoneNumbers: string[],
-  accessToken: string
-): Promise<Team> {
-  const response = await fetch(`${API_BASE}/teams/${teamId}/emergency-phones`, {
-    method: 'PUT',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ phoneNumbers }),
-  });
-  if (!response.ok) {
-    throw new Error('Failed to update emergency phone numbers');
-  }
-  return response.json();
-}
+  getTeam: async (teamId: string, options?: { forceRefresh?: boolean, gameId?: string }): Promise<AdminTeam | null> => {
+    const forceRefresh = options?.forceRefresh === true;
+    const gameId = options?.gameId;
+
+    if (!forceRefresh) {
+      const cached = teams.find((t) => t.id === teamId);
+      if (cached) {
+        return cached;
+      }
+    }
+
+    if (!gameId) {
+      throw new Error("gameId is required to fetch teams");
+    }
+
+    if (!fetchTeamsPromise) {
+      fetchTeamsPromise = (async () => {
+        try {
+          const response = await api.getTeamsByGame(gameId);
+          if (response && response.data) {
+            // Add each team individually to the teams array
+            response.data.forEach((team: AdminTeam) => {
+              if (!teams.find((t) => t.id === team.id)) {
+                teams.push(team);
+              }
+            });
+          }
+          return response.data ?? [];
+        } finally {
+          fetchTeamsPromise = null;
+        }
+      })();
+    }
+
+    await fetchTeamsPromise;
+    return teams.find((t) => t.id === teamId) || null;
+  },
+
+  getTeamsByGame: async (gameId: string) : Promise<AdminTeam[]> => {
+    const forceRefresh = false;
+
+    if (!forceRefresh && teams.length > 0) {
+      const cachedTeams = teams;
+      if (cachedTeams.length > 0) {
+        return cachedTeams;
+      }
+    }
+
+    if (!fetchTeamsPromise) {
+      fetchTeamsPromise = (async () => {
+        try {
+          const response = await api.getTeamsByGame(gameId);
+          if (response && response.data) {
+            teams = response.data as AdminTeam[];
+          }
+          return teams;
+        } finally {
+          fetchTeamsPromise = null;
+        }
+      })();
+    }
+
+    await fetchTeamsPromise;
+    return teams;
+  },
+
+  getRivalTeams: async (teamId: string): Promise<PublicTeam[]> => {
+    const response = await api.getRivalTeams(teamId);
+    return response.data ?? [];
+  },
+
+  updateTeam: async (teamId: string, data: Partial<AdminTeam>): Promise<AdminTeam | null> => {
+    const response = await api.updateTeam(teamId, data);
+    if (response.data) {
+      // Update cached team if it exists
+      const index = teams.findIndex((t) => t.id === teamId);
+      if (index !== -1) {
+        teams[index] = response.data;
+      }
+    }
+    return response.data ?? null;
+  },
+
+  createTeam: async (data: Partial<AdminTeam> & { gameId: string }): Promise<AdminTeam | null> => {
+    const response = await api.createTeam(data);
+    if (response.data) {
+      // Add new team to cache
+      teams.push(response.data);
+    }
+    return response.data ?? null;
+  },
+
+  clearCache: () => {
+    teams = [];
+    myTeam = null;
+    fetchMyTeamPromise = null;
+    fetchTeamsPromise = null;
+  },
+};
+
+export default teamService;

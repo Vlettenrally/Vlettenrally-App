@@ -1,7 +1,12 @@
 package nl.vlettenrally.api.v1;
 
 import jakarta.inject.Inject;
-import jakarta.ws.rs.*;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import nl.vlettenrally.data.domain.Achievement;
@@ -9,6 +14,7 @@ import nl.vlettenrally.data.dto.achievement.AchievementResponse;
 import nl.vlettenrally.data.dto.achievement.ProximityDetectionRequest;
 import nl.vlettenrally.data.dto.achievement.VerificationRequest;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
+import nl.vlettenrally.data.enums.AchievementStatus;
 import nl.vlettenrally.service.AchievementService;
 import nl.vlettenrally.service.AuthService;
 
@@ -56,7 +62,7 @@ public class AchievementResource {
     @Path("/teams/{teamId}/achievements/verified")
     public Response getTeamVerifiedAchievements(@PathParam("teamId") UUID teamId) {
         List<Achievement> achievements = achievementService.findByTeamId(teamId).stream()
-            .filter(a -> a.getStatus() == Achievement.Status.VERIFIED)
+            .filter(a -> a.getStatus() == AchievementStatus.VERIFIED)
             .toList();
         return Response.ok(achievements.stream().map(this::toDto).toList()).build();
     }

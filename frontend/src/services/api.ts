@@ -6,6 +6,7 @@
  */
 
 import { config } from '../config';
+import type { Game, AdminTeam, PlayerTeam, PublicTeam } from '../types/entities';
 import storage from './storage';
 
 const API_BASE_URL = config.apiBaseUrl;
@@ -93,29 +94,55 @@ class ApiService {
   }
 
   // Team endpoints
-  async getMyTeam() {
+  async getMyTeam() : Promise<ApiResponse<PlayerTeam>> {
     return this.get('/team/me');
   }
 
-  async getTeam(teamId: string) {
+  async getTeam(teamId: string) : Promise<ApiResponse<AdminTeam>> {
     return this.get(`/teams/${teamId}`);
   }
 
-  async getRivalTeam(teamId: string) {
-    return this.get(`/teams/${teamId}/rival`);
+  async getTeamsByGame(gameId: string): Promise<ApiResponse<AdminTeam[]>> {
+    if (!gameId) {
+      return { data: [], status: 200 };
+    }
+    return this.get(`/games/${gameId}/teams`);
+  }
+
+  async getRivalTeams(teamId: string) : Promise<ApiResponse<PublicTeam[]>> {
+    return this.get(`/teams/${teamId}/rivals`);
+  }
+
+  async updateTeam(teamId: string, data: Partial<AdminTeam>) : Promise<ApiResponse<AdminTeam>> {
+    return this.put(`/teams/${teamId}`, data);
+  }
+
+  async createTeam(data: Partial<AdminTeam> & { gameId: string }) : Promise<ApiResponse<AdminTeam>> {
+    return this.post('/teams', {
+      gameId: data.gameId,
+      name: data.name,
+      description: data.description,
+      boatNumber: data.boatNumber,
+      participants: data.participants,
+      notes: data.notes,
+    });
   }
 
   // Game endpoints
-async getGames() {
+async getGames() : Promise<ApiResponse<Game[]>> {
     return this.get('/games');
   }
   
-  async getGame(gameId: string) {
+  async getGame(gameId: string) : Promise<ApiResponse<Game>> {
     return this.get(`/games/${gameId}`);
   }
 
-  async getActiveGames() {
+  async getActiveGames() : Promise<ApiResponse<Game[]>> {
     return this.get('/games/active');
+  }
+
+  async getGameCount() : Promise<ApiResponse<number>> {
+    return this.get('/games/count');
   }
 
   // Messages endpoints

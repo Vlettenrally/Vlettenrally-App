@@ -5,15 +5,14 @@ import java.util.UUID;
 
 public record TeamResponse(
     UUID id,
-    UUID game,
+    UUID gameId,
     String name,
     String description,
     String boatNumber,
-    String color,
     List<String> participants,
     UUID deviceId,
     boolean checkedIn,
-    int points,
+    int totalPoints,
     List<UUID> rivals,
     String notes,
     List<String> emergencyPhoneNumbers,

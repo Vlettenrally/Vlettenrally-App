@@ -1,10 +1,24 @@
 package nl.vlettenrally.api.v1;
 
 import jakarta.inject.Inject;
-import jakarta.ws.rs.*;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import nl.vlettenrally.data.dto.auth.*;
+import nl.vlettenrally.data.dto.auth.AdminLoginRequest;
+import nl.vlettenrally.data.dto.auth.AdminLoginResponse;
+import nl.vlettenrally.data.dto.auth.MockLoginRequest;
+import nl.vlettenrally.data.dto.auth.MockLoginResponse;
+import nl.vlettenrally.data.dto.auth.MockUserResponse;
+import nl.vlettenrally.data.dto.auth.RefreshTokenRequest;
+import nl.vlettenrally.data.dto.auth.RegistrationResult;
+import nl.vlettenrally.data.dto.auth.RegistrationTokenResponse;
+import nl.vlettenrally.data.dto.auth.TeamRegistrationRequest;
+import nl.vlettenrally.data.dto.auth.TokenExchangeRequest;
+import nl.vlettenrally.data.dto.auth.TokenResponse;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
 import nl.vlettenrally.data.repository.AdminRepository;
 import nl.vlettenrally.service.AuthService;
@@ -69,7 +83,7 @@ public class AuthResource {
                 ? Arrays.asList(registration.participantNames()) 
                 : Collections.emptyList();
 
-            AuthService.RegistrationResult result = authService.registerTeam(
+            RegistrationResult result = authService.registerTeam(
                 registration.gameId(),
                 registration.boatNumber(),
                 registration.scoutingGroup(),

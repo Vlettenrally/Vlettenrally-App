@@ -3,8 +3,18 @@ package nl.vlettenrally.config;
 import io.quarkus.arc.profile.IfBuildProfile;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
-import nl.vlettenrally.data.repository.*;
-import nl.vlettenrally.data.repository.mock.*;
+import nl.vlettenrally.data.repository.AdminRepository;
+import nl.vlettenrally.data.repository.AchievementRepository;
+import nl.vlettenrally.data.repository.CheckpointRepository;
+import nl.vlettenrally.data.repository.GameRepository;
+import nl.vlettenrally.data.repository.MessageRepository;
+import nl.vlettenrally.data.repository.TeamRepository;
+import nl.vlettenrally.data.repository.mock.MockAchievementRepository;
+import nl.vlettenrally.data.repository.mock.MockAdminRepository;
+import nl.vlettenrally.data.repository.mock.MockCheckpointRepository;
+import nl.vlettenrally.data.repository.mock.MockGameRepository;
+import nl.vlettenrally.data.repository.mock.MockMessageRepository;
+import nl.vlettenrally.data.repository.mock.MockTeamRepository;
 
 /**
  * Configuration for mock repositories.

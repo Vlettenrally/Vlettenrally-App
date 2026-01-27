@@ -11,7 +11,8 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { HowToReg as CheckInIcon } from '@mui/icons-material';
-import { storage } from '../../services/storage';
+import { useGameStore } from '../../store/useGameStore';
+import { teamService } from '../../services/teamService';
 
 interface CheckInProgressWidgetProps {
   collapsed?: boolean;
@@ -21,33 +22,20 @@ export function CheckInProgressWidget({ collapsed = false }: CheckInProgressWidg
   const [checkedIn, setCheckedIn] = useState(0);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const selectedGameId = useGameStore((s) => s.selectedGameId);
 
   useEffect(() => {
-    const fetchTeams = async () => {
-      try {
-        const token = storage.getAuthToken();
-        const gameId = storage.getAdminSelectedGame();
-        if (!gameId) {
-          setLoading(false);
-          return;
-        }
-
-        const response = await fetch(`/api/v1/games/${gameId}/teams`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (response.ok) {
-          const teams = await response.json();
-          setTotal(teams.length);
-          setCheckedIn(teams.filter((t: { checkedIn: boolean }) => t.checkedIn).length);
-        }
-      } catch (error) {
-        console.error('Failed to fetch teams:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchTeams();
-  }, []);
+    if (!selectedGameId) {
+      return;
+    }
+    
+    teamService.getTeamsByGame(selectedGameId).then((teams) => {
+      const checkedInTeams = teams.filter((t) => t.checkedIn).length;
+      setCheckedIn(checkedInTeams);
+      setTotal(teams.length);
+      setLoading(false);
+    });
+  }, [selectedGameId]);
 
   const progress = total > 0 ? (checkedIn / total) * 100 : 0;
 

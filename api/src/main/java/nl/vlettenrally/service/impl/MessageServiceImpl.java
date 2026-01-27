@@ -4,6 +4,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import nl.vlettenrally.data.domain.Message;
 import nl.vlettenrally.data.repository.MessageRepository;
+import nl.vlettenrally.data.enums.MessageType;
 import nl.vlettenrally.service.MessageService;
 
 import java.time.Instant;
@@ -46,7 +47,7 @@ public class MessageServiceImpl implements MessageService {
     }
 
     @Override
-    public Message send(UUID teamId, Message.MessageType type, String content, String icon) {
+    public Message send(UUID teamId, MessageType type, String content, String icon) {
         Message message = new Message();
         message.setTeamId(teamId);
         message.setMessageType(type);

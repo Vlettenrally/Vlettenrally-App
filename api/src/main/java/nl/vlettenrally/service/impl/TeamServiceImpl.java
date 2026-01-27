@@ -76,7 +76,7 @@ public class TeamServiceImpl implements TeamService {
     public Team updatePoints(UUID teamId, int points) {
         return teamRepository.findById(teamId)
             .map(team -> {
-                team.setPoints(points);
+                team.setTotalPoints(points);
                 team.setUpdatedAt(Instant.now());
                 return teamRepository.save(team);
             })

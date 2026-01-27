@@ -1,6 +1,15 @@
 import { Box, Typography, Card, CardContent, Grid } from '@mui/material';
+import { useEffect } from 'react';
+import { useGameStore } from '../../store/useGameStore';
 
 export default function Analytics() {
+  const selectedGameId = useGameStore((s) => s.selectedGameId);
+
+  useEffect(() => {
+    if (!selectedGameId) return;
+    // TODO: Fetch game-specific analytics when API is available
+  }, [selectedGameId]);
+
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" component="h1" sx={{ mb: 4, fontWeight: 'bold' }}>

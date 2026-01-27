@@ -4,15 +4,13 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import nl.vlettenrally.data.dto.auth.RegistrationResult;
+import nl.vlettenrally.data.dto.auth.TokenResult;
 
 /**
  * Service interface for Authentication operations
  */
 public interface AuthService {
-
-    // Record types for results
-    record RegistrationResult(String registrationToken, String teamId, long expiresAt) {}
-    record TokenResult(String accessToken, String refreshToken, long expiresIn, String subject, String name, String role) {}
 
     /**
      * Register a new team and return a one-time registration token

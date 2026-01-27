@@ -59,6 +59,8 @@ export function AppLayout({ children }: AppLayoutProps) {
   };
 
   const handleLogout = () => {
+    // Clear cached app data and session
+    storage.clearCache();
     storage.clearSession();
     resetTeam();
     resetGame();

@@ -69,7 +69,7 @@ export function DashboardPage() {
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <TrophyIcon color="primary" />
                   <Box>
-                    <Typography variant="h5">{team.points}</Typography>
+                    <Typography variant="h5">{team.totalPoints}</Typography>
                     <Typography variant="caption" color="text.secondary">
                       Punten
                     </Typography>
@@ -168,15 +168,6 @@ export function DashboardPage() {
             </Card>
           </Grid>
         </Grid>
-
-        {team && (
-          <Paper elevation={1} sx={{ p: 2, mt: 3 }}>
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              Deelnemers
-            </Typography>
-            <Typography variant="body2">{team.participants.join(', ')}</Typography>
-          </Paper>
-        )}
       </Box>
     </Container>
   );

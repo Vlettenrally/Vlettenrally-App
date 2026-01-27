@@ -2,23 +2,7 @@
  * Team Store - Global state for team data
  */
 import { create } from 'zustand';
-
-export interface Team {
-  id: string;
-  game: string;
-  name: string;
-  description: string;
-  boatNumber: string;
-  color: string;
-  participants: string[];
-  deviceId?: string;
-  checkedIn: boolean;
-  points: number;
-  rivals: string[];
-  notes?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+import { type PlayerTeam, type PublicTeam } from '../types/entities';
 
 export interface Achievement {
   id: string;
@@ -29,14 +13,14 @@ export interface Achievement {
 }
 
 interface TeamState {
-  team: Team | null;
-  rivalTeam: Team | null;
+  team: PlayerTeam | null;
+  rivalTeam: PublicTeam | null;
   achievements: Achievement[];
   isLoading: boolean;
   error: string | null;
   
-  setTeam: (team: Team | null) => void;
-  setRivalTeam: (rivalTeam: Team | null) => void;
+  setTeam: (team: PlayerTeam | null) => void;
+  setRivalTeam: (rivalTeam: PublicTeam | null) => void;
   setAchievements: (achievements: Achievement[]) => void;
   addAchievement: (achievement: Achievement) => void;
   updatePoints: (points: number) => void;
