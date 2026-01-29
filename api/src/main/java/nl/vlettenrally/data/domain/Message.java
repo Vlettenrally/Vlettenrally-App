@@ -1,8 +1,11 @@
 package nl.vlettenrally.data.domain;
 
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 import nl.vlettenrally.data.enums.MessageType;
+import nl.vlettenrally.data.enums.TransmissionChannel;
 
 /**
  * Message entity representing a message sent to a team
@@ -16,6 +19,8 @@ public class Message {
     private Instant sentAt;
     private boolean delivered;
     private boolean read;
+    private Set<TransmissionChannel> transmittedVia;
+    private String transmissionError;
 
 
     public Message() {
@@ -23,6 +28,7 @@ public class Message {
         this.sentAt = Instant.now();
         this.delivered = true;
         this.read = false;
+        this.transmittedVia = new HashSet<>();
     }
 
     public Message(UUID id, UUID teamId, MessageType messageType, String content, Instant sentAt) {
@@ -58,4 +64,20 @@ public class Message {
 
     public boolean isRead() { return read; }
     public void setRead(boolean read) { this.read = read; }
+
+    public Set<TransmissionChannel> getTransmittedVia() { return transmittedVia; }
+    public void setTransmittedVia(Set<TransmissionChannel> transmittedVia) { this.transmittedVia = transmittedVia; }
+
+    public String getTransmissionError() { return transmissionError; }
+    public void setTransmissionError(String transmissionError) { this.transmissionError = transmissionError; }
+
+    /**
+     * Add a transmission channel to the set of channels this message was transmitted via.
+     */
+    public void addTransmissionChannel(TransmissionChannel channel) {
+        if (this.transmittedVia == null) {
+            this.transmittedVia = new HashSet<>();
+        }
+        this.transmittedVia.add(channel);
+    }
 }

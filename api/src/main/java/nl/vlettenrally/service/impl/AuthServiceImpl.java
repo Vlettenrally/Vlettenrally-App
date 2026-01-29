@@ -14,14 +14,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import nl.vlettenrally.data.dto.auth.RegistrationTokenData;
 import nl.vlettenrally.data.dto.auth.TokenResult;
 import nl.vlettenrally.data.dto.auth.RefreshTokenData;
 import nl.vlettenrally.data.dto.auth.RegistrationResult;
-import nl.vlettenrally.data.dto.auth.AccessTokenData;
 
 /**
  * Implementation of AuthService
@@ -39,14 +37,18 @@ public class AuthServiceImpl implements AuthService {
     @ConfigProperty(name = "mp.jwt.verify.issuer", defaultValue = "vlettenrally")
     String issuer;
 
+
+    @ConfigProperty(name = "mp.jwt.verify.audience", defaultValue = "vlettenrally-audience")
+    String audience;
+
+    @ConfigProperty(name = "smallrye.jwt.sign.key-location", defaultValue = "privateKey.pem")
+    String keyLocation;
+
     // In-memory storage for registration tokens
     private final Map<String, RegistrationTokenData> registrationTokens = new ConcurrentHashMap<>();
     
     // In-memory storage for refresh tokens
     private final Map<String, RefreshTokenData> refreshTokens = new ConcurrentHashMap<>();
-
-    // In-memory storage for access tokens (for validation)
-    private final Map<String, AccessTokenData> accessTokens = new ConcurrentHashMap<>();
 
     @Override
     public RegistrationResult registerTeam(
@@ -154,28 +156,8 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public Optional<UUID> validateAccessToken(String accessToken) {
-        if (accessToken == null) {
-            return Optional.empty();
-        }
-
-        // Check in-memory store first
-        AccessTokenData tokenData = accessTokens.get(accessToken);
-        if (tokenData != null) {
-            if (Instant.now().getEpochSecond() > tokenData.expiresAt()) {
-                accessTokens.remove(accessToken);
-                return Optional.empty();
-            }
-            return Optional.of(UUID.fromString(tokenData.subject()));
-        }
-
-        return Optional.empty();
-    }
-
-    @Override
     public void revokeTokens(UUID teamId) {
         // Remove all tokens for the team
-        accessTokens.entrySet().removeIf(e -> e.getValue().subject().equals(teamId.toString()));
         refreshTokens.entrySet().removeIf(e -> e.getValue().subject().equals(teamId.toString()));
     }
 
@@ -183,17 +165,17 @@ public class AuthServiceImpl implements AuthService {
         long now = Instant.now().getEpochSecond();
         registrationTokens.entrySet().removeIf(e -> e.getValue().expiresAt() < now);
         refreshTokens.entrySet().removeIf(e -> e.getValue().expiresAt() < now);
-        accessTokens.entrySet().removeIf(e -> e.getValue().expiresAt() < now);
     }
 
     @Override
     public String generateMockToken(String userId, String name, String role, Instant expiresAt) {
-        return Jwt.issuer(issuer)
+        String token = Jwt.issuer(issuer)
             .subject(userId)
             .claim("name", name)
-            .claim("role", role)
-            .groups(Set.of(role))
+            .groups(role)
             .expiresAt(expiresAt)
             .sign();
+
+        return token;
     }
 }

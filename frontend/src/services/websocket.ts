@@ -4,6 +4,8 @@
  * Supports both team and admin connections with automatic reconnection
  */
 
+import { storage } from './storage';
+
 const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8080/ws';
 
 export const WebSocketEventType = {
@@ -107,7 +109,9 @@ class WebSocketService {
     }
 
     if (this.config.type === 'team') {
-      return `${WS_BASE_URL}/game/${this.config.gameId}/team/${this.config.teamId}`;
+      const token = storage.getAuthToken();
+      const baseUrl = `${WS_BASE_URL}/game/${this.config.gameId}/team/${this.config.teamId}`;
+      return token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl;
     } else {
       return `${WS_BASE_URL}/game/${this.config.gameId}/admin`;
     }

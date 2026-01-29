@@ -275,7 +275,7 @@ public class AuthResource {
                     Instant expiresAt = Instant.now().plus(24, ChronoUnit.HOURS);
                                       
                     String token = authService.generateMockToken(
-                        request.userId(),
+                        teamId.toString(),
                         team.getName(),
                         "team",
                         expiresAt

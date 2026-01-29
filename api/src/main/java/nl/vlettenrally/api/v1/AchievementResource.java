@@ -1,5 +1,6 @@
 package nl.vlettenrally.api.v1;
 
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
@@ -9,6 +10,8 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.SecurityContext;
+import nl.vlettenrally.api.security.TeamScopedOrAdmin;
 import nl.vlettenrally.data.domain.Achievement;
 import nl.vlettenrally.data.dto.achievement.AchievementResponse;
 import nl.vlettenrally.data.dto.achievement.ProximityDetectionRequest;
@@ -16,7 +19,6 @@ import nl.vlettenrally.data.dto.achievement.VerificationRequest;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
 import nl.vlettenrally.data.enums.AchievementStatus;
 import nl.vlettenrally.service.AchievementService;
-import nl.vlettenrally.service.AuthService;
 
 import java.util.List;
 import java.util.UUID;
@@ -40,9 +42,6 @@ public class AchievementResource {
     @Inject
     AchievementService achievementService;
 
-    @Inject
-    AuthService authService;
-
     // ==================== Team Endpoints (Read-only) ====================
 
     /**
@@ -50,6 +49,8 @@ public class AchievementResource {
      */
     @GET
     @Path("/teams/{teamId}/achievements")
+    @RolesAllowed({"admin", "team"})
+    @TeamScopedOrAdmin
     public Response getTeamAchievements(@PathParam("teamId") UUID teamId) {
         List<Achievement> achievements = achievementService.findByTeamId(teamId);
         return Response.ok(achievements.stream().map(this::toDto).toList()).build();
@@ -60,6 +61,8 @@ public class AchievementResource {
      */
     @GET
     @Path("/teams/{teamId}/achievements/verified")
+    @RolesAllowed({"admin", "team"})
+    @TeamScopedOrAdmin
     public Response getTeamVerifiedAchievements(@PathParam("teamId") UUID teamId) {
         List<Achievement> achievements = achievementService.findByTeamId(teamId).stream()
             .filter(a -> a.getStatus() == AchievementStatus.VERIFIED)
@@ -73,9 +76,9 @@ public class AchievementResource {
      * Get all pending achievements (for game master dashboard)
      */
     @GET
+    @RolesAllowed("admin")
     @Path("/achievements/pending")
     public Response getAllPendingAchievements() {
-        // TODO: Add game master authentication
         List<Achievement> pending = achievementService.findAllPending();
         return Response.ok(pending.stream().map(this::toDto).toList()).build();
     }
@@ -84,9 +87,9 @@ public class AchievementResource {
      * Get pending achievements for a specific checkpoint (for game masters at that location)
      */
     @GET
+    @RolesAllowed("admin")
     @Path("/checkpoints/{checkpointId}/achievements/pending")
     public Response getPendingAchievementsForCheckpoint(@PathParam("checkpointId") UUID checkpointId) {
-        // TODO: Add game master authentication
         List<Achievement> pending = achievementService.findPendingByCheckpointId(checkpointId);
         return Response.ok(pending.stream().map(this::toDto).toList()).build();
     }
@@ -96,12 +99,13 @@ public class AchievementResource {
      * This awards points to the team.
      */
     @POST
+    @RolesAllowed("admin")
     @Path("/achievements/{achievementId}/verify")
     public Response verifyAchievement(
             @PathParam("achievementId") UUID achievementId,
-            VerificationRequest request) {
-        // TODO: Add game master authentication and get gameMasterId from token
-        UUID gameMasterId = null; // Will come from auth later
+            VerificationRequest request,
+            @SecurityContext SecurityContext securityContext) {
+        UUID gameMasterId = securityContext.getUserPrincipal() != null ? UUID.fromString(securityContext.getUserPrincipal().getName()) : null;
         String notes = request != null ? request.notes() : null;
 
         return achievementService.verifyAchievement(achievementId, gameMasterId, notes)
@@ -116,12 +120,13 @@ public class AchievementResource {
      * No points are awarded.
      */
     @POST
+    @RolesAllowed("admin")
     @Path("/achievements/{achievementId}/reject")
     public Response rejectAchievement(
             @PathParam("achievementId") UUID achievementId,
-            VerificationRequest request) {
-        // TODO: Add game master authentication and get gameMasterId from token
-        UUID gameMasterId = null; // Will come from auth later
+            VerificationRequest request,
+            @SecurityContext SecurityContext securityContext) {
+        UUID gameMasterId = securityContext.getUserPrincipal() != null ? UUID.fromString(securityContext.getUserPrincipal().getName()) : null;
         String notes = request != null ? request.notes() : null;
 
         if (notes == null || notes.isBlank()) {
@@ -147,6 +152,7 @@ public class AchievementResource {
      * NOTE: This should be secured for internal system use only.
      */
     @POST
+    @RolesAllowed("admin")
     @Path("/achievements/detect")
     public Response detectProximity(ProximityDetectionRequest request) {
         // TODO: Add internal API key or system authentication

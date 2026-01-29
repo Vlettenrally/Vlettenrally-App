@@ -13,7 +13,8 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
-import nl.vlettenrally.api.security.Secured;
+import nl.vlettenrally.api.security.TeamScoped;
+import nl.vlettenrally.api.security.TeamScopedOrAdmin;
 import nl.vlettenrally.data.converter.TeamConverter;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
@@ -42,7 +43,6 @@ import java.util.UUID;
 @Path("/api/v1")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
-@Secured
 @RolesAllowed("admin")
 public class TeamResource {
 
@@ -83,6 +83,7 @@ public class TeamResource {
      */
     @GET
     @RolesAllowed({"admin", "team"})
+    @TeamScopedOrAdmin
     @Path("/teams/{teamId}/rivals")
     public Response getRivalTeams(@PathParam("teamId") UUID teamId) {
         List<Team> rivals = teamService.findRivalTeams(teamId);
@@ -95,10 +96,10 @@ public class TeamResource {
      */
     @GET
     @Path("/team/me")
-    @RolesAllowed({"team"})
-    @Secured
+    @RolesAllowed({ "team" })
+    @TeamScoped
     public Response getMyTeam(@Context SecurityContext securityContext) {
-        UUID teamId = getAuthenticatedTeamId(securityContext);
+        UUID teamId = UUID.fromString(securityContext.getUserPrincipal().getName());
 
         return teamService.findById(teamId)
             .map(team -> Response.ok(teamConverter.toPlayerResponse(team)).build())
@@ -112,20 +113,10 @@ public class TeamResource {
      */
     @POST
     @RolesAllowed({"team"})
+    @TeamScoped
     @Path("/teams/{teamId}/check-in")
-    @Secured
     public Response checkInTeam(
-            @PathParam("teamId") UUID teamId,
-            @Context SecurityContext securityContext) {
-        
-        UUID authTeamId = getAuthenticatedTeamId(securityContext);
-
-        // Verify the authenticated team matches the requested team
-        if (!authTeamId.equals(teamId)) {
-            return Response.status(Response.Status.FORBIDDEN)
-                .entity(new ErrorResponse("Cannot check in another team"))
-                .build();
-        }
+            @PathParam("teamId") UUID teamId) {
 
         try {
             Team team = teamService.checkIn(teamId);
@@ -142,20 +133,11 @@ public class TeamResource {
      */
     @PUT
     @Path("/teams/{teamId}/emergency-phones")
-    @Secured
+    @RolesAllowed({"team"})
+    @TeamScoped
     public Response updateEmergencyPhoneNumbers(
             @PathParam("teamId") UUID teamId,
-            @Context SecurityContext securityContext,
             EmergencyPhoneUpdateRequest request) {
-        
-        UUID authTeamId = getAuthenticatedTeamId(securityContext);
-
-        // Verify the authenticated team matches the requested team
-        if (!authTeamId.equals(teamId)) {
-            return Response.status(Response.Status.FORBIDDEN)
-                .entity(new ErrorResponse("Cannot update another team's phone numbers"))
-                .build();
-        }
 
         try {
             Optional<Team> teamOpt = teamService.findById(teamId);
@@ -279,11 +261,5 @@ public class TeamResource {
                 .entity(new ErrorResponse(e.getMessage()))
                 .build();
         }
-    }
-
-    // Helper methods
-
-    private UUID getAuthenticatedTeamId(SecurityContext securityContext) {
-        return UUID.fromString(securityContext.getUserPrincipal().getName());
     }
 }

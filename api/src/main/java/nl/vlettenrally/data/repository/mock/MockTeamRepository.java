@@ -57,7 +57,7 @@ public class MockTeamRepository implements TeamRepository {
         team1.setTotalPoints(350);
         team1.setRivals(Collections.singletonList(TEAM_WINDKRACHT_ID));
         team1.setNotes("Favoriet voor de winst!");
-        team1.setEmergencyPhoneNumbers(Arrays.asList("+31 6 12345678", "+31 6 87654321"));
+        team1.setEmergencyPhoneNumbers(Arrays.asList("+31612345678", "+31687654321"));
         team1.setCreatedAt(now.minus(48, ChronoUnit.HOURS));
         team1.setUpdatedAt(now.minus(30, ChronoUnit.MINUTES));
         teams.put(team1.getId(), team1);
@@ -74,7 +74,7 @@ public class MockTeamRepository implements TeamRepository {
         team2.setCheckedIn(true);
         team2.setTotalPoints(300);
         team2.setRivals(Collections.singletonList(TEAM_WATERVLOOIEN_ID));
-        team2.setEmergencyPhoneNumbers(Arrays.asList("+31 6 11111111"));
+        team2.setEmergencyPhoneNumbers(Arrays.asList("+31612345678", "+31687654321"));
         team2.setCreatedAt(now.minus(47, ChronoUnit.HOURS));
         team2.setUpdatedAt(now.minus(45, ChronoUnit.MINUTES));
         teams.put(team2.getId(), team2);
@@ -90,7 +90,7 @@ public class MockTeamRepository implements TeamRepository {
         team3.setCheckedIn(true);
         team3.setTotalPoints(250);
         team3.setRivals(Collections.emptyList());
-        team3.setEmergencyPhoneNumbers(Arrays.asList("+31 6 22222222", "+31 6 33333333", "+31 6 44444444"));
+        team3.setEmergencyPhoneNumbers(Arrays.asList("+31612345678", "+31687654321"));
         team3.setCreatedAt(now.minus(46, ChronoUnit.HOURS));
         team3.setUpdatedAt(now.minus(1, ChronoUnit.HOURS));
         teams.put(team3.getId(), team3);
@@ -106,7 +106,7 @@ public class MockTeamRepository implements TeamRepository {
         team4.setCheckedIn(false);
         team4.setTotalPoints(0);
         team4.setRivals(Collections.emptyList());
-        team4.setEmergencyPhoneNumbers(Arrays.asList("+31 6 55555555"));
+        team4.setEmergencyPhoneNumbers(Arrays.asList("+31612345678", "+31687654321"));
         team4.setCreatedAt(now.minus(45, ChronoUnit.HOURS));
         team4.setUpdatedAt(now.minus(2, ChronoUnit.HOURS));
         teams.put(team4.getId(), team4);

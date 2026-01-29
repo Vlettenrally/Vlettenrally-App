@@ -1,25 +1,23 @@
 package nl.vlettenrally.api.v1;
 
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.websocket.server.PathParam;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
-import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import nl.vlettenrally.api.security.TeamScoped;
 import nl.vlettenrally.data.domain.Message;
-import nl.vlettenrally.data.dto.common.ErrorResponse;
 import nl.vlettenrally.data.dto.common.SuccessResponse;
 import nl.vlettenrally.data.dto.message.MessageResponse;
 import nl.vlettenrally.data.dto.message.UnreadCountResponse;
-import nl.vlettenrally.service.AuthService;
 import nl.vlettenrally.service.MessageService;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -32,6 +30,7 @@ import java.util.UUID;
  * - PUT /api/v1/messages/team/{teamId}/read-all - Mark all messages as read
  */
 @Path("/api/v1/messages")
+@RolesAllowed({"team", "admin"})
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class MessageResource {
@@ -39,23 +38,14 @@ public class MessageResource {
     @Inject
     MessageService messageService;
 
-    @Inject
-    AuthService authService;
-
     /**
      * Get all messages for a team
      */
     @GET
+    @RolesAllowed("team")
+    @TeamScoped
     @Path("/team/{teamId}")
-    public Response getMessagesForTeam(
-            @PathParam("teamId") UUID teamId,
-            @HeaderParam("Authorization") String authHeader) {
-
-        // Validate authorization
-        Response authResponse = validateTeamAccess(authHeader, teamId);
-        if (authResponse != null) {
-            return authResponse;
-        }
+    public Response getMessagesForTeam(@PathParam("teamId") UUID teamId) {
 
         List<Message> messages = messageService.findByTeamId(teamId);
         return Response.ok(messages.stream().map(this::toDto).toList()).build();
@@ -65,15 +55,11 @@ public class MessageResource {
      * Get unread messages count for a team
      */
     @GET
+    @RolesAllowed("team")
+    @TeamScoped
     @Path("/team/{teamId}/unread")
     public Response getUnreadCount(
-            @PathParam("teamId") UUID teamId,
-            @HeaderParam("Authorization") String authHeader) {
-
-        Response authResponse = validateTeamAccess(authHeader, teamId);
-        if (authResponse != null) {
-            return authResponse;
-        }
+            @PathParam("teamId") UUID teamId) {
 
         int count = messageService.countUnreadByTeamId(teamId);
         return Response.ok(new UnreadCountResponse(count)).build();
@@ -83,38 +69,10 @@ public class MessageResource {
      * Mark a message as read
      */
     @PUT
+    @RolesAllowed("team")
     @Path("/{messageId}/read")
     public Response markAsRead(
-            @PathParam("messageId") UUID messageId,
-            @HeaderParam("Authorization") String authHeader) {
-
-        String token = extractToken(authHeader);
-        if (token == null) {
-            return Response.status(Response.Status.UNAUTHORIZED)
-                .entity(new ErrorResponse("Missing or invalid authorization token"))
-                .build();
-        }
-
-        Optional<UUID> authTeamId = authService.validateAccessToken(token);
-        if (authTeamId.isEmpty()) {
-            return Response.status(Response.Status.UNAUTHORIZED)
-                .entity(new ErrorResponse("Invalid or expired access token"))
-                .build();
-        }
-
-        // Verify message belongs to authenticated team
-        Optional<Message> messageOpt = messageService.findById(messageId);
-        if (messageOpt.isEmpty()) {
-            return Response.status(Response.Status.NOT_FOUND)
-                .entity(new ErrorResponse("Message not found"))
-                .build();
-        }
-
-        if (!messageOpt.get().getTeamId().equals(authTeamId.get())) {
-            return Response.status(Response.Status.FORBIDDEN)
-                .entity(new ErrorResponse("Cannot access messages of another team"))
-                .build();
-        }
+            @PathParam("messageId") UUID messageId) {
 
         messageService.markAsRead(messageId);
         return Response.ok(new SuccessResponse(true)).build();
@@ -124,51 +82,14 @@ public class MessageResource {
      * Mark all messages as read for a team
      */
     @PUT
+    @RolesAllowed("team")
+    @TeamScoped
     @Path("/team/{teamId}/read-all")
     public Response markAllAsRead(
-            @PathParam("teamId") UUID teamId,
-            @HeaderParam("Authorization") String authHeader) {
-
-        Response authResponse = validateTeamAccess(authHeader, teamId);
-        if (authResponse != null) {
-            return authResponse;
-        }
+            @PathParam("teamId") UUID teamId) {
 
         messageService.markAllAsReadForTeam(teamId);
         return Response.ok(new SuccessResponse(true)).build();
-    }
-
-    // Helper methods
-
-    private Response validateTeamAccess(String authHeader, UUID teamId) {
-        String token = extractToken(authHeader);
-        if (token == null) {
-            return Response.status(Response.Status.UNAUTHORIZED)
-                .entity(new ErrorResponse("Missing or invalid authorization token"))
-                .build();
-        }
-
-        Optional<UUID> authTeamId = authService.validateAccessToken(token);
-        if (authTeamId.isEmpty()) {
-            return Response.status(Response.Status.UNAUTHORIZED)
-                .entity(new ErrorResponse("Invalid or expired access token"))
-                .build();
-        }
-
-        if (!authTeamId.get().equals(teamId)) {
-            return Response.status(Response.Status.FORBIDDEN)
-                .entity(new ErrorResponse("Cannot access messages of another team"))
-                .build();
-        }
-
-        return null; // Access granted
-    }
-
-    private String extractToken(String authHeader) {
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            return authHeader.substring(7);
-        }
-        return null;
     }
 
     private MessageResponse toDto(Message message) {

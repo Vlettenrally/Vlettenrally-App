@@ -35,11 +35,6 @@ public interface AuthService {
     Optional<TokenResult> refreshToken(String refreshToken);
 
     /**
-     * Validate an access token and return the team ID if valid
-     */
-    Optional<UUID> validateAccessToken(String accessToken);
-
-    /**
      * Revoke all tokens for a team
      */
     void revokeTokens(UUID teamId);
