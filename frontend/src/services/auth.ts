@@ -73,6 +73,23 @@ export function isTokenExpired(token: string): boolean {
 }
 
 /**
+ * Check if a JWT token is expiring soon
+ * @param token - JWT token to check
+ * @param minutesThreshold - Number of minutes before expiry to consider "expiring soon" (default: 5)
+ * @returns true if token expires within the threshold or is already expired
+ */
+export function isTokenExpiringSoon(token: string, minutesThreshold: number = 5): boolean {
+  const payload = parseJwtPayload(token);
+  if (!payload || !payload.exp) {
+    return true;
+  }
+  // exp is in seconds, Date.now() is in milliseconds
+  const expiryTime = payload.exp * 1000;
+  const thresholdTime = Date.now() + (minutesThreshold * 60 * 1000);
+  return expiryTime <= thresholdTime;
+}
+
+/**
  * Get the subject (user/team ID) from a JWT token
  */
 export function getSubjectFromToken(token: string): string | null {
