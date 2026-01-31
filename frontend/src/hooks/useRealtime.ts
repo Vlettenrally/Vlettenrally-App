@@ -52,10 +52,10 @@ export function useTeamRealtime({ gameId, teamId }: UseRealtimeTeamOptions) {
     const unsubscribeRival = subscribe('RIVAL_UPDATE', (message) => {
       // update rival immediately
       setRivalTeam(message.payload as PublicTeam);
-      // fetch authoritative team data in background to refresh cache and store
+      // fetch authoritative team data in background to refresh store
       (async () => {
         try {
-          const team = await teamService.getMyTeam({ forceRefresh: true });
+          const team = await teamService.getMyTeam();
           if (team) {
             // ensure zustand store is up to date
             // updatePoints may already have been called; set full team if available
@@ -124,9 +124,9 @@ export function useAdminRealtime({ gameId }: UseRealtimeAdminOptions) {
           // payload might contain team id
           const payload: any = message.payload || {};
           const teamId = payload.id || payload.teamId || null;
-          if (teamId) {
-            const fresh = await teamService.getTeam(teamId, { forceRefresh: true });
-            // If admin UI has a team store, it should be updated by caller; here we at least update cached team if matches
+          if (teamId && gameId) {
+            const fresh = await teamService.getTeam(teamId, gameId);
+            // If admin UI has a team store, it should be updated by caller; here we at least update if matches
             if (fresh) {
               // if this team is the current cached team, update storage and team store
               const current = storage.getTeamData();

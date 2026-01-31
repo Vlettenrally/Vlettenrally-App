@@ -17,6 +17,8 @@ public interface DeviceRegistrationRepository {
     
     Optional<DeviceRegistration> findByTeamId(UUID teamId);
     
+    Optional<DeviceRegistration> findByAdminId(UUID adminId);
+    
     DeviceRegistration save(DeviceRegistration deviceRegistration);
     
     void updateLastSeen(UUID id);

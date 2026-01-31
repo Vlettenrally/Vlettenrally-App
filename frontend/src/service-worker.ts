@@ -10,6 +10,52 @@ import { getMessaging, onBackgroundMessage } from 'firebase/messaging/sw';
 
 declare let self: ServiceWorkerGlobalScope
 
+// ==================== IndexedDB for pending messages ====================
+const DB_NAME = 'vlettenrally-notifications';
+const DB_VERSION = 1;
+const STORE_NAME = 'pending-messages';
+
+function openNotificationDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: 'messageId' });
+      }
+    };
+  });
+}
+
+async function addPendingMessageId(messageId: string): Promise<void> {
+  try {
+    const db = await openNotificationDb();
+    const transaction = db.transaction(STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    store.put({ messageId, timestamp: Date.now() });
+    transaction.oncomplete = () => db.close();
+  } catch (error) {
+    console.error('[service-worker.ts] Failed to add pending message:', error);
+  }
+}
+
+// ==================== BroadcastChannel for immediate sync ====================
+const CHANNEL_NAME = 'notification-sync';
+
+function broadcastNotification(type: 'NEW_MESSAGE' | 'MESSAGE_CLICKED', messageId: string): void {
+  try {
+    const channel = new BroadcastChannel(CHANNEL_NAME);
+    channel.postMessage({ type, messageId });
+    channel.close();
+  } catch (error) {
+    console.error('[service-worker.ts] Failed to broadcast notification:', error);
+  }
+}
+
+// ==================== Service Worker Setup ====================
+
 // Take control of all pages immediately
 self.skipWaiting()
 clientsClaim()
@@ -31,21 +77,91 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase app and messaging
-const app = initializeApp(firebaseConfig);
-const messaging = getMessaging(app);
+let app;
+let messaging;
+try {
+  app = initializeApp(firebaseConfig);
+  messaging = getMessaging(app);
+  console.log('[service-worker.ts] Firebase messaging initialized successfully');
+} catch (error) {
+  console.error('[service-worker.ts] Failed to initialize Firebase messaging:', error);
+}
 
-// Handle background messages
-onBackgroundMessage(messaging, (payload) => {
-    console.log('[service-worker.ts] Received background message ', payload);
-    const notificationTitle = payload.notification?.title || 'Vlettenrally';
-    const notificationOptions = {
-        body: payload.notification?.body || 'New notification',
-        icon: '/icon-192x192.png',
-        badge: '/icon-192x192.png',
-        data: payload.data,
-    };
+// Handle background messages via Firebase (only if messaging initialized)
+if (messaging) {
+  onBackgroundMessage(messaging, (payload) => {
+      console.log('[service-worker.ts] Received background message via Firebase', payload);
+      
+      // Queue messageId for sync when app opens
+      const messageId = payload.data?.messageId;
+      if (messageId) {
+          addPendingMessageId(messageId);
+          broadcastNotification('NEW_MESSAGE', messageId);
+      }
+      
+      // Firebase handles showing the notification when notification payload is present
+      // We only need to handle data-only messages here
+      if (!payload.notification) {
+          const notificationTitle = 'Vlettenrally';
+          const notificationOptions = {
+              body: payload.data?.body || 'New notification',
+              icon: '/icon-192x192.png',
+              badge: '/icon-192x192.png',
+              data: payload.data,
+          };
+          self.registration.showNotification(notificationTitle, notificationOptions);
+      }
+  });
+}
 
-    self.registration.showNotification(notificationTitle, notificationOptions);
+// Native push event handler as fallback
+// This catches push messages that Firebase might not handle
+self.addEventListener('push', (event) => {
+    console.log('[service-worker.ts] Native push event received:', event);
+    
+    if (!event.data) {
+        console.log('[service-worker.ts] Push event has no data');
+        return;
+    }
+
+    try {
+        const payload = event.data.json();
+        console.log('[service-worker.ts] Push payload:', payload);
+        
+        // Queue messageId for sync when app opens
+        const messageId = payload.data?.messageId;
+        if (messageId) {
+            event.waitUntil(
+                addPendingMessageId(messageId).then(() => {
+                    broadcastNotification('NEW_MESSAGE', messageId);
+                })
+            );
+        }
+        
+        // FCM messages have notification in the payload
+        const notification = payload.notification || payload;
+        const title = notification.title || 'Vlettenrally';
+        const options = {
+            body: notification.body || 'New notification',
+            icon: '/icon-192x192.png',
+            badge: '/icon-192x192.png',
+            data: payload.data || payload,
+        };
+
+        event.waitUntil(
+            self.registration.showNotification(title, options)
+        );
+    } catch (e) {
+        console.error('[service-worker.ts] Error parsing push data:', e);
+        // Try as text
+        const text = event.data.text();
+        event.waitUntil(
+            self.registration.showNotification('Vlettenrally', {
+                body: text,
+                icon: '/icon-192x192.png',
+            })
+        );
+    }
 });
 
 // Cache API requests
@@ -123,37 +239,32 @@ self.addEventListener('message', (event) => {
   }
 })
 
-// Handle push notifications (example)
-self.addEventListener('push', (event) => {
-  const data = event.data?.json() ?? {}
-  const title = data.title || 'Vlettenrally'
-  const options = {
-    body: data.body || 'New notification',
-    icon: '/icon-192x192.png',
-    badge: '/icon-192x192.png',
-    data: data.data,
-  }
-
-  event.waitUntil(
-    self.registration.showNotification(title, options)
-  )
-})
-
 // Handle notification clicks
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
+  
+  // Get messageId from notification data
+  const messageId = event.notification.data?.messageId;
+  
+  // Broadcast that notification was clicked (for scroll-to/highlight)
+  if (messageId) {
+    broadcastNotification('MESSAGE_CLICKED', messageId);
+  }
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUntracked: true }).then((clientList) => {
-      // Focus existing window if available
+      // Focus existing window if available and navigate to messages
       for (const client of clientList) {
-        if (client.url === self.registration.scope && 'focus' in client) {
-          return client.focus()
+        if ('focus' in client) {
+          client.focus();
+          // Navigate to messages page
+          client.postMessage({ type: 'NAVIGATE', url: '/messages', messageId });
+          return;
         }
       }
-      // Open new window if no existing window found
+      // Open new window to messages page if no existing window found
       if (self.clients.openWindow) {
-        return self.clients.openWindow('/')
+        return self.clients.openWindow('/messages')
       }
     })
   )

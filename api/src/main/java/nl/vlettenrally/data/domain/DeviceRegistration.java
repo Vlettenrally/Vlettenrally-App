@@ -4,12 +4,14 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * DeviceRegistration entity representing a registered device for a team.
+ * DeviceRegistration entity representing a registered device for a team or admin.
  * Tracks device type and last activity for determining message delivery channels.
+ * Either teamId or adminId must be set (but not both).
  */
 public class DeviceRegistration {
     private UUID id;
     private UUID teamId;
+    private UUID adminId;
     private Instant lastSeen;
     private Instant createdAt;
 
@@ -31,6 +33,9 @@ public class DeviceRegistration {
 
     public UUID getTeamId() { return teamId; }
     public void setTeamId(UUID teamId) { this.teamId = teamId; }
+
+    public UUID getAdminId() { return adminId; }
+    public void setAdminId(UUID adminId) { this.adminId = adminId; }
 
     public Instant getLastSeen() { return lastSeen; }
     public void setLastSeen(Instant lastSeen) { this.lastSeen = lastSeen; }

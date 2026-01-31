@@ -6,7 +6,18 @@
  */
 
 import { config } from '../config';
-import type { Game, AdminTeam, PlayerTeam, PublicTeam } from '../types/entities';
+import type { 
+  Game, 
+  AdminTeam, 
+  PlayerTeam, 
+  PublicTeam, 
+  AdminMessage,
+  AdminMessageListResponse,
+  MessageTemplate,
+  SendAdminMessageRequest,
+  MessageTemplateRequest,
+  RetryMessageResponse 
+} from '../types/entities';
 import storage from './storage';
 
 const API_BASE_URL = config.apiBaseUrl;
@@ -150,8 +161,54 @@ async getGames() : Promise<ApiResponse<Game[]>> {
     return this.get(`/messages/team/${teamId}`);
   }
 
+  async getMessage(messageId: string) {
+    return this.get(`/messages/${messageId}`);
+  }
+
   async markMessageAsRead(messageId: string) {
     return this.put(`/messages/${messageId}/read`, {});
+  }
+
+  async markMessagesAsRead(messageIds: string[]): Promise<ApiResponse<{ success: boolean }>> {
+    return this.post('/messages/mark-read', { ids: messageIds });
+  }
+
+  // Admin Messages endpoints
+  async sendAdminMessage(request: SendAdminMessageRequest): Promise<ApiResponse<AdminMessage>> {
+    return this.post('/messages/admin', request);
+  }
+
+  async getAdminMessagesByGame(
+    gameId: string, 
+    page: number = 0, 
+    pageSize: number = 20
+  ): Promise<ApiResponse<AdminMessageListResponse>> {
+    return this.get(`/messages/admin/games/${gameId}?page=${page}&pageSize=${pageSize}`);
+  }
+
+  async retryFailedDeliveries(messageId: string): Promise<ApiResponse<RetryMessageResponse>> {
+    return this.post(`/messages/admin/${messageId}/retry`);
+  }
+
+  async retryAllFailedDeliveries(gameId: string): Promise<ApiResponse<RetryMessageResponse>> {
+    return this.post(`/messages/admin/games/${gameId}/retry-all-failed`);
+  }
+
+  // Message Template endpoints
+  async getMessageTemplates(): Promise<ApiResponse<MessageTemplate[]>> {
+    return this.get('/messages/admin/templates');
+  }
+
+  async createMessageTemplate(request: MessageTemplateRequest): Promise<ApiResponse<MessageTemplate>> {
+    return this.post('/messages/admin/templates', request);
+  }
+
+  async updateMessageTemplate(templateId: string, request: MessageTemplateRequest): Promise<ApiResponse<MessageTemplate>> {
+    return this.put(`/messages/admin/templates/${templateId}`, request);
+  }
+
+  async deleteMessageTemplate(templateId: string): Promise<ApiResponse<void>> {
+    return this.delete(`/messages/admin/templates/${templateId}`);
   }
 
   // Rankings endpoints
@@ -162,6 +219,15 @@ async getGames() : Promise<ApiResponse<Game[]>> {
   // Achievements endpoints
   async getTeamAchievements(teamId: string) {
     return this.get(`/teams/${teamId}/achievements`);
+  }
+
+  // FCM Token registration
+  async registerFcmToken(token: string): Promise<ApiResponse<void>> {
+    return this.post('/fcm-tokens', { token });
+  }
+
+  async unregisterFcmToken(token: string): Promise<ApiResponse<void>> {
+    return this.delete(`/fcm-tokens/${encodeURIComponent(token)}`);
   }
 }
 

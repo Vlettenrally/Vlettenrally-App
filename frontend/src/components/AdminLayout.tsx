@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
+  Alert,
   AppBar,
   Box,
   Toolbar,
@@ -38,9 +39,11 @@ import {
   ChevronLeft as CollapseIcon,
   ChevronRight as ExpandIcon,
   Map as MapIcon,
+  WifiOff as WifiOffIcon,
 } from '@mui/icons-material';
 import { storage } from '../services/storage';
 import { useGameStore } from '../store/useGameStore';
+import { useConnectionStatus } from '../hooks/useConnectionStatus';
 import {
   ActiveGamesWidget,
   CheckInProgressWidget,
@@ -66,6 +69,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   
   // Use game store instead of local state
   const { games, selectedGameId, setSelectedGameId, fetchGames } = useGameStore();
+  const { showDisconnected } = useConnectionStatus();
 
   // Load games on mount
   useEffect(() => {
@@ -275,6 +279,16 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             )}
           </Toolbar>
         </AppBar>
+
+        {showDisconnected && (
+          <Alert 
+            severity="warning" 
+            icon={<WifiOffIcon />}
+            sx={{ borderRadius: 0 }}
+          >
+            Geen verbinding met server. Sommige gegevens kunnen verouderd zijn.
+          </Alert>
+        )}
 
         <Box component="main" sx={{ flexGrow: 1, bgcolor: 'background.default', p: 0 }}>
           {children}

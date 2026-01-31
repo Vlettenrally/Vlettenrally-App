@@ -63,3 +63,105 @@ export interface PublicTeam extends TeamBase {
  * Kept for backward compatibility during migration.
  */
 export type Team = AdminTeam;
+
+/**
+ * Message types
+ */
+export type MessageType = 'general' | 'countdown' | 'checkpoint' | 'rallydesk' | 'achievement' | 'rival';
+
+export interface Message {
+  id: string;
+  teamId: string;
+  messageType: MessageType;
+  content: string;
+  icon?: string;
+  sentAt: string;
+  delivered: boolean;
+  read: boolean;
+}
+
+/**
+ * Delivery detail for a message to a specific team
+ */
+export interface DeliveryDetail {
+  teamId: string;
+  teamName: string;
+  boatNumber: string;
+  delivered: boolean;
+  transmittedVia: string[];
+  transmissionError?: string;
+}
+
+/**
+ * Admin message with delivery tracking
+ */
+export interface AdminMessage {
+  id: string;
+  gameId: string;
+  messageType: MessageType;
+  content: string;
+  icon?: string;
+  sentAt: string;
+  source: string;
+  sentByAdminId?: string;
+  totalRecipients: number;
+  deliveredCount: number;
+  failedCount: number;
+  deliveries: DeliveryDetail[];
+}
+
+/**
+ * Paginated response for admin messages
+ */
+export interface AdminMessageListResponse {
+  messages: AdminMessage[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+}
+
+/**
+ * Message template
+ */
+export interface MessageTemplate {
+  id: string;
+  name: string;
+  messageType: MessageType;
+  content: string;
+  icon?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Request to send an admin message
+ */
+export interface SendAdminMessageRequest {
+  gameId: string;
+  teamIds?: string[];
+  messageType: string;
+  content: string;
+  icon?: string;
+  saveAsTemplate?: boolean;
+  templateName?: string;
+}
+
+/**
+ * Request to create/update a message template
+ */
+export interface MessageTemplateRequest {
+  name: string;
+  messageType: string;
+  content: string;
+  icon?: string;
+}
+
+/**
+ * Response from retry operation
+ */
+export interface RetryMessageResponse {
+  retriedCount: number;
+  successCount: number;
+  failedCount: number;
+}

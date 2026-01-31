@@ -28,6 +28,11 @@ export const config = {
    * Enable verbose logging
    */
   debug: import.meta.env.DEV,
+
+  /**
+   * Firebase VAPID key for web push notifications
+   */
+  firebaseVapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY || '',
 };
 
 export default config;

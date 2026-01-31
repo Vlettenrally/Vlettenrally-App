@@ -6,6 +6,7 @@ import java.util.UUID;
 import nl.vlettenrally.data.enums.MessageType;
 
 import nl.vlettenrally.data.domain.Message;
+import nl.vlettenrally.data.dto.message.AdminMessageBatchResult;
 
 /**
  * Service interface for Message operations
@@ -24,7 +25,58 @@ public interface MessageService {
     
     Message send(UUID teamId, MessageType type, String content, String icon);
     
+    /**
+     * Send an admin message to specified teams or all teams in a game.
+     * Creates one Message per team with a shared batchId for grouping.
+     * 
+     * @param gameId The game ID
+     * @param teamIds List of team IDs to send to (null or empty for all teams in game)
+     * @param type Message type
+     * @param content Message content
+     * @param icon Optional icon
+     * @param adminId The admin ID who sent the message
+     * @return Batch result with aggregated delivery statistics
+     */
+    AdminMessageBatchResult sendAdminMessage(UUID gameId, List<UUID> teamIds, MessageType type, String content, String icon, UUID adminId);
+    
+    /**
+     * Get admin message batches for a game with pagination.
+     * Returns one representative message per batch.
+     */
+    List<Message> findAdminMessagesByGame(UUID gameId, int page, int pageSize);
+    
+    /**
+     * Count admin message batches for a game.
+     */
+    long countAdminMessagesByGame(UUID gameId);
+    
+    /**
+     * Get all messages belonging to a batch (for delivery details view).
+     */
+    List<Message> getMessagesInBatch(UUID batchId);
+    
+    /**
+     * Retry failed deliveries for a specific batch.
+     * 
+     * @return Number of successful retries
+     */
+    int retryFailedDeliveries(UUID batchId);
+    
+    /**
+     * Retry all failed deliveries for a game.
+     * 
+     * @return Total number of successful retries
+     */
+    int retryAllFailedDeliveries(UUID gameId);
+    
     void markAsRead(UUID id);
+    
+    /**
+     * Mark multiple messages as read (batch operation).
+     * 
+     * @param ids List of message IDs to mark as read
+     */
+    void markMultipleAsRead(List<UUID> ids);
     
     void markAllAsReadForTeam(UUID teamId);
     

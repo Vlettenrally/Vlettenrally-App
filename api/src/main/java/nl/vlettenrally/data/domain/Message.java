@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
+import nl.vlettenrally.data.enums.MessageSource;
 import nl.vlettenrally.data.enums.MessageType;
 import nl.vlettenrally.data.enums.TransmissionChannel;
 
@@ -12,6 +13,7 @@ import nl.vlettenrally.data.enums.TransmissionChannel;
  */
 public class Message {
     private UUID id;
+    private UUID gameId;
     private UUID teamId;
     private MessageType messageType;
     private String content;
@@ -21,6 +23,10 @@ public class Message {
     private boolean read;
     private Set<TransmissionChannel> transmittedVia;
     private String transmissionError;
+    private MessageSource source;
+    private UUID sentByAdminId;
+    /** Groups messages from the same admin broadcast */
+    private UUID batchId;
 
 
     public Message() {
@@ -70,6 +76,18 @@ public class Message {
 
     public String getTransmissionError() { return transmissionError; }
     public void setTransmissionError(String transmissionError) { this.transmissionError = transmissionError; }
+
+    public UUID getGameId() { return gameId; }
+    public void setGameId(UUID gameId) { this.gameId = gameId; }
+
+    public MessageSource getSource() { return source; }
+    public void setSource(MessageSource source) { this.source = source; }
+
+    public UUID getSentByAdminId() { return sentByAdminId; }
+    public void setSentByAdminId(UUID sentByAdminId) { this.sentByAdminId = sentByAdminId; }
+
+    public UUID getBatchId() { return batchId; }
+    public void setBatchId(UUID batchId) { this.batchId = batchId; }
 
     /**
      * Add a transmission channel to the set of channels this message was transmitted via.

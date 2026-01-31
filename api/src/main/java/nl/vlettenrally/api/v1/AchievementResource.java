@@ -10,6 +10,7 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.SecurityContext;
 import nl.vlettenrally.api.security.TeamScopedOrAdmin;
 import nl.vlettenrally.data.domain.Achievement;
@@ -104,7 +105,7 @@ public class AchievementResource {
     public Response verifyAchievement(
             @PathParam("achievementId") UUID achievementId,
             VerificationRequest request,
-            @SecurityContext SecurityContext securityContext) {
+            @Context SecurityContext securityContext) {
         UUID gameMasterId = securityContext.getUserPrincipal() != null ? UUID.fromString(securityContext.getUserPrincipal().getName()) : null;
         String notes = request != null ? request.notes() : null;
 
@@ -125,7 +126,7 @@ public class AchievementResource {
     public Response rejectAchievement(
             @PathParam("achievementId") UUID achievementId,
             VerificationRequest request,
-            @SecurityContext SecurityContext securityContext) {
+            @Context SecurityContext securityContext) {
         UUID gameMasterId = securityContext.getUserPrincipal() != null ? UUID.fromString(securityContext.getUserPrincipal().getName()) : null;
         String notes = request != null ? request.notes() : null;
 

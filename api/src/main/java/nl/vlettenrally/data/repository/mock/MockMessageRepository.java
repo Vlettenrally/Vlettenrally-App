@@ -4,6 +4,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 import nl.vlettenrally.data.domain.Message;
+import nl.vlettenrally.data.enums.MessageSource;
 import nl.vlettenrally.data.enums.MessageType;
 import nl.vlettenrally.data.repository.MessageRepository;
 
@@ -198,6 +199,87 @@ public class MockMessageRepository implements MessageRepository {
         messages.values().stream()
                 .filter(m -> teamId.equals(m.getTeamId()))
                 .forEach(m -> m.setRead(true));
+    }
+
+    @Override
+    public List<Message> findByGameId(UUID gameId) {
+        return messages.values().stream()
+                .filter(m -> gameId.equals(m.getGameId()))
+                .sorted(Comparator.comparing(Message::getSentAt).reversed())
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Message> findByGameIdAndSource(UUID gameId, MessageSource source) {
+        return messages.values().stream()
+                .filter(m -> gameId.equals(m.getGameId()) && source.equals(m.getSource()))
+                .sorted(Comparator.comparing(Message::getSentAt).reversed())
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Message> findByGameIdAndSourcePaginated(UUID gameId, MessageSource source, int page, int pageSize) {
+        return messages.values().stream()
+                .filter(m -> gameId.equals(m.getGameId()) && source.equals(m.getSource()))
+                .sorted(Comparator.comparing(Message::getSentAt).reversed())
+                .skip((long) page * pageSize)
+                .limit(pageSize)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public long countByGameIdAndSource(UUID gameId, MessageSource source) {
+        return messages.values().stream()
+                .filter(m -> gameId.equals(m.getGameId()) && source.equals(m.getSource()))
+                .count();
+    }
+
+    @Override
+    public List<Message> findByBatchId(UUID batchId) {
+        return messages.values().stream()
+                .filter(m -> batchId.equals(m.getBatchId()))
+                .sorted(Comparator.comparing(Message::getSentAt).reversed())
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Message> findFailedByBatchId(UUID batchId) {
+        return messages.values().stream()
+                .filter(m -> batchId.equals(m.getBatchId()) && !m.isDelivered())
+                .sorted(Comparator.comparing(Message::getSentAt).reversed())
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Message> findFailedByGameIdAndSource(UUID gameId, MessageSource source) {
+        return messages.values().stream()
+                .filter(m -> gameId.equals(m.getGameId()) && source.equals(m.getSource()) && !m.isDelivered())
+                .sorted(Comparator.comparing(Message::getSentAt).reversed())
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Message> findDistinctBatchesByGameIdPaginated(UUID gameId, MessageSource source, int page, int pageSize) {
+        // Group by batchId, return first message of each batch
+        return messages.values().stream()
+                .filter(m -> gameId.equals(m.getGameId()) && source.equals(m.getSource()) && m.getBatchId() != null)
+                .collect(Collectors.groupingBy(Message::getBatchId))
+                .values().stream()
+                .map(batch -> batch.stream().min(Comparator.comparing(Message::getSentAt)).orElse(null))
+                .filter(m -> m != null)
+                .sorted(Comparator.comparing(Message::getSentAt).reversed())
+                .skip((long) page * pageSize)
+                .limit(pageSize)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public long countDistinctBatchesByGameIdAndSource(UUID gameId, MessageSource source) {
+        return messages.values().stream()
+                .filter(m -> gameId.equals(m.getGameId()) && source.equals(m.getSource()) && m.getBatchId() != null)
+                .map(Message::getBatchId)
+                .distinct()
+                .count();
     }
 
     @Override

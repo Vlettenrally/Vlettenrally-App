@@ -1,49 +1,41 @@
 import api from './api';
-//import { storage } from './storage';
-import { type Game }  from '../types/entities';
+import { type Game } from '../types/entities';
 
-let games: Game[] = [];
+// Request deduplication - prevents duplicate in-flight requests
+// Service worker handles caching for offline support
 let fetchGamesPromise: Promise<Game[]> | null = null;
 
 export const gameService = {
-    getGames: async (options?: { forceRefresh?: boolean }) : Promise<Game[]> => {
-    const forceRefresh = options?.forceRefresh === true;
-
-    if (!forceRefresh && games.length > 0) {
-      return games;
-    }
-
+  getGames: async (): Promise<Game[]> => {
+    // Deduplicate concurrent requests
     if (fetchGamesPromise) {
-      try {
-        return await fetchGamesPromise;
-      } catch (e) {
-        fetchGamesPromise = null;
-        throw e;
-      }
+      return fetchGamesPromise;
     }
 
     fetchGamesPromise = (async () => {
       try {
         const response = await api.getGames();
-        games = response.data ?? [];
-        return games;
+        return response.data ?? [];
       } finally {
         fetchGamesPromise = null;
       }
     })();
 
     return fetchGamesPromise;
-    },
-    getGame: async (gameId: string): Promise<Game | null> => {
-    return gameService.getGames().then(games => games.find((g) => g.id === gameId) || null);
+  },
+
+  getGame: async (gameId: string): Promise<Game | null> => {
+    const games = await gameService.getGames();
+    return games.find((g) => g.id === gameId) || null;
   },
 
   getActiveGames: async (): Promise<Game[]> => {
-    return (await gameService.getGames()).filter((g) => g.status === 'active');
-    },
-  
-    getGameCount: async (): Promise<number> => {
-        const games = await gameService.getGames();
-        return games.length;
-    }
+    const games = await gameService.getGames();
+    return games.filter((g) => g.status === 'active');
+  },
+
+  getGameCount: async (): Promise<number> => {
+    const games = await gameService.getGames();
+    return games.length;
+  },
 };

@@ -5,6 +5,7 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
+  Alert,
   AppBar,
   Box,
   Toolbar,
@@ -27,11 +28,13 @@ import {
   CompareArrows as RivalIcon,
   Leaderboard as LeaderboardIcon,
   Logout as LogoutIcon,
+  WifiOff as WifiOffIcon,
 } from '@mui/icons-material';
 import { useMessageStore } from '../store/useMessageStore';
 import { storage } from '../services/storage';
 import { useTeamStore } from '../store/useTeamStore';
 import { useGameStore } from '../store/useGameStore';
+import { useConnectionStatus } from '../hooks/useConnectionStatus';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -44,6 +47,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const { unreadCount } = useMessageStore();
   const { reset: resetTeam } = useTeamStore();
   const { reset: resetGame } = useGameStore();
+  const { showDisconnected } = useConnectionStatus();
 
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
@@ -91,6 +95,16 @@ export function AppLayout({ children }: AppLayoutProps) {
           </IconButton>
         </Toolbar>
       </AppBar>
+
+      {showDisconnected && (
+        <Alert 
+          severity="warning" 
+          icon={<WifiOffIcon />}
+          sx={{ borderRadius: 0 }}
+        >
+          Geen verbinding met server. Sommige gegevens kunnen verouderd zijn.
+        </Alert>
+      )}
 
       <Drawer anchor="left" open={drawerOpen} onClose={() => setDrawerOpen(false)}>
         <Box sx={{ width: 250 }} role="presentation">

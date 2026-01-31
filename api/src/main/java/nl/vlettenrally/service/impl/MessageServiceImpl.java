@@ -7,9 +7,11 @@ import jakarta.inject.Inject;
 import nl.vlettenrally.data.domain.DeviceRegistration;
 import nl.vlettenrally.data.domain.Message;
 import nl.vlettenrally.data.domain.Team;
+import nl.vlettenrally.data.dto.message.AdminMessageBatchResult;
 import nl.vlettenrally.data.repository.DeviceRegistrationRepository;
 import nl.vlettenrally.data.repository.MessageRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
+import nl.vlettenrally.data.enums.MessageSource;
 import nl.vlettenrally.data.enums.MessageType;
 import nl.vlettenrally.data.enums.TransmissionChannel;
 import nl.vlettenrally.provider.MessageTransmitter;
@@ -214,6 +216,16 @@ public class MessageServiceImpl implements MessageService {
     }
 
     @Override
+    public void markMultipleAsRead(List<UUID> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return;
+        }
+        for (UUID id : ids) {
+            messageRepository.markAsRead(id);
+        }
+    }
+
+    @Override
     public void markAllAsReadForTeam(UUID teamId) {
         messageRepository.markAllAsReadForTeam(teamId);
     }
@@ -226,5 +238,140 @@ public class MessageServiceImpl implements MessageService {
     @Override
     public void delete(UUID id) {
         messageRepository.delete(id);
+    }
+
+    @Override
+    public AdminMessageBatchResult sendAdminMessage(UUID gameId, List<UUID> teamIds, MessageType type, String content, String icon, UUID adminId) {
+        // Determine target teams
+        List<Team> targetTeams;
+        if (teamIds == null || teamIds.isEmpty()) {
+            // Send to all teams in the game
+            targetTeams = teamRepository.findByGameId(gameId);
+        } else {
+            // Send to specific teams
+            targetTeams = teamIds.stream()
+                    .map(teamRepository::findById)
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .toList();
+        }
+
+        if (targetTeams.isEmpty()) {
+            LOG.warnf("No teams found for admin message to game %s", gameId);
+            throw new IllegalArgumentException("No teams found to send message to");
+        }
+
+        // Generate a batch ID for grouping all messages from this broadcast
+        UUID batchId = UUID.randomUUID();
+        Instant sentAt = Instant.now();
+
+        // Create and send one message per team
+        int successCount = 0;
+        for (Team team : targetTeams) {
+            Message message = new Message();
+            message.setGameId(gameId);
+            message.setTeamId(team.getId());
+            message.setBatchId(batchId);
+            message.setMessageType(type);
+            message.setContent(content);
+            message.setIcon(icon);
+            message.setSource(MessageSource.ADMIN);
+            message.setSentByAdminId(adminId);
+            message.setSentAt(sentAt);
+            message.setDelivered(false);
+            message.setRead(false);
+
+            // Save message first
+            Message savedMessage = messageRepository.save(message);
+
+            // Attempt transmission via all channels (reuse existing method)
+            transmitMessage(savedMessage);
+
+            // Update delivery status based on transmission
+            savedMessage.setDelivered(!savedMessage.getTransmittedVia().isEmpty());
+            messageRepository.save(savedMessage);
+
+            if (savedMessage.isDelivered()) {
+                successCount++;
+            }
+        }
+
+        LOG.infof("Admin message batch %s sent to %d/%d teams", batchId, successCount, targetTeams.size());
+        return new AdminMessageBatchResult(
+                batchId,
+                targetTeams.size(),
+                successCount,
+                targetTeams.size() - successCount,
+                sentAt
+        );
+    }
+
+    @Override
+    public List<Message> findAdminMessagesByGame(UUID gameId, int page, int pageSize) {
+        return messageRepository.findDistinctBatchesByGameIdPaginated(gameId, MessageSource.ADMIN, page, pageSize);
+    }
+
+    @Override
+    public long countAdminMessagesByGame(UUID gameId) {
+        return messageRepository.countDistinctBatchesByGameIdAndSource(gameId, MessageSource.ADMIN);
+    }
+
+    @Override
+    public List<Message> getMessagesInBatch(UUID batchId) {
+        return messageRepository.findByBatchId(batchId);
+    }
+
+    @Override
+    public int retryFailedDeliveries(UUID batchId) {
+        List<Message> failedMessages = messageRepository.findFailedByBatchId(batchId);
+        
+        int successCount = 0;
+        for (Message message : failedMessages) {
+            // Clear previous error
+            message.setTransmissionError(null);
+            message.getTransmittedVia().clear();
+            
+            // Retry transmission
+            transmitMessage(message);
+            
+            // Update delivery status
+            message.setDelivered(!message.getTransmittedVia().isEmpty());
+            messageRepository.save(message);
+            
+            if (message.isDelivered()) {
+                successCount++;
+            }
+        }
+
+        LOG.infof("Retried %d failed deliveries for batch %s, %d successful", 
+                failedMessages.size(), batchId, successCount);
+        return successCount;
+    }
+
+    @Override
+    public int retryAllFailedDeliveries(UUID gameId) {
+        List<Message> allFailedMessages = messageRepository.findFailedByGameIdAndSource(gameId, MessageSource.ADMIN);
+        
+        int totalSuccess = 0;
+        for (Message message : allFailedMessages) {
+            // Clear previous error
+            message.setTransmissionError(null);
+            message.getTransmittedVia().clear();
+            
+            // Retry transmission
+            transmitMessage(message);
+            
+            // Update delivery status
+            message.setDelivered(!message.getTransmittedVia().isEmpty());
+            messageRepository.save(message);
+            
+            if (message.isDelivered()) {
+                totalSuccess++;
+            }
+        }
+
+        LOG.infof("Retried all %d failed deliveries for game %s, %d successful", 
+                allFailedMessages.size(), gameId, totalSuccess);
+        return totalSuccess;
     }
 }

@@ -23,6 +23,7 @@ import {
   CompareArrows as RivalIcon,
 } from '@mui/icons-material';
 import { useMessageStore } from '../store/useMessageStore';
+import { useInViewMarkAsRead } from '../hooks/useInViewMarkAsRead';
 import api from '../services/api';
 import { storage } from '../services/storage';
 import { formatRelativeTime } from '../utils/dateTime';
@@ -47,7 +48,8 @@ const getMessageIcon = (type: string) => {
 };
 
 export function MessagesPage() {
-  const { messages, setMessages, markAsRead, isLoading, error } = useMessageStore();
+  const { messages, setMessages, isLoading, error } = useMessageStore();
+  const { getMessageRef } = useInViewMarkAsRead();
   const teamId = storage.getTeamId();
 
   useEffect(() => {
@@ -62,11 +64,6 @@ export function MessagesPage() {
 
     loadMessages();
   }, [teamId, setMessages]);
-
-  const handleMessageClick = async (messageId: string) => {
-    markAsRead(messageId);
-    await api.markMessageAsRead(messageId);
-  };
 
   if (error) {
     return (
@@ -103,16 +100,15 @@ export function MessagesPage() {
               {messages.map((message, index) => (
                 <ListItem
                   key={message.id}
+                  ref={getMessageRef(message.id, message.read)}
                   sx={{
                     borderBottom:
                       index < messages.length - 1 ? '1px solid rgba(0, 0, 0, 0.12)' : 'none',
                     bgcolor: message.read ? 'inherit' : 'action.hover',
-                    cursor: 'pointer',
                     '&:hover': {
                       bgcolor: 'action.selected',
                     },
                   }}
-                  onClick={() => handleMessageClick(message.id)}
                 >
                   <ListItemIcon>{getMessageIcon(message.messageType)}</ListItemIcon>
                   <ListItemText

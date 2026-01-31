@@ -67,7 +67,14 @@ public class MockDeviceRegistrationRepository implements DeviceRegistrationRepos
     @Override
     public Optional<DeviceRegistration> findByTeamId(UUID teamId) {
         return deviceRegistrations.values().stream()
-                .filter(d -> d.getTeamId().equals(teamId))
+                .filter(d -> d.getTeamId() != null && d.getTeamId().equals(teamId))
+                .findFirst();
+    }
+
+    @Override
+    public Optional<DeviceRegistration> findByAdminId(UUID adminId) {
+        return deviceRegistrations.values().stream()
+                .filter(d -> d.getAdminId() != null && d.getAdminId().equals(adminId))
                 .findFirst();
     }
 

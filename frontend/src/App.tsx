@@ -3,8 +3,8 @@
  */
 import type { ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
-import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
-import { useEffect } from 'react';
+import { ThemeProvider, createTheme, CssBaseline, Snackbar, Alert, Button } from '@mui/material';
+import { useEffect, useState, useCallback } from 'react';
 import { CheckInPage } from './pages/participant/Checkin';
 import { DashboardPage } from './pages/participant/Dashboard';
 import { MessagesPage } from './pages/MessagesPage';
@@ -12,6 +12,10 @@ import { AppLayout } from './components/AppLayout';
 import { AdminLayout } from './components/AdminLayout';
 import { storage } from './services/storage';
 import { getRoleFromToken } from './services/auth';
+import { registerIfPermissionGranted, onForegroundMessage, getNotificationPermission, initializePushNotifications } from './services/firebaseMessaging';
+import { subscribeToNotifications, getPendingMessageIds, clearPendingMessageIds, removePendingMessageId, type NotificationSyncMessage } from './services/notificationSync';
+import { useMessageStore, type Message } from './store/useMessageStore';
+import api from './services/api';
 import DevTokenPage from './pages/DevTokenPage';
 import {
   AdminDashboard,
@@ -109,6 +113,160 @@ function RootRedirect() {
 }
 
 function App() {
+  const [notification, setNotification] = useState<{ title: string; body: string } | null>(null);
+  const [showNotificationPrompt, setShowNotificationPrompt] = useState(() => {
+    // Initialize based on current permission state (only show if logged in and permission not yet requested)
+    const token = storage.getAuthToken();
+    if (!token) return false;
+    return getNotificationPermission() === 'default';
+  });
+  
+  const { addMessage, messages } = useMessageStore();
+
+  // Fetch and add a single message to the store (avoiding duplicates)
+  const fetchAndAddMessage = useCallback(async (messageId: string) => {
+    // Check if message already exists in store
+    if (messages.some((m) => m.id === messageId)) {
+      return;
+    }
+    
+    try {
+      const response = await api.getMessage(messageId);
+      if (response.data) {
+        addMessage(response.data as Message);
+        await removePendingMessageId(messageId);
+      }
+    } catch (error) {
+      console.error('[App] Failed to fetch message:', messageId, error);
+    }
+  }, [addMessage, messages]);
+
+  // Process pending messages from IndexedDB (queued while app was closed)
+  const processPendingMessages = useCallback(async () => {
+    try {
+      const pendingIds = await getPendingMessageIds();
+      if (pendingIds.length === 0) return;
+      
+      console.log('[App] Processing pending messages:', pendingIds.length);
+      
+      for (const messageId of pendingIds) {
+        await fetchAndAddMessage(messageId);
+      }
+      
+      await clearPendingMessageIds();
+    } catch (error) {
+      console.error('[App] Failed to process pending messages:', error);
+    }
+  }, [fetchAndAddMessage]);
+
+  // Subscribe to BroadcastChannel for immediate notification sync
+  useEffect(() => {
+    const unsubscribe = subscribeToNotifications((message: NotificationSyncMessage) => {
+      console.log('[App] Received notification sync message:', message);
+      
+      if (message.type === 'NEW_MESSAGE' && message.messageId) {
+        fetchAndAddMessage(message.messageId);
+      } else if (message.type === 'MESSAGE_CLICKED' && message.messageId) {
+        // Navigation will be handled by service worker postMessage
+        fetchAndAddMessage(message.messageId);
+      }
+    });
+
+    return unsubscribe;
+  }, [fetchAndAddMessage]);
+
+  // Process pending messages on app visibility change (app coming to foreground)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        processPendingMessages();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Also process on initial mount
+    processPendingMessages();
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [processPendingMessages]);
+
+  // Listen for postMessage from service worker for navigation
+  useEffect(() => {
+    const handleServiceWorkerMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'NAVIGATE' && event.data?.url) {
+        // Navigate using window.location as we're outside BrowserRouter here
+        // The actual navigation will be handled by the router
+        window.location.href = event.data.url;
+      }
+    };
+
+    navigator.serviceWorker?.addEventListener('message', handleServiceWorkerMessage);
+
+    return () => {
+      navigator.serviceWorker?.removeEventListener('message', handleServiceWorkerMessage);
+    };
+  }, []);
+
+  // Initialize FCM for already logged-in users and set up foreground message handling
+  useEffect(() => {
+    const token = storage.getAuthToken();
+    if (!token) return;
+
+    const permission = getNotificationPermission();
+    
+    if (permission === 'granted') {
+      // Permission already granted, just register the token
+      registerIfPermissionGranted().catch((err) => {
+        console.warn('Failed to register FCM token:', err);
+      });
+    }
+
+    // Set up foreground message handler (async)
+    let unsubscribe: (() => void) | null = null;
+    
+    onForegroundMessage((payload) => {
+      // Show notification snackbar
+      if (payload.notification?.title || payload.notification?.body) {
+        setNotification({
+          title: payload.notification.title || 'Vlettenrally',
+          body: payload.notification.body || '',
+        });
+      }
+      
+      // Fetch and add the message to the store
+      const messageId = payload.data?.messageId;
+      if (messageId) {
+        fetchAndAddMessage(messageId);
+      }
+    }).then((unsub) => {
+      unsubscribe = unsub;
+    });
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps - only run once on mount
+
+  const handleCloseNotification = useCallback(() => {
+    setNotification(null);
+  }, []);
+
+  const handleEnableNotifications = useCallback(async () => {
+    setShowNotificationPrompt(false);
+    const success = await initializePushNotifications();
+    if (!success) {
+      console.warn('User declined notifications or initialization failed');
+    }
+  }, []);
+
+  const handleDismissNotificationPrompt = useCallback(() => {
+    setShowNotificationPrompt(false);
+  }, []);
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -208,6 +366,42 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
+
+      {/* Foreground notification snackbar */}
+      <Snackbar
+        open={!!notification}
+        autoHideDuration={6000}
+        onClose={handleCloseNotification}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseNotification} severity="info" sx={{ width: '100%' }}>
+          <strong>{notification?.title}</strong>
+          {notification?.body && <div>{notification.body}</div>}
+        </Alert>
+      </Snackbar>
+
+      {/* Notification permission prompt */}
+      <Snackbar
+        open={showNotificationPrompt}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          severity="info" 
+          sx={{ width: '100%' }}
+          action={
+            <>
+              <Button color="inherit" size="small" onClick={handleDismissNotificationPrompt}>
+                Later
+              </Button>
+              <Button color="inherit" size="small" onClick={handleEnableNotifications}>
+                Inschakelen
+              </Button>
+            </>
+          }
+        >
+          Wil je meldingen ontvangen van de organisatie?
+        </Alert>
+      </Snackbar>
     </ThemeProvider>
   );
 }

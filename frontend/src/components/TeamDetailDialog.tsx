@@ -64,7 +64,7 @@ export default function TeamDetailDialog({
         setLoadingRivals(true);
         Promise.all(
           team.rivals.map((rivalId: string) => 
-            teamService.getTeam(rivalId, { gameId: team.gameId })
+            teamService.getTeam(rivalId, team.gameId)
           )
         )
           .then((rivals) => {
