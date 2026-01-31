@@ -1,8 +1,8 @@
 package nl.vlettenrally.data.repository.mock;
 
+import io.quarkus.arc.profile.IfBuildProfile;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Alternative;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.repository.TeamRepository;
 
@@ -20,9 +20,9 @@ import java.util.stream.Collectors;
 
 /**
  * Mock implementation of TeamRepository with prefilled data.
- * Annotated as @Alternative - activate in application.properties for development.
+ * Only active in dev and test profiles - replaced by PostgresTeamRepository in prod.
  */
-@Alternative
+@IfBuildProfile(anyOf = {"dev", "test"})
 @ApplicationScoped
 public class MockTeamRepository implements TeamRepository {
 
@@ -74,7 +74,7 @@ public class MockTeamRepository implements TeamRepository {
         team2.setCheckedIn(true);
         team2.setTotalPoints(300);
         team2.setRivals(Collections.singletonList(TEAM_WATERVLOOIEN_ID));
-        team2.setEmergencyPhoneNumbers(Arrays.asList("+31612345678", "+31687654321"));
+        team2.setEmergencyPhoneNumbers(Arrays.asList("+31687654321"));
         team2.setCreatedAt(now.minus(47, ChronoUnit.HOURS));
         team2.setUpdatedAt(now.minus(45, ChronoUnit.MINUTES));
         teams.put(team2.getId(), team2);

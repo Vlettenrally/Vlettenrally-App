@@ -1,11 +1,11 @@
 package nl.vlettenrally.data.repository.mock;
 
+import io.quarkus.arc.profile.IfBuildProfile;
+import io.quarkus.elytron.security.common.BcryptUtil;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Alternative;
 import nl.vlettenrally.data.domain.Admin;
 import nl.vlettenrally.data.repository.AdminRepository;
-import io.quarkus.elytron.security.common.BcryptUtil;
 
 import java.util.List;
 import java.util.Map;
@@ -14,9 +14,10 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Mock implementation of AdminRepository for development/testing
+ * Mock implementation of AdminRepository for development/testing.
+ * Only active in dev and test profiles - replaced by PostgresAdminRepository in prod.
  */
-@Alternative
+@IfBuildProfile(anyOf = {"dev", "test"})
 @ApplicationScoped
 public class MockAdminRepository implements AdminRepository {
     

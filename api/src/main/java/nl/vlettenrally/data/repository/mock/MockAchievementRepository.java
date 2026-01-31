@@ -1,8 +1,8 @@
 package nl.vlettenrally.data.repository.mock;
 
+import io.quarkus.arc.profile.IfBuildProfile;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Alternative;
 import nl.vlettenrally.data.domain.Achievement;
 import nl.vlettenrally.data.enums.AchievementStatus;
 import nl.vlettenrally.data.repository.AchievementRepository;
@@ -20,11 +20,11 @@ import java.util.stream.Collectors;
 
 /**
  * Mock implementation of AchievementRepository with prefilled data.
- * Annotated as @Alternative - activate in application.properties for development.
+ * Only active in dev and test profiles - replaced by PostgresAchievementRepository in prod.
  * 
  * Includes a mix of VERIFIED, PENDING, and REJECTED achievements for testing.
  */
-@Alternative
+@IfBuildProfile(anyOf = {"dev", "test"})
 @ApplicationScoped
 public class MockAchievementRepository implements AchievementRepository {
 

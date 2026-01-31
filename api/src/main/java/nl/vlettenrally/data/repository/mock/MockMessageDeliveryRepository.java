@@ -1,8 +1,7 @@
 package nl.vlettenrally.data.repository.mock;
 
-import jakarta.annotation.Priority;
+import io.quarkus.arc.profile.IfBuildProfile;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Alternative;
 import jakarta.inject.Inject;
 import nl.vlettenrally.data.domain.MessageDelivery;
 import nl.vlettenrally.data.domain.Team;
@@ -19,10 +18,9 @@ import java.util.stream.Collectors;
 
 /**
  * Mock implementation of MessageDeliveryRepository.
- * Enabled by default in dev mode via @Priority.
+ * Only active in dev and test profiles - replaced by PostgresMessageDeliveryRepository in prod.
  */
-@Alternative
-@Priority(1)
+@IfBuildProfile(anyOf = {"dev", "test"})
 @ApplicationScoped
 public class MockMessageDeliveryRepository implements MessageDeliveryRepository {
 

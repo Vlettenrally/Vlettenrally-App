@@ -1,8 +1,8 @@
 package nl.vlettenrally.data.repository.mock;
 
+import io.quarkus.arc.profile.IfBuildProfile;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Alternative;
 import nl.vlettenrally.data.domain.Message;
 import nl.vlettenrally.data.enums.MessageSource;
 import nl.vlettenrally.data.enums.MessageType;
@@ -22,9 +22,9 @@ import java.util.stream.Collectors;
 
 /**
  * Mock implementation of MessageRepository with prefilled data.
- * Annotated as @Alternative - activate in application.properties for development.
+ * Only active in dev and test profiles - replaced by PostgresMessageRepository in prod.
  */
-@Alternative
+@IfBuildProfile(anyOf = {"dev", "test"})
 @ApplicationScoped
 public class MockMessageRepository implements MessageRepository {
 

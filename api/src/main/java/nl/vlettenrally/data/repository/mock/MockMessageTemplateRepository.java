@@ -1,9 +1,8 @@
 package nl.vlettenrally.data.repository.mock;
 
+import io.quarkus.arc.profile.IfBuildProfile;
 import jakarta.annotation.PostConstruct;
-import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Alternative;
 import nl.vlettenrally.data.domain.MessageTemplate;
 import nl.vlettenrally.data.enums.MessageType;
 import nl.vlettenrally.data.repository.MessageTemplateRepository;
@@ -17,10 +16,9 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Mock implementation of MessageTemplateRepository with prefilled data.
- * Enabled by default in dev mode via @Priority.
+ * Only active in dev and test profiles - replaced by PostgresMessageTemplateRepository in prod.
  */
-@Alternative
-@Priority(1)
+@IfBuildProfile(anyOf = {"dev", "test"})
 @ApplicationScoped
 public class MockMessageTemplateRepository implements MessageTemplateRepository {
 
