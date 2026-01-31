@@ -18,11 +18,10 @@ import { storage } from '../../services/storage';
 import { getRoleFromToken } from '../../services/auth';
 import { config } from '../../config';
 
-interface AdminLoginResponse {
-  token: string;
-  adminId: string;
-  username: string;
-  expiresAt: string;
+interface TokenResponse {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
 }
 
 interface ApiError {
@@ -55,13 +54,14 @@ export function AdminLogin() {
         throw new Error(errorData.message || 'Login failed');
       }
 
-      const data: AdminLoginResponse = await response.json();
+      const data: TokenResponse = await response.json();
       
-      // Store token and role
-      storage.setAuthToken(data.token);
+      // Store both access and refresh tokens
+      storage.setAuthToken(data.accessToken);
+      storage.setRefreshToken(data.refreshToken);
       
       // Parse and store role from token
-      const role = getRoleFromToken(data.token);
+      const role = getRoleFromToken(data.accessToken);
       if (role) {
         storage.setUserRole(role);
       }

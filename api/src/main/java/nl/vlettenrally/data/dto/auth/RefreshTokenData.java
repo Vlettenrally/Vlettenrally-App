@@ -4,5 +4,6 @@ public record RefreshTokenData(
     String subject,
     String name,
     String role,
-    long expiresAt
+    long expiresAt,
+    boolean revoked
 ) {}

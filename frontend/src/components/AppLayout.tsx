@@ -35,6 +35,7 @@ import { storage } from '../services/storage';
 import { useTeamStore } from '../store/useTeamStore';
 import { useGameStore } from '../store/useGameStore';
 import { useConnectionStatus } from '../hooks/useConnectionStatus';
+import api from '../services/api';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -62,7 +63,14 @@ export function AppLayout({ children }: AppLayoutProps) {
     setDrawerOpen(false);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // Call logout endpoint to revoke tokens (silent failure if request fails)
+    try {
+      await api.logout();
+    } catch (error) {
+      console.warn('Logout API call failed:', error);
+    }
+    
     // Clear cached app data and session
     storage.clearCache();
     storage.clearSession();

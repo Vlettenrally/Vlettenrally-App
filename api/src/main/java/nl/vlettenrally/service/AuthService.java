@@ -40,6 +40,11 @@ public interface AuthService {
     void revokeTokens(UUID teamId);
 
     /**
+     * Store a refresh token for validation and rotation
+     */
+    void storeRefreshToken(String refreshToken, String subject, String name, String role, long expiresAt);
+
+    /**
      * Generate a JWT token for mock/development login
      */
     String generateMockToken(String userId, String name, String role, Instant expiresAt);

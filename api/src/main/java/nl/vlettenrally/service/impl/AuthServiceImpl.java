@@ -44,6 +44,12 @@ public class AuthServiceImpl implements AuthService {
     @ConfigProperty(name = "smallrye.jwt.sign.key-location", defaultValue = "privateKey.pem")
     String keyLocation;
 
+    @ConfigProperty(name = "vlettenrally.jwt.access-token-expiry-minutes", defaultValue = "15")
+    int accessTokenExpiryMinutes;
+
+    @ConfigProperty(name = "vlettenrally.jwt.refresh-token-expiry-days", defaultValue = "1")
+    int refreshTokenExpiryDays;
+
     // In-memory storage for registration tokens
     private final Map<String, RegistrationTokenData> registrationTokens = new ConcurrentHashMap<>();
     
@@ -111,17 +117,30 @@ public class AuthServiceImpl implements AuthService {
         );
         registrationTokens.put(registrationToken, tokenData);
 
-        // Generate tokens
-        String accessToken = generateMockToken(tokenData.subject(), tokenData.name(), tokenData.role(), Instant.now().plusSeconds(3600));
-        String refreshToken = generateMockToken(tokenData.subject(), tokenData.name(), tokenData.role(), Instant.now().plusSeconds(86400));
+        // Generate tokens using config-driven durations
+        long accessTokenExpirySeconds = accessTokenExpiryMinutes * 60L;
+        long refreshTokenExpirySeconds = refreshTokenExpiryDays * 86400L;
+        
+        String accessToken = generateMockToken(tokenData.subject(), tokenData.name(), tokenData.role(), Instant.now().plusSeconds(accessTokenExpirySeconds));
+        String refreshTokenStr = generateMockToken(tokenData.subject(), tokenData.name(), tokenData.role(), Instant.now().plusSeconds(refreshTokenExpirySeconds));
+
+        // Store refresh token for future validation and rotation
+        long refreshExpiresAt = Instant.now().plusSeconds(refreshTokenExpirySeconds).getEpochSecond();
+        refreshTokens.put(refreshTokenStr, new RefreshTokenData(
+            tokenData.subject(),
+            tokenData.name(),
+            tokenData.role(),
+            refreshExpiresAt,
+            false // not revoked
+        ));
 
         // Remove used registration token
         registrationTokens.remove(registrationToken);
 
         return Optional.of(new TokenResult(
             accessToken,
-            refreshToken,
-            3600, // 1 hour
+            refreshTokenStr,
+            accessTokenExpirySeconds,
             tokenData.subject(),
             tokenData.name(),
             tokenData.role()
@@ -137,18 +156,54 @@ public class AuthServiceImpl implements AuthService {
             return Optional.empty();
         }
 
+        // Check if token is already revoked (replay attack detection)
+        if (tokenData.revoked()) {
+            // Possible token replay attack - revoke all tokens for this user
+            try {
+                UUID userId = UUID.fromString(tokenData.subject());
+                revokeTokens(userId);
+            } catch (IllegalArgumentException e) {
+                // Invalid UUID, just remove this token
+                refreshTokens.remove(refreshToken);
+            }
+            return Optional.empty();
+        }
+
         if (Instant.now().getEpochSecond() > tokenData.expiresAt()) {
             refreshTokens.remove(refreshToken);
             return Optional.empty();
         }
 
-        // Generate new access token
-        String newAccessToken = generateMockToken(tokenData.subject(), tokenData.name(), tokenData.role(), Instant.now().plusSeconds(3600));
+        // Generate new tokens using config-driven durations
+        long accessTokenExpirySeconds = accessTokenExpiryMinutes * 60L;
+        long refreshTokenExpirySeconds = refreshTokenExpiryDays * 86400L;
+        
+        String newAccessToken = generateMockToken(tokenData.subject(), tokenData.name(), tokenData.role(), Instant.now().plusSeconds(accessTokenExpirySeconds));
+        String newRefreshToken = generateMockToken(tokenData.subject(), tokenData.name(), tokenData.role(), Instant.now().plusSeconds(refreshTokenExpirySeconds));
+
+        // Mark old refresh token as revoked (token rotation)
+        refreshTokens.put(refreshToken, new RefreshTokenData(
+            tokenData.subject(),
+            tokenData.name(),
+            tokenData.role(),
+            tokenData.expiresAt(),
+            true // mark as revoked
+        ));
+
+        // Store new refresh token
+        long newRefreshExpiresAt = Instant.now().plusSeconds(refreshTokenExpirySeconds).getEpochSecond();
+        refreshTokens.put(newRefreshToken, new RefreshTokenData(
+            tokenData.subject(),
+            tokenData.name(),
+            tokenData.role(),
+            newRefreshExpiresAt,
+            false // not revoked
+        ));
 
         return Optional.of(new TokenResult(
             newAccessToken,
-            refreshToken,
-            3600,
+            newRefreshToken,
+            accessTokenExpirySeconds,
             tokenData.subject(),
             tokenData.name(),
             tokenData.role()
@@ -159,6 +214,17 @@ public class AuthServiceImpl implements AuthService {
     public void revokeTokens(UUID teamId) {
         // Remove all tokens for the team
         refreshTokens.entrySet().removeIf(e -> e.getValue().subject().equals(teamId.toString()));
+    }
+
+    @Override
+    public void storeRefreshToken(String refreshToken, String subject, String name, String role, long expiresAt) {
+        refreshTokens.put(refreshToken, new RefreshTokenData(
+            subject,
+            name,
+            role,
+            expiresAt,
+            false // not revoked
+        ));
     }
 
     private void cleanupExpiredTokens() {

@@ -9,7 +9,6 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import nl.vlettenrally.data.dto.auth.AdminLoginRequest;
-import nl.vlettenrally.data.dto.auth.AdminLoginResponse;
 import nl.vlettenrally.data.dto.auth.MockLoginRequest;
 import nl.vlettenrally.data.dto.auth.MockLoginResponse;
 import nl.vlettenrally.data.dto.auth.MockUserResponse;
@@ -27,7 +26,6 @@ import nl.vlettenrally.service.TeamService;
 import io.quarkus.elytron.security.common.BcryptUtil;
 
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -62,6 +60,12 @@ public class AuthResource {
 
     @ConfigProperty(name = "vlettenrally.mock.enabled", defaultValue = "false")
     boolean mockEnabled;
+
+    @ConfigProperty(name = "vlettenrally.jwt.access-token-expiry-minutes", defaultValue = "60")
+    int accessTokenExpiryMinutes;
+
+    @ConfigProperty(name = "vlettenrally.jwt.refresh-token-expiry-days", defaultValue = "5")
+    int refreshTokenExpiryDays;
 
     /**
      * Register a new team from third party registration system
@@ -189,20 +193,33 @@ public class AuthResource {
                 .filter(admin -> admin.isActive())
                 .filter(admin -> BcryptUtil.matches(request.password(), admin.getPasswordHash()))
                 .map(admin -> { 
-                    Instant expiresAt = Instant.now().plus(24, ChronoUnit.HOURS);
+                    long accessTokenExpirySeconds = accessTokenExpiryMinutes * 60L;
+                    long refreshTokenExpirySeconds = refreshTokenExpiryDays * 86400L;
                     
-                    String token = authService.generateMockToken(
+                    Instant accessExpiresAt = Instant.now().plusSeconds(accessTokenExpirySeconds);
+                    Instant refreshExpiresAt = Instant.now().plusSeconds(refreshTokenExpirySeconds);
+                    
+                    String accessToken = authService.generateMockToken(
                         admin.getId().toString(),
                         admin.getUsername(),
                         "admin",
-                        expiresAt
+                        accessExpiresAt
                     );
-
-                    return Response.ok(new AdminLoginResponse(
-                        token,
+                    
+                    String refreshToken = authService.generateMockToken(
                         admin.getId().toString(),
                         admin.getUsername(),
-                        expiresAt.toString()
+                        "admin",
+                        refreshExpiresAt
+                    );
+                    
+                    // Store refresh token for validation and rotation
+                    authService.storeRefreshToken(refreshToken, admin.getId().toString(), admin.getUsername(), "admin", refreshExpiresAt.getEpochSecond());
+
+                    return Response.ok(new TokenResponse(
+                        accessToken,
+                        refreshToken,
+                        accessTokenExpirySeconds
                     )).build();
                 })
                 .orElse(Response.status(Response.Status.UNAUTHORIZED)
@@ -212,6 +229,25 @@ public class AuthResource {
         } catch (Exception e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                 .entity(new ErrorResponse("Admin login failed: " + e.getMessage()))
+                .build();
+        }
+    }
+
+    /**
+     * Logout - revoke all tokens for the authenticated user
+     */
+    @POST
+    @Path("/logout")
+    @jakarta.annotation.security.RolesAllowed({"admin", "team"})
+    public Response logout(@jakarta.ws.rs.core.Context jakarta.ws.rs.core.SecurityContext securityContext) {
+        try {
+            String userId = securityContext.getUserPrincipal().getName();
+            authService.revokeTokens(UUID.fromString(userId));
+            
+            return Response.ok().build();
+        } catch (Exception e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                .entity(new ErrorResponse("Logout failed: " + e.getMessage()))
                 .build();
         }
     }
@@ -272,7 +308,8 @@ public class AuthResource {
 
             return teamService.findById(teamId)
                 .map(team -> {
-                    Instant expiresAt = Instant.now().plus(24, ChronoUnit.HOURS);
+                    long accessTokenExpirySeconds = accessTokenExpiryMinutes * 60L;
+                    Instant expiresAt = Instant.now().plusSeconds(accessTokenExpirySeconds);
                                       
                     String token = authService.generateMockToken(
                         teamId.toString(),

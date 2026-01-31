@@ -44,6 +44,7 @@ import {
 import { storage } from '../services/storage';
 import { useGameStore } from '../store/useGameStore';
 import { useConnectionStatus } from '../hooks/useConnectionStatus';
+import api from '../services/api';
 import {
   ActiveGamesWidget,
   CheckInProgressWidget,
@@ -94,7 +95,14 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     setDrawerOpen(false);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // Call logout endpoint to revoke tokens (silent failure if request fails)
+    try {
+      await api.logout();
+    } catch (error) {
+      console.warn('Logout API call failed:', error);
+    }
+    
     // Clear cached app data and session
     storage.clearCache();
     storage.clearSession();

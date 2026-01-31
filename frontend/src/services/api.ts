@@ -19,6 +19,7 @@ import type {
   RetryMessageResponse 
 } from '../types/entities';
 import storage from './storage';
+import { isTokenExpiringSoon } from './auth';
 
 const API_BASE_URL = config.apiBaseUrl;
 
@@ -29,10 +30,83 @@ interface ApiResponse<T> {
 }
 
 class ApiService {
+  private isRefreshing = false;
+  private refreshPromise: Promise<boolean> | null = null;
+
+  /**
+   * Refresh token if needed (proactive refresh)
+   * Returns true if token is valid/refreshed, false if refresh failed
+   */
+  private async refreshTokenIfNeeded(): Promise<boolean> {
+    const token = storage.getAuthToken();
+    const refreshToken = storage.getRefreshToken();
+
+    // No tokens, can't refresh
+    if (!token || !refreshToken) {
+      return false;
+    }
+
+    // Token not expiring soon, no need to refresh
+    if (!isTokenExpiringSoon(token)) {
+      return true;
+    }
+
+    // If already refreshing, wait for the existing refresh to complete
+    if (this.isRefreshing && this.refreshPromise) {
+      return this.refreshPromise;
+    }
+
+    // Start refresh process
+    this.isRefreshing = true;
+    this.refreshPromise = (async () => {
+      try {
+        console.log('[API] Token expiring soon, refreshing...');
+        const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken }),
+        });
+
+        if (!response.ok) {
+          console.error('[API] Token refresh failed:', response.status);
+          return false;
+        }
+
+        const data = await response.json();
+        
+        // Update stored tokens
+        storage.setAuthToken(data.accessToken);
+        if (data.refreshToken) {
+          storage.setRefreshToken(data.refreshToken);
+        }
+
+        console.log('[API] Token refreshed successfully');
+        return true;
+      } catch (error) {
+        console.error('[API] Token refresh error:', error);
+        return false;
+      } finally {
+        this.isRefreshing = false;
+        this.refreshPromise = null;
+      }
+    })();
+
+    return this.refreshPromise;
+  }
+
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
+    // Proactively refresh token if expiring soon (but not for auth endpoints)
+    if (!endpoint.startsWith('/auth/')) {
+      const refreshed = await this.refreshTokenIfNeeded();
+      if (!refreshed) {
+        // Token refresh failed, but continue with request (might still work or trigger 401)
+        console.warn('[API] Token refresh failed, continuing with request');
+      }
+    }
+
     const token = storage.getAuthToken();
     
     const headers: HeadersInit = {
@@ -48,6 +122,82 @@ class ApiService {
       });
 
       const data = await response.json().catch(() => null);
+
+      // Handle 401 Unauthorized - attempt token refresh and retry once
+      if (response.status === 401 && !endpoint.startsWith('/auth/')) {
+        console.log('[API] Got 401, attempting token refresh...');
+        
+        const refreshToken = storage.getRefreshToken();
+        if (!refreshToken) {
+          console.error('[API] No refresh token available, redirecting to login');
+          this.redirectToLogin();
+          return {
+            error: 'Authentication failed',
+            status: 401,
+          };
+        }
+
+        // Attempt to refresh token
+        try {
+          const refreshResponse = await fetch(`${API_BASE_URL}/auth/refresh`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken }),
+          });
+
+          if (!refreshResponse.ok) {
+            console.error('[API] Token refresh failed, redirecting to login');
+            this.redirectToLogin();
+            return {
+              error: 'Session expired',
+              status: 401,
+            };
+          }
+
+          const refreshData = await refreshResponse.json();
+          
+          // Update stored tokens
+          storage.setAuthToken(refreshData.accessToken);
+          if (refreshData.refreshToken) {
+            storage.setRefreshToken(refreshData.refreshToken);
+          }
+
+          console.log('[API] Token refreshed, retrying original request');
+
+          // Retry original request with new token
+          const newHeaders: HeadersInit = {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${refreshData.accessToken}`,
+            ...options.headers,
+          };
+
+          const retryResponse = await fetch(`${API_BASE_URL}${endpoint}`, {
+            ...options,
+            headers: newHeaders,
+          });
+
+          const retryData = await retryResponse.json().catch(() => null);
+
+          if (!retryResponse.ok) {
+            return {
+              error: retryData?.message || 'Request failed',
+              status: retryResponse.status,
+            };
+          }
+
+          return {
+            data: retryData,
+            status: retryResponse.status,
+          };
+        } catch (refreshError) {
+          console.error('[API] Token refresh error:', refreshError);
+          this.redirectToLogin();
+          return {
+            error: 'Session expired',
+            status: 401,
+          };
+        }
+      }
 
       if (!response.ok) {
         return {
@@ -66,6 +216,20 @@ class ApiService {
         error: error instanceof Error ? error.message : 'Network error',
         status: 0,
       };
+    }
+  }
+
+  /**
+   * Redirect to appropriate login page based on user role
+   */
+  private redirectToLogin(): void {
+    const role = storage.getUserRole();
+    storage.clearSession();
+    
+    if (role === 'admin') {
+      window.location.href = '/admin/login';
+    } else {
+      window.location.href = '/check-in';
     }
   }
 
@@ -102,6 +266,10 @@ class ApiService {
 
   async refreshAccessToken(refreshToken: string) {
     return this.post('/auth/refresh', { refreshToken });
+  }
+
+  async logout() {
+    return this.post('/auth/logout');
   }
 
   // Team endpoints
