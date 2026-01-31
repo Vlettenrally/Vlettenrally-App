@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -53,23 +53,15 @@ export default function TemplateFormDialog({
 
   const isEditing = !!template;
 
-  // Reset/populate form when dialog opens or template changes
-  useEffect(() => {
-    if (open) {
-      if (template) {
-        setName(template.name);
-        setMessageType(template.messageType);
-        setContent(template.content);
-        setIcon(template.icon || '');
-      } else {
-        setName('');
-        setMessageType('general');
-        setContent('');
-        setIcon('');
-      }
-      setError(null);
-    }
-  }, [open, template]);
+  // Initialize from template on mount (dialog is remounted via key)
+  const [initialized, setInitialized] = useState(false);
+  if (!initialized && template) {
+    setName(template.name);
+    setMessageType(template.messageType);
+    setContent(template.content);
+    setIcon(template.icon || '');
+    setInitialized(true);
+  }
 
   const handleSave = async () => {
     // Validate

@@ -600,32 +600,38 @@ export default function AdminMessages() {
       )}
 
       {/* Send Message Dialog */}
-      <SendMessageDialog
-        open={sendDialogOpen}
-        onClose={() => {
-          setSendDialogOpen(false);
-          setSelectedTemplateForSend(null);
-        }}
-        onSuccess={() => {
-          fetchMessages();
-          fetchTemplates();
-        }}
-        gameId={selectedGameId || ''}
-        teams={teams}
-        templates={templates}
-        initialTemplate={selectedTemplateForSend}
-      />
+      {sendDialogOpen && (
+        <SendMessageDialog
+          key={selectedTemplateForSend?.id ?? 'new'}
+          open={sendDialogOpen}
+          onClose={() => {
+            setSendDialogOpen(false);
+            setSelectedTemplateForSend(null);
+          }}
+          onSuccess={() => {
+            fetchMessages();
+            fetchTemplates();
+          }}
+          gameId={selectedGameId || ''}
+          teams={teams}
+          templates={templates}
+          initialTemplate={selectedTemplateForSend}
+        />
+      )}
 
       {/* Template Form Dialog */}
-      <TemplateFormDialog
-        open={templateDialogOpen}
-        onClose={() => {
-          setTemplateDialogOpen(false);
-          setEditingTemplate(null);
-        }}
-        onSuccess={fetchTemplates}
-        template={editingTemplate}
-      />
+      {templateDialogOpen && (
+        <TemplateFormDialog
+          key={editingTemplate?.id ?? 'new'}
+          open={templateDialogOpen}
+          onClose={() => {
+            setTemplateDialogOpen(false);
+            setEditingTemplate(null);
+          }}
+          onSuccess={fetchTemplates}
+          template={editingTemplate}
+        />
+      )}
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)}>

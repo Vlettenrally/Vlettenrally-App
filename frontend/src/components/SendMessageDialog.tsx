@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -73,30 +73,15 @@ export default function SendMessageDialog({
   const [error, setError] = useState<string | null>(null);
   const [showRallydeskWarning, setShowRallydeskWarning] = useState(false);
 
-  // Reset form when dialog opens
-  useEffect(() => {
-    if (open) {
-      setSendToAll(true);
-      setSelectedTeams([]);
-      setSaveAsTemplate(false);
-      setTemplateName('');
-      setError(null);
-      setShowRallydeskWarning(false);
-      
-      // If initialTemplate is provided, use it; otherwise reset to defaults
-      if (initialTemplate) {
-        setSelectedTemplate(initialTemplate);
-        setMessageType(initialTemplate.messageType);
-        setContent(initialTemplate.content);
-        setIcon(initialTemplate.icon || '');
-      } else {
-        setSelectedTemplate(null);
-        setMessageType('general');
-        setContent('');
-        setIcon('');
-      }
-    }
-  }, [open, initialTemplate]);
+  // Initialize from initialTemplate on mount (dialog is remounted via key)
+  const [initialized, setInitialized] = useState(false);
+  if (!initialized && initialTemplate) {
+    setSelectedTemplate(initialTemplate);
+    setMessageType(initialTemplate.messageType);
+    setContent(initialTemplate.content);
+    setIcon(initialTemplate.icon || '');
+    setInitialized(true);
+  }
 
   const handleSend = async () => {
     // Validate

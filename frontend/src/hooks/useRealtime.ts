@@ -59,7 +59,7 @@ export function useTeamRealtime({ gameId, teamId }: UseRealtimeTeamOptions) {
           if (team) {
             // ensure zustand store is up to date
             // updatePoints may already have been called; set full team if available
-            useTeamStore.getState().setTeam(team as any);
+            useTeamStore.getState().setTeam(team);
           }
         } catch (e) {
           console.warn('Failed to refresh team after rival update', e);
@@ -122,7 +122,11 @@ export function useAdminRealtime({ gameId }: UseRealtimeAdminOptions) {
       (async () => {
         try {
           // payload might contain team id
-          const payload: any = message.payload || {};
+          interface TeamUpdatePayload {
+            id?: string;
+            teamId?: string;
+          }
+          const payload = (message.payload || {}) as TeamUpdatePayload;
           const teamId = payload.id || payload.teamId || null;
           if (teamId && gameId) {
             const fresh = await teamService.getTeam(teamId, gameId);
@@ -130,8 +134,8 @@ export function useAdminRealtime({ gameId }: UseRealtimeAdminOptions) {
             if (fresh) {
               // if this team is the current cached team, update storage and team store
               const current = storage.getTeamData();
-              if (current && current.id === (fresh as any).id) {
-                useTeamStore.getState().setTeam(fresh as any);
+              if (current && current.id === fresh.id) {
+                useTeamStore.getState().setTeam(fresh);
               }
             }
           }

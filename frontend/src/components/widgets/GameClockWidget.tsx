@@ -37,10 +37,7 @@ export function GameClockWidget({ collapsed = false }: GameClockWidgetProps) {
   const selectedGameId = useGameStore((s) => s.selectedGameId);
 
   useEffect(() => {
-    if (!selectedGameId) {
-      setGame(null);
-      return;
-    }
+    if (!selectedGameId) return;
 
     gameService.getGame(selectedGameId).then((data) => {
       setGame(data);

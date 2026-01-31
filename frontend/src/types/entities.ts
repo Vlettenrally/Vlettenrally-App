@@ -106,9 +106,7 @@ export interface PlayerTeam extends TeamBase {
  * Minimal team data for public views (rivals, rankings).
  * Contains only non-sensitive public information.
  */
-export interface PublicTeam extends TeamBase {
-  // Only base fields: id, gameId, name, boatNumber, totalPoints
-}
+export type PublicTeam = TeamBase;
 
 /**
  * @deprecated Use AdminTeam, PlayerTeam, or PublicTeam instead.

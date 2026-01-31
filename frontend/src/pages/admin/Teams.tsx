@@ -19,10 +19,7 @@ export default function Teams() {
 
   // Load teams when game changes
   useEffect(() => {
-    if (!selectedGameId) {
-      setTeams([]);
-      return;
-    }
+    if (!selectedGameId) return;
     
     let cancelled = false;
     teamService.getTeamsByGame(selectedGameId).then((data) => {
