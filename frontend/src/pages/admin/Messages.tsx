@@ -145,14 +145,20 @@ export default function AdminMessages() {
   // Load data when game changes
   useEffect(() => {
     if (selectedGameId) {
-      void fetchTeams(selectedGameId);
-      void fetchMessages();
+      const loadData = async () => {
+        await fetchTeams(selectedGameId);
+        await fetchMessages();
+      };
+      void loadData();
     }
   }, [selectedGameId, fetchTeams, fetchMessages]);
 
   // Load templates on mount
   useEffect(() => {
-    void fetchTemplates();
+    const loadData = async () => {
+      await fetchTemplates();
+    };
+    void loadData();
   }, [fetchTemplates]);
 
   // Subscribe to WebSocket for real-time delivery updates
