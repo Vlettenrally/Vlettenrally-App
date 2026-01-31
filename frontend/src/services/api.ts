@@ -7,7 +7,11 @@
 
 import { config } from '../config';
 import type { 
-  Game, 
+  Game,
+  GameRequest,
+  ExternalEvent,
+  TeamImportResult,
+  LocationTestResult,
   AdminTeam, 
   PlayerTeam, 
   PublicTeam, 
@@ -322,6 +326,31 @@ async getGames() : Promise<ApiResponse<Game[]>> {
 
   async getGameCount() : Promise<ApiResponse<number>> {
     return this.get('/games/count');
+  }
+
+  async createGame(data: GameRequest) : Promise<ApiResponse<Game>> {
+    return this.post('/games', data);
+  }
+
+  async updateGame(gameId: string, data: GameRequest) : Promise<ApiResponse<Game>> {
+    return this.put(`/games/${gameId}`, data);
+  }
+
+  async deleteGame(gameId: string) : Promise<ApiResponse<void>> {
+    return this.delete(`/games/${gameId}`);
+  }
+
+  async importTeams(gameId: string) : Promise<ApiResponse<TeamImportResult>> {
+    return this.post(`/games/${gameId}/import-teams`);
+  }
+
+  async testLocationEndpoint(gameId: string) : Promise<ApiResponse<LocationTestResult>> {
+    return this.post(`/games/${gameId}/test-location-endpoint`);
+  }
+
+  // External API endpoints
+  async getExternalEvents() : Promise<ApiResponse<ExternalEvent[]>> {
+    return this.get('/external/events');
   }
 
   // Messages endpoints

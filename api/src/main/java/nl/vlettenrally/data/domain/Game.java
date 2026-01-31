@@ -17,6 +17,15 @@ public class Game {
     private GameStatus status;
     private Instant createdAt;
     private Instant updatedAt;
+    
+    // External event integration
+    private Integer externalEventId;
+    private String externalEventName;
+    
+    // Location tracking configuration
+    private String locationEndpointUrl;
+    private Integer locationPollingFrequency;
+    private Boolean locationEndpointActive;
 
     public enum GameStatus {
         PLANNED,
@@ -26,19 +35,21 @@ public class Game {
 
     public Game() {
         this.id = UUID.randomUUID();
+        this.status = GameStatus.PLANNED;
+        this.locationPollingFrequency = 15; // Default to 15 seconds
+        this.locationEndpointActive = false;
         this.createdAt = Instant.now();
         this.updatedAt = Instant.now();
     }
 
     public Game(UUID id, String name, String description, Instant startTime, Instant endTime, GameStatus status) {
+        this();
         this.id = id;
         this.name = name;
         this.description = description;
         this.startTime = startTime;
         this.endTime = endTime;
         this.status = status;
-        this.createdAt = Instant.now();
-        this.updatedAt = Instant.now();
     }
 
     // Getters and Setters
@@ -71,4 +82,21 @@ public class Game {
 
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+
+    // External event integration
+    public Integer getExternalEventId() { return externalEventId; }
+    public void setExternalEventId(Integer externalEventId) { this.externalEventId = externalEventId; }
+
+    public String getExternalEventName() { return externalEventName; }
+    public void setExternalEventName(String externalEventName) { this.externalEventName = externalEventName; }
+
+    // Location tracking configuration
+    public String getLocationEndpointUrl() { return locationEndpointUrl; }
+    public void setLocationEndpointUrl(String locationEndpointUrl) { this.locationEndpointUrl = locationEndpointUrl; }
+
+    public Integer getLocationPollingFrequency() { return locationPollingFrequency; }
+    public void setLocationPollingFrequency(Integer locationPollingFrequency) { this.locationPollingFrequency = locationPollingFrequency; }
+
+    public Boolean getLocationEndpointActive() { return locationEndpointActive; }
+    public void setLocationEndpointActive(Boolean locationEndpointActive) { this.locationEndpointActive = locationEndpointActive; }
 }

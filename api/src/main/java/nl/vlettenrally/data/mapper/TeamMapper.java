@@ -33,6 +33,7 @@ public class TeamMapper {
         domain.setName(entity.getName());
         domain.setDescription(entity.getDescription());
         domain.setBoatNumber(entity.getBoatNumber());
+        domain.setExternalId(entity.getExternalId());
         domain.setParticipants(new ArrayList<>(entity.getParticipants()));
         domain.setDeviceId(entity.getDevice() != null ? entity.getDevice().getId() : null);
         domain.setCheckedIn(entity.isCheckedIn());
@@ -67,6 +68,7 @@ public class TeamMapper {
         entity.setName(domain.getName());
         entity.setDescription(domain.getDescription());
         entity.setBoatNumber(domain.getBoatNumber());
+        entity.setExternalId(domain.getExternalId());
         entity.setParticipants(new ArrayList<>(domain.getParticipants()));
         entity.setCheckedIn(domain.isCheckedIn());
         entity.setTotalPoints(domain.getTotalPoints());
@@ -90,6 +92,7 @@ public class TeamMapper {
         entity.setName(domain.getName());
         entity.setDescription(domain.getDescription());
         entity.setBoatNumber(domain.getBoatNumber());
+        entity.setExternalId(domain.getExternalId());
         entity.setParticipants(new ArrayList<>(domain.getParticipants()));
         entity.setCheckedIn(domain.isCheckedIn());
         entity.setTotalPoints(domain.getTotalPoints());

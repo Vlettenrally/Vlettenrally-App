@@ -109,6 +109,11 @@
             <artifactId>twilio</artifactId>
             <version>10.1.0</version>
         </dependency>
+        <!-- Quarkus Scheduler for background tasks -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-scheduler</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

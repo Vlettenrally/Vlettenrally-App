@@ -23,6 +23,8 @@ public interface TeamRepository {
     
     List<Team> findRivals(UUID teamId);
     
+    Optional<Team> findByGameIdAndExternalId(UUID gameId, String externalId);
+    
     Team save(Team team);
     
     void delete(UUID id);

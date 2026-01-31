@@ -46,6 +46,23 @@ public class GameEntity {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    // External event integration
+    @Column(name = "external_event_id")
+    private Integer externalEventId;
+
+    @Column(name = "external_event_name")
+    private String externalEventName;
+
+    // Location tracking configuration
+    @Column(name = "location_endpoint_url", columnDefinition = "TEXT")
+    private String locationEndpointUrl;
+
+    @Column(name = "location_polling_frequency", nullable = false)
+    private Integer locationPollingFrequency = 15;
+
+    @Column(name = "location_endpoint_active", nullable = false)
+    private Boolean locationEndpointActive = false;
+
     public enum GameStatus {
         PLANNED,
         ACTIVE,
@@ -93,4 +110,21 @@ public class GameEntity {
 
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+
+    // External event integration
+    public Integer getExternalEventId() { return externalEventId; }
+    public void setExternalEventId(Integer externalEventId) { this.externalEventId = externalEventId; }
+
+    public String getExternalEventName() { return externalEventName; }
+    public void setExternalEventName(String externalEventName) { this.externalEventName = externalEventName; }
+
+    // Location tracking configuration
+    public String getLocationEndpointUrl() { return locationEndpointUrl; }
+    public void setLocationEndpointUrl(String locationEndpointUrl) { this.locationEndpointUrl = locationEndpointUrl; }
+
+    public Integer getLocationPollingFrequency() { return locationPollingFrequency; }
+    public void setLocationPollingFrequency(Integer locationPollingFrequency) { this.locationPollingFrequency = locationPollingFrequency; }
+
+    public Boolean getLocationEndpointActive() { return locationEndpointActive; }
+    public void setLocationEndpointActive(Boolean locationEndpointActive) { this.locationEndpointActive = locationEndpointActive; }
 }

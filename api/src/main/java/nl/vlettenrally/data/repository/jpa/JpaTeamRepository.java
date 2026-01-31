@@ -94,6 +94,20 @@ public class JpaTeamRepository extends ReadReplicaAwareRepository implements Tea
     }
 
     @Override
+    public Optional<Team> findByGameIdAndExternalId(UUID gameId, String externalId) {
+        try {
+            TeamEntity entity = getReadEntityManager()
+                    .createQuery("SELECT t FROM TeamEntity t WHERE t.game.id = :gameId AND t.externalId = :externalId", TeamEntity.class)
+                    .setParameter("gameId", gameId)
+                    .setParameter("externalId", externalId)
+                    .getSingleResult();
+            return Optional.ofNullable(TeamMapper.toDomain(entity));
+        } catch (NoResultException e) {
+            return Optional.empty();
+        }
+    }
+
+    @Override
     @Transactional
     public Team save(Team team) {
         TeamEntity entity = getWriteEntityManager().find(TeamEntity.class, team.getId());

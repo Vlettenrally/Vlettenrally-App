@@ -37,6 +37,9 @@ public class TeamEntity {
     @Column(name = "boat_number", length = 50)
     private String boatNumber;
 
+    @Column(name = "external_id")
+    private String externalId;
+
     @ElementCollection
     @CollectionTable(
         name = "team_participants",
@@ -130,6 +133,9 @@ public class TeamEntity {
 
     public String getBoatNumber() { return boatNumber; }
     public void setBoatNumber(String boatNumber) { this.boatNumber = boatNumber; }
+
+    public String getExternalId() { return externalId; }
+    public void setExternalId(String externalId) { this.externalId = externalId; }
 
     public List<String> getParticipants() { return participants; }
     public void setParticipants(List<String> participants) { this.participants = participants; }

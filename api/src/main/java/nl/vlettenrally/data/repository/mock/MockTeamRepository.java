@@ -157,6 +157,13 @@ public class MockTeamRepository implements TeamRepository {
     }
 
     @Override
+    public Optional<Team> findByGameIdAndExternalId(UUID gameId, String externalId) {
+        return teams.values().stream()
+                .filter(t -> gameId.equals(t.getGameId()) && externalId.equals(t.getExternalId()))
+                .findFirst();
+    }
+
+    @Override
     public Team save(Team team) {
         if (team.getId() == null) {
             team.setId(UUID.randomUUID());

@@ -18,6 +18,7 @@ public class Team {
     private String name;
     private String description;
     private String boatNumber;
+    private String externalId;  // External ID from pre-registration system (em_booking_id)
     private List<String> participants;
     private UUID deviceId;
     private boolean checkedIn;
@@ -63,6 +64,9 @@ public class Team {
 
     public String getBoatNumber() { return boatNumber; }
     public void setBoatNumber(String boatNumber) { this.boatNumber = boatNumber; }
+
+    public String getExternalId() { return externalId; }
+    public void setExternalId(String externalId) { this.externalId = externalId; }
 
     public List<String> getParticipants() { return participants; }
     public void setParticipants(List<String> participants) { this.participants = participants; }

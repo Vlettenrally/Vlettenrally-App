@@ -31,6 +31,15 @@ public class GameMapper {
         domain.setStatus(mapStatus(entity.getStatus()));
         domain.setCreatedAt(entity.getCreatedAt());
         domain.setUpdatedAt(entity.getUpdatedAt());
+        
+        // External event integration
+        domain.setExternalEventId(entity.getExternalEventId());
+        domain.setExternalEventName(entity.getExternalEventName());
+        
+        // Location tracking configuration
+        domain.setLocationEndpointUrl(entity.getLocationEndpointUrl());
+        domain.setLocationPollingFrequency(entity.getLocationPollingFrequency());
+        domain.setLocationEndpointActive(entity.getLocationEndpointActive());
 
         return domain;
     }
@@ -54,6 +63,15 @@ public class GameMapper {
         entity.setStatus(mapStatus(domain.getStatus()));
         entity.setCreatedAt(domain.getCreatedAt());
         entity.setUpdatedAt(domain.getUpdatedAt());
+        
+        // External event integration
+        entity.setExternalEventId(domain.getExternalEventId());
+        entity.setExternalEventName(domain.getExternalEventName());
+        
+        // Location tracking configuration
+        entity.setLocationEndpointUrl(domain.getLocationEndpointUrl());
+        entity.setLocationPollingFrequency(domain.getLocationPollingFrequency());
+        entity.setLocationEndpointActive(domain.getLocationEndpointActive());
 
         return entity;
     }
@@ -74,6 +92,15 @@ public class GameMapper {
         entity.setStartSignalTime(domain.getStartSignalTime());
         entity.setStatus(mapStatus(domain.getStatus()));
         entity.setUpdatedAt(domain.getUpdatedAt());
+        
+        // External event integration
+        entity.setExternalEventId(domain.getExternalEventId());
+        entity.setExternalEventName(domain.getExternalEventName());
+        
+        // Location tracking configuration
+        entity.setLocationEndpointUrl(domain.getLocationEndpointUrl());
+        entity.setLocationPollingFrequency(domain.getLocationPollingFrequency());
+        entity.setLocationEndpointActive(domain.getLocationEndpointActive());
     }
 
     private static Game.GameStatus mapStatus(GameEntity.GameStatus status) {

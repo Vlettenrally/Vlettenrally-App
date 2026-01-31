@@ -10,5 +10,12 @@ public record GameResponse(
     String endTime,
     String startingAreaActiveTime,
     String startSignalTime,
-    String status
+    String status,
+    Integer externalEventId,
+    String externalEventName,
+    String locationEndpointUrl,
+    Integer locationPollingFrequency,
+    Boolean locationEndpointActive,
+    String createdAt,
+    String updatedAt
 ) {}

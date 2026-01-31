@@ -1,0 +1,42 @@
+
+Endpoint	URL	Beschrijving
+GET /test	https://vlettenrally.nl/wp-json/vr/v1/test	Test API verbinding
+GET /events	https://vlettenrally.nl/wp-json/vr/v1/events	Haal beschikbare events op
+GET /registrations	https://vlettenrally.nl/wp-json/vr/v1/registrations	Haal registraties op
+
+GET /events
+
+URL
+https://vlettenrally.nl/wp-json/vr/v1/events
+
+Doel
+Ophalen van beschikbare inschrijf-events.
+
+Response → events[]
+
+Per event zijn de volgende velden beschikbaar:
+Veld	Type	Omschrijving
+event_id	int	Unieke event-ID (leidend bij registraties)
+post_id	int	WordPress post ID van het event
+event_name	string	Naam van het event
+booking_count	int	Aantal geldige inschrijvingen (status 1 of 5)
+GET /registrations
+
+URL
+https://vlettenrally.nl/wp-json/vr/v1/registrations
+Optioneel: ?event_ids=12,15
+
+Doel
+Ophalen van teams/boten die zijn ingeschreven.
+
+Response → registrations[]
+
+Per registratie (1 per boeking / team):
+
+Veld	Type	Omschrijving
+em_booking_id	int	Unieke ID van de inschrijving (aanbevolen als externe sleutel)
+em_event_id	int	Event-ID (matcht met event_id uit /events)
+event_name	string	Naam van het event
+boat_number	string	Teamnaam / bootnaam (uniek binnen event)
+scouting_group	string	Naam scoutinggroep (of Onbekend)
+booking_date	datetime	Datum/tijd van inschrijving

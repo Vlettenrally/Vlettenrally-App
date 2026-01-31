@@ -3,13 +3,64 @@ export interface Game {
   name: string;
   startTime?: Date;
   endTime?: Date;
+  startingAreaActiveTime?: Date;
   startSignalTime?: Date;
-  endSignalTime?: Date;
   description?: string;
-  location?: string;
-  createdAt: string;
-  updatedAt: string;
   status?: 'planned' | 'active' | 'completed';
+  // External event integration
+  externalEventId?: number;
+  externalEventName?: string;
+  // Location tracking configuration
+  locationEndpointUrl?: string;
+  locationPollingFrequency?: number;
+  locationEndpointActive?: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Request to create or update a game
+ */
+export interface GameRequest {
+  name: string;
+  description?: string;
+  startTime?: string;
+  endTime?: string;
+  startingAreaActiveTime?: string;
+  startSignalTime?: string;
+  status?: string;
+  externalEventId?: number;
+  externalEventName?: string;
+  locationEndpointUrl?: string;
+  locationPollingFrequency?: number;
+  locationEndpointActive?: boolean;
+}
+
+/**
+ * External event from pre-registration API
+ */
+export interface ExternalEvent {
+  eventId: number;
+  eventName: string;
+  bookingCount: number;
+}
+
+/**
+ * Result of team import operation
+ */
+export interface TeamImportResult {
+  created: number;
+  updated: number;
+  errors: number;
+}
+
+/**
+ * Result of location endpoint test
+ */
+export interface LocationTestResult {
+  success: boolean;
+  participantCount: number;
+  errorMessage?: string;
 }
 
 /**
@@ -31,6 +82,7 @@ export interface AdminTeam extends TeamBase {
   description: string;
   participants: string[];
   deviceId?: string;
+  externalId?: string;
   checkedIn: boolean;
   rivals: string[];
   notes?: string;
