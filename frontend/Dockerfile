@@ -13,7 +13,7 @@ RUN npm ci
 COPY . .
 
 # Build the application with production environment variables
-RUN npm run build
+RUN npm run build --omit dev
 
 # Production stage
 FROM nginx:alpine
