@@ -33,7 +33,7 @@ jobs:
           cache: maven
 
       - name: Run tests
-        run: ./mvnw verify
+        run: ./mvnw -B -ntp verify
 
   build-native:
     name: Build Native API Image
