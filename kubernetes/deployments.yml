@@ -47,11 +47,11 @@ spec:
       labels:
         app: vlettenrally-api
     spec:
+      imagePullSecrets:
+        - name: ghcr-creds
       containers:
         - name: vlettenrally-api
           image: ghcr.io/joostvanviegen/vlettenrally-api:latest
-          imagePullSecrets:
-            - name: ghcr-secret
           resources:
             requests:
               memory: "512Mi"
@@ -174,11 +174,11 @@ spec:
       labels:
         app: vlettenrally-frontend
     spec:
+      imagePullSecrets:
+        - name: ghcr-creds
       containers:
         - name: vlettenrally-frontend
           image: ghcr.io/joostvanviegen/vlettenrally-frontend:latest
-          imagePullSecrets:
-            - name: ghcr-creds
           resources:
             requests:
               memory: "64Mi"
