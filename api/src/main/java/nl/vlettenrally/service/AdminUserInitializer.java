@@ -1,6 +1,7 @@
 package nl.vlettenrally.service;
 
 import io.quarkus.elytron.security.common.BcryptUtil;
+import io.quarkus.runtime.Startup;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -12,6 +13,7 @@ import org.jboss.logging.Logger;
 /**
  * Ensures an initial admin user exists at startup.
  */
+@Startup
 @ApplicationScoped
 public class AdminUserInitializer {
     private static final Logger LOG = Logger.getLogger(AdminUserInitializer.class);
