@@ -1,36 +1,3 @@
-# =============================================================================
-# Vlettenrally Deployments
-# =============================================================================
-#
-# Required Secrets (create before applying):
-#
-# 1. Twilio credentials:
-#    kubectl create secret generic vlettenrally-twilio \
-#      --from-literal=account-sid=AC... \
-#      --from-literal=api-key-sid=SK... \
-#      --from-literal=api-key-secret=... \
-#      --from-literal=from-number=+31...
-#
-# 2. Firebase service account:
-#    kubectl create secret generic vlettenrally-firebase \
-#      --from-file=credentials.json=path/to/firebase-service-account.json
-#
-# 3. Initial admin credentials:
-#    kubectl create secret generic vlettenrally-admin \
-#      --from-literal=username=admin \
-#      --from-literal=password=<secure-password>
-#
-# 4. JWT signing keys:
-#    kubectl create secret generic vlettenrally-jwt-keys \
-#      --from-file=publicKey.pem=path/to/publicKey.pem \
-#      --from-file=privateKey.pem=path/to/privateKey.pem
-#
-# 5. Pre-registration API key (optional):
-#    kubectl create secret generic vlettenrally-preregistration \
-#      --from-literal=api-key=...
-#
-# =============================================================================
-
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -51,7 +18,7 @@ spec:
         - name: ghcr-creds
       containers:
         - name: vlettenrally-api
-          image: ghcr.io/joostvanviegen/vlettenrally-api:sha-4124ce4
+          image: ghcr.io/joostvanviegen/vlettenrally-api:sha-dd48aed
           resources:
             requests:
               memory: "512Mi"
@@ -178,7 +145,7 @@ spec:
         - name: ghcr-creds
       containers:
         - name: vlettenrally-frontend
-          image: ghcr.io/joostvanviegen/vlettenrally-frontend:sha-4124ce4
+          image: ghcr.io/joostvanviegen/vlettenrally-frontend:sha-dd48aed
           resources:
             requests:
               memory: "64Mi"
