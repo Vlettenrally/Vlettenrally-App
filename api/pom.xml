@@ -70,6 +70,10 @@
         </dependency>
         <dependency>
             <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-smallrye-health</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
             <artifactId>quarkus-junit5</artifactId>
             <scope>test</scope>
         </dependency>
@@ -92,24 +96,24 @@
             <version>1.18.42</version>
             <scope>provided</scope>
         </dependency>
+        <!-- Firebase Admin SDK for push notifications -->
         <dependency>
             <groupId>com.googlecode.libphonenumber</groupId>
             <artifactId>libphonenumber</artifactId>
             <version>8.13.27</version>
         </dependency>
-        <!-- Firebase Admin SDK for push notifications -->
+        <!-- Twilio SDK for SMS -->
         <dependency>
             <groupId>com.google.firebase</groupId>
             <artifactId>firebase-admin</artifactId>
             <version>9.2.0</version>
         </dependency>
-        <!-- Twilio SDK for SMS -->
+        <!-- Quarkus Scheduler for background tasks -->
         <dependency>
             <groupId>com.twilio.sdk</groupId>
             <artifactId>twilio</artifactId>
             <version>10.1.0</version>
         </dependency>
-        <!-- Quarkus Scheduler for background tasks -->
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-scheduler</artifactId>
