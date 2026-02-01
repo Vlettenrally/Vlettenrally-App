@@ -1,4 +1,5 @@
 import { createBrowserRouter } from 'react-router-dom';
+import { type ComponentType } from 'react';
 import {
   CheckIn,
   ParticipantDashboard,
@@ -11,8 +12,14 @@ import {
   AdminMessages,
   Automations,
   Analytics,
-  Dev,
 } from './pages';
+
+// Only import Dev page in development builds
+let Dev: ComponentType | null = null;
+if (import.meta.env.DEV) {
+  const devModule = await import('./pages/shared/Dev');
+  Dev = devModule.default;
+}
 
 // Participant routes
 const participantRoutes = [
@@ -33,13 +40,11 @@ const adminRoutes = [
   { path: '/admin/analytics', element: <Analytics /> },
 ];
 
-// Shared routes
-const sharedRoutes = [
-  { path: '/dev', element: <Dev /> },
-];
+// Dev routes (only in development builds)
+const devRoutes = Dev ? [{ path: '/dev', element: <Dev /> }] : [];
 
 export const router = createBrowserRouter([
   ...participantRoutes,
   ...adminRoutes,
-  ...sharedRoutes,
+  ...devRoutes,
 ]);
