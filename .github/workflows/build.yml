@@ -94,7 +94,7 @@ jobs:
       - name: Generate version tag
         id: version
         run: |
-          VERSION=$(cat VERSION | tr -d '\n')
+          VERSION=$(cat ../VERSION | tr -d '\n')
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "Using version: ${VERSION}"
 
@@ -163,9 +163,5 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            VITE_API_URL=${{ secrets.VITE_API_URL }}
-            VITE_WS_URL=${{ secrets.VITE_WS_URL }}
-            VITE_FIREBASE_VAPID_KEY=${{ secrets.VITE_FIREBASE_VAPID_KEY }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
