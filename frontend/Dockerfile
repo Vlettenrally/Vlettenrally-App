@@ -12,21 +12,14 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Build arguments for Vite environment variables
-ARG VITE_API_URL
-ARG VITE_WS_URL
-ARG VITE_FIREBASE_VAPID_KEY
-
-# Set environment variables for build
-ENV VITE_API_URL=$VITE_API_URL
-ENV VITE_WS_URL=$VITE_WS_URL
-ENV VITE_FIREBASE_VAPID_KEY=$VITE_FIREBASE_VAPID_KEY
-
-# Build the application
+# Build the application (no build-time env vars needed - using runtime config)
 RUN npm run build
 
 # Production stage
 FROM nginx:alpine
+
+# Install envsubst (part of gettext)
+RUN apk add --no-cache gettext
 
 # Copy built assets from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
@@ -34,8 +27,16 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 # Copy nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
+# Copy config template for runtime injection
+COPY docker/config.js.template /usr/share/nginx/html/config.js.template
+
+# Copy entrypoint script
+COPY docker/docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
 # Expose port 80
 EXPOSE 80
 
-# Start nginx
+# Use entrypoint to inject config at runtime
+ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["nginx", "-g", "daemon off;"]

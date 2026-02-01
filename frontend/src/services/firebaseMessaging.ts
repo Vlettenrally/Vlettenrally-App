@@ -10,16 +10,6 @@ import { getMessaging, getToken, onMessage, type Messaging } from 'firebase/mess
 import { config } from '../config';
 import api from './api';
 
-// Firebase configuration (matches service-worker.ts)
-const firebaseConfig = {
-  apiKey: "AIzaSyCOvcN9Ns5j3FiSBt0oXySR0n058PH8X-A",
-  authDomain: "vlettenrally-dev.firebaseapp.com",
-  projectId: "vlettenrally-dev",
-  storageBucket: "vlettenrally-dev.firebaseapp.com",
-  messagingSenderId: "85616821581",
-  appId: "1:85616821581:web:8d39f0e4719f22a1182304",
-};
-
 let messaging: Messaging | null = null;
 let messagingPromise: Promise<Messaging | null> | null = null;
 
@@ -56,7 +46,7 @@ async function getFirebaseMessaging(): Promise<Messaging | null> {
       await navigator.serviceWorker.ready;
 
       // Initialize or get existing Firebase app
-      const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+      const app = getApps().length === 0 ? initializeApp(config.firebaseConfig) : getApp();
       messaging = getMessaging(app);
       return messaging;
     } catch (error) {

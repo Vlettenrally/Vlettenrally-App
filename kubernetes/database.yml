@@ -12,6 +12,7 @@ spec:
         name: vlettenrally-db-creds
   plugins:
    - name: barman-cloud.cloudnative-pg.io
+     enabled: true
      isWalArchiver: true
      parameters:
       barmanObjectName: backups
