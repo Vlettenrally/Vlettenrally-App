@@ -1,7 +1,7 @@
 # Vlettenrally App - Architecture Document
 
 ## Executive Summary
- 
+
 This document outlines the architecture for the Vlettenrally App, a comprehensive responsive web application for managing and participating in Dutch scouting boat rally events. The app serves two primary user groups: participants (teams on boats) and administrators (rally organizers). The application uses WebSockets for real-time communication and is designed to support up to 500 concurrent participants.
 
 ## Requirements Analysis
