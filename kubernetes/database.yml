@@ -1,0 +1,24 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: vlettenrally-database
+spec:
+  instances: 3
+  bootstrap:
+    initdb:
+      database: vlettenrally
+      username: vlettenrally
+      passwordSecret:
+        name: vlettenrally-db-creds
+  plugins:
+   - name: barman-cloud.cloudnative-pg.io
+     isWalArchiver: true
+     parameters:
+      barmanObjectName: backups
+  storage:
+    size: 20Gi
+    storageClass: longhorn-strict-local
+  backup:
+    volumeSnapshot:
+      online: true
+      className: longhorn-snapshot-class
