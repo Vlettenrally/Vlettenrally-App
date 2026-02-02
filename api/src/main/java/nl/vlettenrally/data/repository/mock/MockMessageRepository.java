@@ -1,6 +1,7 @@
 package nl.vlettenrally.data.repository.mock;
 
 import io.quarkus.arc.profile.IfBuildProfile;
+import io.quarkus.logging.Log;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import nl.vlettenrally.data.domain.Message;
@@ -148,7 +149,7 @@ public class MockMessageRepository implements MessageRepository {
         msg9.setRead(false);
         messages.put(msg9.getId(), msg9);
 
-        System.out.println("🎭 MockMessageRepository initialized with " + messages.size() + " messages");
+        Log.info("🎭 MockMessageRepository initialized with " + messages.size() + " messages");
     }
 
     @Override

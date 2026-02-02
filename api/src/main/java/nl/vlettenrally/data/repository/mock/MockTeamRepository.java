@@ -1,6 +1,7 @@
 package nl.vlettenrally.data.repository.mock;
 
 import io.quarkus.arc.profile.IfBuildProfile;
+import io.quarkus.logging.Log;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import nl.vlettenrally.data.domain.Team;
@@ -111,7 +112,7 @@ public class MockTeamRepository implements TeamRepository {
         team4.setUpdatedAt(now.minus(2, ChronoUnit.HOURS));
         teams.put(team4.getId(), team4);
 
-        System.out.println("🎭 MockTeamRepository initialized with " + teams.size() + " teams");
+        Log.info("🎭 MockTeamRepository initialized with " + teams.size() + " teams");
     }
 
     @Override

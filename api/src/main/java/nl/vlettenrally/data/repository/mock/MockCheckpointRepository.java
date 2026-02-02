@@ -1,6 +1,7 @@
 package nl.vlettenrally.data.repository.mock;
 
 import io.quarkus.arc.profile.IfBuildProfile;
+import io.quarkus.logging.Log;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import nl.vlettenrally.data.domain.Checkpoint;
@@ -104,7 +105,7 @@ public class MockCheckpointRepository implements CheckpointRepository {
         cp5.setLongitude(4.9003);
         checkpoints.put(cp5.getId(), cp5);
 
-        System.out.println("🎭 MockCheckpointRepository initialized with " + checkpoints.size() + " checkpoints");
+        Log.info("🎭 MockCheckpointRepository initialized with " + checkpoints.size() + " checkpoints");
     }
 
     @Override

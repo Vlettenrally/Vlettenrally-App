@@ -1,6 +1,7 @@
 package nl.vlettenrally.data.repository.mock;
 
 import io.quarkus.arc.profile.IfBuildProfile;
+import io.quarkus.logging.Log;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import nl.vlettenrally.data.domain.Achievement;
@@ -146,7 +147,7 @@ public class MockAchievementRepository implements AchievementRepository {
         );
         achievements.put(ach11.getId(), ach11);
 
-        System.out.println("🎭 MockAchievementRepository initialized with " + achievements.size() + " achievements " +
+        Log.info("🎭 MockAchievementRepository initialized with " + achievements.size() + " achievements " +
             "(including " + countByStatus(AchievementStatus.PENDING) + " pending, " + countByStatus(AchievementStatus.REJECTED) + " rejected)");
     }
 

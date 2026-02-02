@@ -8,11 +8,11 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jboss.logging.Logger;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -24,8 +24,6 @@ import jakarta.inject.Inject;
  */
 @ApplicationScoped
 public class FcmHttpClient {
-
-    private static final Logger LOG = Logger.getLogger(FcmHttpClient.class);
     
     private static final String FCM_ENDPOINT_TEMPLATE = "https://fcm.googleapis.com/v1/projects/%s/messages:send";
     
@@ -83,7 +81,7 @@ public class FcmHttpClient {
             if (response.statusCode() == 200) {
                 JsonNode responseJson = objectMapper.readTree(response.body());
                 String messageId = responseJson.get("name").asText();
-                LOG.debugf("FCM notification sent successfully: %s", messageId);
+                Log.debugf("FCM notification sent successfully: %s", messageId);
                 return messageId;
             } else {
                 String errorMessage = parseErrorMessage(response.body());

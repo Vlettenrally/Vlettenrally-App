@@ -1,12 +1,12 @@
 package nl.vlettenrally.service.impl;
 
+import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import nl.vlettenrally.data.domain.MessageTemplate;
 import nl.vlettenrally.data.enums.MessageType;
 import nl.vlettenrally.data.repository.MessageTemplateRepository;
 import nl.vlettenrally.service.MessageTemplateService;
-import org.jboss.logging.Logger;
 
 import java.time.Instant;
 import java.util.List;
@@ -18,8 +18,6 @@ import java.util.UUID;
  */
 @ApplicationScoped
 public class MessageTemplateServiceImpl implements MessageTemplateService {
-
-    private static final Logger LOG = Logger.getLogger(MessageTemplateServiceImpl.class);
 
     @Inject
     MessageTemplateRepository messageTemplateRepository;
@@ -43,7 +41,7 @@ public class MessageTemplateServiceImpl implements MessageTemplateService {
         template.setIcon(icon);
         
         MessageTemplate saved = messageTemplateRepository.save(template);
-        LOG.infof("Created message template: %s", saved.getId());
+        Log.infof("Created message template: %s", saved.getId());
         return saved;
     }
 
@@ -62,13 +60,13 @@ public class MessageTemplateServiceImpl implements MessageTemplateService {
         template.setUpdatedAt(Instant.now());
 
         MessageTemplate saved = messageTemplateRepository.save(template);
-        LOG.infof("Updated message template: %s", saved.getId());
+        Log.infof("Updated message template: %s", saved.getId());
         return saved;
     }
 
     @Override
     public void delete(UUID id) {
         messageTemplateRepository.delete(id);
-        LOG.infof("Deleted message template: %s", id);
+        Log.infof("Deleted message template: %s", id);
     }
 }

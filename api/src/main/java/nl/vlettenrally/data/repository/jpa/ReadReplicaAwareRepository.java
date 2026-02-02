@@ -1,9 +1,9 @@
 package nl.vlettenrally.data.repository.jpa;
 
 import io.quarkus.hibernate.orm.PersistenceUnit;
+import io.quarkus.logging.Log;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
-import org.jboss.logging.Logger;
 
 /**
  * Abstract base class for PostgreSQL repositories that provides read replica support.
@@ -17,8 +17,6 @@ import org.jboss.logging.Logger;
  * - {@link #getWriteEntityManager()} for all write operations
  */
 public abstract class ReadReplicaAwareRepository {
-
-    private static final Logger LOG = Logger.getLogger(ReadReplicaAwareRepository.class);
 
     @Inject
     EntityManager primaryEntityManager;
@@ -45,17 +43,17 @@ public abstract class ReadReplicaAwareRepository {
      */
     protected EntityManager getReadEntityManager(boolean usesPrimary) {
         if (usesPrimary) {
-            LOG.trace("Using primary EntityManager for read (immediate consistency required)");
+            Log.trace("Using primary EntityManager for read (immediate consistency required)");
             return primaryEntityManager;
         }
 
         // Try to use read replica, fall back to primary if unavailable
         if (readReplicaEntityManager != null && isEntityManagerValid(readReplicaEntityManager)) {
-            LOG.trace("Using read-replica EntityManager for read");
+            Log.trace("Using read-replica EntityManager for read");
             return readReplicaEntityManager;
         }
 
-        LOG.trace("Read-replica unavailable, falling back to primary EntityManager");
+        Log.trace("Read-replica unavailable, falling back to primary EntityManager");
         return primaryEntityManager;
     }
 
@@ -76,7 +74,7 @@ public abstract class ReadReplicaAwareRepository {
         try {
             return em != null && em.isOpen();
         } catch (Exception e) {
-            LOG.debug("EntityManager validation failed", e);
+            Log.debug("EntityManager validation failed", e);
             return false;
         }
     }

@@ -4,13 +4,13 @@ import com.twilio.Twilio;
 import com.twilio.exception.TwilioException;
 import com.twilio.rest.api.v2010.account.Message.Status;
 import com.twilio.type.PhoneNumber;
+import io.quarkus.logging.Log;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import nl.vlettenrally.data.domain.Message;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.enums.TransmissionChannel;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jboss.logging.Logger;
 
 import java.util.List;
 
@@ -20,8 +20,6 @@ import java.util.List;
  */
 @ApplicationScoped
 public class TwilioSmsTransmitter implements MessageTransmitter {
-
-    private static final Logger LOG = Logger.getLogger(TwilioSmsTransmitter.class);
 
     @ConfigProperty(name = "vlettenrally.twilio.enabled", defaultValue = "false")
     boolean enabled;
@@ -43,7 +41,7 @@ public class TwilioSmsTransmitter implements MessageTransmitter {
     @PostConstruct
     void init() {
         if (!enabled) {
-            LOG.info("Twilio SMS is disabled");
+            Log.info("Twilio SMS is disabled");
             return;
         }
 
@@ -51,16 +49,16 @@ public class TwilioSmsTransmitter implements MessageTransmitter {
             apiKeySid == null || apiKeySid.isBlank() ||
             apiKeySecret == null || apiKeySecret.isBlank() ||
             fromNumber == null || fromNumber.isBlank()) {
-            LOG.warn("Twilio credentials not fully configured, SMS will be disabled");
+            Log.warn("Twilio credentials not fully configured, SMS will be disabled");
             return;
         }
 
         try {
             Twilio.init(apiKeySid, apiKeySecret, accountSid);
             initialized = true;
-            LOG.info("Twilio initialized successfully with API key");
+            Log.info("Twilio initialized successfully with API key");
         } catch (Exception e) {
-            LOG.error("Failed to initialize Twilio", e);
+            Log.error("Failed to initialize Twilio", e);
         }
     }
 
@@ -108,7 +106,7 @@ public class TwilioSmsTransmitter implements MessageTransmitter {
                     ).create();
 
             Status status = twilioMessage.getStatus();
-            LOG.infof("SMS sent to %s, status: %s, SID: %s", 
+            Log.infof("SMS sent to %s, status: %s, SID: %s", 
                     toNumber, status, twilioMessage.getSid());
 
             if (status == Status.FAILED || status == Status.UNDELIVERED) {
@@ -118,7 +116,7 @@ public class TwilioSmsTransmitter implements MessageTransmitter {
 
             return TransmissionResult.success(TransmissionChannel.SMS);
         } catch (TwilioException e) {
-            LOG.errorf("Failed to send SMS to %s: %s", toNumber, e.getMessage());
+            Log.errorf("Failed to send SMS to %s: %s", toNumber, e.getMessage());
             return TransmissionResult.failure(TransmissionChannel.SMS, e.getMessage());
         }
     }

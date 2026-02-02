@@ -1,6 +1,7 @@
 package nl.vlettenrally.data.repository.mock;
 
 import io.quarkus.arc.profile.IfBuildProfile;
+import io.quarkus.logging.Log;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import nl.vlettenrally.data.domain.MessageTemplate;
@@ -68,7 +69,7 @@ public class MockMessageTemplateRepository implements MessageTemplateRepository 
         finish.setIcon("🏁");
         templates.put(finish.getId(), finish);
 
-        System.out.println("🎭 MockMessageTemplateRepository initialized with " + templates.size() + " templates");
+        Log.info("🎭 MockMessageTemplateRepository initialized with " + templates.size() + " templates");
     }
 
     @Override

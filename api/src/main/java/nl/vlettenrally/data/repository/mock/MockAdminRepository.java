@@ -2,6 +2,7 @@ package nl.vlettenrally.data.repository.mock;
 
 import io.quarkus.arc.profile.IfBuildProfile;
 import io.quarkus.elytron.security.common.BcryptUtil;
+import io.quarkus.logging.Log;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import nl.vlettenrally.data.domain.Admin;
@@ -43,8 +44,8 @@ public class MockAdminRepository implements AdminRepository {
         defaultAdmin.setActive(true);
         admins.put(defaultAdmin.getId(), defaultAdmin);
         
-        System.out.println("🎭 MockAdminRepository initialized with " + admins.size() + " admin(s)");
-        System.out.println("   Default admin credentials: admin / admin123");
+        Log.info("🎭 MockAdminRepository initialized with " + admins.size() + " admin(s)");
+        Log.info("   Default admin credentials: admin / admin123");
     }
     
     @Override

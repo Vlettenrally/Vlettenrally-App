@@ -1,5 +1,6 @@
 package nl.vlettenrally.service.impl;
 
+import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Any;
 import jakarta.enterprise.inject.Instance;
@@ -20,7 +21,6 @@ import nl.vlettenrally.service.MessageService;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 import nl.vlettenrally.websockets.WebSocketSessionManager;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jboss.logging.Logger;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -38,8 +38,6 @@ import java.util.UUID;
  */
 @ApplicationScoped
 public class MessageServiceImpl implements MessageService {
-
-    private static final Logger LOG = Logger.getLogger(MessageServiceImpl.class);
 
     @Inject
     MessageRepository messageRepository;
@@ -120,7 +118,7 @@ public class MessageServiceImpl implements MessageService {
     private void transmitMessage(Message message) {
         Optional<Team> teamOpt = teamRepository.findById(message.getTeamId());
         if (teamOpt.isEmpty()) {
-            LOG.warnf("Cannot transmit message %s: team %s not found", 
+            Log.warnf("Cannot transmit message %s: team %s not found", 
                     message.getId(), message.getTeamId());
             return;
         }
@@ -144,14 +142,14 @@ public class MessageServiceImpl implements MessageService {
             // Skip SMS unless team is inactive AND message is critical
             if (channel == TransmissionChannel.SMS) {
                 if (!teamIsInactive || !message.getMessageType().isCritical()) {
-                    LOG.debugf("Skipping SMS for message %s: inactive=%s, critical=%s",
+                    Log.debugf("Skipping SMS for message %s: inactive=%s, critical=%s",
                             message.getId(), teamIsInactive, message.getMessageType().isCritical());
                     continue;
                 }
             }
             
             if (!transmitter.supports(team)) {
-                LOG.debugf("Transmitter %s does not support team %s", 
+                Log.debugf("Transmitter %s does not support team %s", 
                         channel, team.getName());
                 continue;
             }
@@ -160,11 +158,11 @@ public class MessageServiceImpl implements MessageService {
             
             if (result.isSuccess()) {
                 message.addTransmissionChannel(channel);
-                LOG.infof("Message %s transmitted via %s to team %s", 
+                Log.infof("Message %s transmitted via %s to team %s", 
                         message.getId(), channel, team.getName());
             } else {
                 errors.add(channel + ": " + result.getErrorMessage());
-                LOG.warnf("Failed to transmit message %s via %s: %s", 
+                Log.warnf("Failed to transmit message %s via %s: %s", 
                         message.getId(), channel, result.getErrorMessage());
             }
         }
@@ -183,7 +181,7 @@ public class MessageServiceImpl implements MessageService {
             // Check if team has an active WebSocket session
             var session = webSocketSessionManager.getSessionByTeam(team.getId());
             if (session == null) {
-                LOG.debugf("No active WebSocket session for team %s", team.getName());
+                Log.debugf("No active WebSocket session for team %s", team.getName());
                 return false;
             }
             
@@ -191,7 +189,7 @@ public class MessageServiceImpl implements MessageService {
             webSocketPublisher.sendToTeam(team.getGameId(), team.getId(), "message:new", message);
             return true;
         } catch (Exception e) {
-            LOG.errorf("Failed to send WebSocket message to team %s: %s", 
+            Log.errorf("Failed to send WebSocket message to team %s: %s", 
                     team.getName(), e.getMessage());
             return false;
         }
@@ -257,7 +255,7 @@ public class MessageServiceImpl implements MessageService {
         }
 
         if (targetTeams.isEmpty()) {
-            LOG.warnf("No teams found for admin message to game %s", gameId);
+            Log.warnf("No teams found for admin message to game %s", gameId);
             throw new IllegalArgumentException("No teams found to send message to");
         }
 
@@ -296,7 +294,7 @@ public class MessageServiceImpl implements MessageService {
             }
         }
 
-        LOG.infof("Admin message batch %s sent to %d/%d teams", batchId, successCount, targetTeams.size());
+        Log.infof("Admin message batch %s sent to %d/%d teams", batchId, successCount, targetTeams.size());
         return new AdminMessageBatchResult(
                 batchId,
                 targetTeams.size(),
@@ -343,7 +341,7 @@ public class MessageServiceImpl implements MessageService {
             }
         }
 
-        LOG.infof("Retried %d failed deliveries for batch %s, %d successful", 
+        Log.infof("Retried %d failed deliveries for batch %s, %d successful", 
                 failedMessages.size(), batchId, successCount);
         return successCount;
     }
@@ -370,7 +368,7 @@ public class MessageServiceImpl implements MessageService {
             }
         }
 
-        LOG.infof("Retried all %d failed deliveries for game %s, %d successful", 
+        Log.infof("Retried all %d failed deliveries for game %s, %d successful", 
                 allFailedMessages.size(), gameId, totalSuccess);
         return totalSuccess;
     }

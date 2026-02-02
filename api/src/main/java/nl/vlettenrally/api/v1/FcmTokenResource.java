@@ -23,7 +23,7 @@ import nl.vlettenrally.data.repository.FcmTokenRepository;
 import java.util.Optional;
 import java.util.UUID;
 
-import org.jboss.logging.Logger;
+import io.quarkus.logging.Log;
 
 /**
  * REST Resource for FCM Token operations
@@ -37,8 +37,6 @@ import org.jboss.logging.Logger;
 @Consumes(MediaType.APPLICATION_JSON)
 @RolesAllowed({"team", "admin"})
 public class FcmTokenResource {
-
-    private static final Logger LOG = Logger.getLogger(FcmTokenResource.class);
 
     @Inject
     FcmTokenRepository fcmTokenRepository;
@@ -96,25 +94,25 @@ public class FcmTokenResource {
                 FcmToken fcmToken = existingToken.get();
                 fcmToken.setToken(request.token());
                 fcmTokenRepository.save(fcmToken);
-                LOG.infof("Updated FCM token for %s %s", userType, userId);
+                Log.infof("Updated FCM token for %s %s", userType, userId);
             } else {
                 // Create new token
                 FcmToken fcmToken = new FcmToken();
                 fcmToken.setDeviceRegistrationId(deviceRegistration.getId());
                 fcmToken.setToken(request.token());
                 fcmTokenRepository.save(fcmToken);
-                LOG.infof("Registered new FCM token for %s %s", userType, userId);
+                Log.infof("Registered new FCM token for %s %s", userType, userId);
             }
 
             return Response.ok(FcmTokenResponse.ok()).build();
             
         } catch (IllegalArgumentException e) {
-            LOG.error("Invalid user ID in security context", e);
+            Log.error("Invalid user ID in security context", e);
             return Response.status(Response.Status.UNAUTHORIZED)
                 .entity(new ErrorResponse("Invalid authentication"))
                 .build();
         } catch (Exception e) {
-            LOG.error("Failed to register FCM token", e);
+            Log.error("Failed to register FCM token", e);
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                 .entity(new ErrorResponse("Failed to register FCM token"))
                 .build();
@@ -150,18 +148,18 @@ public class FcmTokenResource {
                 // Delete FCM token for this device
                 fcmTokenRepository.deleteByDeviceRegistrationId(deviceRegistration.get().getId());
                 String userType = isAdmin ? "admin" : "team";
-                LOG.infof("Unregistered FCM token for %s %s", userType, userId);
+                Log.infof("Unregistered FCM token for %s %s", userType, userId);
             }
 
             return Response.ok(FcmTokenResponse.ok("FCM token unregistered")).build();
             
         } catch (IllegalArgumentException e) {
-            LOG.error("Invalid user ID in security context", e);
+            Log.error("Invalid user ID in security context", e);
             return Response.status(Response.Status.UNAUTHORIZED)
                 .entity(new ErrorResponse("Invalid authentication"))
                 .build();
         } catch (Exception e) {
-            LOG.error("Failed to unregister FCM token", e);
+            Log.error("Failed to unregister FCM token", e);
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                 .entity(new ErrorResponse("Failed to unregister FCM token"))
                 .build();

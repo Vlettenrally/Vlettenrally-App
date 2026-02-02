@@ -4,12 +4,12 @@ import java.io.FileInputStream;
 import java.io.IOException;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jboss.logging.Logger;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.auth.oauth2.GoogleCredentials;
 
+import io.quarkus.logging.Log;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 
@@ -23,8 +23,6 @@ import jakarta.enterprise.context.ApplicationScoped;
  */
 @ApplicationScoped
 public class GoogleOAuth2Authenticator {
-
-    private static final Logger LOG = Logger.getLogger(GoogleOAuth2Authenticator.class);
     
     private static final String FIREBASE_SCOPE = "https://www.googleapis.com/auth/firebase.messaging";
     
@@ -40,16 +38,16 @@ public class GoogleOAuth2Authenticator {
     @PostConstruct
     void init() {
         if (credentialsPath == null || credentialsPath.isBlank()) {
-            LOG.warn("Firebase credentials path not configured");
+            Log.warn("Firebase credentials path not configured");
             return;
         }
         
         try {
             loadCredentials();
             initialized = true;
-            LOG.info("Google OAuth2 authenticator initialized successfully");
+            Log.info("Google OAuth2 authenticator initialized successfully");
         } catch (Exception e) {
-            LOG.error("Failed to initialize Google OAuth2 authenticator", e);
+            Log.error("Failed to initialize Google OAuth2 authenticator", e);
         }
     }
     
@@ -68,7 +66,7 @@ public class GoogleOAuth2Authenticator {
             credentials = GoogleCredentials.fromStream(fis)
                     .createScoped(FIREBASE_SCOPE);
             
-            LOG.infof("Loaded service account credentials (project: %s)", projectId);
+            Log.infof("Loaded service account credentials (project: %s)", projectId);
         }
     }
     

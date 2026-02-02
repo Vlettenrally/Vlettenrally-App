@@ -1,6 +1,7 @@
 package nl.vlettenrally.data.repository.mock;
 
 import io.quarkus.arc.profile.IfBuildProfile;
+import io.quarkus.logging.Log;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import nl.vlettenrally.data.domain.Game;
@@ -64,7 +65,7 @@ public class MockGameRepository implements GameRepository {
         game2.setStatus(Game.GameStatus.PLANNED);
         games.put(game2.getId(), game2);
 
-        System.out.println("🎭 MockGameRepository initialized with " + games.size() + " games");
+        Log.info("🎭 MockGameRepository initialized with " + games.size() + " games");
     }
 
     @Override

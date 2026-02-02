@@ -1,5 +1,6 @@
 package nl.vlettenrally.service;
 
+import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -66,7 +67,7 @@ public class TeamImportService {
             } catch (Exception e) {
                 errors++;
                 // Log error but continue with other teams
-                System.err.println("Failed to import team " + registration.getBoatNumber() + ": " + e.getMessage());
+                Log.error("Failed to import team " + registration.getBoatNumber() + ": " + e.getMessage());
             }
         }
         

@@ -5,8 +5,8 @@ import java.util.List;
 import java.util.Map;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jboss.logging.Logger;
 
+import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import nl.vlettenrally.data.domain.FcmToken;
@@ -22,8 +22,6 @@ import nl.vlettenrally.fcm.FcmHttpClient;
  */
 @ApplicationScoped
 public class FirebasePushTransmitter implements MessageTransmitter {
-
-    private static final Logger LOG = Logger.getLogger(FirebasePushTransmitter.class);
 
     @ConfigProperty(name = "vlettenrally.firebase.enabled", defaultValue = "false")
     boolean enabled;
@@ -79,10 +77,10 @@ public class FirebasePushTransmitter implements MessageTransmitter {
                         data
                 );
                 
-                LOG.infof("Push notification sent successfully: %s", messageId);
+                Log.infof("Push notification sent successfully: %s", messageId);
                 anySuccess = true;
             } catch (FcmHttpClient.FcmException e) {
-                LOG.errorf("Failed to send push notification to token %s: %s", 
+                Log.errorf("Failed to send push notification to token %s: %s", 
                         fcmToken.getToken().substring(0, 10) + "...", e.getMessage());
                 lastError = e.getMessage();
             }

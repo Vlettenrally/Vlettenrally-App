@@ -1,5 +1,6 @@
 package nl.vlettenrally.service;
 
+import io.quarkus.logging.Log;
 import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -68,7 +69,7 @@ public class GameStatusScheduler {
             )
         );
         
-        System.out.println("Game '" + game.getName() + "' transitioned to ACTIVE");
+        Log.info("Game '" + game.getName() + "' transitioned to ACTIVE");
     }
     
     private void transitionToCompleted(Game game) {
@@ -86,6 +87,6 @@ public class GameStatusScheduler {
             )
         );
         
-        System.out.println("Game '" + game.getName() + "' transitioned to COMPLETED");
+        Log.info("Game '" + game.getName() + "' transitioned to COMPLETED");
     }
 }
