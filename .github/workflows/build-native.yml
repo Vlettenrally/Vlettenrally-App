@@ -47,7 +47,7 @@ jobs:
     name: Build Native Binary
     runs-on: arc-runner-set-vlettenrally
     container:
-      image: graalvm/native-image-community:21
+      image: ghcr.io/graalvm/native-image-community:21
     needs: [test-api]
     if: |
       always() && 
@@ -59,13 +59,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Set up GraalVM 21
-        uses: graalvm/setup-graalvm@v1
-        with:
-          java-version: '21'
-          distribution: 'graalvm'
-          native-image-job-reports: 'true'
 
       - name: Build native binary
         run: ./mvnw -B -ntp package -Dnative -DskipTests
