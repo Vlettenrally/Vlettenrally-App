@@ -8,6 +8,12 @@ on:
         required: false
         default: 'false'
         type: boolean
+  workflow_run:
+    workflows: ["Build and Push Docker Images"]
+    types:
+      - completed
+    branches:
+      - main
 
 env:
   REGISTRY: ghcr.io
@@ -19,7 +25,7 @@ jobs:
     runs-on: arc-runner-set-vlettenrally
     container:
       image: ubuntu:latest
-    if: ${{ github.event.inputs.skip_tests != 'true' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.skip_tests != 'true' }}
     defaults:
       run:
         working-directory: api
@@ -41,9 +47,12 @@ jobs:
     name: Build Native Binary
     runs-on: arc-runner-set-vlettenrally
     container:
-      image: ubuntu:latest
+      image: graalvm/native-image-community:21
     needs: [test-api]
-    if: ${{ always() && (needs.test-api.result == 'success' || needs.test-api.result == 'skipped') }}
+    if: |
+      always() && 
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'workflow_dispatch' && (needs.test-api.result == 'success' || needs.test-api.result == 'skipped'))
     defaults:
       run:
         working-directory: api
