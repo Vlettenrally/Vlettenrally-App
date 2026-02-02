@@ -54,6 +54,8 @@ jobs:
       always() && 
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
       (github.event_name == 'workflow_dispatch' && (needs.test-api.result == 'success' || needs.test-api.result == 'skipped'))
+    permissions:
+      actions: read
     defaults:
       run:
         working-directory: api
