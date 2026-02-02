@@ -15,7 +15,7 @@ jobs:
     name: Build API JAR
     runs-on: arc-runner-set-vlettenrally
     container:
-      image: 21-jdk-ubi10-minimal
+      image: eclipse-temurin:21-jdk-ubi10-minimal
     defaults:
       run:
         working-directory: api
