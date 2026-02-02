@@ -60,6 +60,42 @@ class WebSocketService {
   private connectionStateHandlers = new Set<ConnectionStateHandler>();
   private isIntentionallyClosed = false;
   private config: ConnectionConfig | null = null;
+  private heartbeatInterval: number | null = null;
+  private readonly HEARTBEAT_INTERVAL_MS = 30000; // 30 seconds
+  private isOnline = true;
+
+  constructor() {
+    // Monitor online/offline status
+    this.isOnline = navigator.onLine;
+    
+    window.addEventListener('online', this.handleOnline);
+    window.addEventListener('offline', this.handleOffline);
+  }
+
+  private handleOnline = (): void => {
+    console.log('Network connection restored');
+    this.isOnline = true;
+    
+    // Immediately attempt reconnection if we were disconnected
+    if (this.config && !this.isConnected() && !this.isIntentionallyClosed) {
+      this.reconnectAttempts = 0; // Reset counter when coming back online
+      this.createConnection();
+    }
+  };
+
+  private handleOffline = (): void => {
+    console.log('Network connection lost');
+    this.isOnline = false;
+    
+    // Stop heartbeat when offline
+    this.stopHeartbeat();
+    
+    // Clear any pending reconnection attempts
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+  };
 
   /**
    * Connect as a team member
@@ -135,6 +171,7 @@ class WebSocketService {
         this.reconnectAttempts = 0;
         this.reconnectDelay = 1000;
         this.notifyConnectionState(true);
+        this.startHeartbeat();
       };
 
       this.socket.onmessage = (event) => {
@@ -153,6 +190,7 @@ class WebSocketService {
       this.socket.onclose = () => {
         console.log('WebSocket disconnected');
         this.socket = null;
+        this.stopHeartbeat();
         this.notifyConnectionState(false);
 
         if (!this.isIntentionallyClosed) {
@@ -170,6 +208,12 @@ class WebSocketService {
       clearTimeout(this.reconnectTimeout);
     }
 
+    // Don't reconnect if offline
+    if (!this.isOnline) {
+      console.log('Skipping reconnection attempt - device is offline');
+      return;
+    }
+
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.error('Max reconnection attempts reached');
       return;
@@ -181,8 +225,48 @@ class WebSocketService {
     console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
 
     this.reconnectTimeout = window.setTimeout(() => {
-      this.createConnection();
+      // Double-check we're still online before attempting
+      if (this.isOnline) {
+        this.createConnection();
+      }
     }, delay);
+  }
+
+  private startHeartbeat(): void {
+    // Clear any existing heartbeat
+    this.stopHeartbeat();
+    
+    // Only start heartbeat if online
+    if (!this.isOnline) {
+      return;
+    }
+    
+    // Send initial heartbeat
+    this.sendHeartbeat();
+    
+    // Set up interval for periodic heartbeats
+    this.heartbeatInterval = window.setInterval(() => {
+      if (this.isOnline && this.isConnected()) {
+        this.sendHeartbeat();
+      }
+    }, this.HEARTBEAT_INTERVAL_MS);
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+  }
+
+  private sendHeartbeat(): void {
+    if (this.socket?.readyState === WebSocket.OPEN) {
+      try {
+        this.socket.send(JSON.stringify({ type: 'HEARTBEAT' }));
+      } catch (error) {
+        console.error('Failed to send heartbeat:', error);
+      }
+    }
   }
 
   private handleMessage(message: WebSocketMessage): void {
@@ -257,6 +341,8 @@ class WebSocketService {
       this.reconnectTimeout = null;
     }
 
+    this.stopHeartbeat();
+
     if (this.socket) {
       this.socket.close();
       this.socket = null;
@@ -265,6 +351,15 @@ class WebSocketService {
     this.messageHandlers.clear();
     this.connectionStateHandlers.clear();
     this.config = null;
+  }
+
+  /**
+   * Cleanup method to remove event listeners (call when service is destroyed)
+   */
+  destroy(): void {
+    this.disconnect();
+    window.removeEventListener('online', this.handleOnline);
+    window.removeEventListener('offline', this.handleOffline);
   }
 
   /**
