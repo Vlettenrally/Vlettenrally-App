@@ -1,6 +1,7 @@
 package nl.vlettenrally.websockets;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.enterprise.event.Observes;
@@ -81,7 +82,7 @@ public class WebSocketPublisher {
         try {
             jsonMessage = objectMapper.writeValueAsString(message);
         } catch (Exception e) {
-            System.err.println("Failed to serialize WebSocket message: " + e.getMessage());
+            Log.error("Failed to serialize WebSocket message: " + e.getMessage());
             return;
         }
         
@@ -94,7 +95,7 @@ public class WebSocketPublisher {
         if (session.isOpen()) {
             session.getAsyncRemote().sendText(message, result -> {
                 if (!result.isOK()) {
-                    System.err.println("Error sending WebSocket message: " + result.getException());
+                    Log.error("Error sending WebSocket message: " + result.getException());
                 }
             });
         }

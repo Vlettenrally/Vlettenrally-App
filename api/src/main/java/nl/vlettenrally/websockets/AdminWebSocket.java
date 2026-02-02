@@ -9,6 +9,10 @@ import jakarta.websocket.OnOpen;
 import jakarta.websocket.server.PathParam;
 import jakarta.websocket.server.ServerEndpoint;
 
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+
+import io.quarkus.logging.Log;
+
 import java.util.UUID;
 
 /**
@@ -22,17 +26,23 @@ public class AdminWebSocket {
     @Inject
     WebSocketSessionManager sessionManager;
     
+    @ConfigProperty(name = "vlettenrally.websocket.idle-timeout-seconds", defaultValue = "60")
+    int idleTimeoutSeconds;
+    
     @OnOpen
     public void onOpen(Session session, @PathParam("gameId") String gameId) {
         try {
             UUID gameUuid = UUID.fromString(gameId);
             
+            // Set idle timeout for this session
+            session.setMaxIdleTimeout(idleTimeoutSeconds * 1000L);
+            
             WebSocketSession wsSession = WebSocketSession.forAdmin(session, gameUuid);
             sessionManager.addSession(wsSession);
             
-            System.out.println("Admin WebSocket opened - Game: " + gameId + ", Session: " + session.getId());
+            Log.info("Admin WebSocket opened - Game: " + gameId + ", Session: " + session.getId());
         } catch (IllegalArgumentException e) {
-            System.err.println("Invalid UUID in WebSocket connection: " + e.getMessage());
+            Log.error("Invalid UUID in WebSocket connection: " + e.getMessage());
             try {
                 session.close();
             } catch (Exception ex) {
@@ -44,20 +54,25 @@ public class AdminWebSocket {
     @OnClose
     public void onClose(Session session) {
         sessionManager.removeSession(session.getId());
-        System.out.println("Admin WebSocket closed: " + session.getId());
+        Log.info("Admin WebSocket closed: " + session.getId());
     }
 
     @OnError
     public void onError(Session session, Throwable throwable) {
-        System.err.println("Admin WebSocket error on session " + session.getId() + ": " + throwable.getMessage());
+        Log.error("Admin WebSocket error on session " + session.getId() + ": " + throwable.getMessage());
         sessionManager.removeSession(session.getId());
     }
 
     @OnMessage
     public void onMessage(String message, Session session) {
+        // Ignore heartbeat messages from client
+        if (message != null && message.contains("HEARTBEAT")) {
+            return;
+        }
+        
         WebSocketSession wsSession = sessionManager.getSession(session.getId());
         if (wsSession != null) {
-            System.out.println("Admin WebSocket message from Game " + wsSession.getGameId() + ": " + message);
+            Log.info("Admin WebSocket message from Game " + wsSession.getGameId() + ": " + message);
         }
     }
 }
