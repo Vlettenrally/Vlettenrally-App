@@ -24,7 +24,7 @@ jobs:
     name: Test API
     runs-on: arc-runner-set-vlettenrally
     container:
-      image: ubuntu:latest
+      image: eclipse-temurin:21-jdk-ubi10-minimal
     if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.skip_tests != 'true' }}
     defaults:
       run:
@@ -33,12 +33,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
+      - name: Cache Maven packages
+        uses: actions/cache@v4
         with:
-          java-version: '21'
-          distribution: 'temurin'
-          cache: maven
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
 
       - name: Run tests
         run: ./mvnw -B -ntp verify
@@ -60,6 +61,23 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Download JAR artifact from build workflow
+        if: github.event_name == 'workflow_run'
+        uses: actions/download-artifact@v4
+        with:
+          name: api-jar
+          path: api/target/quarkus-app
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
       - name: Build native binary
         run: ./mvnw -B -ntp package -Dnative -DskipTests
 
@@ -69,6 +87,15 @@ jobs:
           name: native-binary
           path: api/target/*-runner
           retention-days: 1
+
+      - name: Upload native build info
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-build-info
+          path: |
+            api/target/*-native-image-source-jar/build-artifacts.json
+            api/target/*-native-image-source-jar/*-build-output-stats.json
+          retention-days: 7
 
   build-native-image:
     name: Build Native Docker Image
