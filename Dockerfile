@@ -10,7 +10,7 @@ COPY --chown=quarkus:quarkus api/mvnw /src/mvnw
 COPY --chown=quarkus:quarkus api/.mvn /src/.mvn
 
 WORKDIR /src
-RUN ./mvnw package -Dnative
+RUN ./mvnw package -B -ntp -Dnative
 
 FROM quay.io/quarkus/ubi9-quarkus-micro-image:2.0
 WORKDIR /work/
