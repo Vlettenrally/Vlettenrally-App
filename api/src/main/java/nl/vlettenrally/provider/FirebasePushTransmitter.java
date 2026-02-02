@@ -1,12 +1,12 @@
 package nl.vlettenrally.provider;
 
-import com.google.auth.oauth2.GoogleCredentials;
-import com.google.firebase.FirebaseApp;
-import com.google.firebase.FirebaseOptions;
-import com.google.firebase.messaging.FirebaseMessaging;
-import com.google.firebase.messaging.FirebaseMessagingException;
-import com.google.firebase.messaging.Notification;
-import jakarta.annotation.PostConstruct;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
+
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import nl.vlettenrally.data.domain.FcmToken;
@@ -14,16 +14,11 @@ import nl.vlettenrally.data.domain.Message;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.enums.TransmissionChannel;
 import nl.vlettenrally.data.repository.FcmTokenRepository;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jboss.logging.Logger;
-
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.util.List;
-import java.util.Optional;
+import nl.vlettenrally.fcm.FcmHttpClient;
 
 /**
  * MessageTransmitter implementation for Firebase Cloud Messaging push notifications.
+ * Uses custom HTTP client instead of Firebase Admin SDK for better GraalVM compatibility.
  */
 @ApplicationScoped
 public class FirebasePushTransmitter implements MessageTransmitter {
@@ -33,42 +28,11 @@ public class FirebasePushTransmitter implements MessageTransmitter {
     @ConfigProperty(name = "vlettenrally.firebase.enabled", defaultValue = "false")
     boolean enabled;
 
-    @ConfigProperty(name = "vlettenrally.firebase.credentials-path", defaultValue = "")
-    String credentialsPath;
-
     @Inject
     FcmTokenRepository fcmTokenRepository;
-
-    private boolean initialized = false;
-
-    @PostConstruct
-    void init() {
-        if (!enabled) {
-            LOG.info("Firebase push notifications are disabled");
-            return;
-        }
-
-        if (credentialsPath == null || credentialsPath.isBlank()) {
-            LOG.warn("Firebase credentials path not configured, push notifications will be disabled");
-            return;
-        }
-
-        try {
-            FileInputStream serviceAccount = new FileInputStream(credentialsPath);
-            FirebaseOptions options = FirebaseOptions.builder()
-                    .setCredentials(GoogleCredentials.fromStream(serviceAccount))
-                    .build();
-
-            if (FirebaseApp.getApps().isEmpty()) {
-                FirebaseApp.initializeApp(options);
-            }
-            
-            initialized = true;
-            LOG.info("Firebase initialized successfully");
-        } catch (IOException e) {
-            LOG.error("Failed to initialize Firebase", e);
-        }
-    }
+    
+    @Inject
+    FcmHttpClient fcmHttpClient;
 
     @Override
     public TransmissionChannel getChannel() {
@@ -77,7 +41,7 @@ public class FirebasePushTransmitter implements MessageTransmitter {
 
     @Override
     public boolean supports(Team team) {
-        if (!enabled || !initialized) {
+        if (!enabled) {
             return false;
         }
         
@@ -91,14 +55,16 @@ public class FirebasePushTransmitter implements MessageTransmitter {
             return TransmissionResult.skipped(TransmissionChannel.PUSH, "Firebase is disabled");
         }
 
-        if (!initialized) {
-            return TransmissionResult.failure(TransmissionChannel.PUSH, "Firebase not initialized");
-        }
-
         List<FcmToken> tokens = fcmTokenRepository.findByTeamId(team.getId());
         if (tokens.isEmpty()) {
             return TransmissionResult.skipped(TransmissionChannel.PUSH, "No FCM token for team");
         }
+
+        // Build data payload
+        Map<String, String> data = new HashMap<>();
+        data.put("messageId", message.getId().toString());
+        data.put("messageType", message.getMessageType().name());
+        data.put("teamId", team.getId().toString());
 
         // Send to all registered tokens for the team
         boolean anySuccess = false;
@@ -106,21 +72,16 @@ public class FirebasePushTransmitter implements MessageTransmitter {
 
         for (FcmToken fcmToken : tokens) {
             try {
-                com.google.firebase.messaging.Message fcmMessage = com.google.firebase.messaging.Message.builder()
-                        .setToken(fcmToken.getToken())
-                        .setNotification(Notification.builder()
-                                .setTitle(getNotificationTitle(message))
-                                .setBody(message.getContent())
-                                .build())
-                        .putData("messageId", message.getId().toString())
-                        .putData("messageType", message.getMessageType().name())
-                        .putData("teamId", team.getId().toString())
-                        .build();
-
-                String response = FirebaseMessaging.getInstance().send(fcmMessage);
-                LOG.infof("Push notification sent successfully: %s", response);
+                String messageId = fcmHttpClient.sendNotification(
+                        fcmToken.getToken(),
+                        getNotificationTitle(message),
+                        message.getContent(),
+                        data
+                );
+                
+                LOG.infof("Push notification sent successfully: %s", messageId);
                 anySuccess = true;
-            } catch (FirebaseMessagingException e) {
+            } catch (FcmHttpClient.FcmException e) {
                 LOG.errorf("Failed to send push notification to token %s: %s", 
                         fcmToken.getToken().substring(0, 10) + "...", e.getMessage());
                 lastError = e.getMessage();
