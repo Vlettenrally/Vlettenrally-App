@@ -1,10 +1,12 @@
 package nl.vlettenrally.client.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.quarkus.runtime.annotations.RegisterForReflection;
 
 /**
  * External event from the pre-registration API.
  */
+@RegisterForReflection
 public class ExternalEvent {
     @JsonProperty("event_id")
     private int eventId;
