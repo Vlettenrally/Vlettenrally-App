@@ -105,9 +105,9 @@ public class TeamWebSocket {
     
     private void sendResponse(Session session, WebSocketResponse response) {
         try {
-            session.getBasicRemote().sendText(objectMapper.writeValueAsString(response));
-        } catch (IOException e) {
-            Log.errorf("Failed to send response to session %s: %s", session.getId(), e.getMessage());
+            session.getAsyncRemote().sendText(objectMapper.writeValueAsString(response));
+        } catch (JsonProcessingException e) {
+            Log.errorf("Failed to serialize response for session %s: %s", session.getId(), e.getMessage());
         }
     }
 }

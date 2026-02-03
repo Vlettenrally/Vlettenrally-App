@@ -2,6 +2,7 @@ package nl.vlettenrally.websockets.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 
+import io.quarkus.runtime.annotations.RegisterForReflection;
 import lombok.Data;
 
 /**
@@ -9,6 +10,7 @@ import lombok.Data;
  */
 @Data
 @JsonInclude(JsonInclude.Include.NON_NULL)
+@RegisterForReflection
 public class WebSocketResponse {
     
     private final WebSocketMessageType type;

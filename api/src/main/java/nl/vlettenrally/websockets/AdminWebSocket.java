@@ -1,6 +1,5 @@
 package nl.vlettenrally.websockets;
 
-import java.io.IOException;
 import java.util.UUID;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -110,9 +109,9 @@ public class AdminWebSocket {
     
     private void sendResponse(Session session, WebSocketResponse response) {
         try {
-            session.getBasicRemote().sendText(objectMapper.writeValueAsString(response));
-        } catch (IOException e) {
-            Log.errorf("Failed to send response to session %s: %s", session.getId(), e.getMessage());
+            session.getAsyncRemote().sendText(objectMapper.writeValueAsString(response));
+        } catch (JsonProcessingException e) {
+            Log.errorf("Failed to serialize response for session %s: %s", session.getId(), e.getMessage());
         }
     }
 }
