@@ -1,78 +1,118 @@
 package nl.vlettenrally.websockets;
 
+import java.io.IOException;
+import java.util.UUID;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import io.quarkus.logging.Log;
 import jakarta.inject.Inject;
-import jakarta.websocket.Session;
 import jakarta.websocket.OnClose;
 import jakarta.websocket.OnError;
 import jakarta.websocket.OnMessage;
 import jakarta.websocket.OnOpen;
-import jakarta.websocket.server.PathParam;
+import jakarta.websocket.Session;
 import jakarta.websocket.server.ServerEndpoint;
-
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-
-import io.quarkus.logging.Log;
-
-import java.util.UUID;
+import nl.vlettenrally.websockets.dto.WebSocketMessageType;
+import nl.vlettenrally.websockets.dto.WebSocketRequest;
+import nl.vlettenrally.websockets.dto.WebSocketResponse;
 
 /**
  * WebSocket endpoint for admin connections
  * 
- * Admins connect to: /ws/game/{gameId}/admin
+ * Admins connect to: /ws/admin
+ * 
+ * This is a game-agnostic endpoint. Admins must send a SWITCH_GAME message
+ * to select which game's messages they want to receive.
  */
-@ServerEndpoint("/ws/game/{gameId}/admin")
+@ServerEndpoint("/ws/admin")
 public class AdminWebSocket {
+    
+    private static final ObjectMapper objectMapper = new ObjectMapper();
     
     @Inject
     WebSocketSessionManager sessionManager;
     
-    @ConfigProperty(name = "vlettenrally.websocket.idle-timeout-seconds", defaultValue = "60")
-    int idleTimeoutSeconds;
-    
     @OnOpen
-    public void onOpen(Session session, @PathParam("gameId") String gameId) {
-        try {
-            UUID gameUuid = UUID.fromString(gameId);
-            
-            // Set idle timeout for this session
-            session.setMaxIdleTimeout(idleTimeoutSeconds * 1000L);
-            
-            WebSocketSession wsSession = WebSocketSession.forAdmin(session, gameUuid);
-            sessionManager.addSession(wsSession);
-            
-            Log.info("Admin WebSocket opened - Game: " + gameId + ", Session: " + session.getId());
-        } catch (IllegalArgumentException e) {
-            Log.error("Invalid UUID in WebSocket connection: " + e.getMessage());
-            try {
-                session.close();
-            } catch (Exception ex) {
-                // ignore
-            }
-        }
+    public void onOpen(Session session) {
+        // Create admin session without a game - must send SWITCH_GAME to receive messages
+        WebSocketSession wsSession = WebSocketSession.forAdmin(session);
+        sessionManager.addSession(wsSession);
+        
+        Log.infof("Admin WebSocket opened - Session: %s (no game selected yet)", session.getId());
     }
 
     @OnClose
     public void onClose(Session session) {
         sessionManager.removeSession(session.getId());
-        Log.info("Admin WebSocket closed: " + session.getId());
+        Log.infof("Admin WebSocket closed: %s", session.getId());
     }
 
     @OnError
     public void onError(Session session, Throwable throwable) {
-        Log.error("Admin WebSocket error on session " + session.getId() + ": " + throwable.getMessage());
+        Log.errorf("Admin WebSocket error on session %s: %s", session.getId(), throwable.getMessage());
         sessionManager.removeSession(session.getId());
     }
 
     @OnMessage
     public void onMessage(String message, Session session) {
-        // Ignore heartbeat messages from client
-        if (message != null && message.contains("HEARTBEAT")) {
+        WebSocketSession wsSession = sessionManager.getSession(session.getId());
+        if (wsSession == null) {
             return;
         }
         
-        WebSocketSession wsSession = sessionManager.getSession(session.getId());
-        if (wsSession != null) {
-            Log.info("Admin WebSocket message from Game " + wsSession.getGameId() + ": " + message);
+        try {
+            WebSocketRequest request = objectMapper.readValue(message, WebSocketRequest.class);
+            WebSocketMessageType type = request.getType();
+            
+            if (type == WebSocketMessageType.PING) {
+                wsSession.updateActivity();
+                sendResponse(session, WebSocketResponse.pong());
+                return;
+            }
+            
+            if (type == WebSocketMessageType.SWITCH_GAME) {
+                handleSwitchGame(request, wsSession, session);
+                return;
+            }
+            
+            Log.infof("Admin WebSocket message from Game %s: %s", wsSession.getGameId(), message);
+            
+        } catch (JsonProcessingException e) {
+            Log.errorf("Failed to parse WebSocket message: %s", e.getMessage());
+            sendResponse(session, WebSocketResponse.error("Invalid message format"));
+        }
+    }
+    
+    private void handleSwitchGame(WebSocketRequest request, WebSocketSession wsSession, Session session) {
+        String gameIdStr = request.getGameId();
+        
+        if (gameIdStr == null || gameIdStr.isEmpty()) {
+            sendResponse(session, WebSocketResponse.error("SWITCH_GAME requires a gameId"));
+            return;
+        }
+        
+        try {
+            UUID gameId = UUID.fromString(gameIdStr);
+            UUID previousGameId = wsSession.getGameId();
+            wsSession.setGameId(gameId);
+            
+            Log.infof("Admin session %s switched from game %s to game %s", session.getId(), previousGameId, gameId);
+            
+            sendResponse(session, WebSocketResponse.gameSwitched(gameId.toString()));
+            
+        } catch (IllegalArgumentException e) {
+            Log.errorf("Invalid gameId in SWITCH_GAME: %s", e.getMessage());
+            sendResponse(session, WebSocketResponse.error("Invalid gameId format"));
+        }
+    }
+    
+    private void sendResponse(Session session, WebSocketResponse response) {
+        try {
+            session.getBasicRemote().sendText(objectMapper.writeValueAsString(response));
+        } catch (IOException e) {
+            Log.errorf("Failed to send response to session %s: %s", session.getId(), e.getMessage());
         }
     }
 }

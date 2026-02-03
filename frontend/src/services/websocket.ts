@@ -1,7 +1,9 @@
 /**
  * WebSocket Service - Handles real-time communication with the backend
  * 
- * Supports both team and admin connections with automatic reconnection
+ * Supports both team and admin connections with automatic reconnection.
+ * Frontend sends PING every 10s, backend responds with PONG.
+ * Admin connections are game-agnostic and use SWITCH_GAME to select a game.
  */
 
 import { storage } from './storage';
@@ -19,6 +21,9 @@ export const WebSocketEventType = {
   ADMIN_ALERT: 'ADMIN_ALERT',
   TEAM_CHECKIN: 'TEAM_CHECKIN',
   TEAM_UPDATE: 'TEAM_UPDATE',
+  PONG: 'PONG',
+  GAME_SWITCHED: 'GAME_SWITCHED',
+  ERROR: 'ERROR',
 } as const;
 
 export type WebSocketEventTypeValue = typeof WebSocketEventType[keyof typeof WebSocketEventType];
@@ -42,7 +47,7 @@ export interface TeamConnectionConfig {
 
 export interface AdminConnectionConfig {
   type: 'admin';
-  gameId: string;
+  gameId?: string; // Optional - admin connections are game-agnostic
 }
 
 export type ConnectionConfig = TeamConnectionConfig | AdminConnectionConfig;
@@ -60,8 +65,11 @@ class WebSocketService {
   private connectionStateHandlers = new Set<ConnectionStateHandler>();
   private isIntentionallyClosed = false;
   private config: ConnectionConfig | null = null;
-  private heartbeatInterval: number | null = null;
-  private readonly HEARTBEAT_INTERVAL_MS = 30000; // 30 seconds
+  private pingInterval: number | null = null;
+  private readonly PING_INTERVAL_MS = 10000; // 10 seconds
+  private readonly PONG_TIMEOUT_MS = 15000; // 15 seconds - if no pong within this time, reconnect
+  private lastPongReceived: number | null = null;
+  private pongTimeoutCheck: number | null = null;
   private isOnline = true;
 
   constructor() {
@@ -87,8 +95,8 @@ class WebSocketService {
     console.log('Network connection lost');
     this.isOnline = false;
     
-    // Stop heartbeat when offline
-    this.stopHeartbeat();
+    // Stop ping when offline
+    this.stopPing();
     
     // Clear any pending reconnection attempts
     if (this.reconnectTimeout) {
@@ -105,10 +113,32 @@ class WebSocketService {
   }
 
   /**
-   * Connect as an admin
+   * Connect as an admin (game-agnostic connection)
+   * Optionally specify a gameId to automatically switch to that game after connecting
    */
-  connectAsAdmin(gameId: string): void {
+  connectAsAdmin(gameId?: string): void {
     this.connect({ type: 'admin', gameId });
+  }
+
+  /**
+   * Switch to a different game (admin connections only)
+   * Sends SWITCH_GAME message to backend and updates local config
+   */
+  switchGame(gameId: string): void {
+    if (this.config?.type !== 'admin') {
+      console.warn('switchGame can only be used with admin connections');
+      return;
+    }
+    
+    if (!this.isConnected()) {
+      console.warn('Cannot switch game: WebSocket is not connected');
+      // Store the gameId so it will be sent on reconnect
+      this.config.gameId = gameId;
+      return;
+    }
+    
+    this.send({ type: 'SWITCH_GAME', gameId });
+    this.config.gameId = gameId;
   }
 
   /**
@@ -121,7 +151,14 @@ class WebSocketService {
         console.log('WebSocket already connected with same config');
         return;
       }
-      // Different config, disconnect first
+      // Different config, disconnect first (but don't clear handlers for admin game switches)
+      if (config.type === 'admin' && this.config?.type === 'admin') {
+        // Admin switching games - just send SWITCH_GAME, don't reconnect
+        if (config.gameId) {
+          this.switchGame(config.gameId);
+        }
+        return;
+      }
       this.disconnect();
     }
 
@@ -133,11 +170,11 @@ class WebSocketService {
   private isSameConfig(config: ConnectionConfig): boolean {
     if (!this.config) return false;
     if (this.config.type !== config.type) return false;
-    if (this.config.gameId !== config.gameId) return false;
     if (config.type === 'team' && this.config.type === 'team') {
-      return this.config.teamId === config.teamId;
+      return this.config.gameId === config.gameId && this.config.teamId === config.teamId;
     }
-    return true;
+    // For admin connections, we don't compare gameId since it's game-agnostic
+    return config.type === 'admin' && this.config.type === 'admin';
   }
 
   private buildUrl(): string {
@@ -150,7 +187,8 @@ class WebSocketService {
       const baseUrl = `${WS_BASE_URL}/game/${this.config.gameId}/team/${this.config.teamId}`;
       return token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl;
     } else {
-      return `${WS_BASE_URL}/game/${this.config.gameId}/admin`;
+      // Admin connection - game-agnostic endpoint
+      return `${WS_BASE_URL}/admin`;
     }
   }
 
@@ -170,8 +208,14 @@ class WebSocketService {
         console.log('WebSocket connected as', this.config?.type);
         this.reconnectAttempts = 0;
         this.reconnectDelay = 1000;
+        this.lastPongReceived = Date.now();
         this.notifyConnectionState(true);
-        this.startHeartbeat();
+        this.startPing();
+        
+        // For admin connections, send SWITCH_GAME if a gameId was specified
+        if (this.config?.type === 'admin' && this.config.gameId) {
+          this.send({ type: 'SWITCH_GAME', gameId: this.config.gameId });
+        }
       };
 
       this.socket.onmessage = (event) => {
@@ -190,7 +234,7 @@ class WebSocketService {
       this.socket.onclose = () => {
         console.log('WebSocket disconnected');
         this.socket = null;
-        this.stopHeartbeat();
+        this.stopPing();
         this.notifyConnectionState(false);
 
         if (!this.isIntentionallyClosed) {
@@ -232,44 +276,81 @@ class WebSocketService {
     }, delay);
   }
 
-  private startHeartbeat(): void {
-    // Clear any existing heartbeat
-    this.stopHeartbeat();
+  private startPing(): void {
+    // Clear any existing ping interval
+    this.stopPing();
     
-    // Only start heartbeat if online
+    // Only start ping if online
     if (!this.isOnline) {
       return;
     }
     
-    // Send initial heartbeat
-    this.sendHeartbeat();
+    // Send initial ping
+    this.sendPing();
     
-    // Set up interval for periodic heartbeats
-    this.heartbeatInterval = window.setInterval(() => {
+    // Set up interval for periodic pings
+    this.pingInterval = window.setInterval(() => {
       if (this.isOnline && this.isConnected()) {
-        this.sendHeartbeat();
+        this.sendPing();
       }
-    }, this.HEARTBEAT_INTERVAL_MS);
+    }, this.PING_INTERVAL_MS);
+    
+    // Set up pong timeout check
+    this.startPongTimeoutCheck();
   }
 
-  private stopHeartbeat(): void {
-    if (this.heartbeatInterval) {
-      clearInterval(this.heartbeatInterval);
-      this.heartbeatInterval = null;
+  private stopPing(): void {
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval);
+      this.pingInterval = null;
+    }
+    if (this.pongTimeoutCheck) {
+      clearInterval(this.pongTimeoutCheck);
+      this.pongTimeoutCheck = null;
     }
   }
 
-  private sendHeartbeat(): void {
+  private sendPing(): void {
     if (this.socket?.readyState === WebSocket.OPEN) {
       try {
-        this.socket.send(JSON.stringify({ type: 'HEARTBEAT' }));
+        this.socket.send(JSON.stringify({ type: 'PING' }));
       } catch (error) {
-        console.error('Failed to send heartbeat:', error);
+        console.error('Failed to send ping:', error);
       }
     }
+  }
+  
+  private startPongTimeoutCheck(): void {
+    // Check every 5 seconds if we've received a pong within the timeout window
+    this.pongTimeoutCheck = window.setInterval(() => {
+      if (!this.isConnected() || !this.isOnline) {
+        return;
+      }
+      
+      const now = Date.now();
+      if (this.lastPongReceived && now - this.lastPongReceived > this.PONG_TIMEOUT_MS) {
+        console.warn('No PONG received within timeout, reconnecting...');
+        this.lastPongReceived = null;
+        
+        // Force close and reconnect
+        if (this.socket) {
+          this.socket.close();
+        }
+      }
+    }, 5000);
+  }
+  
+  private handlePong(): void {
+    this.lastPongReceived = Date.now();
   }
 
   private handleMessage(message: WebSocketMessage): void {
+    // Handle PONG messages internally
+    if (message.type === 'PONG') {
+      this.handlePong();
+      return;
+    }
+    
     // Call handlers for specific message type
     const typeHandlers = this.messageHandlers.get(message.type);
     if (typeHandlers) {
@@ -341,7 +422,7 @@ class WebSocketService {
       this.reconnectTimeout = null;
     }
 
-    this.stopHeartbeat();
+    this.stopPing();
 
     if (this.socket) {
       this.socket.close();
@@ -351,6 +432,7 @@ class WebSocketService {
     this.messageHandlers.clear();
     this.connectionStateHandlers.clear();
     this.config = null;
+    this.lastPongReceived = null;
   }
 
   /**
@@ -363,10 +445,23 @@ class WebSocketService {
   }
 
   /**
-   * Check if currently connected
+   * Check if currently connected and healthy (receiving pongs)
    */
   isConnected(): boolean {
     return this.socket?.readyState === WebSocket.OPEN;
+  }
+  
+  /**
+   * Check if connection is healthy (has received pong recently)
+   */
+  isHealthy(): boolean {
+    if (!this.isConnected()) {
+      return false;
+    }
+    if (!this.lastPongReceived) {
+      return true; // Just connected, give it time
+    }
+    return Date.now() - this.lastPongReceived < this.PONG_TIMEOUT_MS;
   }
 
   /**

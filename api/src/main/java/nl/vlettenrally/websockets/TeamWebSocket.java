@@ -1,23 +1,26 @@
 package nl.vlettenrally.websockets;
 
+import java.io.IOException;
+import java.util.UUID;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import io.quarkus.logging.Log;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.websocket.CloseReason;
-import jakarta.websocket.Session;
 import jakarta.websocket.OnClose;
 import jakarta.websocket.OnError;
 import jakarta.websocket.OnMessage;
 import jakarta.websocket.OnOpen;
+import jakarta.websocket.Session;
 import jakarta.websocket.server.PathParam;
 import jakarta.websocket.server.ServerEndpoint;
 import nl.vlettenrally.api.security.TeamScopedOrAdmin;
-import nl.vlettenrally.service.AuthService;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-
-import io.quarkus.logging.Log;
-
-import java.io.IOException;
-import java.util.UUID;
+import nl.vlettenrally.websockets.dto.WebSocketMessageType;
+import nl.vlettenrally.websockets.dto.WebSocketRequest;
+import nl.vlettenrally.websockets.dto.WebSocketResponse;
 
 /**
  * WebSocket endpoint for team connections
@@ -30,14 +33,10 @@ import java.util.UUID;
 @ServerEndpoint("/ws/game/{gameId}/team/{teamId}")
 public class TeamWebSocket {
     
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+    
     @Inject
     WebSocketSessionManager sessionManager;
-
-    @Inject
-    AuthService authService;
-    
-    @ConfigProperty(name = "vlettenrally.websocket.idle-timeout-seconds", defaultValue = "60")
-    int idleTimeoutSeconds;
     
     @OnOpen
     @TeamScopedOrAdmin
@@ -49,15 +48,12 @@ public class TeamWebSocket {
             UUID gameUuid = UUID.fromString(gameId);
             UUID teamUuid = UUID.fromString(teamId);
             
-            // Set idle timeout for this session
-            session.setMaxIdleTimeout(idleTimeoutSeconds * 1000L);
-            
             WebSocketSession wsSession = WebSocketSession.forTeam(session, gameUuid, teamUuid);
             sessionManager.addSession(wsSession);
             
-            Log.info("Team WebSocket opened - Game: " + gameId + ", Team: " + teamId + ", Session: " + session.getId());
+            Log.infof("Team WebSocket opened - Game: %s, Team: %s, Session: %s", gameId, teamId, session.getId());
         } catch (IllegalArgumentException e) {
-            Log.error("Invalid UUID in WebSocket connection: " + e.getMessage());
+            Log.errorf("Invalid UUID in WebSocket connection: %s", e.getMessage());
             closeWithError(session, "Invalid game or team identifier");
         }
     }
@@ -66,32 +62,52 @@ public class TeamWebSocket {
         try {
             session.close(new CloseReason(CloseReason.CloseCodes.VIOLATED_POLICY, reason));
         } catch (IOException e) {
-            Log.error("Error closing WebSocket session: " + e.getMessage());
+            Log.errorf("Error closing WebSocket session: %s", e.getMessage());
         }
     }
 
     @OnClose
     public void onClose(Session session) {
         sessionManager.removeSession(session.getId());
-        Log.info("Team WebSocket closed: " + session.getId());
+        Log.infof("Team WebSocket closed: %s", session.getId());
     }
 
     @OnError
     public void onError(Session session, Throwable throwable) {
-        Log.error("Team WebSocket error on session " + session.getId() + ": " + throwable.getMessage());
+        Log.errorf("Team WebSocket error on session %s: %s", session.getId(), throwable.getMessage());
         sessionManager.removeSession(session.getId());
     }
 
     @OnMessage
     public void onMessage(String message, Session session) {
-        // Ignore heartbeat messages from client
-        if (message != null && message.contains("HEARTBEAT")) {
+        WebSocketSession wsSession = sessionManager.getSession(session.getId());
+        if (wsSession == null) {
             return;
         }
         
-        WebSocketSession wsSession = sessionManager.getSession(session.getId());
-        if (wsSession != null) {
-            Log.info("Team WebSocket message from Team " + wsSession.getTeamId() + ": " + message);
+        try {
+            WebSocketRequest request = objectMapper.readValue(message, WebSocketRequest.class);
+            
+            // Handle PING messages - update activity and respond with PONG
+            if (request.getType() == WebSocketMessageType.PING) {
+                wsSession.updateActivity();
+                sendResponse(session, WebSocketResponse.pong());
+                return;
+            }
+            
+            Log.infof("Team WebSocket message from Team %s: %s", wsSession.getTeamId(), message);
+            
+        } catch (JsonProcessingException e) {
+            Log.errorf("Failed to parse WebSocket message: %s", e.getMessage());
+            sendResponse(session, WebSocketResponse.error("Invalid message format"));
+        }
+    }
+    
+    private void sendResponse(Session session, WebSocketResponse response) {
+        try {
+            session.getBasicRemote().sendText(objectMapper.writeValueAsString(response));
+        } catch (IOException e) {
+            Log.errorf("Failed to send response to session %s: %s", session.getId(), e.getMessage());
         }
     }
 }

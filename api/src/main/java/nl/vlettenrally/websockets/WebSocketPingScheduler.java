@@ -1,69 +1,69 @@
 package nl.vlettenrally.websockets;
 
+import java.io.IOException;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Collection;
+
 import io.quarkus.logging.Log;
 import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.Collection;
-
 /**
- * Scheduler service that sends periodic ping messages to all active WebSocket connections
- * to keep them alive through proxies, firewalls, and NAT devices.
+ * Scheduler service that cleans up stale WebSocket connections.
+ * Sessions that haven't received a PING within 30 seconds are considered stale and closed.
  */
 @ApplicationScoped
 public class WebSocketPingScheduler {
     
+    private static final Duration STALE_THRESHOLD = Duration.ofSeconds(30);
+    
     @Inject
     WebSocketSessionManager sessionManager;
     
-    @ConfigProperty(name = "vlettenrally.websocket.ping-interval-seconds", defaultValue = "20")
-    int pingIntervalSeconds;
-    
     /**
-     * Send ping messages to all active WebSocket sessions
+     * Check for stale WebSocket sessions and close them.
      * 
-     * Runs every 20 seconds (configured via application.properties)
-     * Uses Jakarta WebSocket protocol-level ping frames
+     * Runs every 10 seconds. Sessions are considered stale if they haven't
+     * received a PING message within 30 seconds.
      */
-    @Scheduled(every = "20s")
-    void sendPings() {
+    @Scheduled(every = "10s")
+    public void cleanupStaleSessions() {
         Collection<WebSocketSession> sessions = sessionManager.getAllSessions();
         
         if (sessions.isEmpty()) {
             return;
         }
         
-        int successCount = 0;
-        int failureCount = 0;
+        Instant threshold = Instant.now().minus(STALE_THRESHOLD);
+        int closedCount = 0;
         
         for (WebSocketSession wsSession : sessions) {
             try {
-                if (wsSession.getSession().isOpen()) {
-                    // Send WebSocket protocol ping frame
-                    wsSession.getSession().getBasicRemote().sendPing(ByteBuffer.allocate(0));
-                    successCount++;
-                } else {
-                    // Session is closed, remove it
+                if (!wsSession.getSession().isOpen()) {
+                    // Session is already closed, remove it
                     sessionManager.removeSession(wsSession.getSessionId());
+                    closedCount++;
+                } else if (wsSession.getLastActivity().isBefore(threshold)) {
+                    // Session is stale (no PING received within threshold)
+                    Log.infof("Closing stale WebSocket session %s (last activity: %s)", 
+                             wsSession.getSessionId(), wsSession.getLastActivity());
+                    wsSession.getSession().close();
+                    sessionManager.removeSession(wsSession.getSessionId());
+                    closedCount++;
                 }
             } catch (IOException e) {
-                failureCount++;
-                Log.error("Failed to send ping to session " + wsSession.getSessionId() + ": " + e.getMessage());
-                // Remove failed session
+                Log.errorf("Failed to close stale session %s: %s", wsSession.getSessionId(), e.getMessage());
                 sessionManager.removeSession(wsSession.getSessionId());
+                closedCount++;
             } catch (Exception e) {
-                failureCount++;
-                Log.error("Unexpected error sending ping to session " + wsSession.getSessionId() + ": " + e.getMessage());
+                Log.errorf("Unexpected error checking session %s: %s", wsSession.getSessionId(), e.getMessage());
             }
         }
         
-        if (successCount > 0 || failureCount > 0) {
-            Log.info("WebSocket ping sent to " + successCount + " sessions, " + failureCount + " failures");
+        if (closedCount > 0) {
+            Log.infof("WebSocket cleanup: closed %d stale sessions", closedCount);
         }
     }
 }

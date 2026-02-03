@@ -1,7 +1,8 @@
 /**
  * useWebSocket Hook - React hook for WebSocket connection
  * 
- * Supports both team and admin connections
+ * Supports both team and admin connections.
+ * Admin connections are game-agnostic and use switchGame to change games without reconnecting.
  */
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { 
@@ -17,7 +18,7 @@ type MessageHandler = (message: WebSocketMessage) => void;
 export interface UseWebSocketOptions {
   /** Connection type: 'team' or 'admin' */
   type: ConnectionType;
-  /** Game ID to connect to */
+  /** Game ID to connect to (optional for admin - can switch later) */
   gameId: string | null;
   /** Team ID (required for team connections) */
   teamId?: string | null;
@@ -32,6 +33,7 @@ export function useTeamWebSocket(gameId: string | null, teamId: string | null) {
 
 /**
  * Hook for admin WebSocket connections
+ * Admin connections are game-agnostic - gameId can be null initially and switched later
  */
 export function useAdminWebSocket(gameId: string | null) {
   return useWebSocket({ type: 'admin', gameId });
@@ -43,21 +45,33 @@ export function useAdminWebSocket(gameId: string | null) {
 export function useWebSocket(options: UseWebSocketOptions) {
   const { type, gameId, teamId } = options;
   const isConnectedRef = useRef(false);
+  const currentGameIdRef = useRef<string | null>(null);
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    // Validate required parameters
-    if (!gameId) return;
-    if (type === 'team' && !teamId) return;
-
-    // Build connection config
-    const config: ConnectionConfig = type === 'team'
-      ? { type: 'team', gameId, teamId: teamId! }
-      : { type: 'admin', gameId };
-
-    if (!isConnectedRef.current) {
-      websocket.connect(config);
-      isConnectedRef.current = true;
+    // For team connections, require both gameId and teamId
+    if (type === 'team') {
+      if (!gameId || !teamId) return;
+      
+      const config: ConnectionConfig = { type: 'team', gameId, teamId };
+      
+      if (!isConnectedRef.current) {
+        websocket.connect(config);
+        isConnectedRef.current = true;
+        currentGameIdRef.current = gameId;
+      }
+    } else {
+      // For admin connections, connect without gameId requirement
+      // Connection is game-agnostic, we switch games via SWITCH_GAME message
+      if (!isConnectedRef.current) {
+        websocket.connectAsAdmin(gameId || undefined);
+        isConnectedRef.current = true;
+        currentGameIdRef.current = gameId;
+      } else if (gameId && gameId !== currentGameIdRef.current) {
+        // Already connected, just switch game
+        websocket.switchGame(gameId);
+        currentGameIdRef.current = gameId;
+      }
     }
 
     // Subscribe to connection state changes
@@ -67,11 +81,17 @@ export function useWebSocket(options: UseWebSocketOptions) {
 
     return () => {
       unsubscribe();
-      websocket.disconnect();
-      isConnectedRef.current = false;
-      setConnected(false);
     };
   }, [type, gameId, teamId]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      websocket.disconnect();
+      isConnectedRef.current = false;
+      currentGameIdRef.current = null;
+    };
+  }, []);
 
   const subscribe = useCallback((
     eventType: keyof typeof WebSocketEventType | 'all',
@@ -99,6 +119,11 @@ export function useWebSocket(options: UseWebSocketOptions) {
     return websocket.getGameId();
   }, []);
 
+  const switchGame = useCallback((newGameId: string) => {
+    websocket.switchGame(newGameId);
+    currentGameIdRef.current = newGameId;
+  }, []);
+
   const getTeamId = useCallback(() => {
     return websocket.getTeamId();
   }, []);
@@ -111,5 +136,6 @@ export function useWebSocket(options: UseWebSocketOptions) {
     getConnectionType,
     getGameId,
     getTeamId,
+    switchGame,
   };
 }

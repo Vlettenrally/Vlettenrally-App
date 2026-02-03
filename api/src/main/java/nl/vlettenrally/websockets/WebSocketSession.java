@@ -1,6 +1,7 @@
 package nl.vlettenrally.websockets;
 
 import jakarta.websocket.Session;
+import java.time.Instant;
 import java.util.UUID;
 
 /**
@@ -15,28 +16,59 @@ public class WebSocketSession {
     
     private final Session session;
     private final SessionType type;
-    private final UUID gameId;
+    private UUID gameId; // mutable for admin sessions to switch games
     private final UUID teamId; // null for admin sessions
+    private Instant lastActivity;
     
     public WebSocketSession(Session session, SessionType type, UUID gameId, UUID teamId) {
         this.session = session;
         this.type = type;
         this.gameId = gameId;
         this.teamId = teamId;
+        this.lastActivity = Instant.now();
     }
     
     public static WebSocketSession forTeam(Session session, UUID gameId, UUID teamId) {
         return new WebSocketSession(session, SessionType.TEAM, gameId, teamId);
     }
     
+    /**
+     * Create an admin session for a specific game
+     */
     public static WebSocketSession forAdmin(Session session, UUID gameId) {
         return new WebSocketSession(session, SessionType.ADMIN, gameId, null);
+    }
+    
+    /**
+     * Create an admin session without a game (game-agnostic, must call setGameId to receive messages)
+     */
+    public static WebSocketSession forAdmin(Session session) {
+        return new WebSocketSession(session, SessionType.ADMIN, null, null);
     }
     
     public Session getSession() { return session; }
     public SessionType getType() { return type; }
     public UUID getGameId() { return gameId; }
     public UUID getTeamId() { return teamId; }
+    public Instant getLastActivity() { return lastActivity; }
+    
+    /**
+     * Update the last activity timestamp (called when PING is received)
+     */
+    public void updateActivity() {
+        this.lastActivity = Instant.now();
+    }
+    
+    /**
+     * Set the game ID for admin sessions (used for SWITCH_GAME)
+     * @throws IllegalStateException if called on a team session
+     */
+    public void setGameId(UUID gameId) {
+        if (!isAdmin()) {
+            throw new IllegalStateException("Cannot change gameId for team sessions");
+        }
+        this.gameId = gameId;
+    }
     
     public boolean isAdmin() {
         return type == SessionType.ADMIN;
@@ -54,6 +86,11 @@ public class WebSocketSession {
      * Check if this session should receive a message based on targeting
      */
     public boolean shouldReceive(WebSocketMessage message) {
+        // Admin sessions with no game selected receive nothing until SWITCH_GAME
+        if (isAdmin() && gameId == null) {
+            return false;
+        }
+        
         // Check game targeting
         if (message.getTargetGameId() != null && !message.getTargetGameId().equals(gameId)) {
             return false;
