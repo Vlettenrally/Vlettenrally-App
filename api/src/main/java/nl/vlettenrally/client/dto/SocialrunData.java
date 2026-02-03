@@ -1,12 +1,20 @@
 package nl.vlettenrally.client.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.quarkus.runtime.annotations.RegisterForReflection;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.util.List;
 
 /**
  * Socialrun data structure from the location API.
  */
+@RegisterForReflection
+@NoArgsConstructor
+@Getter
+@Setter
 public class SocialrunData {
     @JsonProperty("socialrunDetails")
     private List<SocialrunDetail> socialrunDetails;
@@ -16,28 +24,4 @@ public class SocialrunData {
 
     @JsonProperty("socialrunParticipantsDistances")
     private List<Object> participantDistances;
-
-    public List<SocialrunDetail> getSocialrunDetails() {
-        return socialrunDetails;
-    }
-
-    public void setSocialrunDetails(List<SocialrunDetail> socialrunDetails) {
-        this.socialrunDetails = socialrunDetails;
-    }
-
-    public List<ParticipantLocation> getParticipantLocations() {
-        return participantLocations;
-    }
-
-    public void setParticipantLocations(List<ParticipantLocation> participantLocations) {
-        this.participantLocations = participantLocations;
-    }
-
-    public List<Object> getParticipantDistances() {
-        return participantDistances;
-    }
-
-    public void setParticipantDistances(List<Object> participantDistances) {
-        this.participantDistances = participantDistances;
-    }
 }

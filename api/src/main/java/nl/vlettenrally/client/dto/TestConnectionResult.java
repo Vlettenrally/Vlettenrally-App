@@ -1,28 +1,19 @@
 package nl.vlettenrally.client.dto;
 
+import io.quarkus.runtime.annotations.RegisterForReflection;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
 /**
  * Result of testing a location endpoint connection.
  */
+@RegisterForReflection
+@NoArgsConstructor
+@AllArgsConstructor
+@Getter
 public class TestConnectionResult {
-    private final boolean success;
-    private final int participantCount;
-    private final String errorMessage;
-
-    public TestConnectionResult(boolean success, int participantCount, String errorMessage) {
-        this.success = success;
-        this.participantCount = participantCount;
-        this.errorMessage = errorMessage;
-    }
-
-    public boolean isSuccess() {
-        return success;
-    }
-
-    public int getParticipantCount() {
-        return participantCount;
-    }
-
-    public String getErrorMessage() {
-        return errorMessage;
-    }
+    private boolean success;
+    private int participantCount;
+    private String errorMessage;
 }

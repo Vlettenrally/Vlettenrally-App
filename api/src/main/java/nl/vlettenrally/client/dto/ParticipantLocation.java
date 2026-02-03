@@ -1,10 +1,18 @@
 package nl.vlettenrally.client.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.quarkus.runtime.annotations.RegisterForReflection;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
  * Location data for a participant from the tracking API.
  */
+@RegisterForReflection
+@NoArgsConstructor
+@Getter
+@Setter
 public class ParticipantLocation {
     @JsonProperty("event_participants_id")
     private int eventParticipantsId;
@@ -53,132 +61,4 @@ public class ParticipantLocation {
 
     @JsonProperty("is_sos_report")
     private int isSosReport;
-
-    public int getEventParticipantsId() {
-        return eventParticipantsId;
-    }
-
-    public void setEventParticipantsId(int eventParticipantsId) {
-        this.eventParticipantsId = eventParticipantsId;
-    }
-
-    public int getEventId() {
-        return eventId;
-    }
-
-    public void setEventId(int eventId) {
-        this.eventId = eventId;
-    }
-
-    public int getStatusId() {
-        return statusId;
-    }
-
-    public void setStatusId(int statusId) {
-        this.statusId = statusId;
-    }
-
-    public int getBib() {
-        return bib;
-    }
-
-    public void setBib(int bib) {
-        this.bib = bib;
-    }
-
-    public String getBibLabel() {
-        return bibLabel;
-    }
-
-    public void setBibLabel(String bibLabel) {
-        this.bibLabel = bibLabel;
-    }
-
-    public String getFirstName() {
-        return firstName;
-    }
-
-    public void setFirstName(String firstName) {
-        this.firstName = firstName;
-    }
-
-    public String getLastName() {
-        return lastName;
-    }
-
-    public void setLastName(String lastName) {
-        this.lastName = lastName;
-    }
-
-    public String getCountry() {
-        return country;
-    }
-
-    public void setCountry(String country) {
-        this.country = country;
-    }
-
-    public String getGender() {
-        return gender;
-    }
-
-    public void setGender(String gender) {
-        this.gender = gender;
-    }
-
-    public int getTrackerId() {
-        return trackerId;
-    }
-
-    public void setTrackerId(int trackerId) {
-        this.trackerId = trackerId;
-    }
-
-    public String getLocationTime() {
-        return locationTime;
-    }
-
-    public void setLocationTime(String locationTime) {
-        this.locationTime = locationTime;
-    }
-
-    public String getReportTime() {
-        return reportTime;
-    }
-
-    public void setReportTime(String reportTime) {
-        this.reportTime = reportTime;
-    }
-
-    public Coordinates getLocation() {
-        return location;
-    }
-
-    public void setLocation(Coordinates location) {
-        this.location = location;
-    }
-
-    public int getBatteryPercentage() {
-        return batteryPercentage;
-    }
-
-    public void setBatteryPercentage(int batteryPercentage) {
-        this.batteryPercentage = batteryPercentage;
-    }
-
-    public int getGpsAccuracy() {
-        return gpsAccuracy;
-    }
-
-    public void setGpsAccuracy(int gpsAccuracy) {
-        this.gpsAccuracy = gpsAccuracy;
-    }
-
-    public int getIsSosReport() {
-        return isSosReport;
-    }
-
-    public void setIsSosReport(int isSosReport) {
-        this.isSosReport = isSosReport;
-    }
 }

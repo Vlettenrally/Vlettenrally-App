@@ -2,11 +2,17 @@ package nl.vlettenrally.client.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.quarkus.runtime.annotations.RegisterForReflection;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
  * External event from the pre-registration API.
  */
 @RegisterForReflection
+@NoArgsConstructor
+@Getter
+@Setter
 public class ExternalEvent {
     @JsonProperty("event_id")
     private int eventId;
@@ -19,36 +25,4 @@ public class ExternalEvent {
 
     @JsonProperty("booking_count")
     private int bookingCount;
-
-    public int getEventId() {
-        return eventId;
-    }
-
-    public void setEventId(int eventId) {
-        this.eventId = eventId;
-    }
-
-    public int getPostId() {
-        return postId;
-    }
-
-    public void setPostId(int postId) {
-        this.postId = postId;
-    }
-
-    public String getEventName() {
-        return eventName;
-    }
-
-    public void setEventName(String eventName) {
-        this.eventName = eventName;
-    }
-
-    public int getBookingCount() {
-        return bookingCount;
-    }
-
-    public void setBookingCount(int bookingCount) {
-        this.bookingCount = bookingCount;
-    }
 }
