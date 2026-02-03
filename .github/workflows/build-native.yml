@@ -83,6 +83,9 @@ jobs:
 
       - name: Build native binary
         run: ./mvnw -B -ntp package -Dnative -DskipTests
+        env:
+          LC_ALL: C.UTF-8
+          LANG: C.UTF-8
 
       - name: Upload native binary
         uses: actions/upload-artifact@v4
