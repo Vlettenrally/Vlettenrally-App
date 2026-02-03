@@ -93,6 +93,11 @@ spec:
             # Pre-registration API (optional)
             - name: PRE_REGISTRATION_API_URL
               value: "https://vlettenrally.nl/wp-json/vr/v1"
+            - name: PRE_REGISTRATION_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: vlettenrally-pre-registration
+                  key: api-key
           volumeMounts:
             - name: firebase-credentials
               mountPath: /secrets/firebase
