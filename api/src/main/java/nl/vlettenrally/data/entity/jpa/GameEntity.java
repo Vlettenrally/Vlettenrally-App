@@ -30,8 +30,8 @@ public class GameEntity {
     @Column(name = "end_time")
     private Instant endTime;
 
-    @Column(name = "starting_area_active_time")
-    private Instant startingAreaActiveTime;
+    @Column(name = "check_in_start_time")
+    private Instant checkInStartTime;
 
     @Column(name = "start_signal_time")
     private Instant startSignalTime;
@@ -96,8 +96,8 @@ public class GameEntity {
     public Instant getEndTime() { return endTime; }
     public void setEndTime(Instant endTime) { this.endTime = endTime; }
 
-    public Instant getStartingAreaActiveTime() { return startingAreaActiveTime; }
-    public void setStartingAreaActiveTime(Instant startingAreaActiveTime) { this.startingAreaActiveTime = startingAreaActiveTime; }
+    public Instant getCheckInStartTime() { return checkInStartTime; }
+    public void setCheckInStartTime(Instant checkInStartTime) { this.checkInStartTime = checkInStartTime; }
 
     public Instant getStartSignalTime() { return startSignalTime; }
     public void setStartSignalTime(Instant startSignalTime) { this.startSignalTime = startSignalTime; }

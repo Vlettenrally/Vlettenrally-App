@@ -204,7 +204,7 @@ public class GameResource {
         game.setDescription(request.description());
         game.setStartTime(request.startTime());
         game.setEndTime(request.endTime());
-        game.setStartingAreaActiveTime(request.startingAreaActiveTime());
+        game.setCheckInStartTime(request.checkInStartTime());
         game.setStartSignalTime(request.startSignalTime());
         
         if (request.status() != null) {
@@ -240,7 +240,7 @@ public class GameResource {
                 if (request.description() != null) game.setDescription(request.description());
                 if (request.startTime() != null) game.setStartTime(request.startTime());
                 if (request.endTime() != null) game.setEndTime(request.endTime());
-                if (request.startingAreaActiveTime() != null) game.setStartingAreaActiveTime(request.startingAreaActiveTime());
+                if (request.checkInStartTime() != null) game.setCheckInStartTime(request.checkInStartTime());
                 if (request.startSignalTime() != null) game.setStartSignalTime(request.startSignalTime());
                 
                 if (request.status() != null) {
@@ -360,7 +360,7 @@ public class GameResource {
             game.getDescription(),
             game.getStartTime() != null ? game.getStartTime().toString() : null,
             game.getEndTime() != null ? game.getEndTime().toString() : null,
-            game.getStartingAreaActiveTime() != null ? game.getStartingAreaActiveTime().toString() : null,
+            game.getCheckInStartTime() != null ? game.getCheckInStartTime().toString() : null,
             game.getStartSignalTime() != null ? game.getStartSignalTime().toString() : null,
             game.getStatus() != null ? game.getStatus().name().toLowerCase() : null,
             game.getExternalEventId(),

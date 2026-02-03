@@ -11,7 +11,7 @@ public record GameResponse(
     String description,
     String startTime,
     String endTime,
-    String startingAreaActiveTime,
+    String checkInStartTime,
     String startSignalTime,
     String status,
     Integer externalEventId,

@@ -10,7 +10,7 @@ public record GameRequest(
     String description,
     Instant startTime,
     Instant endTime,
-    Instant startingAreaActiveTime,
+    Instant checkInStartTime,
     Instant startSignalTime,
     String status,
     Integer externalEventId,

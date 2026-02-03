@@ -265,7 +265,7 @@ CREATE TABLE games (
   name VARCHAR(255) NOT NULL,
   start_time TIMESTAMP NOT NULL,
   end_time TIMESTAMP NOT NULL,
-  starting_area_active_time TIMESTAMP,
+  check_in_start_time TIMESTAMP,
   start_signal_time TIMESTAMP,
   status VARCHAR(50) DEFAULT 'planned', -- planned, active, completed
   created_at TIMESTAMP DEFAULT NOW(),

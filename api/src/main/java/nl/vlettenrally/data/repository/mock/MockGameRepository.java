@@ -48,7 +48,7 @@ public class MockGameRepository implements GameRepository {
         game1.setDescription("De jaarlijkse Vlettenrally");
         game1.setStartTime(now.minus(2, ChronoUnit.HOURS));
         game1.setEndTime(now.plus(4, ChronoUnit.HOURS));
-        game1.setStartingAreaActiveTime(now.minus(3, ChronoUnit.HOURS));
+        game1.setCheckInStartTime(now.minus(3, ChronoUnit.HOURS));
         game1.setStartSignalTime(now.minus(2, ChronoUnit.HOURS));
         game1.setStatus(Game.GameStatus.ACTIVE);
         games.put(game1.getId(), game1);
@@ -60,7 +60,7 @@ public class MockGameRepository implements GameRepository {
         game2.setDescription("Speciale zomereditie van de Vlettenrally");
         game2.setStartTime(now.plus(48, ChronoUnit.HOURS));
         game2.setEndTime(now.plus(54, ChronoUnit.HOURS));
-        game2.setStartingAreaActiveTime(now.plus(47, ChronoUnit.HOURS));
+        game2.setCheckInStartTime(now.plus(47, ChronoUnit.HOURS));
         game2.setStartSignalTime(now.plus(48, ChronoUnit.HOURS));
         game2.setStatus(Game.GameStatus.PLANNED);
         games.put(game2.getId(), game2);

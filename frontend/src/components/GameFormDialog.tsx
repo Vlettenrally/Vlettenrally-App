@@ -16,17 +16,15 @@ import {
   CircularProgress,
   Alert,
   Divider,
-  Chip,
 } from '@mui/material';
 import {
-  CloudDownload as ImportIcon,
   NetworkCheck as TestIcon,
   CheckCircle as SuccessIcon,
   Error as ErrorIcon,
 } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
 import { gameService } from '../services/gameService';
-import type { Game, GameRequest, ExternalEvent, TeamImportResult, LocationTestResult } from '../types/entities';
+import type { Game, GameRequest, ExternalEvent, LocationTestResult } from '../types/entities';
 
 interface GameFormDialogProps {
   open: boolean;
@@ -53,10 +51,6 @@ export default function GameFormDialog({
   const [externalEvents, setExternalEvents] = useState<ExternalEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
   
-  // Import state
-  const [importing, setImporting] = useState(false);
-  const [importResult, setImportResult] = useState<TeamImportResult | null>(null);
-  
   // Location test state
   const [testingLocation, setTestingLocation] = useState(false);
   const [locationTestResult, setLocationTestResult] = useState<LocationTestResult | null>(null);
@@ -66,7 +60,7 @@ export default function GameFormDialog({
     description: '',
     startTime: '',
     endTime: '',
-    startingAreaActiveTime: '',
+    checkInStartTime: '',
     startSignalTime: '',
     status: 'planned',
     externalEventId: undefined,
@@ -97,7 +91,7 @@ export default function GameFormDialog({
         description: game.description || '',
         startTime: game.startTime ? formatDateTimeLocal(game.startTime) : '',
         endTime: game.endTime ? formatDateTimeLocal(game.endTime) : '',
-        startingAreaActiveTime: game.startingAreaActiveTime ? formatDateTimeLocal(game.startingAreaActiveTime) : '',
+        checkInStartTime: game.checkInStartTime ? formatDateTimeLocal(game.checkInStartTime) : '',
         startSignalTime: game.startSignalTime ? formatDateTimeLocal(game.startSignalTime) : '',
         status: game.status || 'planned',
         externalEventId: game.externalEventId,
@@ -112,7 +106,7 @@ export default function GameFormDialog({
         description: '',
         startTime: '',
         endTime: '',
-        startingAreaActiveTime: '',
+        checkInStartTime: '',
         startSignalTime: '',
         status: 'planned',
         externalEventId: undefined,
@@ -123,7 +117,6 @@ export default function GameFormDialog({
       });
     }
     setError(null);
-    setImportResult(null);
     setLocationTestResult(null);
   }, [game, open]);
 
@@ -161,7 +154,7 @@ export default function GameFormDialog({
         ...formData,
         startTime: formatToISOString(formData.startTime || ''),
         endTime: formatToISOString(formData.endTime || ''),
-        startingAreaActiveTime: formatToISOString(formData.startingAreaActiveTime || ''),
+        checkInStartTime: formatToISOString(formData.checkInStartTime || ''),
         startSignalTime: formatToISOString(formData.startSignalTime || ''),
       };
 
@@ -177,23 +170,6 @@ export default function GameFormDialog({
       setError(err instanceof Error ? err.message : 'Failed to save game');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleImportTeams = async () => {
-    if (!game) return;
-    
-    setImporting(true);
-    setImportResult(null);
-    setError(null);
-
-    try {
-      const result = await gameService.importTeams(game.id);
-      setImportResult(result);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to import teams');
-    } finally {
-      setImporting(false);
     }
   };
 
@@ -288,10 +264,10 @@ export default function GameFormDialog({
               fullWidth
             />
             <TextField
-              label="Starting Area Active Time"
+              label="Check-in Start Time"
               type="datetime-local"
-              value={formData.startingAreaActiveTime}
-              onChange={handleChange('startingAreaActiveTime')}
+              value={formData.checkInStartTime}
+              onChange={handleChange('checkInStartTime')}
               InputLabelProps={{ shrink: true }}
               helperText="When the check-in area opens"
               fullWidth
@@ -344,42 +320,6 @@ export default function GameFormDialog({
             </Select>
             {loadingEvents && <CircularProgress size={20} sx={{ position: 'absolute', right: 40, top: 16 }} />}
           </FormControl>
-
-          {!isCreateMode && formData.externalEventId && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Button
-                variant="outlined"
-                startIcon={importing ? <CircularProgress size={20} /> : <ImportIcon />}
-                onClick={handleImportTeams}
-                disabled={importing}
-              >
-                {importing ? 'Importing...' : 'Import Teams Now'}
-              </Button>
-              {importResult && (
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Chip 
-                    label={`${importResult.created} created`} 
-                    color="success" 
-                    size="small" 
-                    icon={<SuccessIcon />}
-                  />
-                  <Chip 
-                    label={`${importResult.updated} updated`} 
-                    color="info" 
-                    size="small" 
-                  />
-                  {importResult.errors > 0 && (
-                    <Chip 
-                      label={`${importResult.errors} errors`} 
-                      color="error" 
-                      size="small" 
-                      icon={<ErrorIcon />}
-                    />
-                  )}
-                </Box>
-              )}
-            </Box>
-          )}
 
           <Divider />
 

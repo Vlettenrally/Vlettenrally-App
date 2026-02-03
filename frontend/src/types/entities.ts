@@ -3,7 +3,7 @@ export interface Game {
   name: string;
   startTime?: Date;
   endTime?: Date;
-  startingAreaActiveTime?: Date;
+  checkInStartTime?: Date;
   startSignalTime?: Date;
   description?: string;
   status?: 'planned' | 'active' | 'completed';
@@ -26,7 +26,7 @@ export interface GameRequest {
   description?: string;
   startTime?: string;
   endTime?: string;
-  startingAreaActiveTime?: string;
+  checkInStartTime?: string;
   startSignalTime?: string;
   status?: string;
   externalEventId?: number;

@@ -12,7 +12,7 @@ public class Game {
     private String description;
     private Instant startTime;
     private Instant endTime;
-    private Instant startingAreaActiveTime;
+    private Instant checkInStartTime;
     private Instant startSignalTime;
     private GameStatus status;
     private Instant createdAt;
@@ -68,8 +68,8 @@ public class Game {
     public Instant getEndTime() { return endTime; }
     public void setEndTime(Instant endTime) { this.endTime = endTime; }
 
-    public Instant getStartingAreaActiveTime() { return startingAreaActiveTime; }
-    public void setStartingAreaActiveTime(Instant startingAreaActiveTime) { this.startingAreaActiveTime = startingAreaActiveTime; }
+    public Instant getCheckInStartTime() { return checkInStartTime; }
+    public void setCheckInStartTime(Instant checkInStartTime) { this.checkInStartTime = checkInStartTime; }
 
     public Instant getStartSignalTime() { return startSignalTime; }
     public void setStartSignalTime(Instant startSignalTime) { this.startSignalTime = startSignalTime; }
