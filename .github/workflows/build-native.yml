@@ -104,6 +104,7 @@ jobs:
     name: Build Native Docker Image
     runs-on: ubuntu-latest
     needs: [build-native-binary]
+    if: ${{ always() && needs.build-native-binary.result == 'success' }}
     permissions:
       contents: read
       packages: write
