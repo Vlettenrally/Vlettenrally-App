@@ -4,9 +4,12 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+import io.quarkus.runtime.annotations.RegisterForReflection;
+
 /**
  * Response DTO for admin message with delivery status information.
  */
+@RegisterForReflection
 public record AdminMessageResponse(
     UUID id,
     UUID gameId,

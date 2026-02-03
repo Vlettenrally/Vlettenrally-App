@@ -2,6 +2,9 @@ package nl.vlettenrally.data.dto.game;
 
 import java.util.UUID;
 
+import io.quarkus.runtime.annotations.RegisterForReflection;
+
+@RegisterForReflection
 public record CheckpointResponse(
     UUID id,
     UUID gameId,

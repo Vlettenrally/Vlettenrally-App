@@ -3,6 +3,9 @@ package nl.vlettenrally.data.dto.team;
 import java.util.List;
 import java.util.UUID;
 
+import io.quarkus.runtime.annotations.RegisterForReflection;
+
+@RegisterForReflection
 public record TeamResponse(
     UUID id,
     UUID gameId,
