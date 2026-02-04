@@ -45,6 +45,7 @@ import {
 import { storage } from '../services/storage';
 import { useGameStore } from '../store/useGameStore';
 import { useConnectionStatus } from '../hooks/useConnectionStatus';
+import { websocket } from '../services/websocket';
 import api from '../services/api';
 import {
   ActiveGamesWidget,
@@ -77,6 +78,24 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   useEffect(() => {
     fetchGames();
   }, [fetchGames]);
+
+  // Manage admin websocket connection (single source of truth for admin panel)
+  useEffect(() => {
+    // Connect as admin once on mount
+    websocket.connectAsAdmin(selectedGameId || undefined);
+    
+    // Disconnect on unmount
+    return () => {
+      websocket.disconnect();
+    };
+  }, [selectedGameId]); // Only run once on mount/unmount
+
+  // Switch game when selectedGameId changes
+  useEffect(() => {
+    if (selectedGameId && websocket.isConnected() && websocket.getConnectionType() === 'admin') {
+      websocket.switchGame(selectedGameId);
+    }
+  }, [selectedGameId]);
 
   // Persist sidebar collapsed state
   useEffect(() => {

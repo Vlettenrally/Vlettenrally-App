@@ -3,6 +3,9 @@ package nl.vlettenrally.data.domain;
 import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber.PhoneNumber;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -12,6 +15,8 @@ import java.util.UUID;
 /**
  * Team entity representing a participating team
  */
+@Getter
+@Setter
 public class Team {
     private UUID id;
     private UUID gameId;
@@ -25,7 +30,10 @@ public class Team {
     private int totalPoints;
     private List<UUID> rivals;
     private String notes;
+    
+    @Setter(AccessLevel.NONE)
     private List<String> emergencyPhoneNumbers;
+    
     private Instant createdAt;
     private Instant updatedAt;
 
@@ -49,49 +57,12 @@ public class Team {
         this.boatNumber = boatNumber;
     }
 
-    // Getters and Setters
-    public UUID getId() { return id; }
-    public void setId(UUID id) { this.id = id; }
-
-    public UUID getGameId() { return gameId; }
-    public void setGameId(UUID gameId) { this.gameId = gameId; }
-
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
-
-    public String getDescription() { return description; }
-    public void setDescription(String description) { this.description = description; }
-
-    public String getBoatNumber() { return boatNumber; }
-    public void setBoatNumber(String boatNumber) { this.boatNumber = boatNumber; }
-
-    public String getExternalId() { return externalId; }
-    public void setExternalId(String externalId) { this.externalId = externalId; }
-
-    public List<String> getParticipants() { return participants; }
-    public void setParticipants(List<String> participants) { this.participants = participants; }
-
-    public UUID getDeviceId() { return deviceId; }
-    public void setDeviceId(UUID deviceId) { this.deviceId = deviceId; }
-
-    public boolean isCheckedIn() { return checkedIn; }
-    public void setCheckedIn(boolean checkedIn) { this.checkedIn = checkedIn; }
-
-    public int getTotalPoints() { return totalPoints; }
-    public void setTotalPoints(int totalPoints) { this.totalPoints = totalPoints; }
-
-    public List<UUID> getRivals() { return rivals; }
-    public void setRivals(List<UUID> rivals) { this.rivals = rivals; }
-
-    public String getNotes() { return notes; }
-    public void setNotes(String notes) { this.notes = notes; }
-
-    public List<String> getEmergencyPhoneNumbers() { return emergencyPhoneNumbers; }
     public void setEmergencyPhoneNumbers(List<String> emergencyPhoneNumbers) { 
-        if (emergencyPhoneNumbers == null || emergencyPhoneNumbers.isEmpty()) {
-            throw new IllegalArgumentException("At least one emergency phone number is required");
+        if (emergencyPhoneNumbers == null) {
+            this.emergencyPhoneNumbers = new ArrayList<>();
+            return;
         }
-        // Validate each phone number
+        // Validate format of each phone number if provided
         for (String phoneNumber : emergencyPhoneNumbers) {
             if (phoneNumber == null || phoneNumber.trim().isEmpty()) {
                 throw new IllegalArgumentException("Emergency phone number cannot be null or empty");
@@ -127,10 +98,4 @@ public class Team {
             return false;
         }
     }
-
-    public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
-
-    public Instant getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
 }

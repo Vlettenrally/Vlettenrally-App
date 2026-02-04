@@ -413,8 +413,10 @@ class WebSocketService {
 
   /**
    * Disconnect from the WebSocket
+   * @param clearHandlers - Whether to clear all message/connection handlers (default: true)
+   *                        Set to false when reconnecting to preserve subscriptions
    */
-  disconnect(): void {
+  disconnect(clearHandlers = true): void {
     this.isIntentionallyClosed = true;
 
     if (this.reconnectTimeout) {
@@ -429,8 +431,10 @@ class WebSocketService {
       this.socket = null;
     }
 
-    this.messageHandlers.clear();
-    this.connectionStateHandlers.clear();
+    if (clearHandlers) {
+      this.messageHandlers.clear();
+      this.connectionStateHandlers.clear();
+    }
     this.config = null;
     this.lastPongReceived = null;
   }
