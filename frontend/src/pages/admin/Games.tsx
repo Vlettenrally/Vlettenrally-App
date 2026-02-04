@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Box,
   Typography,
@@ -64,9 +64,7 @@ const formatStatus = (status?: string): string => {
 };
 
 const Games = () => {
-  const [games, setGames] = useState<Game[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
   
   // Dialog states
   const [formDialogOpen, setFormDialogOpen] = useState(false);
@@ -75,27 +73,9 @@ const Games = () => {
   const [gameToDelete, setGameToDelete] = useState<Game | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Get active game ID from store for WebSocket subscription
-  const { selectedGameId } = useGameStore();
+  // Get games, loading state, and actions from store
+  const { games, isLoading, error, selectedGameId, fetchGames, setSelectedGameId } = useGameStore();
   const { subscribe } = useAdminWebSocket(selectedGameId);
-
-  const fetchGames = useCallback(async () => {
-    try {
-      setLoading(true);
-      const fetchedGames = await gameService.getGames();
-      if (fetchedGames) {
-        setGames(fetchedGames);
-        setError(null);
-      } else {
-        setError('Failed to fetch games.');
-      }
-    } catch (err) {
-      console.error(err);
-      setError('An unexpected error occurred.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
 
   useEffect(() => {
     fetchGames();
@@ -133,9 +113,9 @@ const Games = () => {
       await gameService.deleteGame(gameToDelete.id);
       setDeleteDialogOpen(false);
       setGameToDelete(null);
-      fetchGames();
+      await fetchGames();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete game');
+      setLocalError(err instanceof Error ? err.message : 'Failed to delete game');
     } finally {
       setDeleting(false);
     }
@@ -146,11 +126,13 @@ const Games = () => {
     setSelectedGame(null);
   };
 
-  const handleFormSave = () => {
-    fetchGames();
+  const handleFormSave = async (newGame: Game) => {
+    await fetchGames();
+    // Always select the newly created/updated game
+    setSelectedGameId(newGame.id);
   };
 
-  if (loading && games.length === 0) {
+  if (isLoading && games.length === 0) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
         <CircularProgress />
@@ -169,9 +151,9 @@ const Games = () => {
         </Button>
       </Box>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-          {error}
+      {(error || localError) && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setLocalError(null)}>
+          {error || localError}
         </Alert>
       )}
 

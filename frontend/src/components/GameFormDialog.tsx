@@ -30,7 +30,7 @@ interface GameFormDialogProps {
   open: boolean;
   onClose: () => void;
   game: Game | null;
-  onSave?: () => void;
+  onSave?: (game: Game) => void;
 }
 
 const POLLING_FREQUENCY_OPTIONS = [
@@ -158,13 +158,16 @@ export default function GameFormDialog({
         startSignalTime: formatToISOString(formData.startSignalTime || ''),
       };
 
+      let savedGame: Game;
       if (isCreateMode) {
-        await gameService.createGame(requestData);
+        savedGame = await gameService.createGame(requestData);
       } else if (game) {
-        await gameService.updateGame(game.id, requestData);
+        savedGame = await gameService.updateGame(game.id, requestData);
+      } else {
+        throw new Error('Invalid state: no game to update');
       }
 
-      onSave?.();
+      onSave?.(savedGame);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save game');

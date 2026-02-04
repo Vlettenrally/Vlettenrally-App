@@ -40,7 +40,7 @@ interface GameState {
   fetchGameById: (gameId: string) => Promise<void>;
 }
 
-export const useGameStore = create<GameState>((set, get) => ({
+export const useGameStore = create<GameState>((set) => ({
   game: null,
   checkpoints: [],
   isLoading: false,
@@ -74,12 +74,6 @@ export const useGameStore = create<GameState>((set, get) => ({
       set({ isLoading: true, error: null });
       const games = await gameService.getGames();
       set({ games, isLoading: false });
-      
-      // If no game is selected but games exist, select the first one
-      const currentGameId = get().selectedGameId;
-      if (!currentGameId && games.length > 0) {
-        get().setSelectedGameId(games[0].id);
-      }
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Failed to fetch games', isLoading: false });
     }

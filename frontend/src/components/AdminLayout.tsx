@@ -79,6 +79,13 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     fetchGames();
   }, [fetchGames]);
 
+  // Auto-select first game if none selected
+  useEffect(() => {
+    if (!selectedGameId && games.length > 0) {
+      setSelectedGameId(games[0].id);
+    }
+  }, [games, selectedGameId, setSelectedGameId]);
+
   // Manage admin websocket connection (single source of truth for admin panel)
   useEffect(() => {
     // Connect as admin once on mount
