@@ -3,6 +3,7 @@ kind: Cluster
 metadata:
   name: vlettenrally-database
 spec:
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.1
   instances: 3
   bootstrap:
     initdb:
