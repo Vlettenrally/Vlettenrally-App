@@ -25,6 +25,7 @@ import {
   Automations,
   Analytics,
   AdminLogin,
+  Settings,
 } from './pages/admin';
 
 const theme = createTheme({
@@ -355,6 +356,16 @@ function App() {
               <AdminRoute>
                 <AdminLayout>
                   <Analytics />
+                </AdminLayout>
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/settings"
+            element={
+              <AdminRoute>
+                <AdminLayout>
+                  <Settings />
                 </AdminLayout>
               </AdminRoute>
             }

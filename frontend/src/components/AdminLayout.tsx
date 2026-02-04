@@ -40,6 +40,7 @@ import {
   ChevronRight as ExpandIcon,
   Map as MapIcon,
   WifiOff as WifiOffIcon,
+  Settings as SettingsIcon,
 } from '@mui/icons-material';
 import { storage } from '../services/storage';
 import { useGameStore } from '../store/useGameStore';
@@ -88,6 +89,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { text: 'Teams', icon: <TeamsIcon />, path: '/admin/teams' },
     { text: 'Berichten', icon: <MessageIcon />, path: '/admin/messages' },
     { text: 'Automations', icon: <AutomationsIcon />, path: '/admin/automations' },
+    { text: 'Instellingen', icon: <SettingsIcon />, path: '/admin/settings' },
   ];
 
   const handleNavigate = (path: string) => {

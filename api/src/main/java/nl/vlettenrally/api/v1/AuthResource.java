@@ -18,6 +18,7 @@ import nl.vlettenrally.data.dto.auth.RegistrationTokenResponse;
 import nl.vlettenrally.data.dto.auth.TeamRegistrationRequest;
 import nl.vlettenrally.data.dto.auth.TokenExchangeRequest;
 import nl.vlettenrally.data.dto.auth.TokenResponse;
+import nl.vlettenrally.data.dto.auth.UpdatePasswordRequest;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
 import nl.vlettenrally.data.repository.AdminRepository;
 import nl.vlettenrally.service.AuthService;
@@ -41,6 +42,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
  * - POST /api/v1/auth/token - Exchange registration token for access tokens
  * - POST /api/v1/auth/refresh - Refresh access token
  * - POST /api/v1/auth/admin/login - Admin login with username/password
+ * - POST /api/v1/auth/admin/update-password - Admin update password
  * - POST /api/v1/auth/mock-login - Development only: get token for mock user
  * - GET /api/v1/auth/mock-users - Development only: list available mock users
  */
@@ -229,6 +231,66 @@ public class AuthResource {
         } catch (Exception e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                 .entity(new ErrorResponse("Admin login failed: " + e.getMessage()))
+                .build();
+        }
+    }
+
+    /**
+     * Admin update password
+     * Allows an authenticated admin to change their password
+     */
+    @POST
+    @Path("/admin/update-password")
+    @jakarta.annotation.security.RolesAllowed("admin")
+    public Response updatePassword(
+        UpdatePasswordRequest request,
+        @jakarta.ws.rs.core.Context jakarta.ws.rs.core.SecurityContext securityContext
+    ) {
+        try {
+            // Validate input
+            if (request.currentPassword() == null || request.currentPassword().isBlank()) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ErrorResponse("currentPassword is required"))
+                    .build();
+            }
+            if (request.newPassword() == null || request.newPassword().isBlank()) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ErrorResponse("newPassword is required"))
+                    .build();
+            }
+            
+            // Validate password strength
+            if (request.newPassword().length() < 8) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ErrorResponse("New password must be at least 8 characters long"))
+                    .build();
+            }
+
+            // Get current admin from security context
+            String adminId = securityContext.getUserPrincipal().getName();
+            
+            return adminRepository.findById(UUID.fromString(adminId))
+                .map(admin -> {
+                    // Verify current password
+                    if (!BcryptUtil.matches(request.currentPassword(), admin.getPasswordHash())) {
+                        return Response.status(Response.Status.UNAUTHORIZED)
+                            .entity(new ErrorResponse("Current password is incorrect"))
+                            .build();
+                    }
+                    
+                    // Update to new password
+                    admin.setPasswordHash(BcryptUtil.bcryptHash(request.newPassword()));
+                    adminRepository.save(admin);
+                    
+                    return Response.ok().build();
+                })
+                .orElse(Response.status(Response.Status.NOT_FOUND)
+                    .entity(new ErrorResponse("Admin not found"))
+                    .build());
+
+        } catch (Exception e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                .entity(new ErrorResponse("Password update failed: " + e.getMessage()))
                 .build();
         }
     }
