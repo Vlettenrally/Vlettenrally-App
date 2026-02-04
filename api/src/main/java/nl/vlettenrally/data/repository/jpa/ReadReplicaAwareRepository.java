@@ -1,7 +1,6 @@
 package nl.vlettenrally.data.repository.jpa;
 
 import io.quarkus.hibernate.orm.PersistenceUnit;
-import io.quarkus.logging.Log;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 
@@ -27,12 +26,12 @@ public abstract class ReadReplicaAwareRepository {
 
     /**
      * Get the EntityManager for read operations.
-     * Uses the read replica if available, falls back to primary if not.
+     * Currently uses primary for all operations to avoid transaction enlistment issues.
      * 
      * @return EntityManager for read operations
      */
     protected EntityManager getReadEntityManager() {
-        return getReadEntityManager(false);
+        return primaryEntityManager;
     }
 
     /**
@@ -42,18 +41,8 @@ public abstract class ReadReplicaAwareRepository {
      * @return EntityManager for read operations
      */
     protected EntityManager getReadEntityManager(boolean usesPrimary) {
-        if (usesPrimary) {
-            Log.trace("Using primary EntityManager for read (immediate consistency required)");
-            return primaryEntityManager;
-        }
-
-        // Try to use read replica, fall back to primary if unavailable
-        if (readReplicaEntityManager != null && isEntityManagerValid(readReplicaEntityManager)) {
-            Log.trace("Using read-replica EntityManager for read");
-            return readReplicaEntityManager;
-        }
-
-        Log.trace("Read-replica unavailable, falling back to primary EntityManager");
+        // Currently always use primary to avoid transaction enlistment issues
+        // TODO: Re-enable read replica support with proper transaction awareness
         return primaryEntityManager;
     }
 
@@ -65,17 +54,5 @@ public abstract class ReadReplicaAwareRepository {
      */
     protected EntityManager getWriteEntityManager() {
         return primaryEntityManager;
-    }
-
-    /**
-     * Check if an EntityManager is valid and can be used.
-     */
-    private boolean isEntityManagerValid(EntityManager em) {
-        try {
-            return em != null && em.isOpen();
-        } catch (Exception e) {
-            Log.debug("EntityManager validation failed", e);
-            return false;
-        }
     }
 }
