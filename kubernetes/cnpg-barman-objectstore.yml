@@ -14,5 +14,12 @@ spec:
       secretAccessKey:
         name: garage-s3-creds
         key: SECRET_KEY
+      region:
+        name: garage-s3-creds
+        key: REGION
     wal:
       compression: gzip
+    instanceSidecarConfiguration:
+      env:
+       - name: AWS_DEFAULT_REGION
+         value: "garage"
