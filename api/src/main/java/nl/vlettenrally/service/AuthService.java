@@ -3,7 +3,9 @@ package nl.vlettenrally.service;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import nl.vlettenrally.data.domain.AdminRole;
 import nl.vlettenrally.data.dto.auth.RegistrationResult;
 import nl.vlettenrally.data.dto.auth.TokenResult;
 
@@ -48,4 +50,9 @@ public interface AuthService {
      * Generate a JWT token for mock/development login
      */
     String generateMockToken(String userId, String name, String role, Instant expiresAt);
+
+    /**
+     * Generate a JWT token for admin login with multiple roles
+     */
+    String generateAdminToken(String userId, String name, Set<AdminRole> roles, Instant expiresAt);
 }

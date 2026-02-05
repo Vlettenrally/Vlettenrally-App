@@ -1,6 +1,8 @@
 package nl.vlettenrally.data.domain;
 
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -10,24 +12,25 @@ public class Admin {
     private UUID id;
     private String username;
     private String passwordHash;
-    private String email;
+    private Set<AdminRole> roles;
     private boolean active;
     private Instant createdAt;
     private Instant updatedAt;
 
     public Admin() {
         this.id = UUID.randomUUID();
+        this.roles = new HashSet<>();
         this.active = true;
         this.createdAt = Instant.now();
         this.updatedAt = Instant.now();
     }
 
-    public Admin(UUID id, String username, String passwordHash, String email) {
+    public Admin(UUID id, String username, String passwordHash, Set<AdminRole> roles) {
         this();
         this.id = id;
         this.username = username;
         this.passwordHash = passwordHash;
-        this.email = email;
+        this.roles = roles != null ? new HashSet<>(roles) : new HashSet<>();
     }
 
     // Getters and Setters
@@ -40,8 +43,8 @@ public class Admin {
     public String getPasswordHash() { return passwordHash; }
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
 
-    public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
+    public Set<AdminRole> getRoles() { return roles; }
+    public void setRoles(Set<AdminRole> roles) { this.roles = roles; }
 
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }

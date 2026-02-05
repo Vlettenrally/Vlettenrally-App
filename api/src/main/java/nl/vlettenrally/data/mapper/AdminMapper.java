@@ -3,6 +3,8 @@ package nl.vlettenrally.data.mapper;
 import nl.vlettenrally.data.domain.Admin;
 import nl.vlettenrally.data.entity.jpa.AdminEntity;
 
+import java.util.HashSet;
+
 /**
  * Mapper for converting between Admin domain objects and JPA entities.
  */
@@ -24,7 +26,7 @@ public class AdminMapper {
         domain.setId(entity.getId());
         domain.setUsername(entity.getUsername());
         domain.setPasswordHash(entity.getPasswordHash());
-        domain.setEmail(entity.getEmail());
+        domain.setRoles(entity.getRoles() != null ? new HashSet<>(entity.getRoles()) : new HashSet<>());
         domain.setActive(entity.isActive());
         domain.setCreatedAt(entity.getCreatedAt());
         domain.setUpdatedAt(entity.getUpdatedAt());
@@ -44,7 +46,7 @@ public class AdminMapper {
         entity.setId(domain.getId());
         entity.setUsername(domain.getUsername());
         entity.setPasswordHash(domain.getPasswordHash());
-        entity.setEmail(domain.getEmail());
+        entity.setRoles(domain.getRoles() != null ? new HashSet<>(domain.getRoles()) : new HashSet<>());
         entity.setActive(domain.isActive());
         entity.setCreatedAt(domain.getCreatedAt());
         entity.setUpdatedAt(domain.getUpdatedAt());
@@ -62,7 +64,7 @@ public class AdminMapper {
 
         entity.setUsername(domain.getUsername());
         entity.setPasswordHash(domain.getPasswordHash());
-        entity.setEmail(domain.getEmail());
+        entity.setRoles(domain.getRoles() != null ? new HashSet<>(domain.getRoles()) : new HashSet<>());
         entity.setActive(domain.isActive());
         entity.setUpdatedAt(domain.getUpdatedAt());
     }

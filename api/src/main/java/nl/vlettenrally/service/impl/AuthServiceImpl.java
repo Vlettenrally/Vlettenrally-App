@@ -3,6 +3,7 @@ package nl.vlettenrally.service.impl;
 import io.smallrye.jwt.build.Jwt;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import nl.vlettenrally.data.domain.AdminRole;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.repository.GameRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
@@ -14,8 +15,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import nl.vlettenrally.data.dto.auth.RegistrationTokenData;
 import nl.vlettenrally.data.dto.auth.TokenResult;
 import nl.vlettenrally.data.dto.auth.RegistrationResult;
@@ -240,6 +243,23 @@ public class AuthServiceImpl implements AuthService {
             .subject(userId)
             .claim("name", name)
             .groups(role)
+            .expiresAt(expiresAt)
+            .sign();
+
+        return token;
+    }
+
+    @Override
+    public String generateAdminToken(String userId, String name, Set<AdminRole> roles, Instant expiresAt) {
+        // Convert AdminRole enum set to string array for JWT groups claim
+        Set<String> roleNames = roles.stream()
+            .map(Enum::name)
+            .collect(Collectors.toSet());
+
+        String token = Jwt.issuer(issuer)
+            .subject(userId)
+            .claim("name", name)
+            .groups(roleNames)
             .expiresAt(expiresAt)
             .sign();
 

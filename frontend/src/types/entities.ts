@@ -215,3 +215,52 @@ export interface RetryMessageResponse {
   successCount: number;
   failedCount: number;
 }
+
+/**
+ * Admin role enum
+ */
+export const AdminRole = {
+  ADMIN: 'ADMIN',
+  SUPER_ADMIN: 'SUPER_ADMIN',
+  VIEWER: 'VIEWER',
+  GAME_MASTER: 'GAME_MASTER',
+  MESSAGE_SENDER: 'MESSAGE_SENDER',
+  CHECKPOINT_MANAGER: 'CHECKPOINT_MANAGER',
+} as const;
+
+export type AdminRole = (typeof AdminRole)[keyof typeof AdminRole];
+
+/**
+ * Admin user
+ */
+export interface AdminUser {
+  id: string;
+  username: string;
+  roles: AdminRole[];
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Request to create a new admin user
+ */
+export interface CreateAdminRequest {
+  username: string;
+  password: string;
+  roles: AdminRole[];
+}
+
+/**
+ * Request to update admin roles
+ */
+export interface UpdateAdminRolesRequest {
+  roles: AdminRole[];
+}
+
+/**
+ * Response from password reset
+ */
+export interface ResetPasswordResponse {
+  temporaryPassword: string;
+}

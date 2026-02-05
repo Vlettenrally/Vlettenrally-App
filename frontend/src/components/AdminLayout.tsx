@@ -41,11 +41,13 @@ import {
   Map as MapIcon,
   WifiOff as WifiOffIcon,
   Settings as SettingsIcon,
+  ManageAccounts as ManageAccountsIcon,
 } from '@mui/icons-material';
 import { storage } from '../services/storage';
 import { useGameStore } from '../store/useGameStore';
 import { useConnectionStatus } from '../hooks/useConnectionStatus';
 import { websocket } from '../services/websocket';
+import { isSuperAdmin } from '../services/auth';
 import api from '../services/api';
 import {
   ActiveGamesWidget,
@@ -69,6 +71,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => storage.getSidebarCollapsed());
+  
+  // Check if user is super admin
+  const token = storage.getAuthToken();
+  const isSuperAdminUser = token ? isSuperAdmin(token) : false;
   
   // Use game store instead of local state
   const { games, selectedGameId, setSelectedGameId, fetchGames } = useGameStore();
@@ -117,6 +123,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { text: 'Automations', icon: <AutomationsIcon />, path: '/admin/automations' },
     { text: 'Instellingen', icon: <SettingsIcon />, path: '/admin/settings' },
   ];
+
+  // Add Admin Users menu item for super admins only
+  if (isSuperAdminUser) {
+    menuItems.splice(5, 0, { text: 'Admin Users', icon: <ManageAccountsIcon />, path: '/admin/admin-users' });
+  }
 
   const handleNavigate = (path: string) => {
     navigate(path);

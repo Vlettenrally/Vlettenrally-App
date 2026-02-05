@@ -201,22 +201,24 @@ public class AuthResource {
                     Instant accessExpiresAt = Instant.now().plusSeconds(accessTokenExpirySeconds);
                     Instant refreshExpiresAt = Instant.now().plusSeconds(refreshTokenExpirySeconds);
                     
-                    String accessToken = authService.generateMockToken(
+                    // Use generateAdminToken with Set<AdminRole> for multi-role support
+                    String accessToken = authService.generateAdminToken(
                         admin.getId().toString(),
                         admin.getUsername(),
-                        "admin",
+                        admin.getRoles(),
                         accessExpiresAt
                     );
                     
-                    String refreshToken = authService.generateMockToken(
+                    String refreshToken = authService.generateAdminToken(
                         admin.getId().toString(),
                         admin.getUsername(),
-                        "admin",
+                        admin.getRoles(),
                         refreshExpiresAt
                     );
                     
-                    // Store refresh token for validation and rotation
-                    authService.storeRefreshToken(refreshToken, admin.getId().toString(), admin.getUsername(), "admin", refreshExpiresAt.getEpochSecond());
+                    // Store refresh token - use first role name for backward compatibility
+                    String roleForStorage = admin.getRoles().isEmpty() ? "ADMIN" : admin.getRoles().iterator().next().name();
+                    authService.storeRefreshToken(refreshToken, admin.getId().toString(), admin.getUsername(), roleForStorage, refreshExpiresAt.getEpochSecond());
 
                     return Response.ok(new TokenResponse(
                         accessToken,

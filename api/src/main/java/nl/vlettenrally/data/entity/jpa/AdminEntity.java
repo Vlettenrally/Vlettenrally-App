@@ -1,16 +1,18 @@
 package nl.vlettenrally.data.entity.jpa;
 
 import jakarta.persistence.*;
+import nl.vlettenrally.data.domain.AdminRole;
+
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 /**
  * JPA entity for Admin
  */
 @Entity
-@Table(name = "admins", indexes = {
-    @Index(name = "idx_admins_email", columnList = "email")
-})
+@Table(name = "admins")
 public class AdminEntity {
 
     @Id
@@ -23,8 +25,14 @@ public class AdminEntity {
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
-    @Column(name = "email")
-    private String email;
+    @ElementCollection(targetClass = AdminRole.class, fetch = FetchType.EAGER)
+    @CollectionTable(
+        name = "admin_roles",
+        joinColumns = @JoinColumn(name = "admin_id")
+    )
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role", length = 20)
+    private Set<AdminRole> roles = new HashSet<>();
 
     @Column(name = "active", nullable = false)
     private boolean active = true;
@@ -56,8 +64,8 @@ public class AdminEntity {
     public String getPasswordHash() { return passwordHash; }
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
 
-    public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
+    public Set<AdminRole> getRoles() { return roles; }
+    public void setRoles(Set<AdminRole> roles) { this.roles = roles; }
 
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }

@@ -13,6 +13,7 @@ import {
   Automations,
   Analytics,
 } from './pages';
+import AdminUsers from './pages/admin/AdminUsers';
 
 // Only import Dev page in development builds
 let Dev: ComponentType | null = null;
@@ -38,6 +39,7 @@ const adminRoutes = [
   { path: '/admin/messages', element: <AdminMessages /> },
   { path: '/admin/automations', element: <Automations /> },
   { path: '/admin/analytics', element: <Analytics /> },
+  { path: '/admin/admin-users', element: <AdminUsers /> },
 ];
 
 // Dev routes (only in development builds)

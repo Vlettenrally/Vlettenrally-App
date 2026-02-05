@@ -8,7 +8,10 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import nl.vlettenrally.data.domain.Admin;
+import nl.vlettenrally.data.domain.AdminRole;
 import nl.vlettenrally.data.repository.AdminRepository;
+
+import java.util.Set;
 
 /**
  * Ensures an initial admin user exists at startup.
@@ -16,7 +19,6 @@ import nl.vlettenrally.data.repository.AdminRepository;
 @Startup
 @ApplicationScoped
 public class AdminUserInitializer {
-    private static final String DEFAULT_ADMIN_EMAIL = "admin@example.com";
 
 
     @Inject
@@ -35,7 +37,7 @@ public class AdminUserInitializer {
             Admin admin = new Admin();
             admin.setUsername(initialAdminUsername);
             admin.setPasswordHash(BcryptUtil.bcryptHash(initialAdminPassword));
-            admin.setEmail(DEFAULT_ADMIN_EMAIL);
+            admin.setRoles(Set.of(AdminRole.ADMIN, AdminRole.SUPER_ADMIN));
             admin.setActive(true);
             adminRepository.save(admin);
             Log.warnf("Default admin user created with username '%s' and password '%s'. Please change this password immediately!", initialAdminUsername, initialAdminPassword);

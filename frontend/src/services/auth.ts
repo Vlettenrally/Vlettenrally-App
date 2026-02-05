@@ -2,6 +2,8 @@
  * Auth Service - JWT parsing and role extraction utilities
  */
 
+import { AdminRole } from '../types/entities';
+
 export type UserRole = 'team' | 'admin';
 
 interface JwtPayload {
@@ -103,4 +105,46 @@ export function getSubjectFromToken(token: string): string | null {
 export function getNameFromToken(token: string): string | null {
   const payload = parseJwtPayload(token);
   return payload?.name ?? null;
+}
+
+/**
+ * Get all roles from a JWT token
+ * Returns an array of role names from the groups claim
+ */
+export function getRolesFromToken(token: string): string[] {
+  const payload = parseJwtPayload(token);
+  if (!payload) {
+    return [];
+  }
+  return payload.groups || [];
+}
+
+/**
+ * Check if the user has a specific role
+ */
+export function hasRole(token: string, role: AdminRole | string): boolean {
+  const roles = getRolesFromToken(token);
+  return roles.includes(role);
+}
+
+/**
+ * Check if the user is a super admin
+ */
+export function isSuperAdmin(token: string): boolean {
+  return hasRole(token, AdminRole.SUPER_ADMIN);
+}
+
+/**
+ * Check if the user is an admin (has any admin role)
+ */
+export function isAdmin(token: string): boolean {
+  const roles = getRolesFromToken(token);
+  return roles.some(role => 
+    role === AdminRole.ADMIN ||
+    role === AdminRole.SUPER_ADMIN ||
+    role === AdminRole.GAME_MASTER ||
+    role === AdminRole.MESSAGE_SENDER ||
+    role === AdminRole.CHECKPOINT_MANAGER ||
+    role === AdminRole.VIEWER
+  );
 }

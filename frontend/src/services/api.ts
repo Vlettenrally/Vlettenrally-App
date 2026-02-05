@@ -20,7 +20,11 @@ import type {
   MessageTemplate,
   SendAdminMessageRequest,
   MessageTemplateRequest,
-  RetryMessageResponse 
+  RetryMessageResponse,
+  AdminUser,
+  CreateAdminRequest,
+  UpdateAdminRolesRequest,
+  ResetPasswordResponse
 } from '../types/entities';
 import storage from './storage';
 import { isTokenExpiringSoon } from './auth';
@@ -425,6 +429,27 @@ async getGames() : Promise<ApiResponse<Game[]>> {
 
   async unregisterFcmToken(token: string): Promise<ApiResponse<void>> {
     return this.delete(`/fcm-tokens/${encodeURIComponent(token)}`);
+  }
+
+  // Admin User Management endpoints
+  async listAdmins(): Promise<ApiResponse<AdminUser[]>> {
+    return this.get('/admins');
+  }
+
+  async createAdmin(request: CreateAdminRequest): Promise<ApiResponse<AdminUser>> {
+    return this.post('/admins', request);
+  }
+
+  async updateAdminRoles(adminId: string, request: UpdateAdminRolesRequest): Promise<ApiResponse<AdminUser>> {
+    return this.put(`/admins/${adminId}/roles`, request);
+  }
+
+  async resetAdminPassword(adminId: string): Promise<ApiResponse<ResetPasswordResponse>> {
+    return this.put(`/admins/${adminId}/reset-password`);
+  }
+
+  async deactivateAdmin(adminId: string): Promise<ApiResponse<void>> {
+    return this.delete(`/admins/${adminId}`);
   }
 }
 

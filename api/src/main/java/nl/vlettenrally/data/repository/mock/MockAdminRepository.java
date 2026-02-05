@@ -6,11 +6,13 @@ import io.quarkus.logging.Log;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import nl.vlettenrally.data.domain.Admin;
+import nl.vlettenrally.data.domain.AdminRole;
 import nl.vlettenrally.data.repository.AdminRepository;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -35,12 +37,12 @@ public class MockAdminRepository implements AdminRepository {
     public void initializeData() {
         admins.clear();
         
-        // Create default admin with bcrypt-hashed password "admin123"
+        // Create default admin with bcrypt-hashed password "admin123" and both ADMIN and SUPER_ADMIN roles
         Admin defaultAdmin = new Admin();
         defaultAdmin.setId(ADMIN_DEFAULT_ID);
         defaultAdmin.setUsername("admin");
         defaultAdmin.setPasswordHash(BcryptUtil.bcryptHash("admin123"));
-        defaultAdmin.setEmail("admin@vlettenrally.nl");
+        defaultAdmin.setRoles(Set.of(AdminRole.ADMIN, AdminRole.SUPER_ADMIN));
         defaultAdmin.setActive(true);
         admins.put(defaultAdmin.getId(), defaultAdmin);
         
