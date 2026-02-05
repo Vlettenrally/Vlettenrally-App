@@ -191,6 +191,9 @@ public class TeamResource {
             if (request.participants() != null) {
                 team.setParticipants(request.participants());
             }
+            if (request.emergencyPhoneNumbers() != null) {
+                team.setEmergencyPhoneNumbers(request.emergencyPhoneNumbers());
+            }
             if (request.notes() != null) {
                 team.setNotes(request.notes());
             }
@@ -242,6 +245,7 @@ public class TeamResource {
             team.setDescription(request.description() != null ? request.description() : "");
             team.setBoatNumber(request.boatNumber());
             team.setParticipants(request.participants() != null ? request.participants() : new ArrayList<>());
+            team.setEmergencyPhoneNumbers(request.emergencyPhoneNumbers() != null ? request.emergencyPhoneNumbers() : new ArrayList<>());
             team.setNotes(request.notes());
 
             Team savedTeam = teamService.save(team);

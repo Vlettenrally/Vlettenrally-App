@@ -311,6 +311,7 @@ class ApiService {
       description: data.description,
       boatNumber: data.boatNumber,
       participants: data.participants,
+      emergencyPhoneNumbers: data.emergencyPhoneNumbers,
       notes: data.notes,
     });
   }

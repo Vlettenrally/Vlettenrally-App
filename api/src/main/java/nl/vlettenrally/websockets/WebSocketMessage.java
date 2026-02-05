@@ -3,9 +3,12 @@ package nl.vlettenrally.websockets;
 import java.time.Instant;
 import java.util.UUID;
 
+import io.quarkus.runtime.annotations.RegisterForReflection;
+
 /**
  * Represents a WebSocket message that can be sent to clients
  */
+@RegisterForReflection
 public class WebSocketMessage {
     private String type;
     private Object payload;
