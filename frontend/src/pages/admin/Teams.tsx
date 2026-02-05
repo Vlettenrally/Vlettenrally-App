@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useGameStore } from '../../store/useGameStore';
 import { teamService } from '../../services/teamService';
 import { gameService } from '../../services/gameService';
-import { useAdminWebSocket } from '../../hooks/useWebSocket';
 import { websocket } from '../../services/websocket';
 import TeamDetailDialog from '../../components/TeamDetailDialog';
 import type { AdminTeam, Game, TeamImportResult } from '../../types/entities';
@@ -28,9 +27,6 @@ export default function Teams() {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<TeamImportResult | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
-
-  // Connect to WebSocket for real-time updates
-  useAdminWebSocket(selectedGameId);
 
   // Load game and teams when game changes
   useEffect(() => {

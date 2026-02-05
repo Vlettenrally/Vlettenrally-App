@@ -34,7 +34,7 @@ export function useTeamWebSocket(gameId: string | null, teamId: string | null) {
 /**
  * Hook for admin WebSocket connections
  * Admin connections are game-agnostic - gameId can be null initially and switched later
- * NOTE: Connection management is handled by AdminLayout, this hook only provides subscribe/send
+ * Manages connection lifecycle: connects on mount, disconnects on unmount
  */
 export function useAdminWebSocket(gameId: string | null) {
   return useWebSocket({ type: 'admin', gameId });
@@ -62,13 +62,15 @@ export function useWebSocket(options: UseWebSocketOptions) {
         currentGameIdRef.current = gameId;
       }
     } else {
-      // For admin connections, connection is managed by AdminLayout
-      // This hook only tracks the current gameId for switching
+      // For admin connections, connect once on mount
+      if (!isConnectedRef.current) {
+        websocket.connectAsAdmin();
+        isConnectedRef.current = true;
+      }
+      
+      // Switch game when gameId changes
       if (gameId && gameId !== currentGameIdRef.current) {
-        // Switch to the new game if connected
-        if (websocket.isConnected() && websocket.getConnectionType() === 'admin') {
-          websocket.switchGame(gameId);
-        }
+        websocket.switchGame(gameId);
         currentGameIdRef.current = gameId;
       }
     }
@@ -83,14 +85,12 @@ export function useWebSocket(options: UseWebSocketOptions) {
     };
   }, [type, gameId, teamId]);
 
-  // Cleanup on unmount - only disconnect team connections, admin is managed by layout
+  // Cleanup on unmount - disconnect for both team and admin connections
   useEffect(() => {
     return () => {
-      if (type === 'team') {
-        websocket.disconnect();
-        isConnectedRef.current = false;
-        currentGameIdRef.current = null;
-      }
+      websocket.disconnect();
+      isConnectedRef.current = false;
+      currentGameIdRef.current = null;
     };
   }, [type]);
 

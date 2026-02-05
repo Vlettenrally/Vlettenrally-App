@@ -46,7 +46,7 @@ import {
 import { storage } from '../services/storage';
 import { useGameStore } from '../store/useGameStore';
 import { useConnectionStatus } from '../hooks/useConnectionStatus';
-import { websocket } from '../services/websocket';
+import { useAdminWebSocket } from '../hooks/useWebSocket';
 import { isSuperAdmin } from '../services/auth';
 import api from '../services/api';
 import {
@@ -92,20 +92,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     }
   }, [games, selectedGameId, setSelectedGameId]);
 
-  // Manage admin websocket connection (single source of truth for admin panel)
-  useEffect(() => {
-    websocket.connectAsAdmin();
-    return () => {
-      websocket.disconnect();
-    };
-  }, []);
-
-  // Switch game when selectedGameId changes (also handles initial game selection)
-  useEffect(() => {
-    if (selectedGameId) {
-      websocket.switchGame(selectedGameId);
-    }
-  }, [selectedGameId]);
+  // Admin websocket connection - hook manages connect/disconnect lifecycle
+  useAdminWebSocket(selectedGameId);
 
   // Persist sidebar collapsed state
   useEffect(() => {

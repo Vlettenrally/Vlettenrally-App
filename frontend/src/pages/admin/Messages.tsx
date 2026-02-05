@@ -165,7 +165,7 @@ export default function AdminMessages() {
   useEffect(() => {
     if (!selectedGameId) return;
 
-    // Subscribe to delivery updates (connection is managed by AdminLayout)
+    // Subscribe to delivery updates
     const unsubscribe = websocket.on(WebSocketEventType.MESSAGE_DELIVERY_UPDATE, () => {
       // Refresh messages when delivery status changes
       void fetchMessages();

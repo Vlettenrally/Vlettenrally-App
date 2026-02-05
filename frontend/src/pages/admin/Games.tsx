@@ -29,7 +29,7 @@ import {
 } from '@mui/icons-material';
 import { gameService } from '../../services/gameService';
 import { useGameStore } from '../../store/useGameStore';
-import { useAdminWebSocket } from '../../hooks/useWebSocket';
+import { websocket, WebSocketEventType } from '../../services/websocket';
 import type { Game } from '../../types/entities';
 import GameFormDialog from '../../components/GameFormDialog';
 
@@ -74,8 +74,7 @@ const Games = () => {
   const [deleting, setDeleting] = useState(false);
 
   // Get games, loading state, and actions from store
-  const { games, isLoading, error, selectedGameId, fetchGames, setSelectedGameId } = useGameStore();
-  const { subscribe } = useAdminWebSocket(selectedGameId);
+  const { games, isLoading, error, fetchGames, setSelectedGameId } = useGameStore();
 
   useEffect(() => {
     fetchGames();
@@ -83,12 +82,12 @@ const Games = () => {
 
   // Listen for WebSocket game status updates
   useEffect(() => {
-    const unsubscribe = subscribe('GAME_STATUS', () => {
+    const unsubscribe = websocket.on(WebSocketEventType.GAME_STATUS, () => {
       // Refresh games when status changes
       fetchGames();
     });
     return () => unsubscribe();
-  }, [subscribe, fetchGames]);
+  }, [fetchGames]);
 
   const handleCreateGame = () => {
     setSelectedGame(null);
