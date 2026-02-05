@@ -27,6 +27,7 @@ import {
   AdminLogin,
   Settings,
 } from './pages/admin';
+import AdminUsers from './pages/admin/AdminUsers';
 
 const theme = createTheme({
   palette: {
@@ -366,6 +367,16 @@ function App() {
               <AdminRoute>
                 <AdminLayout>
                   <Settings />
+                </AdminLayout>
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/admin-users"
+            element={
+              <AdminRoute>
+                <AdminLayout>
+                  <AdminUsers />
                 </AdminLayout>
               </AdminRoute>
             }
