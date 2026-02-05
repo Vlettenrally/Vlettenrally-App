@@ -94,18 +94,15 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   // Manage admin websocket connection (single source of truth for admin panel)
   useEffect(() => {
-    // Connect as admin once on mount
-    websocket.connectAsAdmin(selectedGameId || undefined);
-    
-    // Disconnect on unmount
+    websocket.connectAsAdmin();
     return () => {
       websocket.disconnect();
     };
-  }, [selectedGameId]); // Only run once on mount/unmount
+  }, []);
 
-  // Switch game when selectedGameId changes
+  // Switch game when selectedGameId changes (also handles initial game selection)
   useEffect(() => {
-    if (selectedGameId && websocket.isConnected() && websocket.getConnectionType() === 'admin') {
+    if (selectedGameId) {
       websocket.switchGame(selectedGameId);
     }
   }, [selectedGameId]);
