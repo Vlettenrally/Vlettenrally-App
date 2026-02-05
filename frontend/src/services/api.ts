@@ -131,9 +131,10 @@ class ApiService {
 
       const data = await response.json().catch(() => null);
 
-      // Handle 401 Unauthorized - attempt token refresh and retry once
-      if (response.status === 401 && !endpoint.startsWith('/auth/')) {
-        console.log('[API] Got 401, attempting token refresh...');
+      // Handle 401 Unauthorized or 403 Forbidden - attempt token refresh and retry once
+      // 403 can occur when API restarts and token validation fails temporarily
+      if ((response.status === 401 || response.status === 403) && !endpoint.startsWith('/auth/')) {
+        console.log(`[API] Got ${response.status}, attempting token refresh...`);
         
         const refreshToken = storage.getRefreshToken();
         if (!refreshToken) {
@@ -141,7 +142,7 @@ class ApiService {
           this.redirectToLogin();
           return {
             error: 'Authentication failed',
-            status: 401,
+            status: response.status,
           };
         }
 
@@ -158,7 +159,7 @@ class ApiService {
             this.redirectToLogin();
             return {
               error: 'Session expired',
-              status: 401,
+              status: response.status,
             };
           }
 
@@ -202,7 +203,7 @@ class ApiService {
           this.redirectToLogin();
           return {
             error: 'Session expired',
-            status: 401,
+            status: response.status,
           };
         }
       }
