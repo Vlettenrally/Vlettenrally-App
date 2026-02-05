@@ -251,9 +251,9 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public String generateAdminToken(String userId, String name, Set<AdminRole> roles, Instant expiresAt) {
-        // Convert AdminRole enum set to string array for JWT groups claim
+        // Convert AdminRole enum set to lowercase string array for JWT groups claim
         Set<String> roleNames = roles.stream()
-            .map(Enum::name)
+            .map(role -> role.name().toLowerCase())
             .collect(Collectors.toSet());
 
         String token = Jwt.issuer(issuer)

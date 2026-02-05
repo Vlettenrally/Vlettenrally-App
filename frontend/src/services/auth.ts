@@ -52,7 +52,9 @@ export function getRoleFromToken(token: string): UserRole | null {
   }
   
   // Fall back to checking groups
-  if (payload.groups?.includes('admin')) {
+  // Check if any admin role is present
+  const adminRoles = ['admin', 'super_admin', 'viewer', 'game_master', 'message_sender', 'checkpoint_manager'];
+  if (payload.groups?.some(group => adminRoles.includes(group))) {
     return 'admin';
   }
   if (payload.groups?.includes('team')) {
@@ -139,12 +141,6 @@ export function isSuperAdmin(token: string): boolean {
  */
 export function isAdmin(token: string): boolean {
   const roles = getRolesFromToken(token);
-  return roles.some(role => 
-    role === AdminRole.ADMIN ||
-    role === AdminRole.SUPER_ADMIN ||
-    role === AdminRole.GAME_MASTER ||
-    role === AdminRole.MESSAGE_SENDER ||
-    role === AdminRole.CHECKPOINT_MANAGER ||
-    role === AdminRole.VIEWER
-  );
+  const adminRoleValues = ['admin', 'super_admin', 'viewer', 'game_master', 'message_sender', 'checkpoint_manager'];
+  return roles.some(role => adminRoleValues.includes(role));
 }

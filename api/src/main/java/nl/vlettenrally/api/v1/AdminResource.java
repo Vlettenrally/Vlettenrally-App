@@ -41,7 +41,7 @@ import java.util.stream.Collectors;
 @Path("/api/v1/admins")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
-@RolesAllowed("SUPER_ADMIN")
+@RolesAllowed("super_admin")
 public class AdminResource {
 
     @Inject
@@ -58,7 +58,7 @@ public class AdminResource {
      * List all admin users
      */
     @GET
-    @RolesAllowed("SUPER_ADMIN")
+    @RolesAllowed("super_admin")
     public Response listAdmins(@Context SecurityContext securityContext) {
         List<AdminUserResponse> admins = adminRepository.findAll().stream()
             .map(this::toResponse)
@@ -74,7 +74,7 @@ public class AdminResource {
      * Create a new admin user
      */
     @POST
-    @RolesAllowed("SUPER_ADMIN")
+    @RolesAllowed("super_admin")
     public Response createAdmin(CreateAdminRequest request, @Context SecurityContext securityContext) {
         // Validate request
         if (request.username() == null || request.username().isBlank()) {
@@ -139,7 +139,7 @@ public class AdminResource {
      */
     @PUT
     @Path("/{id}/roles")
-    @RolesAllowed("SUPER_ADMIN")
+    @RolesAllowed("super_admin")
     public Response updateRoles(
             @PathParam("id") UUID adminId,
             UpdateAdminRolesRequest request,
@@ -211,7 +211,7 @@ public class AdminResource {
      */
     @PUT
     @Path("/{id}/reset-password")
-    @RolesAllowed("SUPER_ADMIN")
+    @RolesAllowed("super_admin")
     public Response resetPassword(@PathParam("id") UUID adminId, @Context SecurityContext securityContext) {
         Admin admin = adminRepository.findById(adminId).orElse(null);
         if (admin == null) {
@@ -237,7 +237,7 @@ public class AdminResource {
      */
     @DELETE
     @Path("/{id}")
-    @RolesAllowed("SUPER_ADMIN")
+    @RolesAllowed("super_admin")
     public Response deactivateAdmin(@PathParam("id") UUID adminId, @Context SecurityContext securityContext) {
         Admin admin = adminRepository.findById(adminId).orElse(null);
         if (admin == null) {

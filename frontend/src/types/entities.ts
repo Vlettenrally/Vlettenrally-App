@@ -220,12 +220,12 @@ export interface RetryMessageResponse {
  * Admin role enum
  */
 export const AdminRole = {
-  ADMIN: 'ADMIN',
-  SUPER_ADMIN: 'SUPER_ADMIN',
-  VIEWER: 'VIEWER',
-  GAME_MASTER: 'GAME_MASTER',
-  MESSAGE_SENDER: 'MESSAGE_SENDER',
-  CHECKPOINT_MANAGER: 'CHECKPOINT_MANAGER',
+  ADMIN: 'admin',
+  SUPER_ADMIN: 'super_admin',
+  VIEWER: 'viewer',
+  GAME_MASTER: 'game_master',
+  MESSAGE_SENDER: 'message_sender',
+  CHECKPOINT_MANAGER: 'checkpoint_manager',
 } as const;
 
 export type AdminRole = (typeof AdminRole)[keyof typeof AdminRole];
