@@ -375,7 +375,7 @@ public class AuthResource {
                     long accessTokenExpirySeconds = accessTokenExpiryMinutes * 60L;
                     Instant expiresAt = Instant.now().plusSeconds(accessTokenExpirySeconds);
                                       
-                    String token = authService.generateMockToken(
+                    String token = authService.generateToken(
                         teamId.toString(),
                         team.getName(),
                         "team",

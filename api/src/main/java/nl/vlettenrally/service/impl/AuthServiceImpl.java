@@ -126,8 +126,8 @@ public class AuthServiceImpl implements AuthService {
         long accessTokenExpirySeconds = accessTokenExpiryMinutes * 60L;
         long refreshTokenExpirySeconds = refreshTokenExpiryDays * 86400L;
         
-        String accessToken = generateMockToken(tokenData.subject(), tokenData.name(), tokenData.role(), Instant.now().plusSeconds(accessTokenExpirySeconds));
-        String refreshTokenStr = generateMockToken(tokenData.subject(), tokenData.name(), tokenData.role(), Instant.now().plusSeconds(refreshTokenExpirySeconds));
+        String accessToken = generateToken(tokenData.subject(), tokenData.name(), tokenData.role().toLowerCase(), Instant.now().plusSeconds(accessTokenExpirySeconds));
+        String refreshTokenStr = generateToken(tokenData.subject(), tokenData.name(), tokenData.role(), Instant.now().plusSeconds(refreshTokenExpirySeconds));
 
         // Store refresh token in database for persistence
         RefreshToken refreshToken = new RefreshToken();
@@ -185,8 +185,8 @@ public class AuthServiceImpl implements AuthService {
         long accessTokenExpirySeconds = accessTokenExpiryMinutes * 60L;
         long refreshTokenExpirySeconds = refreshTokenExpiryDays * 86400L;
         
-        String newAccessToken = generateMockToken(tokenData.getSubject(), tokenData.getName(), tokenData.getRole(), Instant.now().plusSeconds(accessTokenExpirySeconds));
-        String newRefreshTokenStr = generateMockToken(tokenData.getSubject(), tokenData.getName(), tokenData.getRole(), Instant.now().plusSeconds(refreshTokenExpirySeconds));
+        String newAccessToken = generateToken(tokenData.getSubject(), tokenData.getName(), tokenData.getRole().toLowerCase(), Instant.now().plusSeconds(accessTokenExpirySeconds));
+        String newRefreshTokenStr = generateToken(tokenData.getSubject(), tokenData.getName(), tokenData.getRole(), Instant.now().plusSeconds(refreshTokenExpirySeconds));
 
         // Mark old refresh token as revoked (token rotation)
         tokenData.setRevoked(true);
@@ -238,7 +238,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public String generateMockToken(String userId, String name, String role, Instant expiresAt) {
+    public String generateToken(String userId, String name, String role, Instant expiresAt) {
         String token = Jwt.issuer(issuer)
             .subject(userId)
             .claim("name", name)

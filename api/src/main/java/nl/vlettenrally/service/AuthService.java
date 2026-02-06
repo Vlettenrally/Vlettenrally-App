@@ -49,7 +49,7 @@ public interface AuthService {
     /**
      * Generate a JWT token for mock/development login
      */
-    String generateMockToken(String userId, String name, String role, Instant expiresAt);
+    String generateToken(String userId, String name, String role, Instant expiresAt);
 
     /**
      * Generate a JWT token for admin login with multiple roles
