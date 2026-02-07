@@ -82,4 +82,12 @@ export const gameService = {
     const response = await api.getExternalEvents();
     return response.data ?? [];
   },
+
+  generateCheckInLink: async (gameId: string): Promise<{ url: string; token: string; expiresAt: number; expiryReason: string }> => {
+    const response = await api.generateGameCheckInLink(gameId);
+    if (response.error) {
+      throw new Error(response.error);
+    }
+    return response.data!;
+  },
 };

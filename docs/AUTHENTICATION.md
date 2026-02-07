@@ -7,6 +7,17 @@ The Vlettenrally app uses a three-token authentication system to enable external
 2. **Access Token** (1 hour expiry, used for API calls)
 3. **Refresh Token** (7 days expiry, used to get new access tokens)
 
+### Game-Scoped Check-in Links
+For admin-generated check-in links, the API issues a **game-scoped registration token**. This token allows a participant to select their team from the game and then receive the normal access/refresh tokens.
+
+**Expiry rules for game-scoped tokens:**
+- Expires at the earlier of: (1) 5 minutes after all teams check in, or (2) game start time.
+
+**Admin endpoint to generate a game-scoped link:**
+```
+POST /api/v1/games/{gameId}/check-in-link
+```
+
 ## Flow Diagram
 
 ```
@@ -74,10 +85,32 @@ Response (200 OK):
 ### 2. Exchange Token (Player App)
 ```
 POST /api/v1/auth/token
+Authorization: Bearer abc123...
+
+Response (200 OK):
+{
+  "accessToken": "eyJhbGciOi...",
+  "refreshToken": "refresh_xyz...",
+  "expiresIn": 3600
+}
+
+Response for game-scoped token (200 OK):
+{
+  "gameId": "uuid",
+  "teamOptions": [
+    { "id": "uuid", "name": "Scouting Nederland", "boatNumber": "42" }
+  ]
+}
+```
+
+### 2b. Select Team (Player App)
+```
+POST /api/v1/auth/select-team
+Authorization: Bearer <checkin-token>
 Content-Type: application/json
 
 {
-  "registrationToken": "abc123..."
+  "teamId": "uuid"
 }
 
 Response (200 OK):

@@ -98,6 +98,8 @@ spec:
                 secretKeyRef:
                   name: vlettenrally-pre-registration
                   key: api-key
+            - name: FRONTEND_BASE_URL
+              value: "https://vlettenrally.lntserv.nl"
           volumeMounts:
             - name: firebase-credentials
               mountPath: /secrets/firebase

@@ -19,6 +19,7 @@ import nl.vlettenrally.data.converter.TeamConverter;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
 import nl.vlettenrally.data.dto.team.EmergencyPhoneUpdateRequest;
+import nl.vlettenrally.data.dto.team.ParticipantsUpdateRequest;
 import nl.vlettenrally.data.dto.team.TeamCreateRequest;
 import nl.vlettenrally.data.dto.team.TeamUpdateRequest;
 import nl.vlettenrally.service.TeamService;
@@ -97,7 +98,6 @@ public class TeamResource {
     @GET
     @Path("/team/me")
     @RolesAllowed({ "team" })
-    @TeamScoped
     public Response getMyTeam(@Context SecurityContext securityContext) {
         UUID teamId = UUID.fromString(securityContext.getUserPrincipal().getName());
 
@@ -121,6 +121,10 @@ public class TeamResource {
         try {
             Team team = teamService.checkIn(teamId);
             return Response.ok(teamConverter.toDto(team)).build();
+        } catch (IllegalStateException e) {
+            return Response.status(Response.Status.CONFLICT)
+                .entity(new ErrorResponse(e.getMessage()))
+                .build();
         } catch (IllegalArgumentException e) {
             return Response.status(Response.Status.NOT_FOUND)
                 .entity(new ErrorResponse(e.getMessage()))
@@ -151,6 +155,37 @@ public class TeamResource {
             team.setEmergencyPhoneNumbers(request.phoneNumbers());
             Team updatedTeam = teamService.save(team);
             
+            return Response.ok(teamConverter.toDto(updatedTeam)).build();
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse(e.getMessage()))
+                .build();
+        }
+    }
+
+    /**
+     * Update participants for a team
+     */
+    @PUT
+    @Path("/teams/{teamId}/participants")
+    @RolesAllowed({"team"})
+    @TeamScoped
+    public Response updateParticipants(
+            @PathParam("teamId") UUID teamId,
+            ParticipantsUpdateRequest request) {
+
+        try {
+            Optional<Team> teamOpt = teamService.findById(teamId);
+            if (teamOpt.isEmpty()) {
+                return Response.status(Response.Status.NOT_FOUND)
+                    .entity(new ErrorResponse("Team not found"))
+                    .build();
+            }
+
+            Team team = teamOpt.get();
+            team.setParticipants(request.participants());
+            Team updatedTeam = teamService.save(team);
+
             return Response.ok(teamConverter.toDto(updatedTeam)).build();
         } catch (IllegalArgumentException e) {
             return Response.status(Response.Status.BAD_REQUEST)

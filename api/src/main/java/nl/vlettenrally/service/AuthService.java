@@ -6,6 +6,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import nl.vlettenrally.data.domain.AdminRole;
+import nl.vlettenrally.data.dto.auth.GameCheckInLinkResponse;
 import nl.vlettenrally.data.dto.auth.RegistrationResult;
 import nl.vlettenrally.data.dto.auth.TokenResult;
 
@@ -37,6 +38,16 @@ public interface AuthService {
     Optional<TokenResult> refreshToken(String refreshToken);
 
     /**
+     * Select a team from a game-scoped registration token and receive access/refresh tokens
+     */
+    Optional<TokenResult> selectTeam(UUID gameId, UUID teamId);
+
+    /**
+     * Validate whether a game-scoped check-in token is still valid
+     */
+    boolean isCheckInTokenValid(UUID gameId);
+
+    /**
      * Revoke all tokens for a team
      */
     void revokeTokens(UUID teamId);
@@ -55,4 +66,13 @@ public interface AuthService {
      * Generate a JWT token for admin login with multiple roles
      */
     String generateAdminToken(String userId, String name, Set<AdminRole> roles, Instant expiresAt);
+
+    /**
+     * Generate a game-scoped check-in token that allows teams to select themselves
+     * Token expires at the earlier of: (1) 5 minutes after all teams check in, or (2) game start time
+     * 
+     * @param gameId The ID of the game
+     * @return GameCheckInLinkResponse containing the full URL and token details
+     */
+    GameCheckInLinkResponse generateGameCheckInLink(UUID gameId);
 }

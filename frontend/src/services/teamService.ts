@@ -70,6 +70,21 @@ export const teamService = {
     return response.data ?? null;
   },
 
+  updateEmergencyPhones: async (teamId: string, phoneNumbers: string[]): Promise<AdminTeam | null> => {
+    const response = await api.updateEmergencyPhones(teamId, phoneNumbers);
+    return response.data ?? null;
+  },
+
+  updateParticipants: async (teamId: string, participants: string[]): Promise<AdminTeam | null> => {
+    const response = await api.updateParticipants(teamId, participants);
+    return response.data ?? null;
+  },
+
+  checkIn: async (teamId: string): Promise<AdminTeam | null> => {
+    const response = await api.checkInTeam(teamId);
+    return response.data ?? null;
+  },
+
   createTeam: async (data: Partial<AdminTeam> & { gameId: string }): Promise<AdminTeam | null> => {
     const response = await api.createTeam(data);
     return response.data ?? null;

@@ -269,8 +269,23 @@ class ApiService {
   }
 
   // Authentication endpoints
-  async exchangeToken(registrationToken: string) {
-    return this.post('/auth/token', { registrationToken });
+  async exchangeToken(checkInToken: string) {
+    return this.request('/check-in/teams', {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${checkInToken}`,
+      },
+    });
+  }
+
+  async selectTeam(checkInToken: string, teamId: string) {
+    return this.request('/check-in/exchange-token', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${checkInToken}`,
+      },
+      body: JSON.stringify({ teamId }),
+    });
   }
 
   async refreshAccessToken(refreshToken: string) {
@@ -284,6 +299,18 @@ class ApiService {
   // Team endpoints
   async getMyTeam() : Promise<ApiResponse<PlayerTeam>> {
     return this.get('/team/me');
+  }
+
+  async updateEmergencyPhones(teamId: string, phoneNumbers: string[]) : Promise<ApiResponse<AdminTeam>> {
+    return this.put(`/teams/${teamId}/emergency-phones`, { phoneNumbers });
+  }
+
+  async updateParticipants(teamId: string, participants: string[]) : Promise<ApiResponse<AdminTeam>> {
+    return this.put(`/teams/${teamId}/participants`, { participants });
+  }
+
+  async checkInTeam(teamId: string) : Promise<ApiResponse<AdminTeam>> {
+    return this.post(`/teams/${teamId}/check-in`);
   }
 
   async getTeam(teamId: string) : Promise<ApiResponse<AdminTeam>> {
@@ -336,6 +363,10 @@ async getGames() : Promise<ApiResponse<Game[]>> {
 
   async createGame(data: GameRequest) : Promise<ApiResponse<Game>> {
     return this.post('/games', data);
+  }
+
+  async generateGameCheckInLink(gameId: string): Promise<ApiResponse<{ url: string; token: string; expiresAt: number; expiryReason: string }>> {
+    return this.post(`/games/${gameId}/check-in-link`);
   }
 
   async updateGame(gameId: string, data: GameRequest) : Promise<ApiResponse<Game>> {

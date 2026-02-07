@@ -65,6 +65,9 @@ public class TeamServiceImpl implements TeamService {
     public Team checkIn(UUID teamId) {
         return teamRepository.findById(teamId)
             .map(team -> {
+                if (team.isCheckedIn()) {
+                    throw new IllegalStateException("Team is already checked in");
+                }
                 // Validate that at least one emergency phone number is provided before check-in
                 if (team.getEmergencyPhoneNumbers() == null || team.getEmergencyPhoneNumbers().isEmpty()) {
                     throw new IllegalArgumentException("At least one emergency phone number is required for check-in");

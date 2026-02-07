@@ -264,3 +264,28 @@ export interface UpdateAdminRolesRequest {
 export interface ResetPasswordResponse {
   temporaryPassword: string;
 }
+
+/**
+ * Team option for check-in team selection
+ */
+export interface TeamOption {
+  id: string;
+  name: string;
+  boatNumber: string;
+}
+
+/**
+ * Response from token exchange during check-in
+ * Either returns auth tokens or team selection options
+ */
+export type TokenExchangeResponse =
+  | {
+      accessToken: string;
+      refreshToken: string;
+      expiresIn: number;
+      tokenType?: string;
+    }
+  | {
+      gameId: string;
+      teamOptions: TeamOption[];
+    };

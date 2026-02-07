@@ -16,6 +16,7 @@ import nl.vlettenrally.client.LocationApiClient;
 import nl.vlettenrally.client.dto.TestConnectionResult;
 import nl.vlettenrally.client.exception.LocationApiException;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
+import nl.vlettenrally.data.dto.auth.GameCheckInLinkResponse;
 import nl.vlettenrally.data.dto.game.CheckpointResponse;
 import nl.vlettenrally.data.dto.game.GameRequest;
 import nl.vlettenrally.data.dto.game.GameResponse;
@@ -29,6 +30,7 @@ import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.service.GameService;
 import nl.vlettenrally.service.CheckpointService;
 import nl.vlettenrally.service.ImportResult;
+import nl.vlettenrally.service.AuthService;
 import nl.vlettenrally.service.TeamService;
 import nl.vlettenrally.service.TeamImportService;
 
@@ -74,6 +76,9 @@ public class GameResource {
 
     @Inject
     LocationApiClient locationApiClient;
+
+    @Inject
+    AuthService authService;
 
     /**
      * Get all games
@@ -146,6 +151,27 @@ public class GameResource {
         }
         List<Team> teams = teamService.findByGameId(gameId);
         return Response.ok(teams.stream().map(teamConverter::toDto).toList()).build();
+    }
+
+    /**
+     * Generate a game-scoped check-in link for admin use
+     */
+    @POST
+    @Path("/{gameId}/check-in-link")
+    @RolesAllowed({"admin"})
+    public Response generateCheckInLink(@PathParam("gameId") UUID gameId) {
+        try {
+            GameCheckInLinkResponse response = authService.generateGameCheckInLink(gameId);
+            return Response.ok(response).build();
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.NOT_FOUND)
+                .entity(new ErrorResponse(e.getMessage()))
+                .build();
+        } catch (Exception e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                .entity(new ErrorResponse("Failed to generate check-in link: " + e.getMessage()))
+                .build();
+        }
     }
 
     /**

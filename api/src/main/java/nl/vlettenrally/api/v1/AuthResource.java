@@ -9,6 +9,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import nl.vlettenrally.data.dto.auth.AdminLoginRequest;
+import nl.vlettenrally.data.dto.auth.AuthTokenResponse;
 import nl.vlettenrally.data.dto.auth.MockLoginRequest;
 import nl.vlettenrally.data.dto.auth.MockLoginResponse;
 import nl.vlettenrally.data.dto.auth.MockUserResponse;
@@ -16,8 +17,6 @@ import nl.vlettenrally.data.dto.auth.RefreshTokenRequest;
 import nl.vlettenrally.data.dto.auth.RegistrationResult;
 import nl.vlettenrally.data.dto.auth.RegistrationTokenResponse;
 import nl.vlettenrally.data.dto.auth.TeamRegistrationRequest;
-import nl.vlettenrally.data.dto.auth.TokenExchangeRequest;
-import nl.vlettenrally.data.dto.auth.TokenResponse;
 import nl.vlettenrally.data.dto.auth.UpdatePasswordRequest;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
 import nl.vlettenrally.data.repository.AdminRepository;
@@ -39,7 +38,6 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
  * 
  * Endpoints:
  * - POST /api/v1/auth/register - Register a new team
- * - POST /api/v1/auth/token - Exchange registration token for access tokens
  * - POST /api/v1/auth/refresh - Refresh access token
  * - POST /api/v1/auth/admin/login - Admin login with username/password
  * - POST /api/v1/auth/admin/update-password - Admin update password
@@ -112,37 +110,6 @@ public class AuthResource {
     }
 
     /**
-     * Exchange registration token for access + refresh tokens
-     * This is called by the app after receiving the registration token
-     */
-    @POST
-    @Path("/token")
-    public Response exchangeToken(TokenExchangeRequest request) {
-        try {
-            if (request.registrationToken() == null) {
-                return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new ErrorResponse("registrationToken is required"))
-                    .build();
-            }
-
-            return authService.exchangeToken(request.registrationToken())
-                .map(result -> Response.ok(new TokenResponse(
-                    result.accessToken(),
-                    result.refreshToken(),
-                    result.expiresIn()
-                )).build())
-                .orElse(Response.status(Response.Status.UNAUTHORIZED)
-                    .entity(new ErrorResponse("Invalid, expired, or already used registration token"))
-                    .build());
-
-        } catch (Exception e) {
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                .entity(new ErrorResponse("Token exchange failed: " + e.getMessage()))
-                .build();
-        }
-    }
-
-    /**
      * Refresh access token using refresh token
      */
     @POST
@@ -156,7 +123,7 @@ public class AuthResource {
             }
 
             return authService.refreshToken(request.refreshToken())
-                .map(result -> Response.ok(new TokenResponse(
+                .map(result -> Response.ok(new AuthTokenResponse(
                     result.accessToken(),
                     result.refreshToken(),
                     result.expiresIn()
@@ -220,7 +187,7 @@ public class AuthResource {
                     String roleForStorage = admin.getRoles().isEmpty() ? "ADMIN" : admin.getRoles().iterator().next().name();
                     authService.storeRefreshToken(refreshToken, admin.getId().toString(), admin.getUsername(), roleForStorage, refreshExpiresAt.getEpochSecond());
 
-                    return Response.ok(new TokenResponse(
+                    return Response.ok(new AuthTokenResponse(
                         accessToken,
                         refreshToken,
                         accessTokenExpirySeconds
