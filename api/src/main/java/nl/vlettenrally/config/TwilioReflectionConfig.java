@@ -31,6 +31,7 @@ import io.quarkus.runtime.annotations.RegisterForReflection;
         com.twilio.converter.Promoter.class,
         com.twilio.converter.DateConverter.class,
         com.twilio.converter.PrefixedCollapsibleMap.class,
+        com.twilio.converter.CurrencyDeserializer.class,
 
         // Twilio base classes
         com.twilio.base.Resource.class,
