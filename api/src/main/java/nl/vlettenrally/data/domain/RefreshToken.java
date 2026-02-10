@@ -1,9 +1,11 @@
 package nl.vlettenrally.data.domain;
 
+import jakarta.persistence.Column;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.time.Instant;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -17,7 +19,8 @@ public class RefreshToken {
     private String token;
     private String subject;
     private String name;
-    private String role;
+    @Column(columnDefinition = "text[]")
+    private Set<String> roles;
     private Instant expiresAt;
     private boolean revoked;
     private Instant createdAt;
@@ -30,13 +33,13 @@ public class RefreshToken {
         this.updatedAt = Instant.now();
     }
 
-    public RefreshToken(UUID id, String token, String subject, String name, String role, Instant expiresAt, boolean revoked) {
+    public RefreshToken(UUID id, String token, String subject, String name, Set<String> roles, Instant expiresAt, boolean revoked) {
         this();
         this.id = id;
         this.token = token;
         this.subject = subject;
         this.name = name;
-        this.role = role;
+        this.roles = roles;
         this.expiresAt = expiresAt;
         this.revoked = revoked;
     }

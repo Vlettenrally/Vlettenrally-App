@@ -1,6 +1,6 @@
 package nl.vlettenrally.data.dto.admin;
 
-import nl.vlettenrally.data.domain.AdminRole;
+import nl.vlettenrally.data.enums.Role;
 
 import java.util.Set;
 
@@ -13,5 +13,5 @@ import io.quarkus.runtime.annotations.RegisterForReflection;
 public record CreateAdminRequest(
     String username,
     String password,
-    Set<AdminRole> roles
+    Set<Role> roles
 ) {}

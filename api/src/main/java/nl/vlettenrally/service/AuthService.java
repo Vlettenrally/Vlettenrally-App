@@ -5,7 +5,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import nl.vlettenrally.data.domain.AdminRole;
+import nl.vlettenrally.data.domain.Admin;
+import nl.vlettenrally.data.enums.Role;
+import nl.vlettenrally.data.enums.TokenType;
 import nl.vlettenrally.data.dto.auth.GameCheckInLinkResponse;
 import nl.vlettenrally.data.dto.auth.RegistrationResult;
 import nl.vlettenrally.data.dto.auth.TokenResult;
@@ -55,17 +57,36 @@ public interface AuthService {
     /**
      * Store a refresh token for validation and rotation
      */
-    void storeRefreshToken(String refreshToken, String subject, String name, String role, long expiresAt);
+    void storeRefreshToken(String refreshToken, String subject, String name, Set<String> roles, long expiresAt);
 
     /**
-     * Generate a JWT token for mock/development login
+     * Authenticate admin user with username and password
+     * @param username Admin username
+     * @param password Admin password
+     * @return Optional containing Admin if authentication successful
      */
-    String generateToken(String userId, String name, String role, Instant expiresAt);
+    Optional<Admin> adminLogin(String username, String password);
 
     /**
-     * Generate a JWT token for admin login with multiple roles
+     * Update admin password
+     * @param adminId Admin ID
+     * @param currentPassword Current password for verification
+     * @param newPassword New password to set
+     * @return true if password updated successfully, false otherwise
      */
-    String generateAdminToken(String userId, String name, Set<AdminRole> roles, Instant expiresAt);
+    boolean updateAdminPassword(UUID adminId, String currentPassword, String newPassword);
+
+    /**
+     * Generate a JWT token with a single role
+     * @param tokenType TokenType enum (ACCESS, REFRESH, or CHECKIN)
+     */
+    String generateToken(String userId, String name, String role, Instant expiresAt, TokenType tokenType);
+
+    /**
+     * Generate a JWT token with multiple roles
+     * @param tokenType TokenType enum (ACCESS, REFRESH, or CHECKIN)
+     */
+    String generateToken(String userId, String name, Set<Role> roles, Instant expiresAt, TokenType tokenType);
 
     /**
      * Generate a game-scoped check-in token that allows teams to select themselves

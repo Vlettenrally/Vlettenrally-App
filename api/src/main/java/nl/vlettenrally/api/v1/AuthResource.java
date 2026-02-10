@@ -1,5 +1,6 @@
 package nl.vlettenrally.api.v1;
 
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
@@ -19,16 +20,15 @@ import nl.vlettenrally.data.dto.auth.RegistrationTokenResponse;
 import nl.vlettenrally.data.dto.auth.TeamRegistrationRequest;
 import nl.vlettenrally.data.dto.auth.UpdatePasswordRequest;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
+import nl.vlettenrally.data.enums.TokenType;
 import nl.vlettenrally.data.repository.AdminRepository;
 import nl.vlettenrally.service.AuthService;
 import nl.vlettenrally.service.TeamService;
 
-import io.quarkus.elytron.security.common.BcryptUtil;
-
 import java.time.Instant;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -84,7 +84,7 @@ public class AuthResource {
 
             // Convert array to list
             List<String> participants = registration.participantNames() != null 
-                ? Arrays.asList(registration.participantNames()) 
+                ? List.of(registration.participantNames()) 
                 : Collections.emptyList();
 
             RegistrationResult result = authService.registerTeam(
@@ -158,9 +158,7 @@ public class AuthResource {
                     .build();
             }
 
-            return adminRepository.findByUsername(request.username())
-                .filter(admin -> admin.isActive())
-                .filter(admin -> BcryptUtil.matches(request.password(), admin.getPasswordHash()))
+            return authService.adminLogin(request.username(), request.password())
                 .map(admin -> { 
                     long accessTokenExpirySeconds = accessTokenExpiryMinutes * 60L;
                     long refreshTokenExpirySeconds = refreshTokenExpiryDays * 86400L;
@@ -168,24 +166,28 @@ public class AuthResource {
                     Instant accessExpiresAt = Instant.now().plusSeconds(accessTokenExpirySeconds);
                     Instant refreshExpiresAt = Instant.now().plusSeconds(refreshTokenExpirySeconds);
                     
-                    // Use generateAdminToken with Set<AdminRole> for multi-role support
-                    String accessToken = authService.generateAdminToken(
+                    // Use generateToken overload with Set<AdminRole> for multi-role support
+                    String accessToken = authService.generateToken(
                         admin.getId().toString(),
                         admin.getUsername(),
                         admin.getRoles(),
-                        accessExpiresAt
+                        accessExpiresAt,
+                        TokenType.ACCESS
                     );
                     
-                    String refreshToken = authService.generateAdminToken(
+                    String refreshToken = authService.generateToken(
                         admin.getId().toString(),
                         admin.getUsername(),
                         admin.getRoles(),
-                        refreshExpiresAt
+                        refreshExpiresAt,
+                        TokenType.REFRESH
                     );
                     
-                    // Store refresh token - use first role name for backward compatibility
-                    String roleForStorage = admin.getRoles().isEmpty() ? "ADMIN" : admin.getRoles().iterator().next().name();
-                    authService.storeRefreshToken(refreshToken, admin.getId().toString(), admin.getUsername(), roleForStorage, refreshExpiresAt.getEpochSecond());
+                    // Store refresh token with Set of lowercase roles
+                    Set<String> rolesForStorage = admin.getRoles().stream()
+                        .map(role -> role.name().toLowerCase())
+                        .collect(java.util.stream.Collectors.toSet());
+                    authService.storeRefreshToken(refreshToken, admin.getId().toString(), admin.getUsername(), rolesForStorage, refreshExpiresAt.getEpochSecond());
 
                     return Response.ok(new AuthTokenResponse(
                         accessToken,
@@ -210,7 +212,7 @@ public class AuthResource {
      */
     @POST
     @Path("/admin/update-password")
-    @jakarta.annotation.security.RolesAllowed("admin")
+    @RolesAllowed("admin")
     public Response updatePassword(
         UpdatePasswordRequest request,
         @jakarta.ws.rs.core.Context jakarta.ws.rs.core.SecurityContext securityContext
@@ -238,24 +240,19 @@ public class AuthResource {
             // Get current admin from security context
             String adminId = securityContext.getUserPrincipal().getName();
             
-            return adminRepository.findById(UUID.fromString(adminId))
-                .map(admin -> {
-                    // Verify current password
-                    if (!BcryptUtil.matches(request.currentPassword(), admin.getPasswordHash())) {
-                        return Response.status(Response.Status.UNAUTHORIZED)
-                            .entity(new ErrorResponse("Current password is incorrect"))
-                            .build();
-                    }
-                    
-                    // Update to new password
-                    admin.setPasswordHash(BcryptUtil.bcryptHash(request.newPassword()));
-                    adminRepository.save(admin);
-                    
-                    return Response.ok().build();
-                })
-                .orElse(Response.status(Response.Status.NOT_FOUND)
-                    .entity(new ErrorResponse("Admin not found"))
-                    .build());
+            boolean success = authService.updateAdminPassword(
+                UUID.fromString(adminId),
+                request.currentPassword(),
+                request.newPassword()
+            );
+            
+            if (success) {
+                return Response.ok().build();
+            } else {
+                return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity(new ErrorResponse("Current password is incorrect or admin not found"))
+                    .build();
+            }
 
         } catch (Exception e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
@@ -346,7 +343,8 @@ public class AuthResource {
                         teamId.toString(),
                         team.getName(),
                         "team",
-                        expiresAt
+                        expiresAt,
+                        TokenType.ACCESS
                     );
 
                     return Response.ok(new MockLoginResponse(token, expiresAt.toString())).build();

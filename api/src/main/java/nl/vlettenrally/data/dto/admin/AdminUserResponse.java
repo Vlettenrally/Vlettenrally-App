@@ -1,6 +1,6 @@
 package nl.vlettenrally.data.dto.admin;
 
-import nl.vlettenrally.data.domain.AdminRole;
+import nl.vlettenrally.data.enums.Role;
 
 import java.time.Instant;
 import java.util.Set;
@@ -15,7 +15,7 @@ import io.quarkus.runtime.annotations.RegisterForReflection;
 public record AdminUserResponse(
     UUID id,
     String username,
-    Set<AdminRole> roles,
+    Set<Role> roles,
     boolean active,
     Instant createdAt,
     Instant updatedAt

@@ -6,7 +6,7 @@ import io.quarkus.logging.Log;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import nl.vlettenrally.data.domain.Admin;
-import nl.vlettenrally.data.domain.AdminRole;
+import nl.vlettenrally.data.enums.Role;
 import nl.vlettenrally.data.repository.AdminRepository;
 
 import java.util.List;
@@ -42,7 +42,7 @@ public class MockAdminRepository implements AdminRepository {
         defaultAdmin.setId(ADMIN_DEFAULT_ID);
         defaultAdmin.setUsername("admin");
         defaultAdmin.setPasswordHash(BcryptUtil.bcryptHash("admin123"));
-        defaultAdmin.setRoles(Set.of(AdminRole.ADMIN, AdminRole.SUPER_ADMIN));
+        defaultAdmin.setRoles(Set.of(Role.ADMIN, Role.SUPER_ADMIN));
         defaultAdmin.setActive(true);
         admins.put(defaultAdmin.getId(), defaultAdmin);
         

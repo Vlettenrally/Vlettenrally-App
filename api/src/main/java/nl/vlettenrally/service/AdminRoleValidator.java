@@ -1,7 +1,7 @@
 package nl.vlettenrally.service;
 
 import jakarta.enterprise.context.ApplicationScoped;
-import nl.vlettenrally.data.domain.AdminRole;
+import nl.vlettenrally.data.enums.Role;
 
 import java.util.Set;
 
@@ -20,13 +20,13 @@ public class AdminRoleValidator {
      * @param roles Set of roles to validate
      * @return Validation error message, or null if valid
      */
-    public String validateRoleCombination(Set<AdminRole> roles) {
+    public String validateRoleCombination(Set<Role> roles) {
         if (roles == null || roles.isEmpty()) {
             return "At least one role must be assigned";
         }
 
         // VIEWER cannot be combined with other roles
-        if (roles.contains(AdminRole.VIEWER) && roles.size() > 1) {
+        if (roles.contains(Role.VIEWER) && roles.size() > 1) {
             return "VIEWER role cannot be combined with other roles";
         }
 
@@ -36,7 +36,7 @@ public class AdminRoleValidator {
     /**
      * Checks if the given roles contain the SUPER_ADMIN role.
      */
-    public boolean isSuperAdmin(Set<AdminRole> roles) {
-        return roles != null && roles.contains(AdminRole.SUPER_ADMIN);
+    public boolean isSuperAdmin(Set<Role> roles) {
+        return roles != null && roles.contains(Role.SUPER_ADMIN);
     }
 }

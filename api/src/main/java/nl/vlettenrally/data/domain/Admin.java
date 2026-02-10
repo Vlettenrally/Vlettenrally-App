@@ -1,5 +1,7 @@
 package nl.vlettenrally.data.domain;
 
+import nl.vlettenrally.data.enums.Role;
+
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
@@ -12,7 +14,7 @@ public class Admin {
     private UUID id;
     private String username;
     private String passwordHash;
-    private Set<AdminRole> roles;
+    private Set<Role> roles;
     private boolean active;
     private Instant createdAt;
     private Instant updatedAt;
@@ -25,7 +27,7 @@ public class Admin {
         this.updatedAt = Instant.now();
     }
 
-    public Admin(UUID id, String username, String passwordHash, Set<AdminRole> roles) {
+    public Admin(UUID id, String username, String passwordHash, Set<Role> roles) {
         this();
         this.id = id;
         this.username = username;
@@ -43,8 +45,8 @@ public class Admin {
     public String getPasswordHash() { return passwordHash; }
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
 
-    public Set<AdminRole> getRoles() { return roles; }
-    public void setRoles(Set<AdminRole> roles) { this.roles = roles; }
+    public Set<Role> getRoles() { return roles; }
+    public void setRoles(Set<Role> roles) { this.roles = roles; }
 
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }

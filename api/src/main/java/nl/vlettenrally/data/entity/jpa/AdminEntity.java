@@ -1,7 +1,7 @@
 package nl.vlettenrally.data.entity.jpa;
 
 import jakarta.persistence.*;
-import nl.vlettenrally.data.domain.AdminRole;
+import nl.vlettenrally.data.enums.Role;
 
 import java.time.Instant;
 import java.util.HashSet;
@@ -25,14 +25,14 @@ public class AdminEntity {
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
-    @ElementCollection(targetClass = AdminRole.class, fetch = FetchType.EAGER)
+    @ElementCollection(targetClass = Role.class, fetch = FetchType.EAGER)
     @CollectionTable(
         name = "admin_roles",
         joinColumns = @JoinColumn(name = "admin_id")
     )
     @Enumerated(EnumType.STRING)
     @Column(name = "role", length = 20)
-    private Set<AdminRole> roles = new HashSet<>();
+    private Set<Role> roles = new HashSet<>();
 
     @Column(name = "active", nullable = false)
     private boolean active = true;
@@ -64,8 +64,8 @@ public class AdminEntity {
     public String getPasswordHash() { return passwordHash; }
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
 
-    public Set<AdminRole> getRoles() { return roles; }
-    public void setRoles(Set<AdminRole> roles) { this.roles = roles; }
+    public Set<Role> getRoles() { return roles; }
+    public void setRoles(Set<Role> roles) { this.roles = roles; }
 
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }

@@ -25,7 +25,7 @@ public class RefreshTokenMapper {
         domain.setToken(entity.getToken());
         domain.setSubject(entity.getSubject());
         domain.setName(entity.getName());
-        domain.setRole(entity.getRole());
+        domain.setRoles(entity.getRoles() != null ? entity.getRoles() : new java.util.HashSet<>());
         domain.setExpiresAt(entity.getExpiresAt());
         domain.setRevoked(entity.isRevoked());
         domain.setCreatedAt(entity.getCreatedAt());
@@ -47,7 +47,7 @@ public class RefreshTokenMapper {
         entity.setToken(domain.getToken());
         entity.setSubject(domain.getSubject());
         entity.setName(domain.getName());
-        entity.setRole(domain.getRole());
+        entity.setRoles(domain.getRoles() != null ? domain.getRoles() : new java.util.HashSet<>());
         entity.setExpiresAt(domain.getExpiresAt());
         entity.setRevoked(domain.isRevoked());
         entity.setCreatedAt(domain.getCreatedAt());
@@ -67,7 +67,7 @@ public class RefreshTokenMapper {
         entity.setToken(domain.getToken());
         entity.setSubject(domain.getSubject());
         entity.setName(domain.getName());
-        entity.setRole(domain.getRole());
+        entity.setRoles(domain.getRoles() != null ? domain.getRoles() : new java.util.HashSet<>());
         entity.setExpiresAt(domain.getExpiresAt());
         entity.setRevoked(domain.isRevoked());
     }

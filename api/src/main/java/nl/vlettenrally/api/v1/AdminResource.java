@@ -10,7 +10,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 import nl.vlettenrally.data.domain.Admin;
-import nl.vlettenrally.data.domain.AdminRole;
+import nl.vlettenrally.data.enums.Role;
 import nl.vlettenrally.data.dto.admin.AdminUserResponse;
 import nl.vlettenrally.data.dto.admin.CreateAdminRequest;
 import nl.vlettenrally.data.dto.admin.ResetPasswordResponse;
@@ -170,8 +170,8 @@ public class AdminResource {
         
         // Prevent self-demotion from SUPER_ADMIN
         if (currentUserId.equals(adminId)) {
-            if (admin.getRoles().contains(AdminRole.SUPER_ADMIN) && 
-                !request.roles().contains(AdminRole.SUPER_ADMIN)) {
+            if (admin.getRoles().contains(Role.SUPER_ADMIN) && 
+                !request.roles().contains(Role.SUPER_ADMIN)) {
                 Log.warnf("AUDIT: Admin %s attempted to demote themselves from SUPER_ADMIN", currentUserId);
                 return Response.status(Response.Status.FORBIDDEN)
                     .entity(new ErrorResponse("Cannot remove SUPER_ADMIN role from yourself"))
@@ -180,11 +180,11 @@ public class AdminResource {
         }
 
         // Check if this would remove the last SUPER_ADMIN
-        if (admin.getRoles().contains(AdminRole.SUPER_ADMIN) && 
-            !request.roles().contains(AdminRole.SUPER_ADMIN)) {
+        if (admin.getRoles().contains(Role.SUPER_ADMIN) && 
+            !request.roles().contains(Role.SUPER_ADMIN)) {
             long superAdminCount = adminRepository.findAll().stream()
                 .filter(Admin::isActive)
-                .filter(a -> a.getRoles().contains(AdminRole.SUPER_ADMIN))
+                .filter(a -> a.getRoles().contains(Role.SUPER_ADMIN))
                 .count();
             
             if (superAdminCount <= 1) {
@@ -196,7 +196,7 @@ public class AdminResource {
             }
         }
 
-        Set<AdminRole> oldRoles = admin.getRoles();
+        Set<Role> oldRoles = admin.getRoles();
         admin.setRoles(request.roles());
         Admin updated = adminRepository.save(admin);
         
@@ -256,10 +256,10 @@ public class AdminResource {
         }
 
         // Check if this would deactivate the last SUPER_ADMIN
-        if (admin.getRoles().contains(AdminRole.SUPER_ADMIN)) {
+        if (admin.getRoles().contains(Role.SUPER_ADMIN)) {
             long superAdminCount = adminRepository.findAll().stream()
                 .filter(Admin::isActive)
-                .filter(a -> a.getRoles().contains(AdminRole.SUPER_ADMIN))
+                .filter(a -> a.getRoles().contains(Role.SUPER_ADMIN))
                 .count();
             
             if (superAdminCount <= 1) {

@@ -2,11 +2,16 @@ package nl.vlettenrally.service.impl;
 
 import io.smallrye.jwt.build.Jwt;
 import io.quarkus.scheduler.Scheduled;
+import io.quarkus.logging.Log;
+import io.quarkus.elytron.security.common.BcryptUtil;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import nl.vlettenrally.data.domain.AdminRole;
+import nl.vlettenrally.data.domain.Admin;
+import nl.vlettenrally.data.enums.Role;
+import nl.vlettenrally.data.enums.TokenType;
 import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.Team;
+import nl.vlettenrally.data.repository.AdminRepository;
 import nl.vlettenrally.data.repository.GameRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.service.AuthService;
@@ -44,6 +49,9 @@ public class AuthServiceImpl implements AuthService {
 
     @Inject
     RefreshTokenRepository refreshTokenRepository;
+
+    @Inject
+    AdminRepository adminRepository;
 
     @ConfigProperty(name = "mp.jwt.verify.issuer", defaultValue = "vlettenrally")
     String issuer;
@@ -101,6 +109,9 @@ public class AuthServiceImpl implements AuthService {
 
         cleanupExpiredTokens();
 
+        Log.infof("Team registration token created - teamId: %s, teamName: %s, gameId: %s, boatNumber: %s",
+            savedTeam.getId(), team.getName(), gameId, boatNumber);
+
         return new RegistrationResult(registrationToken, savedTeam.getId().toString(), expiresAt);
     }
 
@@ -145,6 +156,8 @@ public class AuthServiceImpl implements AuthService {
             }
 
             // Return a result that signals team selection is required
+            Log.infof("Game check-in token validated - gameId: %s, gameName: %s", tokenData.subject(), tokenData.name());
+            
             return Optional.of(new TokenResult(
                 null,
                 null,
@@ -174,21 +187,24 @@ public class AuthServiceImpl implements AuthService {
         long accessTokenExpirySeconds = accessTokenExpiryMinutes * 60L;
         long refreshTokenExpirySeconds = refreshTokenExpiryDays * 86400L;
         
-        String accessToken = generateToken(tokenData.subject(), tokenData.name(), tokenData.role().toLowerCase(), Instant.now().plusSeconds(accessTokenExpirySeconds));
-        String refreshTokenStr = generateToken(tokenData.subject(), tokenData.name(), tokenData.role(), Instant.now().plusSeconds(refreshTokenExpirySeconds));
+        String accessToken = generateToken(tokenData.subject(), tokenData.name(), tokenData.role().toLowerCase(), Instant.now().plusSeconds(accessTokenExpirySeconds), TokenType.ACCESS);
+        String refreshTokenStr = generateToken(tokenData.subject(), tokenData.name(), tokenData.role(), Instant.now().plusSeconds(refreshTokenExpirySeconds), TokenType.REFRESH);
 
         // Store refresh token in database for persistence
         RefreshToken refreshToken = new RefreshToken();
         refreshToken.setToken(refreshTokenStr);
         refreshToken.setSubject(tokenData.subject());
         refreshToken.setName(tokenData.name());
-        refreshToken.setRole(tokenData.role());
+        refreshToken.setRoles(java.util.Collections.singleton(tokenData.role()));
         refreshToken.setExpiresAt(Instant.now().plusSeconds(refreshTokenExpirySeconds));
         refreshToken.setRevoked(false);
         refreshTokenRepository.save(refreshToken);
 
         // Remove used registration token
         registrationTokens.remove(registrationToken);
+
+        Log.infof("Team tokens issued - teamId: %s, teamName: %s, role: %s",
+            tokenData.subject(), tokenData.name(), tokenData.role());
 
         return Optional.of(new TokenResult(
             accessToken,
@@ -213,6 +229,8 @@ public class AuthServiceImpl implements AuthService {
 
         // Check if token is already revoked (replay attack detection)
         if (tokenData.isRevoked()) {
+            Log.warnf("SECURITY: Replay attack detected - subject: %s, name: %s, revoking all tokens",
+                tokenData.getSubject(), tokenData.getName());
             // Possible token replay attack - revoke all tokens for this user
             try {
                 UUID userId = UUID.fromString(tokenData.getSubject());
@@ -225,38 +243,89 @@ public class AuthServiceImpl implements AuthService {
         }
 
         if (Instant.now().isAfter(tokenData.getExpiresAt())) {
+            Log.warnf("Token refresh failed - expired token - subject: %s, name: %s",
+                tokenData.getSubject(), tokenData.getName());
             refreshTokenRepository.delete(tokenData.getId());
             return Optional.empty();
         }
 
-        // Generate new tokens using config-driven durations
+        // Fetch current user data from database to ensure fresh roles/permissions
+        // Try to fetch as Admin first, then as Team
+        UUID userId;
+        try {
+            userId = UUID.fromString(tokenData.getSubject());
+        } catch (IllegalArgumentException e) {
+            Log.warnf("Token refresh failed - invalid subject format - subject: %s", tokenData.getSubject());
+            return Optional.empty();
+        }
+
+        String newAccessToken;
+        String newRefreshTokenStr;
+        Set<String> rolesForStorage;
         long accessTokenExpirySeconds = accessTokenExpiryMinutes * 60L;
         long refreshTokenExpirySeconds = refreshTokenExpiryDays * 86400L;
+
+        // Try to get as Admin first
+        Optional<Admin> adminOpt = adminRepository.findById(userId);
         
-        String newAccessToken = generateToken(tokenData.getSubject(), tokenData.getName(), tokenData.getRole().toLowerCase(), Instant.now().plusSeconds(accessTokenExpirySeconds));
-        String newRefreshTokenStr = generateToken(tokenData.getSubject(), tokenData.getName(), tokenData.getRole(), Instant.now().plusSeconds(refreshTokenExpirySeconds));
+        if (adminOpt.isPresent()) {
+            Admin admin = adminOpt.get();
+            
+            // Use roles from database, not from stored token
+            Set<Role> currentRoles = admin.getRoles();
+            newAccessToken = generateToken(admin.getId().toString(), admin.getUsername(), currentRoles,
+                Instant.now().plusSeconds(accessTokenExpirySeconds), TokenType.ACCESS);
+            newRefreshTokenStr = generateToken(admin.getId().toString(), admin.getUsername(), currentRoles,
+                Instant.now().plusSeconds(refreshTokenExpirySeconds), TokenType.REFRESH);
+
+            // Store roles as lowercase strings
+            rolesForStorage = currentRoles.stream()
+                .map(Role::toString)
+                .collect(Collectors.toSet());
+        } else {
+            // Try to get as Team
+            Optional<Team> teamOpt = teamRepository.findById(userId);
+            
+            if (teamOpt.isEmpty()) {
+                Log.warnf("Token refresh failed - user not found - userId: %s", userId);
+                return Optional.empty();
+            }
+
+            Team team = teamOpt.get();
+            
+            // Use data from database
+            newAccessToken = generateToken(team.getId().toString(), team.getName(), "team",
+                Instant.now().plusSeconds(accessTokenExpirySeconds), TokenType.ACCESS);
+            newRefreshTokenStr = generateToken(team.getId().toString(), team.getName(), "team",
+                Instant.now().plusSeconds(refreshTokenExpirySeconds), TokenType.REFRESH);
+
+            rolesForStorage = java.util.Collections.singleton("team");
+        }
 
         // Mark old refresh token as revoked (token rotation)
         tokenData.setRevoked(true);
         refreshTokenRepository.save(tokenData);
 
-        // Store new refresh token
+        // Store new refresh token with fresh data
         RefreshToken newRefreshToken = new RefreshToken();
         newRefreshToken.setToken(newRefreshTokenStr);
-        newRefreshToken.setSubject(tokenData.getSubject());
-        newRefreshToken.setName(tokenData.getName());
-        newRefreshToken.setRole(tokenData.getRole());
+        newRefreshToken.setSubject(userId.toString());
+        newRefreshToken.setName(tokenData.getName()); // Keep original name for logging
+        newRefreshToken.setRoles(rolesForStorage);
         newRefreshToken.setExpiresAt(Instant.now().plusSeconds(refreshTokenExpirySeconds));
         newRefreshToken.setRevoked(false);
         refreshTokenRepository.save(newRefreshToken);
+
+        Log.infof("Token refresh completed - subject: %s, name: %s, role(s): %s",
+            userId, tokenData.getName(), rolesForStorage);
 
         return Optional.of(new TokenResult(
             newAccessToken,
             newRefreshTokenStr,
             accessTokenExpirySeconds,
-            tokenData.getSubject(),
+            userId.toString(),
             tokenData.getName(),
-            tokenData.getRole()
+            String.join(",", rolesForStorage)
         ));
     }
 
@@ -293,18 +362,21 @@ public class AuthServiceImpl implements AuthService {
         long accessTokenExpirySeconds = accessTokenExpiryMinutes * 60L;
         long refreshTokenExpirySeconds = refreshTokenExpiryDays * 86400L;
 
-        String accessToken = generateToken(team.getId().toString(), team.getName(), "team", Instant.now().plusSeconds(accessTokenExpirySeconds));
-        String refreshTokenStr = generateToken(team.getId().toString(), team.getName(), "team", Instant.now().plusSeconds(refreshTokenExpirySeconds));
+        String accessToken = generateToken(team.getId().toString(), team.getName(), "team", Instant.now().plusSeconds(accessTokenExpirySeconds), TokenType.ACCESS);
+        String refreshTokenStr = generateToken(team.getId().toString(), team.getName(), "team", Instant.now().plusSeconds(refreshTokenExpirySeconds), TokenType.REFRESH);
 
         // Store refresh token in database for persistence
         RefreshToken refreshToken = new RefreshToken();
         refreshToken.setToken(refreshTokenStr);
         refreshToken.setSubject(team.getId().toString());
         refreshToken.setName(team.getName());
-        refreshToken.setRole("team");
+        refreshToken.setRoles(Set.of("team"));
         refreshToken.setExpiresAt(Instant.now().plusSeconds(refreshTokenExpirySeconds));
         refreshToken.setRevoked(false);
         refreshTokenRepository.save(refreshToken);
+
+        Log.infof("Team check-in tokens issued - teamId: %s, teamName: %s, gameId: %s",
+            team.getId(), team.getName(), gameId);
 
         return Optional.of(new TokenResult(
             accessToken,
@@ -332,15 +404,16 @@ public class AuthServiceImpl implements AuthService {
     public void revokeTokens(UUID teamId) {
         // Delete all tokens for the team
         refreshTokenRepository.deleteBySubject(teamId.toString());
+        Log.infof("Tokens revoked - subject: %s", teamId);
     }
 
     @Override
-    public void storeRefreshToken(String refreshTokenStr, String subject, String name, String role, long expiresAt) {
+    public void storeRefreshToken(String refreshTokenStr, String subject, String name, Set<String> roles, long expiresAt) {
         RefreshToken refreshToken = new RefreshToken();
         refreshToken.setToken(refreshTokenStr);
         refreshToken.setSubject(subject);
         refreshToken.setName(name);
-        refreshToken.setRole(role);
+        refreshToken.setRoles(roles);
         refreshToken.setExpiresAt(Instant.ofEpochSecond(expiresAt));
         refreshToken.setRevoked(false);
         refreshTokenRepository.save(refreshToken);
@@ -390,22 +463,15 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public String generateToken(String userId, String name, String role, Instant expiresAt) {
-        String token = Jwt.issuer(issuer)
-            .subject(userId)
-            .claim("name", name)
-            .groups(role)
-            .expiresAt(expiresAt)
-            .sign();
-
-        return token;
+    public String generateToken(String userId, String name, String role, Instant expiresAt, TokenType tokenType) {
+        return generateToken(userId, name, Set.of(Role.fromValue(role)), expiresAt, tokenType);
     }
 
     @Override
-    public String generateAdminToken(String userId, String name, Set<AdminRole> roles, Instant expiresAt) {
-        // Convert AdminRole enum set to lowercase string array for JWT groups claim
+    public String generateToken(String userId, String name, Set<Role> roles, Instant expiresAt, TokenType tokenType) {
+        // Convert Role enum set to lowercase string array for JWT groups claim
         Set<String> roleNames = roles.stream()
-            .map(role -> role.name().toLowerCase())
+            .map(Role::toString)
             .collect(Collectors.toSet());
 
         String token = Jwt.issuer(issuer)
@@ -415,7 +481,53 @@ public class AuthServiceImpl implements AuthService {
             .expiresAt(expiresAt)
             .sign();
 
+        Log.infof("Token generated - type: %s, subject: %s, name: %s, roles: %s, expiresAt: %s",
+            tokenType, userId, name, roleNames, expiresAt);
+
         return token;
+    }
+
+    @Override
+    public Optional<Admin> adminLogin(String username, String password) {
+        Optional<Admin> adminOpt = adminRepository.findByUsername(username)
+            .filter(Admin::isActive)
+            .filter(admin -> BcryptUtil.matches(password, admin.getPasswordHash()));
+        
+        if (adminOpt.isPresent()) {
+            Admin admin = adminOpt.get();
+            Log.infof("Admin login successful - username: %s, roles: %s", 
+                admin.getUsername(), admin.getRoles());
+        } else {
+            Log.warnf("Admin login failed - username: %s", username);
+        }
+        
+        return adminOpt;
+    }
+
+    @Override
+    public boolean updateAdminPassword(UUID adminId, String currentPassword, String newPassword) {
+        Optional<Admin> adminOpt = adminRepository.findById(adminId);
+        
+        if (adminOpt.isEmpty()) {
+            Log.warnf("Admin password update failed - admin not found: %s", adminId);
+            return false;
+        }
+        
+        Admin admin = adminOpt.get();
+        
+        // Verify current password
+        if (!BcryptUtil.matches(currentPassword, admin.getPasswordHash())) {
+            Log.warnf("Admin password update failed - incorrect current password - adminId: %s, username: %s",
+                adminId, admin.getUsername());
+            return false;
+        }
+        
+        // Update to new password
+        admin.setPasswordHash(BcryptUtil.bcryptHash(newPassword));
+        adminRepository.save(admin);
+        
+        Log.infof("Admin password updated - adminId: %s, username: %s", adminId, admin.getUsername());
+        return true;
     }
 
     @Override
@@ -432,12 +544,15 @@ public class AuthServiceImpl implements AuthService {
         long expiresAt = calculateCheckInExpiry(game).getEpochSecond();
 
         // Generate game-scoped registration token (valid for duration until expiry)
-        String registrationToken = generateToken(gameId.toString(), game.getName(), "checkin", Instant.ofEpochSecond(expiresAt));
+        String registrationToken = generateToken(gameId.toString(), game.getName(), "checkin", Instant.ofEpochSecond(expiresAt), TokenType.CHECKIN);
 
         // Construct the full check-in URL
         String checkInUrl = frontendBaseUrl + "/check-in?token=" + registrationToken;
 
         String expiryReason = "Expires 5 minutes after all teams check in or at game start time";
+
+        Log.infof("Game check-in link generated - gameId: %s, gameName: %s, expiresAt: %s",
+            gameId, game.getName(), Instant.ofEpochSecond(expiresAt));
 
         return new GameCheckInLinkResponse(checkInUrl, registrationToken, expiresAt, expiryReason);
     }

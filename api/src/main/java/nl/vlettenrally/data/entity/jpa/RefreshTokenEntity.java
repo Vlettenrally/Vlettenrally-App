@@ -3,8 +3,10 @@ package nl.vlettenrally.data.entity.jpa;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import nl.vlettenrally.data.converter.StringSetConverter;
 
 import java.time.Instant;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -34,8 +36,9 @@ public class RefreshTokenEntity {
     @Column(name = "name", nullable = false, length = 255)
     private String name;
 
-    @Column(name = "role", nullable = false, length = 50)
-    private String role;
+    @Convert(converter = StringSetConverter.class)
+    @Column(name = "roles", columnDefinition = "text[]")
+    private Set<String> roles = new java.util.HashSet<>();
 
     @Column(name = "expires_at", nullable = false)
     private Instant expiresAt;
