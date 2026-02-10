@@ -15,7 +15,7 @@ import {
 } from '@mui/material';
 import { AdminPanelSettings as AdminIcon } from '@mui/icons-material';
 import { storage } from '../../services/storage';
-import { getRoleFromToken } from '../../services/auth';
+import { getRolesFromToken, getUserRoleFromRoles } from '../../services/auth';
 import { config } from '../../config';
 
 interface TokenResponse {
@@ -60,10 +60,16 @@ export function AdminLogin() {
       storage.setAuthToken(data.accessToken);
       storage.setRefreshToken(data.refreshToken);
       
-      // Parse and store role from token
-      const role = getRoleFromToken(data.accessToken);
-      if (role) {
-        storage.setUserRole(role);
+      // Parse and store all roles from token
+      const roles = getRolesFromToken(data.accessToken);
+      if (roles.length > 0) {
+        storage.setUserRoles(roles);
+
+        // Derive and store primary role for backward compatibility
+        const role = getUserRoleFromRoles(roles);
+        if (role) {
+          storage.setUserRole(role);
+        }
       }
 
       // Navigate to admin dashboard

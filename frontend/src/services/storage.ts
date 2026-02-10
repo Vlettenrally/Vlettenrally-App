@@ -17,6 +17,7 @@ const STORAGE_KEYS = {
   MESSAGES: 'messages',
   PREFERENCES: 'preferences',
   USER_ROLE: 'user_role',
+  USER_ROLES: 'user_roles', // For storing multiple admin roles
   SIDEBAR_COLLAPSED: 'sidebar_collapsed',
 } as const;
 
@@ -184,9 +185,33 @@ class StorageService {
     this.removeItem(STORAGE_KEYS.USER_ROLE);
   }
 
+  // User roles (for storing multiple admin roles)
+  getUserRoles(): string[] | null {
+    return this.getItem<string[]>(STORAGE_KEYS.USER_ROLES);
+  }
+
+  setUserRoles(roles: string[]): void {
+    this.setItem(STORAGE_KEYS.USER_ROLES, roles);
+  }
+
+  removeUserRoles(): void {
+    this.removeItem(STORAGE_KEYS.USER_ROLES);
+  }
+
   // Check if current user is an admin
   isAdmin(): boolean {
     return this.getUserRole() === 'admin';
+  }
+
+  // Check if user has a specific role
+  hasRole(role: string): boolean {
+    const roles = this.getUserRoles();
+    return roles ? roles.includes(role) : false;
+  }
+
+  // Check if user is a super admin
+  isSuperAdmin(): boolean {
+    return this.hasRole('super_admin');
   }
 
   // Sidebar collapsed state (admin UI)
@@ -206,6 +231,7 @@ class StorageService {
     this.removeGameId();
     this.removeTeamData();
     this.removeUserRole();
+    this.removeUserRoles();
   }
 
   // Clear cached app data but keep auth tokens (if desired)

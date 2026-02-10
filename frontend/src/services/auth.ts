@@ -37,31 +37,28 @@ export function parseJwtPayload(token: string): JwtPayload | null {
 }
 
 /**
- * Extract user role from a JWT token
- * Returns null if the token is invalid or doesn't contain a role
+ * Determine UserRole from an array of role strings
+ * Returns 'admin' if any admin role is present, 'team' if team role is present, null otherwise
  */
-export function getRoleFromToken(token: string): UserRole | null {
-  const payload = parseJwtPayload(token);
-  if (!payload) {
-    return null;
-  }
-  
-  // Check role claim first
-  if (payload.role === 'admin' || payload.role === 'team') {
-    return payload.role;
-  }
-  
-  // Fall back to checking groups
-  // Check if any admin role is present
+export function getUserRoleFromRoles(roles: string[]): UserRole | null {
   const adminRoles = ['admin', 'super_admin', 'viewer', 'game_master', 'message_sender', 'checkpoint_manager'];
-  if (payload.groups?.some(group => adminRoles.includes(group))) {
+  if (roles.some(role => adminRoles.includes(role))) {
     return 'admin';
   }
-  if (payload.groups?.includes('team')) {
+  if (roles.includes('team')) {
     return 'team';
   }
-  
   return null;
+}
+
+/**
+ * Extract user role from a JWT token
+ * Returns null if the token is invalid or doesn't contain a role
+ * @deprecated Use getRolesFromToken and getUserRoleFromRoles instead for multi-role support
+ */
+export function getRoleFromToken(token: string): UserRole | null {
+  const roles = getRolesFromToken(token);
+  return getUserRoleFromRoles(roles);
 }
 
 /**

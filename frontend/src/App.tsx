@@ -5,13 +5,13 @@ import type { ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { ThemeProvider, createTheme, CssBaseline, Snackbar, Alert, Button } from '@mui/material';
 import { useEffect, useState, useCallback } from 'react';
-import { CheckInPage } from './pages/participant/Checkin';
-import { DashboardPage } from './pages/participant/Dashboard';
+import { CheckInPage } from './pages';
+import { DashboardPage } from './pages';
 import { MessagesPage } from './pages/MessagesPage';
 import { AppLayout } from './components/AppLayout';
 import { AdminLayout } from './components/AdminLayout';
 import { storage } from './services/storage';
-import { getRoleFromToken } from './services/auth';
+import { getRolesFromToken, getUserRoleFromRoles } from './services/auth';
 import { registerIfPermissionGranted, onForegroundMessage, getNotificationPermission, initializePushNotifications } from './services/firebaseMessaging';
 import { subscribeToNotifications, getPendingMessageIds, clearPendingMessageIds, removePendingMessageId, type NotificationSyncMessage } from './services/notificationSync';
 import { useMessageStore, type Message } from './store/useMessageStore';
@@ -68,9 +68,14 @@ function AdminRoute({ children }: { children: ReactNode }) {
   
   // Try to get role from token if not in storage
   if (!role) {
-    const tokenRole = getRoleFromToken(token);
+    const roles = getRolesFromToken(token);
+    const tokenRole = getUserRoleFromRoles(roles);
     if (tokenRole) {
       storage.setUserRole(tokenRole);
+      // Also store all roles
+      if (roles.length > 0) {
+        storage.setUserRoles(roles);
+      }
       if (tokenRole !== 'admin') {
         return <Navigate to="/dashboard" replace />;
       }
@@ -96,9 +101,14 @@ function RootRedirect() {
     
     // Try to extract role from token if not stored
     if (token && !role) {
-      role = getRoleFromToken(token);
+      const roles = getRolesFromToken(token);
+      role = getUserRoleFromRoles(roles);
       if (role) {
         storage.setUserRole(role);
+        // Also store all roles
+        if (roles.length > 0) {
+          storage.setUserRoles(roles);
+        }
       }
     }
     
