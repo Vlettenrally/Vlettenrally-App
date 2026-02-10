@@ -3,6 +3,8 @@ package nl.vlettenrally.data.domain;
 import java.time.Instant;
 import java.util.UUID;
 
+import lombok.Getter;
+import lombok.Setter;
 import nl.vlettenrally.data.enums.AchievementStatus;
 
 /**
@@ -14,7 +16,10 @@ import nl.vlettenrally.data.enums.AchievementStatus;
  * 3. Game master verifies (VERIFIED) or rejects (REJECTED) the achievement
  * 4. Points are awarded only upon verification
  */
+@Setter
+@Getter
 public class Achievement {
+    // Getters and Setters
     private UUID id;
     private UUID teamId;
     private UUID checkpointId;
@@ -40,34 +45,6 @@ public class Achievement {
         this.detectedAt = detectedAt;
     }
 
-    // Getters and Setters
-    public UUID getId() { return id; }
-    public void setId(UUID id) { this.id = id; }
-
-    public UUID getTeamId() { return teamId; }
-    public void setTeamId(UUID teamId) { this.teamId = teamId; }
-
-    public UUID getCheckpointId() { return checkpointId; }
-    public void setCheckpointId(UUID checkpointId) { this.checkpointId = checkpointId; }
-
-    public int getPointsEarned() { return pointsEarned; }
-    public void setPointsEarned(int pointsEarned) { this.pointsEarned = pointsEarned; }
-
-    public AchievementStatus getStatus() { return status; }
-    public void setStatus(AchievementStatus status) { this.status = status; }
-
-    public Instant getDetectedAt() { return detectedAt; }
-    public void setDetectedAt(Instant detectedAt) { this.detectedAt = detectedAt; }
-
-    public Instant getVerifiedAt() { return verifiedAt; }
-    public void setVerifiedAt(Instant verifiedAt) { this.verifiedAt = verifiedAt; }
-
-    public UUID getVerifiedBy() { return verifiedBy; }
-    public void setVerifiedBy(UUID verifiedBy) { this.verifiedBy = verifiedBy; }
-
-    public String getNotes() { return notes; }
-    public void setNotes(String notes) { this.notes = notes; }
-    
     // Convenience method for backward compatibility
     public Instant getAchievedAt() { 
         return status == AchievementStatus.VERIFIED ? verifiedAt : detectedAt; 

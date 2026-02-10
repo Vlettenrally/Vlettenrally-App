@@ -2,6 +2,9 @@ package nl.vlettenrally.data.domain;
 
 import java.time.Instant;
 import java.util.UUID;
+
+import lombok.Getter;
+import lombok.Setter;
 import nl.vlettenrally.data.enums.MessageType;
 
 /**
@@ -9,7 +12,10 @@ import nl.vlettenrally.data.enums.MessageType;
  * Templates are global (not game-scoped) and can be used by admins
  * to quickly send pre-defined messages to teams.
  */
+@Setter
+@Getter
 public class MessageTemplate {
+    // Getters and Setters
     private UUID id;
     private String name;
     private MessageType messageType;
@@ -33,25 +39,4 @@ public class MessageTemplate {
         this.icon = icon;
     }
 
-    // Getters and Setters
-    public UUID getId() { return id; }
-    public void setId(UUID id) { this.id = id; }
-
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
-
-    public MessageType getMessageType() { return messageType; }
-    public void setMessageType(MessageType messageType) { this.messageType = messageType; }
-
-    public String getContent() { return content; }
-    public void setContent(String content) { this.content = content; }
-
-    public String getIcon() { return icon; }
-    public void setIcon(String icon) { this.icon = icon; }
-
-    public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
-
-    public Instant getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
 }

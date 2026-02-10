@@ -1,6 +1,8 @@
 package nl.vlettenrally.data.entity.jpa;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 import nl.vlettenrally.data.enums.Role;
 
 import java.time.Instant;
@@ -11,10 +13,13 @@ import java.util.UUID;
 /**
  * JPA entity for Admin
  */
+@Setter
+@Getter
 @Entity
 @Table(name = "admins")
 public class AdminEntity {
 
+    // Getters and Setters
     @Id
     @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
@@ -54,25 +59,4 @@ public class AdminEntity {
         this.updatedAt = Instant.now();
     }
 
-    // Getters and Setters
-    public UUID getId() { return id; }
-    public void setId(UUID id) { this.id = id; }
-
-    public String getUsername() { return username; }
-    public void setUsername(String username) { this.username = username; }
-
-    public String getPasswordHash() { return passwordHash; }
-    public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
-
-    public Set<Role> getRoles() { return roles; }
-    public void setRoles(Set<Role> roles) { this.roles = roles; }
-
-    public boolean isActive() { return active; }
-    public void setActive(boolean active) { this.active = active; }
-
-    public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
-
-    public Instant getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
 }

@@ -1,12 +1,17 @@
 package nl.vlettenrally.data.entity.jpa;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.time.Instant;
 import java.util.UUID;
 
 /**
  * JPA entity for Checkpoint
  */
+@Setter
+@Getter
 @Entity
 @Table(name = "checkpoints", indexes = {
     @Index(name = "idx_checkpoints_game_id", columnList = "game_id"),
@@ -14,6 +19,7 @@ import java.util.UUID;
 })
 public class CheckpointEntity {
 
+    // Getters and Setters
     @Id
     @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
@@ -57,34 +63,4 @@ public class CheckpointEntity {
         this.updatedAt = Instant.now();
     }
 
-    // Getters and Setters
-    public UUID getId() { return id; }
-    public void setId(UUID id) { this.id = id; }
-
-    public GameEntity getGame() { return game; }
-    public void setGame(GameEntity game) { this.game = game; }
-
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
-
-    public Instant getOpeningTime() { return openingTime; }
-    public void setOpeningTime(Instant openingTime) { this.openingTime = openingTime; }
-
-    public Instant getClosingTime() { return closingTime; }
-    public void setClosingTime(Instant closingTime) { this.closingTime = closingTime; }
-
-    public int getPoints() { return points; }
-    public void setPoints(int points) { this.points = points; }
-
-    public Double getLatitude() { return latitude; }
-    public void setLatitude(Double latitude) { this.latitude = latitude; }
-
-    public Double getLongitude() { return longitude; }
-    public void setLongitude(Double longitude) { this.longitude = longitude; }
-
-    public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
-
-    public Instant getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
 }

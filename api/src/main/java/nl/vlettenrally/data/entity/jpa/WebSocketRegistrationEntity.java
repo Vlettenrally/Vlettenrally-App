@@ -1,12 +1,17 @@
 package nl.vlettenrally.data.entity.jpa;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.time.Instant;
 import java.util.UUID;
 
 /**
  * JPA entity for WebSocketRegistration
  */
+@Setter
+@Getter
 @Entity
 @Table(name = "websocket_registrations", indexes = {
     @Index(name = "idx_websocket_registrations_device_registration_id", columnList = "device_registration_id"),
@@ -14,6 +19,7 @@ import java.util.UUID;
 })
 public class WebSocketRegistrationEntity {
 
+    // Getters and Setters
     @Id
     @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
@@ -50,19 +56,4 @@ public class WebSocketRegistrationEntity {
         this.disconnectedAt = Instant.now();
     }
 
-    // Getters and Setters
-    public UUID getId() { return id; }
-    public void setId(UUID id) { this.id = id; }
-
-    public DeviceRegistrationEntity getDeviceRegistration() { return deviceRegistration; }
-    public void setDeviceRegistration(DeviceRegistrationEntity deviceRegistration) { this.deviceRegistration = deviceRegistration; }
-
-    public String getSessionId() { return sessionId; }
-    public void setSessionId(String sessionId) { this.sessionId = sessionId; }
-
-    public Instant getConnectedAt() { return connectedAt; }
-    public void setConnectedAt(Instant connectedAt) { this.connectedAt = connectedAt; }
-
-    public Instant getDisconnectedAt() { return disconnectedAt; }
-    public void setDisconnectedAt(Instant disconnectedAt) { this.disconnectedAt = disconnectedAt; }
 }

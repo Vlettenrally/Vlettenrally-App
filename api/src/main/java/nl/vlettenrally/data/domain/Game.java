@@ -1,12 +1,18 @@
 package nl.vlettenrally.data.domain;
 
+import lombok.Getter;
+import lombok.Setter;
+
 import java.time.Instant;
 import java.util.UUID;
 
 /**
  * Game entity representing a rally event
  */
+@Setter
+@Getter
 public class Game {
+    // Getters and Setters
     private UUID id;
     private String name;
     private String description;
@@ -17,11 +23,13 @@ public class Game {
     private GameStatus status;
     private Instant createdAt;
     private Instant updatedAt;
-    
+
+    // External event integration
     // External event integration
     private Integer externalEventId;
     private String externalEventName;
-    
+
+    // Location tracking configuration
     // Location tracking configuration
     private String locationEndpointUrl;
     private Integer locationPollingFrequency;
@@ -52,51 +60,4 @@ public class Game {
         this.status = status;
     }
 
-    // Getters and Setters
-    public UUID getId() { return id; }
-    public void setId(UUID id) { this.id = id; }
-
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
-
-    public String getDescription() { return description; }
-    public void setDescription(String description) { this.description = description; }
-
-    public Instant getStartTime() { return startTime; }
-    public void setStartTime(Instant startTime) { this.startTime = startTime; }
-
-    public Instant getEndTime() { return endTime; }
-    public void setEndTime(Instant endTime) { this.endTime = endTime; }
-
-    public Instant getCheckInStartTime() { return checkInStartTime; }
-    public void setCheckInStartTime(Instant checkInStartTime) { this.checkInStartTime = checkInStartTime; }
-
-    public Instant getStartSignalTime() { return startSignalTime; }
-    public void setStartSignalTime(Instant startSignalTime) { this.startSignalTime = startSignalTime; }
-
-    public GameStatus getStatus() { return status; }
-    public void setStatus(GameStatus status) { this.status = status; }
-
-    public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
-
-    public Instant getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
-
-    // External event integration
-    public Integer getExternalEventId() { return externalEventId; }
-    public void setExternalEventId(Integer externalEventId) { this.externalEventId = externalEventId; }
-
-    public String getExternalEventName() { return externalEventName; }
-    public void setExternalEventName(String externalEventName) { this.externalEventName = externalEventName; }
-
-    // Location tracking configuration
-    public String getLocationEndpointUrl() { return locationEndpointUrl; }
-    public void setLocationEndpointUrl(String locationEndpointUrl) { this.locationEndpointUrl = locationEndpointUrl; }
-
-    public Integer getLocationPollingFrequency() { return locationPollingFrequency; }
-    public void setLocationPollingFrequency(Integer locationPollingFrequency) { this.locationPollingFrequency = locationPollingFrequency; }
-
-    public Boolean getLocationEndpointActive() { return locationEndpointActive; }
-    public void setLocationEndpointActive(Boolean locationEndpointActive) { this.locationEndpointActive = locationEndpointActive; }
 }

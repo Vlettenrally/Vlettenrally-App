@@ -1,6 +1,8 @@
 package nl.vlettenrally.data.entity.jpa;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 import nl.vlettenrally.data.enums.MessageType;
 
 import java.time.Instant;
@@ -9,12 +11,15 @@ import java.util.UUID;
 /**
  * JPA entity for MessageTemplate
  */
+@Setter
+@Getter
 @Entity
 @Table(name = "message_templates", indexes = {
     @Index(name = "idx_message_templates_message_type", columnList = "message_type")
 })
 public class MessageTemplateEntity {
 
+    // Getters and Setters
     @Id
     @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
@@ -49,25 +54,4 @@ public class MessageTemplateEntity {
         this.updatedAt = Instant.now();
     }
 
-    // Getters and Setters
-    public UUID getId() { return id; }
-    public void setId(UUID id) { this.id = id; }
-
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
-
-    public MessageType getMessageType() { return messageType; }
-    public void setMessageType(MessageType messageType) { this.messageType = messageType; }
-
-    public String getContent() { return content; }
-    public void setContent(String content) { this.content = content; }
-
-    public String getIcon() { return icon; }
-    public void setIcon(String icon) { this.icon = icon; }
-
-    public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
-
-    public Instant getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
 }

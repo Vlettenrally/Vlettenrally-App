@@ -1,6 +1,8 @@
 package nl.vlettenrally.data.entity.jpa;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 import nl.vlettenrally.data.enums.TransmissionChannel;
 
 import java.time.Instant;
@@ -11,6 +13,8 @@ import java.util.UUID;
 /**
  * JPA entity for MessageDelivery
  */
+@Setter
+@Getter
 @Entity
 @Table(name = "message_deliveries", indexes = {
     @Index(name = "idx_message_deliveries_message_id", columnList = "message_id"),
@@ -21,6 +25,7 @@ import java.util.UUID;
 })
 public class MessageDeliveryEntity {
 
+    // Getters and Setters
     @Id
     @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
@@ -75,28 +80,4 @@ public class MessageDeliveryEntity {
         this.transmittedVia.add(channel);
     }
 
-    // Getters and Setters
-    public UUID getId() { return id; }
-    public void setId(UUID id) { this.id = id; }
-
-    public MessageEntity getMessage() { return message; }
-    public void setMessage(MessageEntity message) { this.message = message; }
-
-    public TeamEntity getTeam() { return team; }
-    public void setTeam(TeamEntity team) { this.team = team; }
-
-    public Set<TransmissionChannel> getTransmittedVia() { return transmittedVia; }
-    public void setTransmittedVia(Set<TransmissionChannel> transmittedVia) { this.transmittedVia = transmittedVia; }
-
-    public boolean isDelivered() { return delivered; }
-    public void setDelivered(boolean delivered) { this.delivered = delivered; }
-
-    public String getTransmissionError() { return transmissionError; }
-    public void setTransmissionError(String transmissionError) { this.transmissionError = transmissionError; }
-
-    public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
-
-    public Instant getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
 }

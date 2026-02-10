@@ -1,6 +1,9 @@
 package nl.vlettenrally.data.entity.jpa;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -11,6 +14,8 @@ import java.util.UUID;
 /**
  * JPA entity for Team
  */
+@Setter
+@Getter
 @Entity
 @Table(name = "teams", indexes = {
     @Index(name = "idx_teams_game_id", columnList = "game_id"),
@@ -20,6 +25,7 @@ import java.util.UUID;
 })
 public class TeamEntity {
 
+    // Getters and Setters
     @Id
     @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
@@ -118,49 +124,4 @@ public class TeamEntity {
         this.rivals.remove(rival);
     }
 
-    // Getters and Setters
-    public UUID getId() { return id; }
-    public void setId(UUID id) { this.id = id; }
-
-    public GameEntity getGame() { return game; }
-    public void setGame(GameEntity game) { this.game = game; }
-
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
-
-    public String getDescription() { return description; }
-    public void setDescription(String description) { this.description = description; }
-
-    public String getBoatNumber() { return boatNumber; }
-    public void setBoatNumber(String boatNumber) { this.boatNumber = boatNumber; }
-
-    public String getExternalId() { return externalId; }
-    public void setExternalId(String externalId) { this.externalId = externalId; }
-
-    public List<String> getParticipants() { return participants; }
-    public void setParticipants(List<String> participants) { this.participants = participants; }
-
-    public DeviceRegistrationEntity getDevice() { return device; }
-    public void setDevice(DeviceRegistrationEntity device) { this.device = device; }
-
-    public boolean isCheckedIn() { return checkedIn; }
-    public void setCheckedIn(boolean checkedIn) { this.checkedIn = checkedIn; }
-
-    public int getTotalPoints() { return totalPoints; }
-    public void setTotalPoints(int totalPoints) { this.totalPoints = totalPoints; }
-
-    public Set<TeamEntity> getRivals() { return rivals; }
-    public void setRivals(Set<TeamEntity> rivals) { this.rivals = rivals; }
-
-    public String getNotes() { return notes; }
-    public void setNotes(String notes) { this.notes = notes; }
-
-    public List<String> getEmergencyPhoneNumbers() { return emergencyPhoneNumbers; }
-    public void setEmergencyPhoneNumbers(List<String> emergencyPhoneNumbers) { this.emergencyPhoneNumbers = emergencyPhoneNumbers; }
-
-    public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
-
-    public Instant getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
 }

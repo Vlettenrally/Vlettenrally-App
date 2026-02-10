@@ -1,6 +1,9 @@
 package nl.vlettenrally.data.entity.jpa;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.time.Instant;
 import java.util.UUID;
 
@@ -8,6 +11,8 @@ import java.util.UUID;
  * JPA entity for DeviceRegistration.
  * Either teamId or adminId must be set (but not both).
  */
+@Setter
+@Getter
 @Entity
 @Table(name = "device_registrations", indexes = {
     @Index(name = "idx_device_registrations_team_id", columnList = "team_id"),
@@ -16,6 +21,7 @@ import java.util.UUID;
 })
 public class DeviceRegistrationEntity {
 
+    // Getters and Setters
     @Id
     @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
@@ -57,19 +63,4 @@ public class DeviceRegistrationEntity {
         return lastSeen.plusSeconds(thresholdMinutes * 60L).isBefore(Instant.now());
     }
 
-    // Getters and Setters
-    public UUID getId() { return id; }
-    public void setId(UUID id) { this.id = id; }
-
-    public TeamEntity getTeam() { return team; }
-    public void setTeam(TeamEntity team) { this.team = team; }
-
-    public AdminEntity getAdmin() { return admin; }
-    public void setAdmin(AdminEntity admin) { this.admin = admin; }
-
-    public Instant getLastSeen() { return lastSeen; }
-    public void setLastSeen(Instant lastSeen) { this.lastSeen = lastSeen; }
-
-    public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 }

@@ -1,5 +1,8 @@
 package nl.vlettenrally.data.domain;
 
+import lombok.Getter;
+import lombok.Setter;
+
 import java.time.Instant;
 import java.util.UUID;
 
@@ -7,7 +10,10 @@ import java.util.UUID;
  * WebSocketRegistration entity representing an active or historical WebSocket connection.
  * Links to a DeviceRegistration to track connection state.
  */
+@Setter
+@Getter
 public class WebSocketRegistration {
+    // Getters and Setters
     private UUID id;
     private UUID deviceRegistrationId;
     private String sessionId;
@@ -25,22 +31,6 @@ public class WebSocketRegistration {
         this.deviceRegistrationId = deviceRegistrationId;
         this.sessionId = sessionId;
     }
-
-    // Getters and Setters
-    public UUID getId() { return id; }
-    public void setId(UUID id) { this.id = id; }
-
-    public UUID getDeviceRegistrationId() { return deviceRegistrationId; }
-    public void setDeviceRegistrationId(UUID deviceRegistrationId) { this.deviceRegistrationId = deviceRegistrationId; }
-
-    public String getSessionId() { return sessionId; }
-    public void setSessionId(String sessionId) { this.sessionId = sessionId; }
-
-    public Instant getConnectedAt() { return connectedAt; }
-    public void setConnectedAt(Instant connectedAt) { this.connectedAt = connectedAt; }
-
-    public Instant getDisconnectedAt() { return disconnectedAt; }
-    public void setDisconnectedAt(Instant disconnectedAt) { this.disconnectedAt = disconnectedAt; }
 
     /**
      * Check if the WebSocket connection is currently active.

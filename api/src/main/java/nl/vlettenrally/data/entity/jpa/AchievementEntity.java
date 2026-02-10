@@ -1,6 +1,8 @@
 package nl.vlettenrally.data.entity.jpa;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 import nl.vlettenrally.data.enums.AchievementStatus;
 
 import java.time.Instant;
@@ -9,6 +11,8 @@ import java.util.UUID;
 /**
  * JPA entity for Achievement
  */
+@Setter
+@Getter
 @Entity
 @Table(name = "achievements", indexes = {
     @Index(name = "idx_achievements_team_id", columnList = "team_id"),
@@ -56,31 +60,4 @@ public class AchievementEntity {
         this.detectedAt = Instant.now();
     }
 
-    // Getters and Setters
-    public UUID getId() { return id; }
-    public void setId(UUID id) { this.id = id; }
-
-    public TeamEntity getTeam() { return team; }
-    public void setTeam(TeamEntity team) { this.team = team; }
-
-    public CheckpointEntity getCheckpoint() { return checkpoint; }
-    public void setCheckpoint(CheckpointEntity checkpoint) { this.checkpoint = checkpoint; }
-
-    public int getPointsEarned() { return pointsEarned; }
-    public void setPointsEarned(int pointsEarned) { this.pointsEarned = pointsEarned; }
-
-    public AchievementStatus getStatus() { return status; }
-    public void setStatus(AchievementStatus status) { this.status = status; }
-
-    public Instant getDetectedAt() { return detectedAt; }
-    public void setDetectedAt(Instant detectedAt) { this.detectedAt = detectedAt; }
-
-    public Instant getVerifiedAt() { return verifiedAt; }
-    public void setVerifiedAt(Instant verifiedAt) { this.verifiedAt = verifiedAt; }
-
-    public AdminEntity getVerifiedBy() { return verifiedBy; }
-    public void setVerifiedBy(AdminEntity verifiedBy) { this.verifiedBy = verifiedBy; }
-
-    public String getNotes() { return notes; }
-    public void setNotes(String notes) { this.notes = notes; }
 }

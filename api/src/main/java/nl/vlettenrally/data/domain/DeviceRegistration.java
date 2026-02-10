@@ -1,5 +1,8 @@
 package nl.vlettenrally.data.domain;
 
+import lombok.Getter;
+import lombok.Setter;
+
 import java.time.Instant;
 import java.util.UUID;
 
@@ -8,7 +11,10 @@ import java.util.UUID;
  * Tracks device type and last activity for determining message delivery channels.
  * Either teamId or adminId must be set (but not both).
  */
+@Setter
+@Getter
 public class DeviceRegistration {
+    // Getters and Setters
     private UUID id;
     private UUID teamId;
     private UUID adminId;
@@ -26,22 +32,6 @@ public class DeviceRegistration {
         this.id = id;
         this.teamId = teamId;
     }
-
-    // Getters and Setters
-    public UUID getId() { return id; }
-    public void setId(UUID id) { this.id = id; }
-
-    public UUID getTeamId() { return teamId; }
-    public void setTeamId(UUID teamId) { this.teamId = teamId; }
-
-    public UUID getAdminId() { return adminId; }
-    public void setAdminId(UUID adminId) { this.adminId = adminId; }
-
-    public Instant getLastSeen() { return lastSeen; }
-    public void setLastSeen(Instant lastSeen) { this.lastSeen = lastSeen; }
-
-    public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 
     /**
      * Updates the lastSeen timestamp to now.

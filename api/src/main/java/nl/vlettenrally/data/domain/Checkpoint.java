@@ -1,12 +1,18 @@
 package nl.vlettenrally.data.domain;
 
+import lombok.Getter;
+import lombok.Setter;
+
 import java.time.Instant;
 import java.util.UUID;
 
 /**
  * Checkpoint entity representing a rally checkpoint
  */
+@Setter
+@Getter
 public class Checkpoint {
+    // Getters and Setters
     private UUID id;
     private UUID gameId;
     private String name;
@@ -33,34 +39,4 @@ public class Checkpoint {
         this.points = points;
     }
 
-    // Getters and Setters
-    public UUID getId() { return id; }
-    public void setId(UUID id) { this.id = id; }
-
-    public UUID getGameId() { return gameId; }
-    public void setGameId(UUID gameId) { this.gameId = gameId; }
-
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
-
-    public Instant getOpeningTime() { return openingTime; }
-    public void setOpeningTime(Instant openingTime) { this.openingTime = openingTime; }
-
-    public Instant getClosingTime() { return closingTime; }
-    public void setClosingTime(Instant closingTime) { this.closingTime = closingTime; }
-
-    public int getPoints() { return points; }
-    public void setPoints(int points) { this.points = points; }
-
-    public Double getLatitude() { return latitude; }
-    public void setLatitude(Double latitude) { this.latitude = latitude; }
-
-    public Double getLongitude() { return longitude; }
-    public void setLongitude(Double longitude) { this.longitude = longitude; }
-
-    public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
-
-    public Instant getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
 }

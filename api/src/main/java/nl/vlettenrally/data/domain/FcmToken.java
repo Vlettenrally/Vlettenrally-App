@@ -1,5 +1,7 @@
 package nl.vlettenrally.data.domain;
 
+import lombok.Getter;
+
 import java.time.Instant;
 import java.util.UUID;
 
@@ -7,7 +9,9 @@ import java.util.UUID;
  * FcmToken entity representing a Firebase Cloud Messaging token for push notifications.
  * Links to a DeviceRegistration.
  */
+@Getter
 public class FcmToken {
+    // Getters and Setters
     private UUID id;
     private UUID deviceRegistrationId;
     private String token;
@@ -27,22 +31,16 @@ public class FcmToken {
         this.token = token;
     }
 
-    // Getters and Setters
-    public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
 
-    public UUID getDeviceRegistrationId() { return deviceRegistrationId; }
     public void setDeviceRegistrationId(UUID deviceRegistrationId) { this.deviceRegistrationId = deviceRegistrationId; }
 
-    public String getToken() { return token; }
-    public void setToken(String token) { 
+    public void setToken(String token) {
         this.token = token;
         this.updatedAt = Instant.now();
     }
 
-    public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 
-    public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
 }

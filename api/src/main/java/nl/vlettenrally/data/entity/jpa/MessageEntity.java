@@ -1,6 +1,8 @@
 package nl.vlettenrally.data.entity.jpa;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 import nl.vlettenrally.data.enums.MessageSource;
 import nl.vlettenrally.data.enums.MessageType;
 import nl.vlettenrally.data.enums.TransmissionChannel;
@@ -13,6 +15,8 @@ import java.util.UUID;
 /**
  * JPA entity for Message
  */
+@Setter
+@Getter
 @Entity
 @Table(name = "messages", indexes = {
     @Index(name = "idx_messages_team_id", columnList = "team_id"),
@@ -24,6 +28,7 @@ import java.util.UUID;
 })
 public class MessageEntity {
 
+    // Getters and Setters
     @Id
     @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
@@ -83,46 +88,4 @@ public class MessageEntity {
         this.sentAt = Instant.now();
     }
 
-    // Getters and Setters
-    public UUID getId() { return id; }
-    public void setId(UUID id) { this.id = id; }
-
-    public GameEntity getGame() { return game; }
-    public void setGame(GameEntity game) { this.game = game; }
-
-    public TeamEntity getTeam() { return team; }
-    public void setTeam(TeamEntity team) { this.team = team; }
-
-    public MessageType getMessageType() { return messageType; }
-    public void setMessageType(MessageType messageType) { this.messageType = messageType; }
-
-    public String getContent() { return content; }
-    public void setContent(String content) { this.content = content; }
-
-    public String getIcon() { return icon; }
-    public void setIcon(String icon) { this.icon = icon; }
-
-    public Instant getSentAt() { return sentAt; }
-    public void setSentAt(Instant sentAt) { this.sentAt = sentAt; }
-
-    public boolean isDelivered() { return delivered; }
-    public void setDelivered(boolean delivered) { this.delivered = delivered; }
-
-    public boolean isRead() { return read; }
-    public void setRead(boolean read) { this.read = read; }
-
-    public Set<TransmissionChannel> getTransmittedVia() { return transmittedVia; }
-    public void setTransmittedVia(Set<TransmissionChannel> transmittedVia) { this.transmittedVia = transmittedVia; }
-
-    public String getTransmissionError() { return transmissionError; }
-    public void setTransmissionError(String transmissionError) { this.transmissionError = transmissionError; }
-
-    public MessageSource getSource() { return source; }
-    public void setSource(MessageSource source) { this.source = source; }
-
-    public AdminEntity getSentByAdmin() { return sentByAdmin; }
-    public void setSentByAdmin(AdminEntity sentByAdmin) { this.sentByAdmin = sentByAdmin; }
-
-    public UUID getBatchId() { return batchId; }
-    public void setBatchId(UUID batchId) { this.batchId = batchId; }
 }
