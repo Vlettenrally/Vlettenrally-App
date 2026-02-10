@@ -12,7 +12,7 @@ import java.util.stream.Collectors;
  * JPA Converter for PostgreSQL TEXT[] array to Java Set<String>
  * Converts between Java Set and PostgreSQL array representation
  */
-@Converter
+@Converter(autoApply = false)
 public class StringSetConverter implements AttributeConverter<Set<String>, String[]> {
 
     @Override
