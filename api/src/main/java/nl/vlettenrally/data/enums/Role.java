@@ -41,8 +41,13 @@ public enum Role {
     /**
      * Team role - teams can participate in games and check in
      */
-    TEAM;
-    
+    TEAM,
+
+    /**
+     * Checkin role - used to register a team before starting a game
+     */
+    CHECKIN;
+
     /**
      * Serialize to lowercase for JSON output
      */
