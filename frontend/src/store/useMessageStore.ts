@@ -22,6 +22,7 @@ interface MessageState {
   
   setMessages: (messages: Message[]) => void;
   addMessage: (message: Message) => void;
+  updateMessageStatus: (messageId: string, delivered: boolean, read: boolean) => void;
   markAsRead: (messageId: string) => void;
   markAllAsRead: () => void;
   setLoading: (loading: boolean) => void;
@@ -44,6 +45,17 @@ export const useMessageStore = create<MessageState>((set) => ({
   addMessage: (message) =>
     set((state) => {
       const messages = [message, ...state.messages];
+      return {
+        messages,
+        unreadCount: messages.filter((m) => !m.read).length,
+      };
+    }),
+
+  updateMessageStatus: (messageId, delivered, read) =>
+    set((state) => {
+      const messages = state.messages.map((m) =>
+        m.id === messageId ? { ...m, delivered, read } : m
+      );
       return {
         messages,
         unreadCount: messages.filter((m) => !m.read).length,
