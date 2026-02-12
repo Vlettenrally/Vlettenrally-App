@@ -1,31 +1,41 @@
 /**
  * Main App Component with Routing
  */
-import type { ReactNode } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
-import { ThemeProvider, createTheme, CssBaseline, Snackbar, Alert, Button } from '@mui/material';
-import { useEffect, useState, useCallback } from 'react';
-import { CheckInPage } from './pages';
-import { DashboardPage } from './pages';
-import { MessagesPage } from './pages/MessagesPage';
-import { AppLayout } from './components/AppLayout';
-import { AdminLayout } from './components/AdminLayout';
-import { storage } from './services/storage';
-import { getRolesFromToken, getUserRoleFromRoles } from './services/auth';
-import { registerIfPermissionGranted, onForegroundMessage, getNotificationPermission, initializePushNotifications } from './services/firebaseMessaging';
-import { subscribeToNotifications, getPendingMessageIds, clearPendingMessageIds, removePendingMessageId, type NotificationSyncMessage } from './services/notificationSync';
-import { useMessageStore, type Message } from './store/useMessageStore';
+import type {ReactNode} from 'react';
+import {useCallback, useEffect, useState} from 'react';
+import {BrowserRouter, Navigate, Route, Routes, useNavigate} from 'react-router-dom';
+import {Alert, Button, createTheme, CssBaseline, Snackbar, ThemeProvider} from '@mui/material';
+import {CheckInPage, DashboardPage} from './pages';
+import {MessagesPage} from './pages/MessagesPage';
+import {AppLayout} from './components/AppLayout';
+import {AdminLayout} from './components/AdminLayout';
+import {storage} from './services/storage';
+import {getRolesFromToken, getUserRoleFromRoles} from './services/auth';
+import {
+  getNotificationPermission,
+  initializePushNotifications,
+  onForegroundMessage,
+  registerIfPermissionGranted
+} from './services/firebaseMessaging';
+import {
+  clearPendingMessageIds,
+  getPendingMessageIds,
+  type NotificationSyncMessage,
+  removePendingMessageId,
+  subscribeToNotifications
+} from './services/notificationSync';
+import {type Message, useMessageStore} from './store/useMessageStore';
 import api from './services/api';
 import DevTokenPage from './pages/DevTokenPage';
 import {
   AdminDashboard,
-  Games,
-  Teams,
-  AdminMessages,
-  Automations,
-  Analytics,
   AdminLogin,
+  AdminMessages,
+  Analytics,
+  Automations,
+  Games,
   Settings,
+  Teams,
 } from './pages/admin';
 import AdminUsers from './pages/admin/AdminUsers';
 
@@ -173,9 +183,9 @@ function App() {
 
   // Subscribe to BroadcastChannel for immediate notification sync
   useEffect(() => {
-    const unsubscribe = subscribeToNotifications((message: NotificationSyncMessage) => {
+    return subscribeToNotifications((message: NotificationSyncMessage) => {
       console.log('[App] Received notification sync message:', message);
-      
+
       if (message.type === 'NEW_MESSAGE' && message.messageId) {
         fetchAndAddMessage(message.messageId);
       } else if (message.type === 'MESSAGE_CLICKED' && message.messageId) {
@@ -183,8 +193,6 @@ function App() {
         fetchAndAddMessage(message.messageId);
       }
     });
-
-    return unsubscribe;
   }, [fetchAndAddMessage]);
 
   // Process pending messages on app visibility change (app coming to foreground)
