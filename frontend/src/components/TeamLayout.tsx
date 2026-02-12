@@ -1,5 +1,5 @@
 /**
- * App Layout Component - Contains navigation and layout structure
+ * Team Layout Component - Contains navigation and layout structure for team interface
  */
 import { useState } from 'react';
 import type { ReactNode } from 'react';
@@ -38,11 +38,11 @@ import { useConnectionStatus } from '../hooks/useConnectionStatus';
 import { useTeamRealtime } from '../hooks/useRealtime';
 import api from '../services/api';
 
-interface AppLayoutProps {
+interface TeamLayoutProps {
   children: ReactNode;
 }
 
-export function AppLayout({ children }: AppLayoutProps) {
+export function TeamLayout({ children }: TeamLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(false);
