@@ -35,6 +35,7 @@ import { storage } from '../services/storage';
 import { useTeamStore } from '../store/useTeamStore';
 import { useGameStore } from '../store/useGameStore';
 import { useConnectionStatus } from '../hooks/useConnectionStatus';
+import { useTeamRealtime } from '../hooks/useRealtime';
 import api from '../services/api';
 
 interface AppLayoutProps {
@@ -46,9 +47,13 @@ export function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { unreadCount } = useMessageStore();
-  const { reset: resetTeam } = useTeamStore();
+  const { reset: resetTeam, team } = useTeamStore();
   const { reset: resetGame } = useGameStore();
   const { showDisconnected } = useConnectionStatus();
+  const gameId = storage.getGameId();
+  
+  // Initialize websocket connection for the entire team app
+  useTeamRealtime({ gameId, teamId: team?.id || null });
 
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
