@@ -237,19 +237,23 @@ public class MessageServiceImpl implements MessageService {
         if (ids == null || ids.isEmpty()) {
             return;
         }
+        
+        // Fetch all messages first to avoid N+1 queries
+        List<Message> messages = ids.stream()
+            .map(messageRepository::findById)
+            .filter(Optional::isPresent)
+            .map(Optional::get)
+            .toList();
+        
+        // Mark all as read in database
         for (UUID id : ids) {
-            // Get message before marking as read to access teamId and gameId
-            Optional<Message> messageOpt = messageRepository.findById(id);
-            if (messageOpt.isEmpty()) {
-                Log.warnf("Cannot mark message as read: message %s not found", id);
-                continue;
-            }
-            
-            Message message = messageOpt.get();
             messageRepository.markAsRead(id);
-            
-            // Publish websocket event for message delivery update
-            publishMessageDeliveryUpdate(message.getGameId(), message.getTeamId(), id, message.isDelivered(), true);
+        }
+        
+        // Publish websocket events for each message
+        for (Message message : messages) {
+            publishMessageDeliveryUpdate(message.getGameId(), message.getTeamId(), 
+                                        message.getId(), message.isDelivered(), true);
         }
     }
 
