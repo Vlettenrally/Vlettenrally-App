@@ -9,6 +9,7 @@ import nl.vlettenrally.data.domain.DeviceRegistration;
 import nl.vlettenrally.data.domain.Message;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.dto.message.AdminMessageBatchResult;
+import nl.vlettenrally.data.dto.message.MessageDeliveryUpdatePayload;
 import nl.vlettenrally.data.repository.DeviceRegistrationRepository;
 import nl.vlettenrally.data.repository.MessageRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
@@ -20,6 +21,7 @@ import nl.vlettenrally.provider.TransmissionResult;
 import nl.vlettenrally.service.MessageService;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 import nl.vlettenrally.websockets.WebSocketSessionManager;
+import nl.vlettenrally.websockets.dto.WebSocketMessageType;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.Instant;
@@ -104,7 +106,13 @@ public class MessageServiceImpl implements MessageService {
         transmitMessage(savedMessage);
         
         // Save again to persist transmission status
-        return messageRepository.save(savedMessage);
+        Message finalMessage = messageRepository.save(savedMessage);
+        
+        // Publish delivery update event
+        publishMessageDeliveryUpdate(finalMessage.getGameId(), finalMessage.getTeamId(), 
+                                    finalMessage.getId(), finalMessage.isDelivered(), finalMessage.isRead());
+        
+        return finalMessage;
     }
 
     /**
@@ -210,7 +218,18 @@ public class MessageServiceImpl implements MessageService {
 
     @Override
     public void markAsRead(UUID id) {
+        // Get message before marking as read to access teamId and gameId
+        Optional<Message> messageOpt = messageRepository.findById(id);
+        if (messageOpt.isEmpty()) {
+            Log.warnf("Cannot mark message as read: message %s not found", id);
+            return;
+        }
+        
+        Message message = messageOpt.get();
         messageRepository.markAsRead(id);
+        
+        // Publish websocket event for message delivery update
+        publishMessageDeliveryUpdate(message.getGameId(), message.getTeamId(), id, message.isDelivered(), true);
     }
 
     @Override
@@ -219,13 +238,42 @@ public class MessageServiceImpl implements MessageService {
             return;
         }
         for (UUID id : ids) {
+            // Get message before marking as read to access teamId and gameId
+            Optional<Message> messageOpt = messageRepository.findById(id);
+            if (messageOpt.isEmpty()) {
+                Log.warnf("Cannot mark message as read: message %s not found", id);
+                continue;
+            }
+            
+            Message message = messageOpt.get();
             messageRepository.markAsRead(id);
+            
+            // Publish websocket event for message delivery update
+            publishMessageDeliveryUpdate(message.getGameId(), message.getTeamId(), id, message.isDelivered(), true);
         }
     }
 
     @Override
     public void markAllAsReadForTeam(UUID teamId) {
+        // Get all unread messages for the team before marking them as read
+        List<Message> unreadMessages = messageRepository.findUnreadByTeamId(teamId);
+        
+        // Mark all as read in the database
         messageRepository.markAllAsReadForTeam(teamId);
+        
+        // Publish websocket events for each message
+        for (Message message : unreadMessages) {
+            publishMessageDeliveryUpdate(message.getGameId(), message.getTeamId(), message.getId(), message.isDelivered(), true);
+        }
+    }
+
+    /**
+     * Publish a MESSAGE_DELIVERY_UPDATE websocket event to notify clients about message state changes.
+     */
+    private void publishMessageDeliveryUpdate(UUID gameId, UUID teamId, UUID messageId, boolean delivered, boolean read) {
+        MessageDeliveryUpdatePayload payload = new MessageDeliveryUpdatePayload(messageId, teamId, delivered, read);
+        webSocketPublisher.broadcastToGame(gameId, WebSocketMessageType.MESSAGE_DELIVERY_UPDATE.getValue(), payload);
+        Log.debugf("Published MESSAGE_DELIVERY_UPDATE for message %s (delivered=%s, read=%s)", messageId, delivered, read);
     }
 
     @Override
@@ -288,6 +336,10 @@ public class MessageServiceImpl implements MessageService {
             // Update delivery status based on transmission
             savedMessage.setDelivered(!savedMessage.getTransmittedVia().isEmpty());
             messageRepository.save(savedMessage);
+            
+            // Publish delivery update event
+            publishMessageDeliveryUpdate(savedMessage.getGameId(), savedMessage.getTeamId(), 
+                                        savedMessage.getId(), savedMessage.isDelivered(), savedMessage.isRead());
 
             if (savedMessage.isDelivered()) {
                 successCount++;
@@ -336,6 +388,10 @@ public class MessageServiceImpl implements MessageService {
             message.setDelivered(!message.getTransmittedVia().isEmpty());
             messageRepository.save(message);
             
+            // Publish delivery update event
+            publishMessageDeliveryUpdate(message.getGameId(), message.getTeamId(), 
+                                        message.getId(), message.isDelivered(), message.isRead());
+            
             if (message.isDelivered()) {
                 successCount++;
             }
@@ -362,6 +418,10 @@ public class MessageServiceImpl implements MessageService {
             // Update delivery status
             message.setDelivered(!message.getTransmittedVia().isEmpty());
             messageRepository.save(message);
+            
+            // Publish delivery update event
+            publishMessageDeliveryUpdate(message.getGameId(), message.getTeamId(), 
+                                        message.getId(), message.isDelivered(), message.isRead());
             
             if (message.isDelivered()) {
                 totalSuccess++;
