@@ -21,17 +21,12 @@ import {
 import { useTeamStore } from '../../store/useTeamStore';
 import { useGameStore } from '../../store/useGameStore';
 import { useMessageStore } from '../../store/useMessageStore';
-import { useTeamRealtime as useRealtime } from '../../hooks/useRealtime';
-import { storage } from '../../services/storage';
 import { formatCountdown, getSecondsUntil } from '../../utils/dateTime';
 
 export function DashboardPage() {
   const { team, achievements } = useTeamStore();
   const { game } = useGameStore();
   const { unreadCount } = useMessageStore();
-  const gameId = storage.getGameId();
-  
-  useRealtime({ gameId, teamId: team?.id || null });
 
   const [countdown, setCountdown] = useState(0);
 

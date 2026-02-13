@@ -7,7 +7,7 @@ import {BrowserRouter, Navigate, Route, Routes, useNavigate} from 'react-router-
 import {Alert, Button, createTheme, CssBaseline, Snackbar, ThemeProvider} from '@mui/material';
 import {CheckInPage, DashboardPage} from './pages';
 import {MessagesPage} from './pages/MessagesPage';
-import {AppLayout} from './components/AppLayout';
+import {TeamLayout} from './components/TeamLayout';
 import {AdminLayout} from './components/AdminLayout';
 import {storage} from './services/storage';
 import {getRolesFromToken, getUserRoleFromRoles} from './services/auth';
@@ -300,9 +300,9 @@ function App() {
             path="/dashboard"
             element={
               <TeamRoute>
-                <AppLayout>
+                <TeamLayout>
                   <DashboardPage />
-                </AppLayout>
+                </TeamLayout>
               </TeamRoute>
             }
           />
@@ -310,9 +310,9 @@ function App() {
             path="/messages"
             element={
               <TeamRoute>
-                <AppLayout>
+                <TeamLayout>
                   <MessagesPage />
-                </AppLayout>
+                </TeamLayout>
               </TeamRoute>
             }
           />

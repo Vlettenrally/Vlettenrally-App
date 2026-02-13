@@ -1,5 +1,5 @@
 /**
- * App Layout Component - Contains navigation and layout structure
+ * Team Layout Component - Contains navigation and layout structure for team interface
  */
 import { useState } from 'react';
 import type { ReactNode } from 'react';
@@ -35,20 +35,25 @@ import { storage } from '../services/storage';
 import { useTeamStore } from '../store/useTeamStore';
 import { useGameStore } from '../store/useGameStore';
 import { useConnectionStatus } from '../hooks/useConnectionStatus';
+import { useTeamRealtime } from '../hooks/useRealtime';
 import api from '../services/api';
 
-interface AppLayoutProps {
+interface TeamLayoutProps {
   children: ReactNode;
 }
 
-export function AppLayout({ children }: AppLayoutProps) {
+export function TeamLayout({ children }: TeamLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { unreadCount } = useMessageStore();
-  const { reset: resetTeam } = useTeamStore();
+  const { reset: resetTeam, team } = useTeamStore();
   const { reset: resetGame } = useGameStore();
   const { showDisconnected } = useConnectionStatus();
+  const gameId = storage.getGameId();
+  
+  // Initialize websocket connection for the entire team app
+  useTeamRealtime({ gameId, teamId: team?.id || null });
 
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
