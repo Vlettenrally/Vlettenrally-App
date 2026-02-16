@@ -6,6 +6,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.quarkus.logging.Log;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.websocket.OnClose;
 import jakarta.websocket.OnError;
@@ -34,6 +35,7 @@ public class AdminWebSocket {
     WebSocketSessionManager sessionManager;
     
     @OnOpen
+    @RolesAllowed("admin")
     public void onOpen(Session session) {
         // Create admin session without a game - must send SWITCH_GAME to receive messages
         WebSocketSession wsSession = WebSocketSession.forAdmin(session);
