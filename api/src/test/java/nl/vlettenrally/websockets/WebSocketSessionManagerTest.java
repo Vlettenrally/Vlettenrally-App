@@ -38,14 +38,12 @@ class WebSocketSessionManagerTest {
     @BeforeEach
     void setUp() {
         manager = new WebSocketSessionManager();
-        when(sessionA.getId()).thenReturn("session-a");
-        when(sessionB.getId()).thenReturn("session-b");
-        when(sessionC.getId()).thenReturn("session-c");
-        when(sessionD.getId()).thenReturn("session-d");
     }
 
     @Test
     void addSession_andGetSession() {
+        when(sessionA.getId()).thenReturn("session-a");
+
         WebSocketSession ws = WebSocketSession.forTeam(sessionA, gameId1, teamId1);
         manager.addSession(ws);
 
@@ -55,6 +53,8 @@ class WebSocketSessionManagerTest {
 
     @Test
     void removeSession_removesCorrectly() {
+        when(sessionA.getId()).thenReturn("session-a");
+
         WebSocketSession ws = WebSocketSession.forTeam(sessionA, gameId1, teamId1);
         manager.addSession(ws);
         manager.removeSession("session-a");
@@ -65,6 +65,10 @@ class WebSocketSessionManagerTest {
 
     @Test
     void getSessionsByGame_filtersCorrectly() {
+        when(sessionA.getId()).thenReturn("session-a");
+        when(sessionB.getId()).thenReturn("session-b");
+        when(sessionC.getId()).thenReturn("session-c");
+
         manager.addSession(WebSocketSession.forTeam(sessionA, gameId1, teamId1));
         manager.addSession(WebSocketSession.forTeam(sessionB, gameId1, teamId2));
         manager.addSession(WebSocketSession.forTeam(sessionC, gameId2, teamId1));
@@ -75,6 +79,10 @@ class WebSocketSessionManagerTest {
 
     @Test
     void getTeamSessionsByGame_excludesAdmins() {
+        when(sessionA.getId()).thenReturn("session-a");
+        when(sessionB.getId()).thenReturn("session-b");
+        when(sessionC.getId()).thenReturn("session-c");
+
         manager.addSession(WebSocketSession.forTeam(sessionA, gameId1, teamId1));
         manager.addSession(WebSocketSession.forAdmin(sessionB, gameId1));
         manager.addSession(WebSocketSession.forTeam(sessionC, gameId1, teamId2));
@@ -86,6 +94,10 @@ class WebSocketSessionManagerTest {
 
     @Test
     void getAdminSessionsByGame_excludesTeams() {
+        when(sessionA.getId()).thenReturn("session-a");
+        when(sessionB.getId()).thenReturn("session-b");
+        when(sessionC.getId()).thenReturn("session-c");
+
         manager.addSession(WebSocketSession.forTeam(sessionA, gameId1, teamId1));
         manager.addSession(WebSocketSession.forAdmin(sessionB, gameId1));
         manager.addSession(WebSocketSession.forAdmin(sessionC, gameId1));
@@ -97,6 +109,9 @@ class WebSocketSessionManagerTest {
 
     @Test
     void getSessionByTeam_findsCorrectTeam() {
+        when(sessionA.getId()).thenReturn("session-a");
+        when(sessionB.getId()).thenReturn("session-b");
+
         manager.addSession(WebSocketSession.forTeam(sessionA, gameId1, teamId1));
         manager.addSession(WebSocketSession.forTeam(sessionB, gameId1, teamId2));
 
@@ -107,6 +122,8 @@ class WebSocketSessionManagerTest {
 
     @Test
     void getSessionByTeam_returnsNullWhenNotFound() {
+        when(sessionA.getId()).thenReturn("session-a");
+
         manager.addSession(WebSocketSession.forTeam(sessionA, gameId1, teamId1));
 
         assertNull(manager.getSessionByTeam(UUID.randomUUID()));
@@ -114,6 +131,11 @@ class WebSocketSessionManagerTest {
 
     @Test
     void getSessionCountByGame_countsCorrectly() {
+        when(sessionA.getId()).thenReturn("session-a");
+        when(sessionB.getId()).thenReturn("session-b");
+        when(sessionC.getId()).thenReturn("session-c");
+        when(sessionD.getId()).thenReturn("session-d");
+
         manager.addSession(WebSocketSession.forTeam(sessionA, gameId1, teamId1));
         manager.addSession(WebSocketSession.forTeam(sessionB, gameId1, teamId2));
         manager.addSession(WebSocketSession.forAdmin(sessionC, gameId1));
@@ -127,6 +149,11 @@ class WebSocketSessionManagerTest {
 
     @Test
     void getTargetSessions_gameBroadcast_reachesAllInGame() {
+        when(sessionA.getId()).thenReturn("session-a");
+        when(sessionB.getId()).thenReturn("session-b");
+        when(sessionC.getId()).thenReturn("session-c");
+        when(sessionD.getId()).thenReturn("session-d");
+
         manager.addSession(WebSocketSession.forTeam(sessionA, gameId1, teamId1));
         manager.addSession(WebSocketSession.forTeam(sessionB, gameId1, teamId2));
         manager.addSession(WebSocketSession.forAdmin(sessionC, gameId1));
@@ -141,6 +168,10 @@ class WebSocketSessionManagerTest {
 
     @Test
     void getTargetSessions_teamMessage_reachesTeamAndAdmins() {
+        when(sessionA.getId()).thenReturn("session-a");
+        when(sessionB.getId()).thenReturn("session-b");
+        when(sessionC.getId()).thenReturn("session-c");
+
         manager.addSession(WebSocketSession.forTeam(sessionA, gameId1, teamId1));
         manager.addSession(WebSocketSession.forTeam(sessionB, gameId1, teamId2));
         manager.addSession(WebSocketSession.forAdmin(sessionC, gameId1));
@@ -156,6 +187,10 @@ class WebSocketSessionManagerTest {
 
     @Test
     void getTargetSessions_adminOnly_excludesTeams() {
+        when(sessionA.getId()).thenReturn("session-a");
+        when(sessionB.getId()).thenReturn("session-b");
+        when(sessionC.getId()).thenReturn("session-c");
+
         manager.addSession(WebSocketSession.forTeam(sessionA, gameId1, teamId1));
         manager.addSession(WebSocketSession.forTeam(sessionB, gameId1, teamId2));
         manager.addSession(WebSocketSession.forAdmin(sessionC, gameId1));
@@ -171,6 +206,11 @@ class WebSocketSessionManagerTest {
 
     @Test
     void getTargetSessions_globalBroadcast_reachesAllWithGame() {
+        when(sessionA.getId()).thenReturn("session-a");
+        when(sessionB.getId()).thenReturn("session-b");
+        when(sessionC.getId()).thenReturn("session-c");
+        when(sessionD.getId()).thenReturn("session-d");
+
         manager.addSession(WebSocketSession.forTeam(sessionA, gameId1, teamId1));
         manager.addSession(WebSocketSession.forTeam(sessionB, gameId2, teamId2));
         manager.addSession(WebSocketSession.forAdmin(sessionC, gameId1));
