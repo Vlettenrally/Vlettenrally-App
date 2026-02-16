@@ -80,18 +80,25 @@ public class TeamWebSocket {
 
     @OnMessage
     public void onMessage(String message, Session session) {
-        WebSocketSession wsSession = sessionManager.getSession(session.getId());
-        if (wsSession == null) {
-            return;
-        }
-        
         try {
             WebSocketRequest request = objectMapper.readValue(message, WebSocketRequest.class);
             
-            // Handle PING messages - update activity and respond with PONG
+            // Handle PING messages - respond with PONG immediately
+            // Don't require session lookup to support multi-pod deployments
             if (request.getType() == WebSocketMessageType.PING) {
-                wsSession.updateActivity();
+                // Try to update activity if session is registered locally
+                WebSocketSession wsSession = sessionManager.getSession(session.getId());
+                if (wsSession != null) {
+                    wsSession.updateActivity();
+                }
+                // Always send PONG response regardless of local session registration
                 sendResponse(session, WebSocketResponse.pong());
+                return;
+            }
+            
+            // For other message types, require session to be registered locally
+            WebSocketSession wsSession = sessionManager.getSession(session.getId());
+            if (wsSession == null) {
                 return;
             }
             
