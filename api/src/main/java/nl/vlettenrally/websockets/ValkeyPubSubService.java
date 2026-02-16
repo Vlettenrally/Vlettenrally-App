@@ -85,7 +85,7 @@ public class ValkeyPubSubService {
     /**
      * Deliver a message received from Valkey to matching local WebSocket sessions.
      * <p>
-     * We parse only the routing metadata (targetGameId, targetTeamId, adminOnly) to determine
+     * We parse only the routing metadata (targetGameId, targetTeamId, adminOnly, targetSessionId) to determine
      * which local sessions should receive the message. The original pre-serialized JSON is
      * forwarded directly to avoid re-serialization and Object-type payload issues.
      */
@@ -97,6 +97,16 @@ public class ValkeyPubSubService {
         } catch (JsonProcessingException e) {
             Log.error("Failed to parse Valkey message JSON: " + e.getMessage());
             return;
+        }
+
+        // Check for session-specific targeting (e.g., PONG responses)
+        if (node.has("targetSessionId") && !node.get("targetSessionId").isNull()) {
+            String targetSessionId = node.get("targetSessionId").asText();
+            WebSocketSession wsSession = sessionManager.getSession(targetSessionId);
+            if (wsSession != null) {
+                sendToSession(wsSession.getSession(), jsonMessage);
+            }
+            return; // Session-specific message, don't broadcast further
         }
 
         // Build a lightweight WebSocketMessage with only routing fields for session filtering

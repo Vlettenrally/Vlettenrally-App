@@ -38,6 +38,12 @@ public class TeamWebSocket {
     @Inject
     WebSocketSessionManager sessionManager;
     
+    @Inject
+    ValkeySessionStore valkeySessionStore;
+    
+    @Inject
+    ValkeyPubSubService valkeyPubSubService;
+    
     @OnOpen
     @TeamScopedOrAdmin
     @RolesAllowed({"team", "admin"})
@@ -50,6 +56,10 @@ public class TeamWebSocket {
             
             WebSocketSession wsSession = WebSocketSession.forTeam(session, gameUuid, teamUuid);
             sessionManager.addSession(wsSession);
+            
+            // Store session metadata in Valkey for cross-pod access
+            WebSocketSessionMetadata metadata = WebSocketSessionMetadata.forTeam(session.getId(), gameUuid, teamUuid);
+            valkeySessionStore.storeSession(metadata);
             
             Log.infof("Team WebSocket opened - Game: %s, Team: %s, Session: %s", gameId, teamId, session.getId());
         } catch (IllegalArgumentException e) {
@@ -69,6 +79,7 @@ public class TeamWebSocket {
     @OnClose
     public void onClose(Session session) {
         sessionManager.removeSession(session.getId());
+        valkeySessionStore.removeSession(session.getId());
         Log.infof("Team WebSocket closed: %s", session.getId());
     }
 
@@ -76,6 +87,7 @@ public class TeamWebSocket {
     public void onError(Session session, Throwable throwable) {
         Log.errorf("Team WebSocket error on session %s: %s", session.getId(), throwable.getMessage());
         sessionManager.removeSession(session.getId());
+        valkeySessionStore.removeSession(session.getId());
     }
 
     @OnMessage
@@ -83,20 +95,13 @@ public class TeamWebSocket {
         try {
             WebSocketRequest request = objectMapper.readValue(message, WebSocketRequest.class);
             
-            // Handle PING messages - respond with PONG immediately
-            // Don't require session lookup to support multi-pod deployments
+            // Handle PING messages with cross-pod support
             if (request.getType() == WebSocketMessageType.PING) {
-                // Try to update activity if session is registered locally
-                WebSocketSession wsSession = sessionManager.getSession(session.getId());
-                if (wsSession != null) {
-                    wsSession.updateActivity();
-                }
-                // Always send PONG response regardless of local session registration
-                sendResponse(session, WebSocketResponse.pong());
+                handlePing(session);
                 return;
             }
             
-            // For other message types, require session to be registered locally
+            // For other messages, require local session registration
             WebSocketSession wsSession = sessionManager.getSession(session.getId());
             if (wsSession == null) {
                 return;
@@ -107,6 +112,42 @@ public class TeamWebSocket {
         } catch (JsonProcessingException e) {
             Log.errorf("Failed to parse WebSocket message: %s", e.getMessage());
             sendResponse(session, WebSocketResponse.error("Invalid message format"));
+        }
+    }
+    
+    /**
+     * Handle PING messages with cross-pod support.
+     * <p>
+     * If session is registered locally, update activity and send PONG directly.
+     * Otherwise, check Valkey for session metadata and publish PONG via pub/sub.
+     */
+    private void handlePing(Session session) {
+        String sessionId = session.getId();
+        
+        // Try local session first (most common case - same pod)
+        WebSocketSession wsSession = sessionManager.getSession(sessionId);
+        if (wsSession != null) {
+            wsSession.updateActivity();
+            valkeySessionStore.updateActivity(sessionId);
+            sendResponse(session, WebSocketResponse.pong());
+            return;
+        }
+        
+        // Session not local - check Valkey (cross-pod scenario)
+        WebSocketSessionMetadata metadata = valkeySessionStore.getSession(sessionId);
+        if (metadata != null) {
+            // Session exists in Valkey - update activity and publish PONG via pub/sub
+            valkeySessionStore.updateActivity(sessionId);
+            
+            // Create PONG message targeted to this specific session
+            WebSocketMessage pongMessage = new WebSocketMessage("PONG", null)
+                .withTargetSession(sessionId);
+            valkeyPubSubService.publish(pongMessage);
+            
+            Log.debugf("Handled PING for remote session %s via Valkey pub/sub", sessionId);
+        } else {
+            // Session not found anywhere - likely expired or invalid
+            Log.warnf("Received PING for unknown session: %s", sessionId);
         }
     }
     
