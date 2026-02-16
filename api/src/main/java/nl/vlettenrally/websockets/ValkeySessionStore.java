@@ -26,7 +26,8 @@ public class ValkeySessionStore {
     @Inject
     ReactiveRedisDataSource redisDataSource;
     
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    @Inject
+    ObjectMapper objectMapper;
     
     /**
      * Store session metadata in Valkey with automatic expiration
@@ -75,13 +76,20 @@ public class ValkeySessionStore {
     
     /**
      * Update session activity timestamp in Valkey
-     * Resets the TTL to keep the session alive
+     * Resets the TTL to keep the session alive without retrieving the full metadata
      */
     public void updateActivity(String sessionId) {
-        WebSocketSessionMetadata metadata = getSession(sessionId);
-        if (metadata != null) {
-            WebSocketSessionMetadata updated = metadata.withUpdatedActivity();
-            storeSession(updated);
+        try {
+            String key = SESSION_KEY_PREFIX + sessionId;
+            
+            // Simply refresh the TTL without reading/writing the full object
+            redisDataSource.key().expire(key, SESSION_TTL)
+                .subscribe().with(
+                    success -> Log.debugf("Refreshed TTL for session %s: %s", sessionId, success),
+                    error -> Log.errorf("Failed to refresh TTL for session %s: %s", sessionId, error.getMessage())
+                );
+        } catch (Exception e) {
+            Log.errorf("Failed to update activity for session %s: %s", sessionId, e.getMessage());
         }
     }
     

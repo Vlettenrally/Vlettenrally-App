@@ -42,7 +42,7 @@ public class TeamWebSocket {
     ValkeySessionStore valkeySessionStore;
     
     @Inject
-    ValkeyPubSubService valkeyPubSubService;
+    WebSocketPingHandler pingHandler;
     
     @OnOpen
     @TeamScopedOrAdmin
@@ -97,7 +97,7 @@ public class TeamWebSocket {
             
             // Handle PING messages with cross-pod support
             if (request.getType() == WebSocketMessageType.PING) {
-                handlePing(session);
+                pingHandler.handlePing(session);
                 return;
             }
             
@@ -112,42 +112,6 @@ public class TeamWebSocket {
         } catch (JsonProcessingException e) {
             Log.errorf("Failed to parse WebSocket message: %s", e.getMessage());
             sendResponse(session, WebSocketResponse.error("Invalid message format"));
-        }
-    }
-    
-    /**
-     * Handle PING messages with cross-pod support.
-     * <p>
-     * If session is registered locally, update activity and send PONG directly.
-     * Otherwise, check Valkey for session metadata and publish PONG via pub/sub.
-     */
-    private void handlePing(Session session) {
-        String sessionId = session.getId();
-        
-        // Try local session first (most common case - same pod)
-        WebSocketSession wsSession = sessionManager.getSession(sessionId);
-        if (wsSession != null) {
-            wsSession.updateActivity();
-            valkeySessionStore.updateActivity(sessionId);
-            sendResponse(session, WebSocketResponse.pong());
-            return;
-        }
-        
-        // Session not local - check Valkey (cross-pod scenario)
-        WebSocketSessionMetadata metadata = valkeySessionStore.getSession(sessionId);
-        if (metadata != null) {
-            // Session exists in Valkey - update activity and publish PONG via pub/sub
-            valkeySessionStore.updateActivity(sessionId);
-            
-            // Create PONG message targeted to this specific session
-            WebSocketMessage pongMessage = new WebSocketMessage("PONG", null)
-                .withTargetSession(sessionId);
-            valkeyPubSubService.publish(pongMessage);
-            
-            Log.debugf("Handled PING for remote session %s via Valkey pub/sub", sessionId);
-        } else {
-            // Session not found anywhere - likely expired or invalid
-            Log.warnf("Received PING for unknown session: %s", sessionId);
         }
     }
     
