@@ -24,9 +24,14 @@ public class AdminWebSocket extends BaseWebSocket {
     @OnOpen
     @RolesAllowed("admin")
     public void onOpen(Session session) {
+        // Register session locally FIRST for immediate availability
+        WebSocketSession wsSession = WebSocketSession.forAdmin(session);
+        sessionManager.addSession(wsSession);
+
+        // Then store to Valkey for cross-pod session recovery
         WebSocketSessionMetadata metadata = WebSocketSessionMetadata.forAdminNoGame(session.getId());
         valkeySessionStore.storeSession(metadata).subscribe().with(
-            item -> {},
+            item -> Log.debugf("Session %s stored in Valkey", session.getId()),
             failure -> Log.errorf("Error storing session in Valkey: %s", failure.getMessage())
         );
         

@@ -34,23 +34,26 @@ public class TeamWebSocket extends BaseWebSocket {
         try {
             UUID gameUuid = UUID.fromString(gameId);
             UUID teamUuid = UUID.fromString(teamId);
-            
+
+            WebSocketSession wsSession = WebSocketSession.forTeam(session, gameUuid, teamUuid);
+            sessionManager.addSession(wsSession);
+
             WebSocketSessionMetadata metadata = WebSocketSessionMetadata.forTeam(session.getId(), gameUuid, teamUuid);
             valkeySessionStore.storeSession(metadata).subscribe().with(
-                item -> {},
+                item -> Log.debugf("Session %s stored in Valkey", session.getId()),
                 failure -> Log.errorf("Error storing session in Valkey: %s", failure.getMessage())
             );
             
             Log.infof("Team WebSocket opened - Game: %s, Team: %s, Session: %s", gameId, teamId, session.getId());
         } catch (IllegalArgumentException e) {
             Log.errorf("Invalid UUID in WebSocket connection: %s", e.getMessage());
-            closeWithError(session, "Invalid game or team identifier");
+            closeWithError(session);
         }
     }
 
-    private void closeWithError(Session session, String reason) {
+    private void closeWithError(Session session) {
         try {
-            session.close(new CloseReason(CloseReason.CloseCodes.VIOLATED_POLICY, reason));
+            session.close(new CloseReason(CloseReason.CloseCodes.VIOLATED_POLICY, "Invalid game or team identifier"));
         } catch (IOException e) {
             Log.errorf("Error closing WebSocket session: %s", e.getMessage());
         }
