@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -79,7 +80,7 @@ class WebSocketPingHandlerTest {
         String response = responseCaptor.getValue();
         assertNotNull(response);
         // Check that response contains PONG
-        assert(response.contains("PONG"));
+        assertTrue(response.contains("PONG"));
     }
 
     @Test
