@@ -15,7 +15,8 @@ import nl.vlettenrally.websockets.dto.WebSocketResponse;
  */
 public abstract class BaseWebSocket {
     
-    protected static final ObjectMapper objectMapper = new ObjectMapper();
+    @Inject
+    protected ObjectMapper objectMapper;
     
     @Inject
     protected WebSocketSessionManager sessionManager;

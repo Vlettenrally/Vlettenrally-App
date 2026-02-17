@@ -76,7 +76,11 @@ public class AdminWebSocket extends BaseWebSocket {
             wsSession.setGameId(gameId);
             valkeySessionStore.updateGameId(session.getId(), gameId);
             
-            Log.infof("Admin session %s switched from game %s to game %s", session.getId(), previousGameId, gameId);
+            if (previousGameId != null) {
+                Log.infof("Admin session %s switched from game %s to game %s", session.getId(), previousGameId, gameId);
+            } else {
+                Log.infof("Admin session %s selected game %s", session.getId(), gameId);
+            }
             sendResponse(session, WebSocketResponse.gameSwitched(gameId.toString()));
             
         } catch (IllegalArgumentException e) {
