@@ -50,24 +50,36 @@ public class WebSocketPingHandler {
         WebSocketSessionMetadata metadata = valkeySessionStore.getSession(sessionId);
         if (metadata != null) {
             // Found in Valkey - register locally and send PONG
-            WebSocketSession newSession;
-            if (metadata.isTeam()) {
-                newSession = WebSocketSession.forTeam(session, metadata.getGameId(), metadata.getTeamId());
-            } else if (metadata.getGameId() != null) {
-                newSession = WebSocketSession.forAdmin(session, metadata.getGameId());
-            } else {
-                newSession = WebSocketSession.forAdmin(session);
+            WebSocketSession newSession = createSessionFromMetadata(session, metadata);
+            if (newSession != null) {
+                sessionManager.addSession(newSession);
+                newSession.updateActivity();
+                valkeySessionStore.updateActivity(sessionId);
+                sendResponse(session, WebSocketResponse.pong());
+                
+                Log.infof("Registered session %s locally from Valkey on PING (cross-pod scenario)", sessionId);
             }
-            sessionManager.addSession(newSession);
-            newSession.updateActivity();
-            valkeySessionStore.updateActivity(sessionId);
-            sendResponse(session, WebSocketResponse.pong());
-            
-            Log.infof("Registered session %s locally from Valkey on PING (cross-pod scenario)", sessionId);
         } else {
             // Session not found anywhere - likely expired or invalid
             Log.warnf("Received PING for unknown session: %s", sessionId);
         }
+    }
+    
+    /**
+     * Create a WebSocketSession from metadata.
+     * Shared utility to ensure consistent session creation.
+     */
+    private WebSocketSession createSessionFromMetadata(Session session, WebSocketSessionMetadata metadata) {
+        if (metadata.isTeam()) {
+            return WebSocketSession.forTeam(session, metadata.getGameId(), metadata.getTeamId());
+        } else if (metadata.isAdmin()) {
+            if (metadata.getGameId() != null) {
+                return WebSocketSession.forAdmin(session, metadata.getGameId());
+            } else {
+                return WebSocketSession.forAdmin(session);
+            }
+        }
+        return null;
     }
     
     private void sendResponse(Session session, WebSocketResponse response) {

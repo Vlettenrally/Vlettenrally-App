@@ -117,18 +117,32 @@ public class AdminWebSocket {
         // Not in local list - check Valkey
         WebSocketSessionMetadata metadata = valkeySessionStore.getSession(sessionId);
         if (metadata != null) {
-            // Found in Valkey - register locally
-            WebSocketSession wsSession;
-            if (metadata.getGameId() != null) {
-                wsSession = WebSocketSession.forAdmin(session, metadata.getGameId());
-            } else {
-                wsSession = WebSocketSession.forAdmin(session);
+            // Found in Valkey - register locally using utility
+            WebSocketSession wsSession = createSessionFromMetadata(session, metadata);
+            if (wsSession != null) {
+                sessionManager.addSession(wsSession);
+                Log.infof("Registered session %s locally from Valkey metadata (cross-pod scenario)", sessionId);
             }
-            sessionManager.addSession(wsSession);
-            Log.infof("Registered session %s locally from Valkey metadata (cross-pod scenario)", sessionId);
         } else {
             Log.warnf("Session %s not found in local manager or Valkey", sessionId);
         }
+    }
+    
+    /**
+     * Create a WebSocketSession from metadata.
+     * Shared utility to ensure consistent session creation.
+     */
+    private WebSocketSession createSessionFromMetadata(Session session, WebSocketSessionMetadata metadata) {
+        if (metadata.isTeam()) {
+            return WebSocketSession.forTeam(session, metadata.getGameId(), metadata.getTeamId());
+        } else if (metadata.isAdmin()) {
+            if (metadata.getGameId() != null) {
+                return WebSocketSession.forAdmin(session, metadata.getGameId());
+            } else {
+                return WebSocketSession.forAdmin(session);
+            }
+        }
+        return null;
     }
     
     private void handleSwitchGame(WebSocketRequest request, WebSocketSession wsSession, Session session) {
