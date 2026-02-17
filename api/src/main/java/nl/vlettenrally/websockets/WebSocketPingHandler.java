@@ -22,9 +22,6 @@ public class WebSocketPingHandler {
     ValkeySessionStore valkeySessionStore;
     
     @Inject
-    ValkeyPubSubService valkeyPubSubService;
-    
-    @Inject
     ObjectMapper objectMapper;
     
     /**
