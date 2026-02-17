@@ -208,7 +208,7 @@ class WebSocketService {
     try {
       const url = await this.buildUrl();
       // Mask token in logs for security
-      const maskedUrl = url.replace(/\/[^\/]+$/, '/[token]');
+      const maskedUrl = url.replace(/\/[^/]+$/, '/[token]');
       console.log('Connecting to WebSocket:', maskedUrl);
 
       this.socket = new WebSocket(url);
