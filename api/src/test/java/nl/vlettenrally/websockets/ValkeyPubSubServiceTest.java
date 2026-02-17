@@ -232,4 +232,48 @@ class ValkeyPubSubServiceTest {
 
         verify(noGameAsync, never()).sendText(anyString(), any());
     }
+
+    // --- Session-targeted messages ---
+
+    @Test
+    void deliverLocally_targetSessionId_reachesOnlyThatSession() throws JsonProcessingException {
+        WebSocketMessage msg = new WebSocketMessage("PONG", null)
+            .withTargetSession("team1-session");
+        String json = objectMapper.writeValueAsString(msg);
+
+        service.deliverLocally(json);
+
+        verify(asyncTeam1).sendText(eq(json), any());
+        verify(asyncTeam2, never()).sendText(anyString(), any());
+        verify(asyncAdmin, never()).sendText(anyString(), any());
+    }
+
+    @Test
+    void deliverLocally_targetSessionId_unknownSession_doesNotThrow() throws JsonProcessingException {
+        WebSocketMessage msg = new WebSocketMessage("PONG", null)
+            .withTargetSession("unknown-session-id");
+        String json = objectMapper.writeValueAsString(msg);
+
+        assertDoesNotThrow(() -> service.deliverLocally(json));
+
+        verify(asyncTeam1, never()).sendText(anyString(), any());
+        verify(asyncTeam2, never()).sendText(anyString(), any());
+        verify(asyncAdmin, never()).sendText(anyString(), any());
+    }
+
+    @Test
+    void deliverLocally_targetSessionId_notBroadcast() throws JsonProcessingException {
+        // Session-targeted message should not be broadcast even if it has targetGameId
+        WebSocketMessage msg = new WebSocketMessage("PONG", null)
+            .withTargetGame(gameId)
+            .withTargetSession("team1-session");
+        String json = objectMapper.writeValueAsString(msg);
+
+        service.deliverLocally(json);
+
+        // Only team1 should receive, not other sessions in same game
+        verify(asyncTeam1).sendText(eq(json), any());
+        verify(asyncTeam2, never()).sendText(anyString(), any());
+        verify(asyncAdmin, never()).sendText(anyString(), any());
+    }
 }
