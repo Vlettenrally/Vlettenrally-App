@@ -4,14 +4,10 @@ import java.io.IOException;
 import java.util.UUID;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.quarkus.logging.Log;
 import jakarta.annotation.security.RolesAllowed;
-import jakarta.inject.Inject;
 import jakarta.websocket.CloseReason;
-import jakarta.websocket.OnClose;
-import jakarta.websocket.OnError;
 import jakarta.websocket.OnMessage;
 import jakarta.websocket.OnOpen;
 import jakarta.websocket.Session;
@@ -23,20 +19,11 @@ import nl.vlettenrally.websockets.dto.WebSocketRequest;
 import nl.vlettenrally.websockets.dto.WebSocketResponse;
 
 /**
- * WebSocket endpoint for team connections
- * 
+ * WebSocket endpoint for team connections.
  * Teams connect to: /ws/game/{gameId}/team/{teamId}?token={accessToken}
- * 
- * Authentication is required via the token query parameter.
- * The token must be valid and the subject must match the teamId in the path.
  */
 @ServerEndpoint("/ws/game/{gameId}/team/{teamId}")
-public class TeamWebSocket {
-    
-    private static final ObjectMapper objectMapper = new ObjectMapper();
-    
-    @Inject
-    WebSocketSessionManager sessionManager;
+public class TeamWebSocket extends BaseWebSocket {
     
     @OnOpen
     @TeamScopedOrAdmin
@@ -48,8 +35,11 @@ public class TeamWebSocket {
             UUID gameUuid = UUID.fromString(gameId);
             UUID teamUuid = UUID.fromString(teamId);
             
-            WebSocketSession wsSession = WebSocketSession.forTeam(session, gameUuid, teamUuid);
-            sessionManager.addSession(wsSession);
+            WebSocketSessionMetadata metadata = WebSocketSessionMetadata.forTeam(session.getId(), gameUuid, teamUuid);
+            valkeySessionStore.storeSession(metadata).subscribe().with(
+                item -> {},
+                failure -> Log.errorf("Error storing session in Valkey: %s", failure.getMessage())
+            );
             
             Log.infof("Team WebSocket opened - Game: %s, Team: %s, Session: %s", gameId, teamId, session.getId());
         } catch (IllegalArgumentException e) {
@@ -66,32 +56,21 @@ public class TeamWebSocket {
         }
     }
 
-    @OnClose
-    public void onClose(Session session) {
-        sessionManager.removeSession(session.getId());
-        Log.infof("Team WebSocket closed: %s", session.getId());
-    }
-
-    @OnError
-    public void onError(Session session, Throwable throwable) {
-        Log.errorf("Team WebSocket error on session %s: %s", session.getId(), throwable.getMessage());
-        sessionManager.removeSession(session.getId());
-    }
-
     @OnMessage
     public void onMessage(String message, Session session) {
-        WebSocketSession wsSession = sessionManager.getSession(session.getId());
-        if (wsSession == null) {
-            return;
-        }
-        
         try {
             WebSocketRequest request = objectMapper.readValue(message, WebSocketRequest.class);
             
-            // Handle PING messages - update activity and respond with PONG
             if (request.getType() == WebSocketMessageType.PING) {
-                wsSession.updateActivity();
-                sendResponse(session, WebSocketResponse.pong());
+                pingHandler.handlePing(session);
+                return;
+            }
+            
+            ensureSessionRegistered(session);
+            
+            WebSocketSession wsSession = sessionManager.getSession(session.getId());
+            if (wsSession == null) {
+                Log.warnf("Session %s not found after registration attempt", session.getId());
                 return;
             }
             
@@ -100,14 +79,6 @@ public class TeamWebSocket {
         } catch (JsonProcessingException e) {
             Log.errorf("Failed to parse WebSocket message: %s", e.getMessage());
             sendResponse(session, WebSocketResponse.error("Invalid message format"));
-        }
-    }
-    
-    private void sendResponse(Session session, WebSocketResponse response) {
-        try {
-            session.getAsyncRemote().sendText(objectMapper.writeValueAsString(response));
-        } catch (JsonProcessingException e) {
-            Log.errorf("Failed to serialize response for session %s: %s", session.getId(), e.getMessage());
         }
     }
 }

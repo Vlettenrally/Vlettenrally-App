@@ -16,6 +16,7 @@ public class WebSocketMessage {
     private UUID targetGameId;
     private UUID targetTeamId;
     private boolean adminOnly;
+    private String targetSessionId; // For session-specific messages like PONG
 
     public WebSocketMessage() {
         this.timestamp = Instant.now().toString();
@@ -42,6 +43,11 @@ public class WebSocketMessage {
         this.adminOnly = true;
         return this;
     }
+    
+    public WebSocketMessage withTargetSession(String sessionId) {
+        this.targetSessionId = sessionId;
+        return this;
+    }
 
     // Getters and Setters
     public String getType() { return type; }
@@ -61,4 +67,7 @@ public class WebSocketMessage {
 
     public boolean isAdminOnly() { return adminOnly; }
     public void setAdminOnly(boolean adminOnly) { this.adminOnly = adminOnly; }
+    
+    public String getTargetSessionId() { return targetSessionId; }
+    public void setTargetSessionId(String targetSessionId) { this.targetSessionId = targetSessionId; }
 }
