@@ -4,13 +4,13 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.quarkus.logging.Log;
+import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import jakarta.websocket.OnClose;
 import jakarta.websocket.OnError;
 import jakarta.websocket.Session;
 import nl.vlettenrally.websockets.dto.WebSocketResponse;
 
-import java.time.Duration;
 
 /**
  * Base class for WebSocket endpoints providing common functionality.
@@ -29,8 +29,6 @@ public abstract class BaseWebSocket {
     @Inject
     protected WebSocketPingHandler pingHandler;
 
-    private static final int MAX_LOOKUP_TIME_SECONDS = 2;
-    
     @OnClose
     public void onClose(Session session) {
         sessionManager.removeSession(session.getId());
@@ -51,30 +49,37 @@ public abstract class BaseWebSocket {
         );
     }
     
-    protected void ensureSessionRegistered(Session session) {
+    /**
+     * Ensures a session is registered locally, checking Valkey for cross-pod recovery if needed.
+     * Returns a Uni that completes with the WebSocketSession (or null if not found).
+     * Callers must subscribe to this Uni and handle the result asynchronously.
+     */
+    protected Uni<WebSocketSession> ensureSessionRegistered(Session session) {
         String sessionId = session.getId();
         
-        if (sessionManager.getSession(sessionId) != null) {
-            return;
+        WebSocketSession existing = sessionManager.getSession(sessionId);
+        if (existing != null) {
+            return Uni.createFrom().item(existing);
         }
         
-        // Block and wait for Valkey lookup to complete (cross-pod session recovery)
-        try {
-            WebSocketSessionMetadata metadata = valkeySessionStore.getSession(sessionId)
-                .await().atMost(Duration.ofSeconds(MAX_LOOKUP_TIME_SECONDS));
-
-            if (metadata != null) {
-                WebSocketSession wsSession = createSessionFromMetadata(session, metadata);
-                if (wsSession != null) {
-                    sessionManager.addSession(wsSession);
-                    Log.infof("Registered session %s from Valkey (cross-pod)", sessionId);
+        // Look up in Valkey for cross-pod session recovery
+        return valkeySessionStore.getSession(sessionId)
+            .map(metadata -> {
+                if (metadata != null) {
+                    WebSocketSession wsSession = createSessionFromMetadata(session, metadata);
+                    if (wsSession != null) {
+                        sessionManager.addSession(wsSession);
+                        Log.infof("Registered session %s from Valkey (cross-pod)", sessionId);
+                        return wsSession;
+                    }
                 }
-            } else {
                 Log.warnf("Session %s not found in Valkey", sessionId);
-            }
-        } catch (Exception e) {
-            Log.errorf("Error getting session from Valkey: %s", e.getMessage());
-        }
+                return null;
+            })
+            .onFailure().recoverWithItem(failure -> {
+                Log.errorf("Error getting session from Valkey: %s", failure.getMessage());
+                return null;
+            });
     }
     
     protected WebSocketSession createSessionFromMetadata(Session session, WebSocketSessionMetadata metadata) {
