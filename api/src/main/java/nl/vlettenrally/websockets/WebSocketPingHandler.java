@@ -25,27 +25,37 @@ public class WebSocketPingHandler extends BaseWebSocket {
         WebSocketSession wsSession = sessionManager.getSession(sessionId);
         if (wsSession != null) {
             wsSession.updateActivity();
-            valkeySessionStore.updateActivity(sessionId);
+            valkeySessionStore.updateActivity(sessionId).subscribe().with(
+                item -> {},
+                failure -> Log.errorf("Error updating activity in Valkey: %s", failure.getMessage())
+            );
             sendResponse(session, WebSocketResponse.pong());
             return;
         }
         
         // Session not local - check Valkey (cross-pod scenario or first message)
-        WebSocketSessionMetadata metadata = valkeySessionStore.getSession(sessionId);
-        if (metadata != null) {
-            // Found in Valkey - register locally and send PONG
-            WebSocketSession newSession = createSessionFromMetadata(session, metadata);
-            if (newSession != null) {
-                sessionManager.addSession(newSession);
-                newSession.updateActivity();
-                valkeySessionStore.updateActivity(sessionId);
-                sendResponse(session, WebSocketResponse.pong());
-                
-                Log.infof("Registered session %s locally from Valkey on PING (cross-pod scenario)", sessionId);
-            }
-        } else {
-            // Session not found anywhere - likely expired or invalid
-            Log.warnf("Received PING for unknown session: %s", sessionId);
-        }
+        valkeySessionStore.getSession(sessionId).subscribe().with(
+            metadata -> {
+                if (metadata != null) {
+                    // Found in Valkey - register locally and send PONG
+                    WebSocketSession newSession = createSessionFromMetadata(session, metadata);
+                    if (newSession != null) {
+                        sessionManager.addSession(newSession);
+                        newSession.updateActivity();
+                        valkeySessionStore.updateActivity(sessionId).subscribe().with(
+                            item -> {},
+                            failure -> Log.errorf("Error updating activity in Valkey: %s", failure.getMessage())
+                        );
+                        sendResponse(session, WebSocketResponse.pong());
+                        
+                        Log.infof("Registered session %s locally from Valkey on PING (cross-pod scenario)", sessionId);
+                    }
+                } else {
+                    // Session not found anywhere - likely expired or invalid
+                    Log.warnf("Received PING for unknown session: %s", sessionId);
+                }
+            },
+            failure -> Log.errorf("Error getting session from Valkey: %s", failure.getMessage())
+        );
     }
 }

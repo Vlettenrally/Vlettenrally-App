@@ -30,7 +30,10 @@ public abstract class BaseWebSocket {
     @OnClose
     public void onClose(Session session) {
         sessionManager.removeSession(session.getId());
-        valkeySessionStore.removeSession(session.getId());
+        valkeySessionStore.removeSession(session.getId()).subscribe().with(
+            item -> {},
+            failure -> Log.errorf("Error removing session from Valkey: %s", failure.getMessage())
+        );
         Log.infof("WebSocket closed: %s", session.getId());
     }
 
@@ -38,7 +41,10 @@ public abstract class BaseWebSocket {
     public void onError(Session session, Throwable throwable) {
         Log.errorf("WebSocket error on session %s: %s", session.getId(), throwable.getMessage());
         sessionManager.removeSession(session.getId());
-        valkeySessionStore.removeSession(session.getId());
+        valkeySessionStore.removeSession(session.getId()).subscribe().with(
+            item -> {},
+            failure -> Log.errorf("Error removing session from Valkey: %s", failure.getMessage())
+        );
     }
     
     protected void ensureSessionRegistered(Session session) {
@@ -48,16 +54,20 @@ public abstract class BaseWebSocket {
             return;
         }
         
-        WebSocketSessionMetadata metadata = valkeySessionStore.getSession(sessionId);
-        if (metadata != null) {
-            WebSocketSession wsSession = createSessionFromMetadata(session, metadata);
-            if (wsSession != null) {
-                sessionManager.addSession(wsSession);
-                Log.infof("Registered session %s from Valkey (cross-pod)", sessionId);
-            }
-        } else {
-            Log.warnf("Session %s not found", sessionId);
-        }
+        valkeySessionStore.getSession(sessionId).subscribe().with(
+            metadata -> {
+                if (metadata != null) {
+                    WebSocketSession wsSession = createSessionFromMetadata(session, metadata);
+                    if (wsSession != null) {
+                        sessionManager.addSession(wsSession);
+                        Log.infof("Registered session %s from Valkey (cross-pod)", sessionId);
+                    }
+                } else {
+                    Log.warnf("Session %s not found in Valkey", sessionId);
+                }
+            },
+            failure -> Log.errorf("Error getting session from Valkey: %s", failure.getMessage())
+        );
     }
     
     protected WebSocketSession createSessionFromMetadata(Session session, WebSocketSessionMetadata metadata) {

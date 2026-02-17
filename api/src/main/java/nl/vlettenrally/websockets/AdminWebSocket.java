@@ -25,7 +25,10 @@ public class AdminWebSocket extends BaseWebSocket {
     @RolesAllowed("admin")
     public void onOpen(Session session) {
         WebSocketSessionMetadata metadata = WebSocketSessionMetadata.forAdminNoGame(session.getId());
-        valkeySessionStore.storeSession(metadata);
+        valkeySessionStore.storeSession(metadata).subscribe().with(
+            item -> {},
+            failure -> Log.errorf("Error storing session in Valkey: %s", failure.getMessage())
+        );
         
         Log.infof("Admin WebSocket opened - Session: %s", session.getId());
     }
@@ -74,7 +77,10 @@ public class AdminWebSocket extends BaseWebSocket {
             UUID gameId = UUID.fromString(gameIdStr);
             UUID previousGameId = wsSession.getGameId();
             wsSession.setGameId(gameId);
-            valkeySessionStore.updateGameId(session.getId(), gameId);
+            valkeySessionStore.updateGameId(session.getId(), gameId).subscribe().with(
+                item -> {},
+                failure -> Log.errorf("Error updating game ID in Valkey: %s", failure.getMessage())
+            );
             
             if (previousGameId != null) {
                 Log.infof("Admin session %s switched from game %s to game %s", session.getId(), previousGameId, gameId);

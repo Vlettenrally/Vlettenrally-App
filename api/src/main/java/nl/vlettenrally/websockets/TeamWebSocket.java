@@ -36,7 +36,10 @@ public class TeamWebSocket extends BaseWebSocket {
             UUID teamUuid = UUID.fromString(teamId);
             
             WebSocketSessionMetadata metadata = WebSocketSessionMetadata.forTeam(session.getId(), gameUuid, teamUuid);
-            valkeySessionStore.storeSession(metadata);
+            valkeySessionStore.storeSession(metadata).subscribe().with(
+                item -> {},
+                failure -> Log.errorf("Error storing session in Valkey: %s", failure.getMessage())
+            );
             
             Log.infof("Team WebSocket opened - Game: %s, Team: %s, Session: %s", gameId, teamId, session.getId());
         } catch (IllegalArgumentException e) {
