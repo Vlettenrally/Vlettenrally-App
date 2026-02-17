@@ -484,6 +484,15 @@ async getGames() : Promise<ApiResponse<Game[]>> {
   async deactivateAdmin(adminId: string): Promise<ApiResponse<void>> {
     return this.delete(`/admins/${adminId}`);
   }
+
+  // WebSocket Token endpoints
+  async getAdminWebSocketToken(): Promise<ApiResponse<{ token: string; expiresInSeconds: number }>> {
+    return this.get('/ws/token/admin');
+  }
+
+  async getTeamWebSocketToken(gameId: string, teamId: string): Promise<ApiResponse<{ token: string; expiresInSeconds: number }>> {
+    return this.get(`/ws/token/team/${gameId}/${teamId}`);
+  }
 }
 
 // Export either the real API or mock API based on configuration
