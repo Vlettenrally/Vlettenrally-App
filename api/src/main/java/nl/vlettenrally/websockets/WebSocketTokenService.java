@@ -13,6 +13,7 @@ import io.quarkus.logging.Log;
 import io.quarkus.redis.datasource.ReactiveRedisDataSource;
 import io.quarkus.redis.datasource.value.ReactiveValueCommands;
 import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import nl.vlettenrally.data.domain.Team;
@@ -66,50 +67,42 @@ public class WebSocketTokenService {
      * @return Uni containing the result (success with token, or error)
      */
     public Uni<WebSocketTokenResult> generateTeamToken(UUID teamId, UUID gameId) {
-        return Uni.createFrom().item(() -> {
-            Optional<Team> teamOpt = teamRepository.findById(teamId);
+        // Offload blocking database call to worker pool, then continue reactively
+        return Uni.createFrom().<Optional<Team>>item(() -> teamRepository.findById(teamId))
+            .runSubscriptionOn(Infrastructure.getDefaultWorkerPool())
+            .flatMap(teamOpt -> {
+                if (teamOpt.isEmpty()) {
+                    Log.warnf("Team not found when generating WebSocket token: %s", teamId);
+                    return Uni.createFrom().item(new WebSocketTokenResult.TeamNotFound());
+                }
 
-            if (teamOpt.isEmpty()) {
-                Log.warnf("Team not found when generating WebSocket token: %s", teamId);
-                return new GenerateResult.Failure(new WebSocketTokenResult.TeamNotFound());
-            }
+                Team team = teamOpt.get();
+                if (!team.getGameId().equals(gameId)) {
+                    Log.warnf("Team %s does not belong to game %s (actual: %s)", teamId, gameId, team.getGameId());
+                    return Uni.createFrom().item(new WebSocketTokenResult.TeamGameMismatch());
+                }
 
-            Team team = teamOpt.get();
-            if (!team.getGameId().equals(gameId)) {
-                Log.warnf("Team %s does not belong to game %s (actual: %s)", teamId, gameId, team.getGameId());
-                return new GenerateResult.Failure(new WebSocketTokenResult.TeamGameMismatch());
-            }
+                String teamName = team.getName() != null ? team.getName() : "Team " + team.getBoatNumber();
+                String token = generateSecureToken();
+                WebSocketTokenData data = WebSocketTokenData.forTeam(teamId, teamName, gameId);
 
-            String teamName = team.getName() != null ? team.getName() : "Team " + team.getBoatNumber();
-            String token = generateSecureToken();
-            WebSocketTokenData data = WebSocketTokenData.forTeam(teamId, teamName, gameId);
+                try {
+                    String key = TOKEN_KEY_PREFIX + token;
+                    String json = objectMapper.writeValueAsString(data);
 
-            try {
-                String key = TOKEN_KEY_PREFIX + token;
-                String json = objectMapper.writeValueAsString(data);
-                return new GenerateResult.Pending(token, key, json);
-            } catch (JsonProcessingException e) {
-                Log.errorf("Failed to serialize WebSocket token data: %s", e.getMessage());
-                return new GenerateResult.Failure(new WebSocketTokenResult.Error("Failed to generate token"));
-            }
-        }).flatMap(result -> switch (result) {
-            case GenerateResult.Pending pending -> {
-                ReactiveValueCommands<String, String> commands = redisDataSource.value(String.class);
-                yield commands.setex(pending.key(), TOKEN_TTL.getSeconds(), pending.json())
-                    .map(v -> (WebSocketTokenResult) new WebSocketTokenResult.Success(pending.token(), (int) TOKEN_TTL.getSeconds()))
-                    .onFailure().recoverWithItem(error -> {
-                        Log.errorf("Failed to store WebSocket token: %s", error.getMessage());
-                        return new WebSocketTokenResult.Error("Failed to store token");
-                    });
-            }
-            case GenerateResult.Failure failure -> Uni.createFrom().item(failure.result());
-        });
-    }
-
-    // Internal sealed interface for token generation intermediate results
-    private sealed interface GenerateResult {
-        record Pending(String token, String key, String json) implements GenerateResult {}
-        record Failure(WebSocketTokenResult result) implements GenerateResult {}
+                    // Store token in Redis reactively
+                    ReactiveValueCommands<String, String> commands = redisDataSource.value(String.class);
+                    return commands.setex(key, TOKEN_TTL.getSeconds(), json)
+                        .map(v -> (WebSocketTokenResult) new WebSocketTokenResult.Success(token, (int) TOKEN_TTL.getSeconds()))
+                        .onFailure().recoverWithItem(error -> {
+                            Log.errorf("Failed to store WebSocket token: %s", error.getMessage());
+                            return new WebSocketTokenResult.Error("Failed to store token");
+                        });
+                } catch (JsonProcessingException e) {
+                    Log.errorf("Failed to serialize WebSocket token data: %s", e.getMessage());
+                    return Uni.createFrom().item(new WebSocketTokenResult.Error("Failed to generate token"));
+                }
+            });
     }
 
     /**
