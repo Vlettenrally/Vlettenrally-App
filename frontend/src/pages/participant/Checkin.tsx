@@ -52,6 +52,12 @@ export function CheckInPage() {
         return aNum - bNum;
       }
 
+      if (a.boatNumber == null) {
+        return 0;
+      } else if (b.boatNumber == null) {
+        return 0;
+      }
+
       return a.boatNumber.localeCompare(b.boatNumber);
     });
   }, [teamOptions]);
