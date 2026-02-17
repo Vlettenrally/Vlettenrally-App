@@ -3,10 +3,13 @@ package nl.vlettenrally.websockets;
 import java.time.Instant;
 import java.util.UUID;
 
+import io.quarkus.runtime.annotations.RegisterForReflection;
+
 /**
  * Data stored with a WebSocket token in Valkey.
  * Contains all information needed to establish a WebSocket session.
  */
+@RegisterForReflection
 public record WebSocketTokenData(
     String role,           // "admin" or "team"
     UUID userId,           // admin ID or team ID
