@@ -36,12 +36,12 @@ public class AdminWebSocket extends BaseWebSocket {
             WebSocketRequest request = objectMapper.readValue(message, WebSocketRequest.class);
             WebSocketMessageType type = request.getType();
             
-            ensureSessionRegistered(session);
-            
             if (type == WebSocketMessageType.PING) {
                 pingHandler.handlePing(session);
                 return;
             }
+            
+            ensureSessionRegistered(session);
             
             WebSocketSession wsSession = sessionManager.getSession(session.getId());
             if (wsSession == null) {

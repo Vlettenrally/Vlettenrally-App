@@ -1,11 +1,7 @@
 package nl.vlettenrally.websockets;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import jakarta.websocket.Session;
 import nl.vlettenrally.websockets.dto.WebSocketResponse;
 
@@ -13,23 +9,14 @@ import nl.vlettenrally.websockets.dto.WebSocketResponse;
  * Utility class for handling WebSocket PING messages with cross-pod support.
  */
 @ApplicationScoped
-public class WebSocketPingHandler {
-    
-    @Inject
-    WebSocketSessionManager sessionManager;
-    
-    @Inject
-    ValkeySessionStore valkeySessionStore;
-    
-    @Inject
-    ObjectMapper objectMapper;
+public class WebSocketPingHandler extends BaseWebSocket {
     
     /**
      * Handle PING messages with cross-pod support.
      * <p>
      * If session is registered locally, update activity and send PONG directly.
      * Otherwise, check Valkey for session metadata. If found, register locally and send PONG.
-     * If still not found in Valkey, log a warning that the session is unknown (likely expired or invalid).
+     * If not found in Valkey, log a warning that the session is unknown (likely expired or invalid).
      */
     public void handlePing(Session session) {
         String sessionId = session.getId();
@@ -59,31 +46,6 @@ public class WebSocketPingHandler {
         } else {
             // Session not found anywhere - likely expired or invalid
             Log.warnf("Received PING for unknown session: %s", sessionId);
-        }
-    }
-    
-    /**
-     * Create a WebSocketSession from metadata.
-     * Shared utility to ensure consistent session creation.
-     */
-    private WebSocketSession createSessionFromMetadata(Session session, WebSocketSessionMetadata metadata) {
-        if (metadata.isTeam()) {
-            return WebSocketSession.forTeam(session, metadata.getGameId(), metadata.getTeamId());
-        } else if (metadata.isAdmin()) {
-            if (metadata.getGameId() != null) {
-                return WebSocketSession.forAdmin(session, metadata.getGameId());
-            } else {
-                return WebSocketSession.forAdmin(session);
-            }
-        }
-        return null;
-    }
-    
-    private void sendResponse(Session session, WebSocketResponse response) {
-        try {
-            session.getAsyncRemote().sendText(objectMapper.writeValueAsString(response));
-        } catch (JsonProcessingException e) {
-            Log.errorf("Failed to serialize response for session %s: %s", session.getId(), e.getMessage());
         }
     }
 }

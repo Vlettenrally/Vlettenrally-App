@@ -1,6 +1,5 @@
 package nl.vlettenrally.websockets;
 
-import java.time.Instant;
 import java.util.UUID;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -16,32 +15,29 @@ public class WebSocketSessionMetadata {
     private final String sessionType; // "TEAM" or "ADMIN"
     private final UUID gameId;
     private final UUID teamId; // null for admin sessions
-    private final Instant lastActivity;
     
     @JsonCreator
     public WebSocketSessionMetadata(
             @JsonProperty("sessionId") String sessionId,
             @JsonProperty("sessionType") String sessionType,
             @JsonProperty("gameId") UUID gameId,
-            @JsonProperty("teamId") UUID teamId,
-            @JsonProperty("lastActivity") Instant lastActivity) {
+            @JsonProperty("teamId") UUID teamId) {
         this.sessionId = sessionId;
         this.sessionType = sessionType;
         this.gameId = gameId;
         this.teamId = teamId;
-        this.lastActivity = lastActivity != null ? lastActivity : Instant.now();
     }
     
     public static WebSocketSessionMetadata forTeam(String sessionId, UUID gameId, UUID teamId) {
-        return new WebSocketSessionMetadata(sessionId, "TEAM", gameId, teamId, Instant.now());
+        return new WebSocketSessionMetadata(sessionId, "TEAM", gameId, teamId);
     }
     
     public static WebSocketSessionMetadata forAdmin(String sessionId, UUID gameId) {
-        return new WebSocketSessionMetadata(sessionId, "ADMIN", gameId, null, Instant.now());
+        return new WebSocketSessionMetadata(sessionId, "ADMIN", gameId, null);
     }
     
     public static WebSocketSessionMetadata forAdminNoGame(String sessionId) {
-        return new WebSocketSessionMetadata(sessionId, "ADMIN", null, null, Instant.now());
+        return new WebSocketSessionMetadata(sessionId, "ADMIN", null, null);
     }
     
     public String getSessionId() {
@@ -60,10 +56,6 @@ public class WebSocketSessionMetadata {
         return teamId;
     }
     
-    public Instant getLastActivity() {
-        return lastActivity;
-    }
-    
     public boolean isTeam() {
         return "TEAM".equals(sessionType);
     }
@@ -73,16 +65,9 @@ public class WebSocketSessionMetadata {
     }
     
     /**
-     * Create a new metadata instance with updated activity timestamp
-     */
-    public WebSocketSessionMetadata withUpdatedActivity() {
-        return new WebSocketSessionMetadata(sessionId, sessionType, gameId, teamId, Instant.now());
-    }
-    
-    /**
      * Create a new metadata instance with updated game ID (for admin game switching)
      */
     public WebSocketSessionMetadata withGameId(UUID newGameId) {
-        return new WebSocketSessionMetadata(sessionId, sessionType, newGameId, teamId, lastActivity);
+        return new WebSocketSessionMetadata(sessionId, sessionType, newGameId, teamId);
     }
 }

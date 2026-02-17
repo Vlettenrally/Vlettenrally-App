@@ -58,12 +58,12 @@ public class TeamWebSocket extends BaseWebSocket {
         try {
             WebSocketRequest request = objectMapper.readValue(message, WebSocketRequest.class);
             
-            ensureSessionRegistered(session);
-            
             if (request.getType() == WebSocketMessageType.PING) {
                 pingHandler.handlePing(session);
                 return;
             }
+            
+            ensureSessionRegistered(session);
             
             WebSocketSession wsSession = sessionManager.getSession(session.getId());
             if (wsSession == null) {
