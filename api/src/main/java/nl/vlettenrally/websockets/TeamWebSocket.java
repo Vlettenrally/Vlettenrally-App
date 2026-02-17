@@ -20,7 +20,6 @@ import nl.vlettenrally.websockets.dto.WebSocketResponse;
 /**
  * WebSocket endpoint for team connections.
  * Teams connect to: /ws/team/{token}
- *
  * The token is obtained from GET /api/v1/ws/token/team/{gameId}/{teamId}
  */
 @ServerEndpoint("/ws/team/{token}")

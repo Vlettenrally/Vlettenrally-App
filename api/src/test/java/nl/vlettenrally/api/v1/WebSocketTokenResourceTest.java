@@ -11,7 +11,6 @@ import nl.vlettenrally.websockets.WebSocketTokenResult;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import static org.mockito.Mockito.never;
@@ -59,11 +58,13 @@ class WebSocketTokenResourceTest {
         when(tokenService.generateAdminToken(adminId, "Test Admin"))
             .thenReturn(Uni.createFrom().item("admin-token-123"));
 
-        Response response = resource.getAdminToken()
-            .await().atMost(Duration.ofSeconds(2));
+        WebSocketTokenResponse tokenResponse;
+        try (Response response = resource.getAdminToken()
+                .await().atMost(Duration.ofSeconds(2))) {
 
-        assertEquals(200, response.getStatus());
-        WebSocketTokenResponse tokenResponse = (WebSocketTokenResponse) response.getEntity();
+            assertEquals(200, response.getStatus());
+            tokenResponse = (WebSocketTokenResponse) response.getEntity();
+        }
         assertEquals("admin-token-123", tokenResponse.token());
         assertEquals(30, tokenResponse.expiresInSeconds());
     }
@@ -76,10 +77,11 @@ class WebSocketTokenResourceTest {
         when(tokenService.generateAdminToken(adminId, "Admin"))
             .thenReturn(Uni.createFrom().item("admin-token-123"));
 
-        Response response = resource.getAdminToken()
-            .await().atMost(Duration.ofSeconds(2));
+        try (Response response = resource.getAdminToken()
+                .await().atMost(Duration.ofSeconds(2))) {
 
-        assertEquals(200, response.getStatus());
+            assertEquals(200, response.getStatus());
+        }
         verify(tokenService).generateAdminToken(adminId, "Admin");
     }
 
@@ -91,11 +93,13 @@ class WebSocketTokenResourceTest {
         when(tokenService.generateAdminToken(any(), any()))
             .thenReturn(Uni.createFrom().failure(new RuntimeException("Service error")));
 
-        Response response = resource.getAdminToken()
-            .await().atMost(Duration.ofSeconds(2));
+        ErrorResponse error;
+        try (Response response = resource.getAdminToken()
+                .await().atMost(Duration.ofSeconds(2))) {
 
-        assertEquals(500, response.getStatus());
-        ErrorResponse error = (ErrorResponse) response.getEntity();
+            assertEquals(500, response.getStatus());
+            error = (ErrorResponse) response.getEntity();
+        }
         assertNotNull(error.message());
     }
 
@@ -109,11 +113,13 @@ class WebSocketTokenResourceTest {
         when(tokenService.generateTeamToken(teamId, gameId))
             .thenReturn(Uni.createFrom().item(new WebSocketTokenResult.Success("team-token-123", 30)));
 
-        Response response = resource.getTeamToken(gameId.toString(), teamId.toString())
-            .await().atMost(Duration.ofSeconds(2));
+        WebSocketTokenResponse tokenResponse;
+        try (Response response = resource.getTeamToken(gameId.toString(), teamId.toString())
+                .await().atMost(Duration.ofSeconds(2))) {
 
-        assertEquals(200, response.getStatus());
-        WebSocketTokenResponse tokenResponse = (WebSocketTokenResponse) response.getEntity();
+            assertEquals(200, response.getStatus());
+            tokenResponse = (WebSocketTokenResponse) response.getEntity();
+        }
         assertEquals("team-token-123", tokenResponse.token());
         assertEquals(30, tokenResponse.expiresInSeconds());
     }
@@ -126,11 +132,13 @@ class WebSocketTokenResourceTest {
         when(tokenService.generateTeamToken(teamId, gameId))
             .thenReturn(Uni.createFrom().item(new WebSocketTokenResult.Success("team-token-456", 30)));
 
-        Response response = resource.getTeamToken(gameId.toString(), teamId.toString())
-            .await().atMost(Duration.ofSeconds(2));
+        WebSocketTokenResponse tokenResponse;
+        try (Response response = resource.getTeamToken(gameId.toString(), teamId.toString())
+                .await().atMost(Duration.ofSeconds(2))) {
 
-        assertEquals(200, response.getStatus());
-        WebSocketTokenResponse tokenResponse = (WebSocketTokenResponse) response.getEntity();
+            assertEquals(200, response.getStatus());
+            tokenResponse = (WebSocketTokenResponse) response.getEntity();
+        }
         assertEquals("team-token-456", tokenResponse.token());
     }
 
@@ -141,11 +149,13 @@ class WebSocketTokenResourceTest {
         when(principal.getName()).thenReturn(teamId.toString());
         when(securityIdentity.hasRole("admin")).thenReturn(false);
 
-        Response response = resource.getTeamToken(gameId.toString(), otherTeamId.toString())
-            .await().atMost(Duration.ofSeconds(2));
+        ErrorResponse error;
+        try (Response response = resource.getTeamToken(gameId.toString(), otherTeamId.toString())
+                .await().atMost(Duration.ofSeconds(2))) {
 
-        assertEquals(403, response.getStatus());
-        ErrorResponse error = (ErrorResponse) response.getEntity();
+            assertEquals(403, response.getStatus());
+            error = (ErrorResponse) response.getEntity();
+        }
         assertEquals("Cannot get token for another team", error.message());
         verify(tokenService, never()).generateTeamToken(any(), any());
     }
@@ -153,21 +163,24 @@ class WebSocketTokenResourceTest {
     @Test
     void getTeamToken_invalidGameId_returns400() {
         // No stubbing needed - UUID parsing fails before any mock is used
-        Response response = resource.getTeamToken("not-a-uuid", teamId.toString())
-            .await().atMost(Duration.ofSeconds(2));
+        ErrorResponse error;
+        try (Response response = resource.getTeamToken("not-a-uuid", teamId.toString())
+                .await().atMost(Duration.ofSeconds(2))) {
 
-        assertEquals(400, response.getStatus());
-        ErrorResponse error = (ErrorResponse) response.getEntity();
+            assertEquals(400, response.getStatus());
+            error = (ErrorResponse) response.getEntity();
+        }
         assertEquals("Invalid gameId or teamId format", error.message());
     }
 
     @Test
     void getTeamToken_invalidTeamId_returns400() {
         // No stubbing needed - UUID parsing fails before any mock is used
-        Response response = resource.getTeamToken(gameId.toString(), "not-a-uuid")
-            .await().atMost(Duration.ofSeconds(2));
+        try (Response response = resource.getTeamToken(gameId.toString(), "not-a-uuid")
+                .await().atMost(Duration.ofSeconds(2))) {
 
-        assertEquals(400, response.getStatus());
+            assertEquals(400, response.getStatus());
+        }
     }
 
     @Test
@@ -178,11 +191,13 @@ class WebSocketTokenResourceTest {
         when(tokenService.generateTeamToken(teamId, gameId))
             .thenReturn(Uni.createFrom().item(new WebSocketTokenResult.TeamNotFound()));
 
-        Response response = resource.getTeamToken(gameId.toString(), teamId.toString())
-            .await().atMost(Duration.ofSeconds(2));
+        ErrorResponse error;
+        try (Response response = resource.getTeamToken(gameId.toString(), teamId.toString())
+                .await().atMost(Duration.ofSeconds(2))) {
 
-        assertEquals(404, response.getStatus());
-        ErrorResponse error = (ErrorResponse) response.getEntity();
+            assertEquals(404, response.getStatus());
+            error = (ErrorResponse) response.getEntity();
+        }
         assertEquals("Team not found", error.message());
     }
 
@@ -194,11 +209,13 @@ class WebSocketTokenResourceTest {
         when(tokenService.generateTeamToken(teamId, gameId))
             .thenReturn(Uni.createFrom().item(new WebSocketTokenResult.TeamGameMismatch()));
 
-        Response response = resource.getTeamToken(gameId.toString(), teamId.toString())
-            .await().atMost(Duration.ofSeconds(2));
+        ErrorResponse error;
+        try (Response response = resource.getTeamToken(gameId.toString(), teamId.toString())
+                .await().atMost(Duration.ofSeconds(2))) {
 
-        assertEquals(400, response.getStatus());
-        ErrorResponse error = (ErrorResponse) response.getEntity();
+            assertEquals(400, response.getStatus());
+            error = (ErrorResponse) response.getEntity();
+        }
         assertEquals("Team does not belong to the specified game", error.message());
     }
 
@@ -210,11 +227,13 @@ class WebSocketTokenResourceTest {
         when(tokenService.generateTeamToken(teamId, gameId))
             .thenReturn(Uni.createFrom().item(new WebSocketTokenResult.Error("Internal error")));
 
-        Response response = resource.getTeamToken(gameId.toString(), teamId.toString())
-            .await().atMost(Duration.ofSeconds(2));
+        ErrorResponse error;
+        try (Response response = resource.getTeamToken(gameId.toString(), teamId.toString())
+                .await().atMost(Duration.ofSeconds(2))) {
 
-        assertEquals(500, response.getStatus());
-        ErrorResponse error = (ErrorResponse) response.getEntity();
+            assertEquals(500, response.getStatus());
+            error = (ErrorResponse) response.getEntity();
+        }
         assertEquals("Internal error", error.message());
     }
 
@@ -226,10 +245,11 @@ class WebSocketTokenResourceTest {
         when(tokenService.generateTeamToken(teamId, gameId))
             .thenReturn(Uni.createFrom().failure(new RuntimeException("Unexpected error")));
 
-        Response response = resource.getTeamToken(gameId.toString(), teamId.toString())
-            .await().atMost(Duration.ofSeconds(2));
+        try (Response response = resource.getTeamToken(gameId.toString(), teamId.toString())
+                .await().atMost(Duration.ofSeconds(2))) {
 
-        assertEquals(500, response.getStatus());
+            assertEquals(500, response.getStatus());
+        }
     }
 }
 

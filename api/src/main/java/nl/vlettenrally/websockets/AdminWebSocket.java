@@ -20,7 +20,6 @@ import nl.vlettenrally.websockets.dto.WebSocketResponse;
 /**
  * WebSocket endpoint for admin connections.
  * Admins connect to: /ws/admin/{token}
- *
  * The token is obtained from GET /api/v1/ws/token/admin
  */
 @ServerEndpoint("/ws/admin/{token}")
