@@ -68,7 +68,7 @@ public class ValkeySessionStore {
         } catch (JsonProcessingException e) {
             Log.errorf("Failed to deserialize session metadata: %s", e.getMessage());
             return null;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             Log.errorf("Failed to retrieve session metadata from Valkey: %s", e.getMessage());
             return null;
         }
@@ -88,7 +88,7 @@ public class ValkeySessionStore {
                     success -> Log.debugf("Refreshed TTL for session %s: %s", sessionId, success),
                     error -> Log.errorf("Failed to refresh TTL for session %s: %s", sessionId, error.getMessage())
                 );
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             Log.errorf("Failed to update activity for session %s: %s", sessionId, e.getMessage());
         }
     }
@@ -117,7 +117,7 @@ public class ValkeySessionStore {
                     deleted -> Log.debugf("Removed session metadata from Valkey: %s", sessionId),
                     error -> Log.errorf("Failed to remove session metadata from Valkey: %s", error.getMessage())
                 );
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             Log.errorf("Failed to remove session from Valkey: %s", e.getMessage());
         }
     }

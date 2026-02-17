@@ -57,8 +57,10 @@ public class WebSocketPingScheduler {
                 Log.errorf("Failed to close stale session %s: %s", wsSession.getSessionId(), e.getMessage());
                 sessionManager.removeSession(wsSession.getSessionId());
                 closedCount++;
-            } catch (Exception e) {
-                Log.errorf("Unexpected error checking session %s: %s", wsSession.getSessionId(), e.getMessage());
+            } catch (IllegalStateException e) {
+                Log.errorf("Session %s in invalid state: %s", wsSession.getSessionId(), e.getMessage());
+                sessionManager.removeSession(wsSession.getSessionId());
+                closedCount++;
             }
         }
         

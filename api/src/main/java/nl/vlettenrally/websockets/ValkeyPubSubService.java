@@ -50,7 +50,7 @@ public class ValkeyPubSubService {
         subscriber.subscribe(CHANNEL, jsonMessage -> {
             try {
                 deliverLocally(jsonMessage);
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 Log.error("Failed to deliver Valkey pub/sub message locally: " + e.getMessage(), e);
             }
         }).runSubscriptionOn(Infrastructure.getDefaultWorkerPool())
