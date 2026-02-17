@@ -7,6 +7,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import nl.vlettenrally.data.dto.auth.WebSocketTokenResponse;
 import nl.vlettenrally.websockets.WebSocketTokenResult;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,7 +22,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.mutiny.Uni;
 import jakarta.ws.rs.core.Response;
-import nl.vlettenrally.api.v1.WebSocketTokenResource.WebSocketTokenResponse;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
 import nl.vlettenrally.websockets.WebSocketTokenService;
 
