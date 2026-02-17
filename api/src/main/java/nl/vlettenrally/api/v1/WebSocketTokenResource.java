@@ -14,6 +14,7 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import nl.vlettenrally.data.dto.auth.WebSocketTokenResponse;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
 import nl.vlettenrally.websockets.WebSocketTokenResult;
 import nl.vlettenrally.websockets.WebSocketTokenService;
@@ -39,10 +40,6 @@ public class WebSocketTokenResource {
     @Inject
     SecurityIdentity securityIdentity;
 
-    /**
-     * Response containing a WebSocket connection token
-     */
-    public record WebSocketTokenResponse(String token, int expiresInSeconds) {}
 
     /**
      * Generate a WebSocket token for admin connections.
