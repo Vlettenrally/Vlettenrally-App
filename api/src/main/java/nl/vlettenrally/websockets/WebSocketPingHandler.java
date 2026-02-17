@@ -32,7 +32,7 @@ public class WebSocketPingHandler {
      * <p>
      * If session is registered locally, update activity and send PONG directly.
      * Otherwise, check Valkey for session metadata. If found, register locally and send PONG.
-     * If still not found in Valkey, publish PONG via pub/sub (session may be on different pod).
+     * If still not found in Valkey, log a warning that the session is unknown (likely expired or invalid).
      */
     public void handlePing(Session session) {
         String sessionId = session.getId();
