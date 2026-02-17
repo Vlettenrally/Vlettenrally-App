@@ -38,12 +38,12 @@ public class ValkeySessionStore {
      */
     public Uni<Void> storeSession(WebSocketSessionMetadata metadata) {
         try {
-            String key = SESSION_KEY_PREFIX + metadata.getSessionId();
+            String key = SESSION_KEY_PREFIX + metadata.sessionId();
             String json = objectMapper.writeValueAsString(metadata);
             
             ReactiveValueCommands<String, String> commands = redisDataSource.value(String.class);
             return commands.setex(key, SESSION_TTL.getSeconds(), json)
-                .onItem().invoke(() -> Log.debugf("Stored session metadata in Valkey: %s", metadata.getSessionId()))
+                .onItem().invoke(() -> Log.debugf("Stored session metadata in Valkey: %s", metadata.sessionId()))
                 .onFailure().invoke(error -> Log.errorf("Failed to store session metadata in Valkey: %s", error.getMessage()))
                 .replaceWithVoid();
         } catch (JsonProcessingException e) {

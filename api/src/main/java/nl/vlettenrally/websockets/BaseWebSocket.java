@@ -84,10 +84,10 @@ public abstract class BaseWebSocket {
     
     protected WebSocketSession createSessionFromMetadata(Session session, WebSocketSessionMetadata metadata) {
         if (metadata.isTeam()) {
-            return WebSocketSession.forTeam(session, metadata.getGameId(), metadata.getTeamId());
+            return WebSocketSession.forTeam(session, metadata.gameId(), metadata.teamId());
         } else if (metadata.isAdmin()) {
-            if (metadata.getGameId() != null) {
-                return WebSocketSession.forAdmin(session, metadata.getGameId());
+            if (metadata.gameId() != null) {
+                return WebSocketSession.forAdmin(session, metadata.gameId());
             } else {
                 return WebSocketSession.forAdmin(session);
             }

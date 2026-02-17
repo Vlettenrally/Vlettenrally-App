@@ -4,12 +4,17 @@ import java.time.Instant;
 import java.util.UUID;
 
 import io.quarkus.runtime.annotations.RegisterForReflection;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
  * Represents a WebSocket message that can be sent to clients
  */
+@Setter
+@Getter
 @RegisterForReflection
 public class WebSocketMessage {
+    // Getters and Setters
     private String type;
     private Object payload;
     private String timestamp;
@@ -49,25 +54,4 @@ public class WebSocketMessage {
         return this;
     }
 
-    // Getters and Setters
-    public String getType() { return type; }
-    public void setType(String type) { this.type = type; }
-
-    public Object getPayload() { return payload; }
-    public void setPayload(Object payload) { this.payload = payload; }
-
-    public String getTimestamp() { return timestamp; }
-    public void setTimestamp(String timestamp) { this.timestamp = timestamp; }
-
-    public UUID getTargetGameId() { return targetGameId; }
-    public void setTargetGameId(UUID targetGameId) { this.targetGameId = targetGameId; }
-
-    public UUID getTargetTeamId() { return targetTeamId; }
-    public void setTargetTeamId(UUID targetTeamId) { this.targetTeamId = targetTeamId; }
-
-    public boolean isAdminOnly() { return adminOnly; }
-    public void setAdminOnly(boolean adminOnly) { this.adminOnly = adminOnly; }
-    
-    public String getTargetSessionId() { return targetSessionId; }
-    public void setTargetSessionId(String targetSessionId) { this.targetSessionId = targetSessionId; }
 }
