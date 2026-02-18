@@ -49,7 +49,7 @@ public class TeamServiceImpl implements TeamService {
     @Override
     public Optional<Team> findRivalTeam(UUID teamId) {
         List<Team> rivals = teamRepository.findRivals(teamId);
-        return rivals.isEmpty() ? Optional.empty() : Optional.of(rivals.get(0));
+        return rivals.isEmpty() ? Optional.empty() : Optional.of(rivals.getFirst());
     }
 
     @Override

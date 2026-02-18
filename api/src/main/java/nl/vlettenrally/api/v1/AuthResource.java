@@ -35,7 +35,6 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 /**
  * REST Resource for Authentication operations
- * 
  * Endpoints:
  * - POST /api/v1/auth/register - Register a new team
  * - POST /api/v1/auth/refresh - Refresh access token
@@ -54,9 +53,6 @@ public class AuthResource {
 
     @Inject
     TeamService teamService;
-
-    @Inject
-    AdminRepository adminRepository;
 
     @ConfigProperty(name = "vlettenrally.mock.enabled", defaultValue = "false")
     boolean mockEnabled;

@@ -42,7 +42,7 @@ public class TeamScopedFilter implements ContainerRequestFilter {
 
         UUID requestedTeamId;
         try {
-            requestedTeamId = UUID.fromString(teamIdValues.get(0));
+            requestedTeamId = UUID.fromString(teamIdValues.getFirst());
         } catch (IllegalArgumentException e) {
             abortWithForbidden(requestContext, "Access denied: invalid team identifier");
             return;

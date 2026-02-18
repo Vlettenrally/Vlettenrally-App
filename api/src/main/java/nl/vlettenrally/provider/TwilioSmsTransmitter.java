@@ -93,7 +93,7 @@ public class TwilioSmsTransmitter implements MessageTransmitter {
         }
 
         // Send to first emergency contact only
-        String toNumber = phoneNumbers.get(0);
+        String toNumber = phoneNumbers.getFirst();
 
         try {
             String smsBody = formatSmsMessage(message, team);

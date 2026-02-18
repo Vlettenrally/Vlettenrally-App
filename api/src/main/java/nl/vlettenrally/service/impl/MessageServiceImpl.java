@@ -121,7 +121,7 @@ public class MessageServiceImpl implements MessageService {
 
     /**
      * Transmit a message through all appropriate channels.
-     * 
+     * <p>
      * Strategy:
      * 1. Always attempt WebSocket broadcast
      * 2. Always attempt Firebase push (if token exists)
