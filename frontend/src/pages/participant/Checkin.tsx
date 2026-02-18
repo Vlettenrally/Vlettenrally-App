@@ -45,8 +45,10 @@ export function CheckInPage() {
 
   const sortedTeamOptions = useMemo(() => {
     return [...teamOptions].sort((a, b) => {
-      // Sort teams alphabetically by name
-      return a.name.localeCompare(b.name, 'nl', { sensitivity: 'base' });
+      // Sort teams alphabetically by name, handling null/undefined
+      const nameA = a.name ?? '';
+      const nameB = b.name ?? '';
+      return nameA.localeCompare(nameB, 'nl', { sensitivity: 'base' });
     });
   }, [teamOptions]);
 
