@@ -317,7 +317,7 @@ class MessageServiceImplTest {
         assertEquals(1, response.deliveredCount());
         assertEquals(1, response.failedCount());
         assertTrue(response.deliveries().getFirst().delivered());
-        assertFalse(response.deliveries().getFirst().delivered());
+        assertFalse(response.deliveries().getLast().delivered());
         verify(teamRepository, times(2)).findById(any());
     }
 
