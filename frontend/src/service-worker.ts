@@ -44,20 +44,6 @@ async function addPendingMessageId(messageId: string): Promise<void> {
 // ==================== BroadcastChannel for immediate sync ====================
 const CHANNEL_NAME = 'notification-sync';
 
-// Track processed message IDs to prevent duplicate handling
-const processedMessageIds = new Set<string>();
-const PROCESSED_MESSAGE_TTL_MS = 30000; // Clear after 30 seconds
-
-function markMessageProcessed(messageId: string): boolean {
-  if (processedMessageIds.has(messageId)) {
-    return false; // Already processed
-  }
-  processedMessageIds.add(messageId);
-  // Clean up after TTL to prevent memory leak
-  setTimeout(() => processedMessageIds.delete(messageId), PROCESSED_MESSAGE_TTL_MS);
-  return true; // First time processing
-}
-
 function broadcastNotification(type: 'NEW_MESSAGE' | 'MESSAGE_CLICKED', messageId: string): void {
   try {
     const channel = new BroadcastChannel(CHANNEL_NAME);
@@ -120,13 +106,9 @@ function initializeFirebase() {
       // Queue messageId for sync when app opens
       const messageId = payload.data?.messageId;
       if (messageId) {
-        // Check if we already processed this message (prevents duplicate with native push handler)
-        if (!markMessageProcessed(messageId)) {
-          console.log('[service-worker.ts] Message already processed, skipping:', messageId);
-          return;
-        }
-        addPendingMessageId(messageId);
-        broadcastNotification('NEW_MESSAGE', messageId);
+        addPendingMessageId(messageId).then(() => {
+          broadcastNotification('NEW_MESSAGE', messageId);
+        });
       }
       
       // Show notification for background messages
@@ -152,62 +134,6 @@ function initializeFirebase() {
 
 // Initialize Firebase on service worker activation
 initializeFirebase();
-
-// Native push event handler as fallback
-// This catches push messages that Firebase might not handle
-self.addEventListener('push', (event) => {
-    console.log('[service-worker.ts] Native push event received:', event);
-    
-    if (!event.data) {
-        console.log('[service-worker.ts] Push event has no data');
-        return;
-    }
-
-    try {
-        const payload = event.data.json();
-        console.log('[service-worker.ts] Push payload:', payload);
-        
-        // Queue messageId for sync when app opens
-        const messageId = payload.data?.messageId;
-        if (messageId) {
-            // Check if we already processed this message (prevents duplicate with onBackgroundMessage)
-            if (!markMessageProcessed(messageId)) {
-                console.log('[service-worker.ts] Message already processed by Firebase handler, skipping:', messageId);
-                return; // Skip entirely - Firebase handler already showed the notification
-            }
-            event.waitUntil(
-                addPendingMessageId(messageId).then(() => {
-                    broadcastNotification('NEW_MESSAGE', messageId);
-                })
-            );
-        }
-        
-        // FCM messages have notification in the payload
-        const notification = payload.notification || payload;
-        const title = notification.title || 'Vlettenrally';
-        const options: NotificationOptions = {
-            body: notification.body || 'New notification',
-            icon: '/icon-192x192.png',
-            badge: '/icon-192x192.png',
-            data: payload.data || payload,
-            tag: messageId || 'vlettenrally-message', // Use tag to prevent duplicate notifications
-        };
-
-        event.waitUntil(
-            self.registration.showNotification(title, options)
-        );
-    } catch (e) {
-        console.error('[service-worker.ts] Error parsing push data:', e);
-        // Try as text
-        const text = event.data.text();
-        event.waitUntil(
-            self.registration.showNotification('Vlettenrally', {
-                body: text,
-                icon: '/icon-192x192.png',
-            })
-        );
-    }
-});
 
 // Cache API requests
 // Match both relative paths and the full API URL from build-time config

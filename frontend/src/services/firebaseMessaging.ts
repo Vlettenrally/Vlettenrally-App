@@ -18,13 +18,6 @@ let lastRegisteredToken: string | null = null;
 let lastRegistrationTime: number = 0;
 const REGISTRATION_COOLDOWN_MS = 5000; // Don't re-register the same token within 5 seconds
 
-// Track in-flight registration to prevent race conditions
-let registrationInProgress: Promise<boolean> | null = null;
-
-// Track foreground message handler to prevent duplicate subscriptions
-let foregroundMessageUnsubscribe: (() => void) | null = null;
-let foregroundMessageSetupInProgress: Promise<(() => void) | null> | null = null;
-
 /**
  * Initialize Firebase app and messaging
  * Waits for service worker to be ready before initializing messaging
@@ -144,41 +137,25 @@ export async function registerTokenWithBackend(token: string): Promise<boolean> 
     return true;
   }
 
-  // If a registration is already in progress, wait for it
-  if (registrationInProgress) {
-    if (config.debug) {
-      console.log('[FCM] Registration already in progress, waiting...');
-    }
-    return registrationInProgress;
-  }
-
-  // Start new registration and track the promise
-  registrationInProgress = (async () => {
-    try {
-      const response = await api.registerFcmToken(token);
-      if (response.error) {
-        console.error('[FCM] Failed to register token with backend:', response.error);
-        return false;
-      }
-
-      // Update tracking variables after successful registration
-      lastRegisteredToken = token;
-      lastRegistrationTime = Date.now();
-
-      if (config.debug) {
-        console.log('[FCM] Token registered with backend');
-      }
-      return true;
-    } catch (error) {
-      console.error('[FCM] Failed to register token with backend:', error);
+  try {
+    const response = await api.registerFcmToken(token);
+    if (response.error) {
+      console.error('[FCM] Failed to register token with backend:', response.error);
       return false;
-    } finally {
-      // Clear the in-progress promise
-      registrationInProgress = null;
     }
-  })();
-
-  return registrationInProgress;
+    
+    // Update tracking variables after successful registration
+    lastRegisteredToken = token;
+    lastRegistrationTime = now;
+    
+    if (config.debug) {
+      console.log('[FCM] Token registered with backend');
+    }
+    return true;
+  } catch (error) {
+    console.error('[FCM] Failed to register token with backend:', error);
+    return false;
+  }
 }
 
 /**
@@ -190,54 +167,17 @@ export async function registerTokenWithBackend(token: string): Promise<boolean> 
 export async function onForegroundMessage(
   callback: (payload: { notification?: { title?: string; body?: string }; data?: Record<string, string> }) => void
 ): Promise<(() => void) | null> {
-  // If already subscribed, unsubscribe first to prevent duplicate handlers
-  if (foregroundMessageUnsubscribe) {
-    if (config.debug) {
-      console.log('[FCM] Unsubscribing existing foreground message handler');
-    }
-    foregroundMessageUnsubscribe();
-    foregroundMessageUnsubscribe = null;
+  const fcmMessaging = await getFirebaseMessaging();
+  if (!fcmMessaging) {
+    return null;
   }
 
-  // If setup is already in progress, wait for it
-  if (foregroundMessageSetupInProgress) {
+  return onMessage(fcmMessaging, (payload) => {
     if (config.debug) {
-      console.log('[FCM] Foreground message setup already in progress, waiting...');
+      console.log('[FCM] Foreground message received:', payload);
     }
-    return foregroundMessageSetupInProgress;
-  }
-
-  // Start setup and track the promise
-  foregroundMessageSetupInProgress = (async () => {
-    try {
-      const fcmMessaging = await getFirebaseMessaging();
-      if (!fcmMessaging) {
-        return null;
-      }
-
-      const unsubscribe = onMessage(fcmMessaging, (payload) => {
-        if (config.debug) {
-          console.log('[FCM] Foreground message received:', payload);
-        }
-        callback(payload);
-      });
-
-      // Store the unsubscribe function
-      foregroundMessageUnsubscribe = unsubscribe;
-
-      // Return a wrapper that also clears our tracking
-      return () => {
-        if (foregroundMessageUnsubscribe === unsubscribe) {
-          unsubscribe();
-          foregroundMessageUnsubscribe = null;
-        }
-      };
-    } finally {
-      foregroundMessageSetupInProgress = null;
-    }
-  })();
-
-  return foregroundMessageSetupInProgress;
+    callback(payload);
+  });
 }
 
 /**
