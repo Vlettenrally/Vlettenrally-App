@@ -6,10 +6,6 @@ export function isRequired(value: string): boolean {
   return value.trim().length > 0;
 }
 
-export function isBoatNumber(value: string): boolean {
-  return /^\d+$/.test(value.trim());
-}
-
 export function isPhoneNumber(value: string): boolean {
   // Dutch phone number format (flexible)
   return /^(\+31|0)[1-9]\d{8}$/.test(value.replace(/[\s-]/g, ''));
@@ -25,12 +21,6 @@ export function minLength(value: string, min: number): boolean {
 
 export function maxLength(value: string, max: number): boolean {
   return value.length <= max;
-}
-
-export function validateBoatNumber(value: string): string | null {
-  if (!isRequired(value)) return 'Bootnummer is verplicht';
-  if (!isBoatNumber(value)) return 'Bootnummer moet een getal zijn';
-  return null;
 }
 
 export function validateEmergencyContact(value: string): string | null {
