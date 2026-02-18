@@ -1,5 +1,6 @@
 package nl.vlettenrally.fcm;
 
+import java.io.BufferedInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 
@@ -55,17 +56,17 @@ public class GoogleOAuth2Authenticator {
      * Load and configure Google credentials from service account JSON file.
      */
     private void loadCredentials() throws IOException {
-        try (FileInputStream fis = new FileInputStream(credentialsPath)) {
+        try (BufferedInputStream bis = new BufferedInputStream(new FileInputStream(credentialsPath))) {
             // Parse the JSON to extract project ID
-            fis.mark(Integer.MAX_VALUE);
-            JsonNode root = objectMapper.readTree(fis);
+            bis.mark(Integer.MAX_VALUE);
+            JsonNode root = objectMapper.readTree(bis);
             projectId = root.get("project_id").asText();
-            
+
             // Reset stream and load credentials
-            fis.reset();
-            credentials = GoogleCredentials.fromStream(fis)
+            bis.reset();
+            credentials = GoogleCredentials.fromStream(bis)
                     .createScoped(FIREBASE_SCOPE);
-            
+
             Log.infof("Loaded service account credentials (project: %s)", projectId);
         }
     }
