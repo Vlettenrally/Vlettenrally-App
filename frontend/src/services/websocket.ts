@@ -244,9 +244,11 @@ class WebSocketService {
         console.log('WebSocket disconnected');
         this.socket = null;
         this.stopPing();
-        this.notifyConnectionState(false);
 
+        // Only notify disconnection if it wasn't intentional
+        // (avoids spurious "disconnected" notifications during route transitions)
         if (!this.isIntentionallyClosed) {
+          this.notifyConnectionState(false);
           this.scheduleReconnect();
         }
       };
