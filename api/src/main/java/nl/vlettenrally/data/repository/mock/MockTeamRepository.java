@@ -73,7 +73,7 @@ public class MockTeamRepository implements TeamRepository {
         team2.setCheckedIn(true);
         team2.setTotalPoints(300);
         team2.setRivals(Collections.singletonList(TEAM_WATERVLOOIEN_ID));
-        team2.setEmergencyPhoneNumbers(Arrays.asList("+31687654321"));
+        team2.setEmergencyPhoneNumbers(List.of("+31687654321"));
         team2.setCreatedAt(now.minus(47, ChronoUnit.HOURS));
         team2.setUpdatedAt(now.minus(45, ChronoUnit.MINUTES));
         teams.put(team2.getId(), team2);

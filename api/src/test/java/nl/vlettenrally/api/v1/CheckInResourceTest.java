@@ -81,7 +81,7 @@ class CheckInResourceTest {
         assertEquals(2, body.teamOptions().size());
 
         // Verify team options contain name but no boatNumber
-        TeamOptionResponse option = body.teamOptions().get(0);
+        TeamOptionResponse option = body.teamOptions().getFirst();
         assertEquals(teamId, option.id());
         assertEquals("Team Alpha", option.name());
     }
@@ -143,10 +143,11 @@ class CheckInResourceTest {
         TeamSelectionRequest request = new TeamSelectionRequest(teamId);
 
         // Act
-        Response response = checkInResource.exchangeToken(request, securityContext);
+        try (Response response = checkInResource.exchangeToken(request, securityContext)) {
 
-        // Assert
-        assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());
+            // Assert
+            assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());
+        }
     }
 
     @Test
@@ -155,11 +156,13 @@ class CheckInResourceTest {
         TeamSelectionRequest request = new TeamSelectionRequest(null);
 
         // Act
-        Response response = checkInResource.exchangeToken(request, securityContext);
+        ErrorResponse error;
+        try (Response response = checkInResource.exchangeToken(request, securityContext)) {
 
-        // Assert
-        assertEquals(Response.Status.BAD_REQUEST.getStatusCode(), response.getStatus());
-        ErrorResponse error = (ErrorResponse) response.getEntity();
+            // Assert
+            assertEquals(Response.Status.BAD_REQUEST.getStatusCode(), response.getStatus());
+            error = (ErrorResponse) response.getEntity();
+        }
         assertEquals("teamId is required", error.message());
     }
 
@@ -173,10 +176,11 @@ class CheckInResourceTest {
         TeamSelectionRequest request = new TeamSelectionRequest(teamId);
 
         // Act
-        Response response = checkInResource.exchangeToken(request, securityContext);
+        try (Response response = checkInResource.exchangeToken(request, securityContext)) {
 
-        // Assert
-        assertEquals(Response.Status.UNAUTHORIZED.getStatusCode(), response.getStatus());
+            // Assert
+            assertEquals(Response.Status.UNAUTHORIZED.getStatusCode(), response.getStatus());
+        }
     }
 
     @Test
@@ -190,11 +194,13 @@ class CheckInResourceTest {
         TeamSelectionRequest request = new TeamSelectionRequest(teamId);
 
         // Act
-        Response response = checkInResource.exchangeToken(request, securityContext);
+        ErrorResponse error;
+        try (Response response = checkInResource.exchangeToken(request, securityContext)) {
 
-        // Assert
-        assertEquals(Response.Status.CONFLICT.getStatusCode(), response.getStatus());
-        ErrorResponse error = (ErrorResponse) response.getEntity();
+            // Assert
+            assertEquals(Response.Status.CONFLICT.getStatusCode(), response.getStatus());
+            error = (ErrorResponse) response.getEntity();
+        }
         assertEquals("Team is already checked in", error.message());
     }
 
@@ -209,10 +215,11 @@ class CheckInResourceTest {
         TeamSelectionRequest request = new TeamSelectionRequest(teamId);
 
         // Act
-        Response response = checkInResource.exchangeToken(request, securityContext);
+        try (Response response = checkInResource.exchangeToken(request, securityContext)) {
 
-        // Assert
-        assertEquals(Response.Status.INTERNAL_SERVER_ERROR.getStatusCode(), response.getStatus());
+            // Assert
+            assertEquals(Response.Status.INTERNAL_SERVER_ERROR.getStatusCode(), response.getStatus());
+        }
     }
 
     private Team createTeam(UUID id, String name) {

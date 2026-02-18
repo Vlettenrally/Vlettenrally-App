@@ -372,7 +372,7 @@ public class MessageResource {
      * Convert a batch result and its messages to AdminMessageResponse.
      */
     private AdminMessageResponse toAdminDtoFromBatch(AdminMessageBatchResult batchResult, List<Message> messages) {
-        Message firstMessage = messages.isEmpty() ? null : messages.get(0);
+        Message firstMessage = messages.isEmpty() ? null : messages.getFirst();
         
         List<AdminMessageResponse.DeliveryDetail> deliveryDetails = messages.stream()
                 .map(m -> {
