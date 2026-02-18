@@ -204,7 +204,6 @@ public class GameResource {
                     position,
                     team.getId(),
                     team.getName(),
-                    team.getBoatNumber(),
                     team.getTotalPoints()
                 );
             })

@@ -7,6 +7,7 @@ import nl.vlettenrally.data.enums.MessageType;
 
 import nl.vlettenrally.data.domain.Message;
 import nl.vlettenrally.data.dto.message.AdminMessageBatchResult;
+import nl.vlettenrally.data.dto.message.AdminMessageResponse;
 
 /**
  * Service interface for Message operations
@@ -83,4 +84,14 @@ public interface MessageService {
     Message save(Message message);
     
     void delete(UUID id);
+
+    /**
+     * Build an admin response from a batch result and its messages.
+     */
+    AdminMessageResponse buildAdminMessageResponse(AdminMessageBatchResult batchResult, List<Message> messages);
+
+    /**
+     * Build an admin response from a representative message and its batch messages.
+     */
+    AdminMessageResponse buildAdminMessageResponse(Message representativeMessage, List<Message> batchMessages);
 }

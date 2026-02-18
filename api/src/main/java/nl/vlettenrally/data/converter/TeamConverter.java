@@ -16,8 +16,7 @@ public class TeamConverter {
                 dto.id(),
                 dto.gameId(),
                 dto.name(),
-                dto.description(),
-                dto.boatNumber());
+                dto.description());
         return team;
     }
     
@@ -30,7 +29,6 @@ public class TeamConverter {
                 domain.getGameId(),
                 domain.getName(),
                 domain.getDescription(),
-                domain.getBoatNumber(),
                 domain.getParticipants(),
                 domain.getDeviceId(),
                 domain.isCheckedIn(),
@@ -55,7 +53,6 @@ public class TeamConverter {
                 domain.getGameId(),
                 domain.getName(),
                 domain.getDescription(),
-                domain.getBoatNumber(),
                 domain.isCheckedIn(),
                 domain.getTotalPoints(),
                 domain.getRivals(),
@@ -73,7 +70,6 @@ public class TeamConverter {
         return new TeamPublicResponse(
                 domain.getId(),
                 domain.getName(),
-                domain.getBoatNumber(),
                 domain.getTotalPoints()
         );
     }

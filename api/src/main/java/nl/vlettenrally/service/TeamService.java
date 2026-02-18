@@ -19,8 +19,6 @@ public interface TeamService {
     
     Optional<Team> findByDeviceId(UUID deviceId);
     
-    Optional<Team> findByBoatNumber(String boatNumber);
-    
     List<Team> findRivals(UUID teamId);
     
     Optional<Team> findRivalTeam(UUID teamId);

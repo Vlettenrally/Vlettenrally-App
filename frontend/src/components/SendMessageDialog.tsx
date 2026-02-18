@@ -223,22 +223,21 @@ export default function SendMessageDialog({
               <Autocomplete
                 multiple
                 options={teams}
-                getOptionLabel={(option) => `${option.boatNumber} - ${option.name}`}
+                getOptionLabel={(option) => option.name}
                 value={selectedTeams}
                 onChange={(_, value) => setSelectedTeams(value)}
                 filterOptions={(options, { inputValue }) => {
                   const filterValue = inputValue.toLowerCase();
                   return options.filter(
                     (option) =>
-                      option.name.toLowerCase().includes(filterValue) ||
-                      option.boatNumber.toLowerCase().includes(filterValue)
+                      option.name.toLowerCase().includes(filterValue)
                   );
                 }}
                 renderInput={(params) => (
                   <TextField
                     {...params}
                     label="Teams selecteren"
-                    placeholder="Zoek op naam of bootnummer..."
+                    placeholder="Zoek op teamnaam..."
                   />
                 )}
                 renderTags={(value, getTagProps) =>
@@ -247,7 +246,7 @@ export default function SendMessageDialog({
                     return (
                       <Chip
                         key={key}
-                        label={`${option.boatNumber} - ${option.name}`}
+                        label={option.name}
                         size="small"
                         {...tagProps}
                       />
@@ -259,7 +258,7 @@ export default function SendMessageDialog({
                     <Checkbox checked={selected} sx={{ mr: 1 }} />
                     <Box>
                       <Typography variant="body2">
-                        <strong>{option.boatNumber}</strong> - {option.name}
+                        {option.name}
                       </Typography>
                     </Box>
                   </li>

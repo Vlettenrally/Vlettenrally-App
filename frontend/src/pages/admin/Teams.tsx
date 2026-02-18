@@ -189,7 +189,6 @@ export default function Teams() {
               <TableHead>
                 <TableRow>
                   <TableCell><strong>Team Name</strong></TableCell>
-                  <TableCell><strong>Boat Number</strong></TableCell>
                   <TableCell><strong>Description</strong></TableCell>
                   <TableCell align="center"><strong>Checked In</strong></TableCell>
                 </TableRow>
@@ -203,7 +202,6 @@ export default function Teams() {
                     sx={{ cursor: 'pointer' }}
                   >
                     <TableCell>{team.name}</TableCell>
-                    <TableCell>{team.boatNumber}</TableCell>
                     <TableCell>{team.description}</TableCell>
                     <TableCell align="center">
                       <Chip 

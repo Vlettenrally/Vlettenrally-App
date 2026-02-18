@@ -38,7 +38,6 @@ export default function TeamDetailDialog({
   
   const [formData, setFormData] = useState({
     name: '',
-    boatNumber: '',
     description: '',
     participants: '',
     emergencyPhoneNumbers: '',
@@ -51,7 +50,6 @@ export default function TeamDetailDialog({
     if (team) {
       setFormData({
         name: team.name,
-        boatNumber: team.boatNumber,
         description: team.description,
         participants: team.participants ? team.participants.join('\n') : '',
         emergencyPhoneNumbers: team.emergencyPhoneNumbers ? team.emergencyPhoneNumbers.join('\n') : '',
@@ -82,7 +80,6 @@ export default function TeamDetailDialog({
     } else {
       setFormData({
         name: '',
-        boatNumber: '',
         description: '',
         participants: '',
         emergencyPhoneNumbers: '',
@@ -107,7 +104,6 @@ export default function TeamDetailDialog({
       if (team) {
         setFormData({
           name: team.name,
-          boatNumber: team.boatNumber,
           description: team.description,
           participants: team.participants.join('\n'),
           emergencyPhoneNumbers: team.emergencyPhoneNumbers ? team.emergencyPhoneNumbers.join('\n') : '',
@@ -135,7 +131,6 @@ export default function TeamDetailDialog({
 
       const teamData = {
         name: formData.name,
-        boatNumber: formData.boatNumber,
         description: formData.description,
         participants,
         emergencyPhoneNumbers,
@@ -187,15 +182,6 @@ export default function TeamDetailDialog({
             label="Team Name"
             value={formData.name}
             onChange={handleChange('name')}
-            disabled={!isEditing}
-            required
-            fullWidth
-          />
-
-          <TextField
-            label="Boat Number"
-            value={formData.boatNumber}
-            onChange={handleChange('boatNumber')}
             disabled={!isEditing}
             required
             fullWidth
@@ -292,7 +278,7 @@ export default function TeamDetailDialog({
             <Button
               onClick={handleSave}
               variant="contained"
-              disabled={loading || !formData.name || !formData.boatNumber}
+              disabled={loading || !formData.name}
             >
               {loading ? <CircularProgress size={24} /> : 'Save'}
             </Button>

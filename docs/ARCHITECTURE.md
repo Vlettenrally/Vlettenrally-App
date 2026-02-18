@@ -287,19 +287,38 @@ CREATE TABLE checkpoints (
 
 -- Teams
 CREATE TABLE teams (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  game_id UUID REFERENCES games(id) ON DELETE CASCADE,
-  boat_number VARCHAR(50) UNIQUE NOT NULL,
-  scouting_group VARCHAR(255) NOT NULL,
-  emergency_contact VARCHAR(255),
-  participant_names TEXT[],
-  special_notes TEXT,
-  booking_id VARCHAR(255),
-  checked_in BOOLEAN DEFAULT FALSE,
-  checked_in_at TIMESTAMP,
-  total_points INTEGER DEFAULT 0,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
+  id UUID PRIMARY KEY,
+  game_id UUID NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  device_id UUID,
+  checked_in BOOLEAN NOT NULL DEFAULT FALSE,
+  total_points INTEGER NOT NULL DEFAULT 0,
+  notes TEXT,
+  external_id VARCHAR(255),
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  
+  CONSTRAINT fk_team_game FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+  CONSTRAINT fk_team_device FOREIGN KEY (device_id) REFERENCES device_registrations(id) ON DELETE SET NULL
+);
+
+-- Team participants (ElementCollection)
+CREATE TABLE team_participants (
+  team_id UUID NOT NULL,
+  participant_name VARCHAR(255) NOT NULL,
+  participant_order INTEGER NOT NULL DEFAULT 0,
+  
+  CONSTRAINT fk_participant_team FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
+);
+
+-- Team emergency phone numbers (ElementCollection)
+CREATE TABLE team_emergency_phones (
+  team_id UUID NOT NULL,
+  phone_number VARCHAR(50) NOT NULL,
+  phone_order INTEGER NOT NULL DEFAULT 0,
+  
+  CONSTRAINT fk_emergency_phone_team FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
 );
 
 -- Rivals (Many-to-Many relationship)

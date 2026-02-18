@@ -15,10 +15,10 @@ import java.util.UUID;
 
 /**
  * JAX-RS filter that enforces team-scoped access control.
- * 
+ * <p>
  * This filter is triggered by the {@link TeamScoped} annotation and verifies
  * that the authenticated team's ID matches the "teamId" path parameter.
- * 
+ * <p>
  * Priority is set to AUTHORIZATION (2000) to run after authentication.
  */
 @TeamScoped
@@ -42,7 +42,7 @@ public class TeamScopedFilter implements ContainerRequestFilter {
 
         UUID requestedTeamId;
         try {
-            requestedTeamId = UUID.fromString(teamIdValues.get(0));
+            requestedTeamId = UUID.fromString(teamIdValues.getFirst());
         } catch (IllegalArgumentException e) {
             abortWithForbidden(requestContext, "Access denied: invalid team identifier");
             return;

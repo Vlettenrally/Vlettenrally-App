@@ -27,7 +27,6 @@ public record AdminMessageResponse(
     public record DeliveryDetail(
         UUID teamId,
         String teamName,
-        String boatNumber,
         boolean delivered,
         Set<String> transmittedVia,
         String transmissionError

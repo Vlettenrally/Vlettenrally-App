@@ -19,8 +19,6 @@ public interface TeamRepository {
     
     Optional<Team> findByDeviceId(UUID deviceId);
     
-    Optional<Team> findByBoatNumber(String boatNumber);
-    
     List<Team> findRivals(UUID teamId);
     
     Optional<Team> findByGameIdAndExternalId(UUID gameId, String externalId);

@@ -12,6 +12,5 @@ import io.quarkus.runtime.annotations.RegisterForReflection;
 public record TeamPublicResponse(
     UUID id,
     String name,
-    String boatNumber,
     int totalPoints
 ) {}

@@ -20,7 +20,6 @@ import java.util.UUID;
 @Table(name = "teams", indexes = {
     @Index(name = "idx_teams_game_id", columnList = "game_id"),
     @Index(name = "idx_teams_device_id", columnList = "device_id"),
-    @Index(name = "idx_teams_boat_number", columnList = "boat_number"),
     @Index(name = "idx_teams_checked_in", columnList = "checked_in")
 })
 public class TeamEntity {
@@ -40,8 +39,6 @@ public class TeamEntity {
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
-    @Column(name = "boat_number", length = 50)
-    private String boatNumber;
 
     @Column(name = "external_id")
     private String externalId;
