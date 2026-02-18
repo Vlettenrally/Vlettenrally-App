@@ -44,6 +44,20 @@ async function addPendingMessageId(messageId: string): Promise<void> {
 // ==================== BroadcastChannel for immediate sync ====================
 const CHANNEL_NAME = 'notification-sync';
 
+// Track processed message IDs to prevent duplicate handling
+const processedMessageIds = new Set<string>();
+const PROCESSED_MESSAGE_TTL_MS = 30000; // Clear after 30 seconds
+
+function markMessageProcessed(messageId: string): boolean {
+  if (processedMessageIds.has(messageId)) {
+    return false; // Already processed
+  }
+  processedMessageIds.add(messageId);
+  // Clean up after TTL to prevent memory leak
+  setTimeout(() => processedMessageIds.delete(messageId), PROCESSED_MESSAGE_TTL_MS);
+  return true; // First time processing
+}
+
 function broadcastNotification(type: 'NEW_MESSAGE' | 'MESSAGE_CLICKED', messageId: string): void {
   try {
     const channel = new BroadcastChannel(CHANNEL_NAME);
@@ -106,6 +120,11 @@ function initializeFirebase() {
       // Queue messageId for sync when app opens
       const messageId = payload.data?.messageId;
       if (messageId) {
+        // Check if we already processed this message (prevents duplicate with native push handler)
+        if (!markMessageProcessed(messageId)) {
+          console.log('[service-worker.ts] Message already processed, skipping:', messageId);
+          return;
+        }
         addPendingMessageId(messageId);
         broadcastNotification('NEW_MESSAGE', messageId);
       }
@@ -151,6 +170,11 @@ self.addEventListener('push', (event) => {
         // Queue messageId for sync when app opens
         const messageId = payload.data?.messageId;
         if (messageId) {
+            // Check if we already processed this message (prevents duplicate with onBackgroundMessage)
+            if (!markMessageProcessed(messageId)) {
+                console.log('[service-worker.ts] Message already processed by Firebase handler, skipping:', messageId);
+                return; // Skip entirely - Firebase handler already showed the notification
+            }
             event.waitUntil(
                 addPendingMessageId(messageId).then(() => {
                     broadcastNotification('NEW_MESSAGE', messageId);
@@ -161,11 +185,12 @@ self.addEventListener('push', (event) => {
         // FCM messages have notification in the payload
         const notification = payload.notification || payload;
         const title = notification.title || 'Vlettenrally';
-        const options = {
+        const options: NotificationOptions = {
             body: notification.body || 'New notification',
             icon: '/icon-192x192.png',
             badge: '/icon-192x192.png',
             data: payload.data || payload,
+            tag: messageId || 'vlettenrally-message', // Use tag to prevent duplicate notifications
         };
 
         event.waitUntil(

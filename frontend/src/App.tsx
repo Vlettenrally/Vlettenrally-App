@@ -146,13 +146,22 @@ function App() {
   
   const { addMessage, messages } = useMessageStore();
 
-  // Fetch and add a single message to the store (avoiding duplicates)
+  // Track in-flight message fetches to prevent duplicate API calls
+  const [fetchingMessageIds] = useState(() => new Set<string>());  // Fetch and add a single message to the store (avoiding duplicates)
   const fetchAndAddMessage = useCallback(async (messageId: string) => {
     // Check if message already exists in store
     if (messages.some((m) => m.id === messageId)) {
       return;
     }
-    
+
+    // Check if we're already fetching this message (prevent race condition)
+    if (fetchingMessageIds.has(messageId)) {
+      return;
+    }
+
+    // Mark as fetching
+    fetchingMessageIds.add(messageId);
+
     try {
       const response = await api.getMessage(messageId);
       if (response.data) {
@@ -161,8 +170,11 @@ function App() {
       }
     } catch (error) {
       console.error('[App] Failed to fetch message:', messageId, error);
+    } finally {
+      // Remove from fetching set
+      fetchingMessageIds.delete(messageId);
     }
-  }, [addMessage, messages]);
+  }, [addMessage, messages, fetchingMessageIds]);
 
   // Process pending messages from IndexedDB (queued while app was closed)
   const processPendingMessages = useCallback(async () => {
