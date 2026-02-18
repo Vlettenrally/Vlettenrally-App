@@ -25,7 +25,7 @@ interface UseRealtimeAdminOptions {
  */
 export function useTeamRealtime({ gameId, teamId }: UseRealtimeTeamOptions) {
   const { subscribe, connected } = useTeamWebSocket(gameId, teamId);
-  const { addMessage, updateMessageStatus } = useMessageStore();
+  const { addMessage } = useMessageStore();
   const { setRivalTeam, addAchievement, updatePoints } = useTeamStore();
 
   useEffect(() => {
@@ -34,12 +34,6 @@ export function useTeamRealtime({ gameId, teamId }: UseRealtimeTeamOptions) {
     // Subscribe to new messages
     const unsubscribeMessages = subscribe('MESSAGE_NEW', (message) => {
       addMessage(message.payload as Message);
-    });
-
-    // Subscribe to message delivery updates
-    const unsubscribeMessageUpdates = subscribe('MESSAGE_DELIVERY_UPDATE', (message) => {
-      const payload = message.payload as { messageId: string; delivered: boolean; read: boolean };
-      updateMessageStatus(payload.messageId, payload.delivered, payload.read);
     });
 
     // Subscribe to countdown updates
@@ -85,14 +79,13 @@ export function useTeamRealtime({ gameId, teamId }: UseRealtimeTeamOptions) {
 
     return () => {
       unsubscribeMessages();
-      unsubscribeMessageUpdates();
       unsubscribeCountdown();
       unsubscribeAchievements();
       unsubscribeRival();
       unsubscribeRanking();
       unsubscribeGameStatus();
     };
-  }, [gameId, teamId, subscribe, addMessage, updateMessageStatus, setRivalTeam, addAchievement, updatePoints]);
+  }, [gameId, teamId, subscribe, addMessage, setRivalTeam, addAchievement, updatePoints]);
 
   return { connected };
 }
@@ -102,7 +95,7 @@ export function useTeamRealtime({ gameId, teamId }: UseRealtimeTeamOptions) {
  */
 export function useAdminRealtime({ gameId }: UseRealtimeAdminOptions) {
   const { subscribe, connected } = useAdminWebSocket(gameId);
-  const { addMessage, updateMessageStatus } = useMessageStore();
+  const { addMessage } = useMessageStore();
 
   useEffect(() => {
     if (!gameId) return;
@@ -110,12 +103,6 @@ export function useAdminRealtime({ gameId }: UseRealtimeAdminOptions) {
     // Subscribe to all messages (admins see everything)
     const unsubscribeMessages = subscribe('MESSAGE_NEW', (message) => {
       addMessage(message.payload as Message);
-    });
-
-    // Subscribe to message delivery updates
-    const unsubscribeMessageUpdates = subscribe('MESSAGE_DELIVERY_UPDATE', (message) => {
-      const payload = message.payload as { messageId: string; delivered: boolean; read: boolean };
-      updateMessageStatus(payload.messageId, payload.delivered, payload.read);
     });
 
     // Subscribe to admin-specific alerts
@@ -170,14 +157,13 @@ export function useAdminRealtime({ gameId }: UseRealtimeAdminOptions) {
 
     return () => {
       unsubscribeMessages();
-      unsubscribeMessageUpdates();
       unsubscribeAlerts();
       unsubscribeCheckins();
       unsubscribeTeamUpdates();
       unsubscribeGameStatus();
       unsubscribeRanking();
     };
-  }, [gameId, subscribe, addMessage, updateMessageStatus]);
+  }, [gameId, subscribe, addMessage]);
 
   return { connected };
 }

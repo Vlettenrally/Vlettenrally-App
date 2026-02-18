@@ -4,7 +4,8 @@
 import type {ReactNode} from 'react';
 import {useCallback, useEffect, useState} from 'react';
 import {BrowserRouter, Navigate, Route, Routes, useNavigate} from 'react-router-dom';
-import {Alert, Button, createTheme, CssBaseline, Snackbar, ThemeProvider} from '@mui/material';
+import {Alert, Button, createTheme, CssBaseline, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Snackbar, ThemeProvider} from '@mui/material';
+import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import {CheckInPage, DashboardPage} from './pages';
 import {MessagesPage} from './pages/MessagesPage';
 import {TeamLayout} from './components/TeamLayout';
@@ -421,27 +422,32 @@ function App() {
       </Snackbar>
 
       {/* Notification permission prompt */}
-      <Snackbar
+      <Dialog
         open={showNotificationPrompt}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        onClose={handleDismissNotificationPrompt}
+        aria-labelledby="notification-dialog-title"
+        aria-describedby="notification-dialog-description"
+        maxWidth="sm"
+        fullWidth
       >
-        <Alert 
-          severity="info" 
-          sx={{ width: '100%' }}
-          action={
-            <>
-              <Button color="inherit" size="small" onClick={handleDismissNotificationPrompt}>
-                Later
-              </Button>
-              <Button color="inherit" size="small" onClick={handleEnableNotifications}>
-                Inschakelen
-              </Button>
-            </>
-          }
-        >
-          Wil je meldingen ontvangen van de organisatie?
-        </Alert>
-      </Snackbar>
+        <DialogTitle id="notification-dialog-title" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <NotificationsActiveIcon color="primary" />
+          Meldingen inschakelen
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="notification-dialog-description">
+            Wil je meldingen ontvangen van de organisatie? Je blijft dan op de hoogte van belangrijke updates tijdens de Vlettenrally.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ padding: 2, gap: 1 }}>
+          <Button onClick={handleDismissNotificationPrompt} color="inherit">
+            Later
+          </Button>
+          <Button onClick={handleEnableNotifications} variant="contained" color="primary">
+            Inschakelen
+          </Button>
+        </DialogActions>
+      </Dialog>
     </ThemeProvider>
   );
 }
