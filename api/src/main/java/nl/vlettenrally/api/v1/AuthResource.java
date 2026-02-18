@@ -78,7 +78,7 @@ public class AuthResource {
             // Validate input
             if (registration.gameId() == null) {
                 return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new ErrorResponse("gameId and boatNumber are required"))
+                    .entity(new ErrorResponse("gameId is required"))
                     .build();
             }
 

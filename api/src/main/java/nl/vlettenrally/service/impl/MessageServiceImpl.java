@@ -9,6 +9,7 @@ import nl.vlettenrally.data.domain.DeviceRegistration;
 import nl.vlettenrally.data.domain.Message;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.dto.message.AdminMessageBatchResult;
+import nl.vlettenrally.data.dto.message.AdminMessageResponse;
 import nl.vlettenrally.data.dto.message.MessageDeliveryUpdatePayload;
 import nl.vlettenrally.data.dto.message.MessageResponse;
 import nl.vlettenrally.data.repository.DeviceRegistrationRepository;
@@ -30,6 +31,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Implementation of MessageService with multi-channel transmission support.
@@ -452,5 +455,68 @@ public class MessageServiceImpl implements MessageService {
         Log.infof("Retried all %d failed deliveries for game %s, %d successful", 
                 allFailedMessages.size(), gameId, totalSuccess);
         return totalSuccess;
+    }
+
+    /**
+     * Build delivery details from a list of messages by looking up team names.
+     */
+    private List<AdminMessageResponse.DeliveryDetail> buildDeliveryDetails(List<Message> messages) {
+        return messages.stream()
+                .map(m -> {
+                    Optional<Team> team = teamRepository.findById(m.getTeamId());
+                    return new AdminMessageResponse.DeliveryDetail(
+                            m.getTeamId(),
+                            team.map(Team::getName).orElse("Unknown"),
+                            m.isDelivered(),
+                            m.getTransmittedVia() != null
+                                    ? m.getTransmittedVia().stream().map(TransmissionChannel::name).collect(Collectors.toSet())
+                                    : Set.of(),
+                            m.getTransmissionError()
+                    );
+                })
+                .toList();
+    }
+
+    @Override
+    public AdminMessageResponse buildAdminMessageResponse(AdminMessageBatchResult batchResult, List<Message> messages) {
+        Message firstMessage = messages.isEmpty() ? null : messages.getFirst();
+        List<AdminMessageResponse.DeliveryDetail> deliveryDetails = buildDeliveryDetails(messages);
+
+        return new AdminMessageResponse(
+                batchResult.batchId(),
+                firstMessage != null ? firstMessage.getGameId() : null,
+                firstMessage != null && firstMessage.getMessageType() != null ? firstMessage.getMessageType().name().toLowerCase() : null,
+                firstMessage != null ? firstMessage.getContent() : null,
+                firstMessage != null ? firstMessage.getIcon() : null,
+                batchResult.sentAt() != null ? batchResult.sentAt().toString() : null,
+                firstMessage != null && firstMessage.getSource() != null ? firstMessage.getSource().name() : null,
+                firstMessage != null ? firstMessage.getSentByAdminId() : null,
+                batchResult.totalTeams(),
+                batchResult.deliveredCount(),
+                batchResult.failedCount(),
+                deliveryDetails
+        );
+    }
+
+    @Override
+    public AdminMessageResponse buildAdminMessageResponse(Message representativeMessage, List<Message> batchMessages) {
+        int deliveredCount = (int) batchMessages.stream().filter(Message::isDelivered).count();
+        int failedCount = batchMessages.size() - deliveredCount;
+        List<AdminMessageResponse.DeliveryDetail> deliveryDetails = buildDeliveryDetails(batchMessages);
+
+        return new AdminMessageResponse(
+                representativeMessage.getBatchId(),
+                representativeMessage.getGameId(),
+                representativeMessage.getMessageType() != null ? representativeMessage.getMessageType().name().toLowerCase() : null,
+                representativeMessage.getContent(),
+                representativeMessage.getIcon(),
+                representativeMessage.getSentAt() != null ? representativeMessage.getSentAt().toString() : null,
+                representativeMessage.getSource() != null ? representativeMessage.getSource().name() : null,
+                representativeMessage.getSentByAdminId(),
+                batchMessages.size(),
+                deliveredCount,
+                failedCount,
+                deliveryDetails
+        );
     }
 }
