@@ -442,7 +442,6 @@ export default function AdminMessages() {
                                   <TableHead>
                                     <TableRow>
                                       <TableCell>Team</TableCell>
-                                      <TableCell>Bootnummer</TableCell>
                                       <TableCell>Status</TableCell>
                                       <TableCell>Kanalen</TableCell>
                                       <TableCell>Fout</TableCell>
@@ -452,7 +451,6 @@ export default function AdminMessages() {
                                     {message.deliveries.map((delivery) => (
                                       <TableRow key={delivery.teamId}>
                                         <TableCell>{delivery.teamName}</TableCell>
-                                        <TableCell>{delivery.boatNumber}</TableCell>
                                         <TableCell>
                                           {delivery.delivered ? (
                                             <Chip label="Bezorgd" color="success" size="small" />
