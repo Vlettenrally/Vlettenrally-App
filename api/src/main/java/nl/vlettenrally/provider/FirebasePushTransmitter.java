@@ -76,11 +76,11 @@ public class FirebasePushTransmitter implements MessageTransmitter {
                         message.getContent(),
                         data
                 );
-                
+
                 Log.infof("Push notification sent successfully: %s", messageId);
                 anySuccess = true;
             } catch (FcmHttpClient.FcmException e) {
-                Log.errorf("Failed to send push notification to token %s: %s", 
+                Log.errorf("Failed to send push notification to token %s: %s",
                         fcmToken.getToken().substring(0, 10) + "...", e.getMessage());
                 lastError = e.getMessage();
             }
@@ -89,7 +89,7 @@ public class FirebasePushTransmitter implements MessageTransmitter {
         if (anySuccess) {
             return TransmissionResult.success(TransmissionChannel.PUSH);
         } else {
-            return TransmissionResult.failure(TransmissionChannel.PUSH, 
+            return TransmissionResult.failure(TransmissionChannel.PUSH,
                     lastError != null ? lastError : "Unknown error");
         }
     }
