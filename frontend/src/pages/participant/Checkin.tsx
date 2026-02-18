@@ -45,20 +45,10 @@ export function CheckInPage() {
 
   const sortedTeamOptions = useMemo(() => {
     return [...teamOptions].sort((a, b) => {
-      const aNum = Number.parseInt(a.boatNumber, 10);
-      const bNum = Number.parseInt(b.boatNumber, 10);
-
-      if (!Number.isNaN(aNum) && !Number.isNaN(bNum)) {
-        return aNum - bNum;
-      }
-
-      if (a.boatNumber == null) {
-        return 0;
-      } else if (b.boatNumber == null) {
-        return 0;
-      }
-
-      return a.boatNumber.localeCompare(b.boatNumber);
+      // Sort teams alphabetically by name, handling null/undefined
+      const nameA = a.name ?? '';
+      const nameB = b.name ?? '';
+      return nameA.localeCompare(nameB, 'nl', { sensitivity: 'base' });
     });
   }, [teamOptions]);
 
@@ -303,20 +293,17 @@ export function CheckInPage() {
                   options={sortedTeamOptions}
                   value={selectedTeam}
                   onChange={(_, value) => setSelectedTeam(value)}
-                  getOptionLabel={(option) => `${option.boatNumber} - ${option.name}`}
+                  getOptionLabel={(option) => option.name ?? ''}
                   renderOption={(props, option) => (
                     <Box component="li" {...props} sx={{ minHeight: 48, alignItems: 'center', display: 'flex', gap: 1 }}>
-                      <Typography variant="body1" sx={{ fontWeight: 600, minWidth: 56 }}>
-                        {option.boatNumber}
-                      </Typography>
-                      <Typography variant="body1">{option.name}</Typography>
+                      <Typography variant="body1">{option.name ?? ''}</Typography>
                     </Box>
                   )}
                   renderInput={(params) => (
                     <TextField
                       {...params}
                       label="Kies je team"
-                      placeholder="Zoek op bootnummer of teamnaam"
+                      placeholder="Zoek op teamnaam"
                       fullWidth
                     />
                   )}
