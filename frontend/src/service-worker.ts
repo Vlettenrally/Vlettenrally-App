@@ -84,11 +84,21 @@ let app: ReturnType<typeof initializeApp> | undefined;
 let messaging: ReturnType<typeof getMessaging> | undefined;
 
 function initializeFirebase() {
+  // First try to initialize the Firebase app
   try {
     app = initializeApp(firebaseConfig);
+    console.log('[service-worker.ts] Firebase app initialized with project:', firebaseConfig.projectId);
+  } catch (error) {
+    console.error('[service-worker.ts] Failed to initialize Firebase app:', error);
+    return; // Can't proceed without the app
+  }
+
+  // Then try to initialize messaging separately
+  // This can fail if the browser doesn't support it or if there are config issues
+  try {
     messaging = getMessaging(app);
-    console.log('[service-worker.ts] Firebase messaging initialized successfully with config:', firebaseConfig.projectId);
-    
+    console.log('[service-worker.ts] Firebase messaging initialized successfully');
+
     // Handle background messages via Firebase
     onBackgroundMessage(messaging, (payload) => {
       console.log('[service-worker.ts] Received background message via Firebase', payload);
@@ -116,7 +126,8 @@ function initializeFirebase() {
       self.registration.showNotification(title, options);
     });
   } catch (error) {
-    console.error('[service-worker.ts] Failed to initialize Firebase messaging:', error);
+    console.warn('[service-worker.ts] Failed to initialize Firebase messaging (push notifications disabled):', error);
+    // Service worker continues to work without push notifications
   }
 }
 
