@@ -10,7 +10,7 @@ import { websocket } from '../services/websocket';
 const DISCONNECT_DELAY_MS = 2000;
 
 export function useConnectionStatus() {
-  const [connected, setConnected] = useState(true); // Assume connected initially
+  const [connected, setConnected] = useState(() => websocket.isConnected());
   const [showDisconnected, setShowDisconnected] = useState(false);
 
   useEffect(() => {
@@ -49,12 +49,8 @@ export function useConnectionStatus() {
     // Subscribe to connection changes
     const unsubscribe = websocket.onConnectionChange(handleConnectionChange);
 
-    // Check current connection state and sync initial state
-    const currentState = websocket.isConnected();
-    setConnected(currentState);
-
-    if (!currentState) {
-      // If already disconnected, start the delay timer
+    // Check current connection state and start timer if disconnected
+    if (!websocket.isConnected()) {
       startDisconnectTimer();
     }
 
