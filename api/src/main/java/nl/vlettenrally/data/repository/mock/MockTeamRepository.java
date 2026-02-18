@@ -51,7 +51,6 @@ public class MockTeamRepository implements TeamRepository {
         team1.setGameId(MockGameRepository.GAME_2026_ID);
         team1.setName("De Watervlooien");
         team1.setDescription("Snelle en wendbare vlettenvaarders");
-        team1.setBoatNumber("42");
         team1.setParticipants(Arrays.asList("Jan Janssen", "Piet Pietersen", "Klaas Kansen"));
         team1.setDeviceId(UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"));
         team1.setCheckedIn(true);
@@ -69,7 +68,6 @@ public class MockTeamRepository implements TeamRepository {
         team2.setGameId(MockGameRepository.GAME_2026_ID);
         team2.setName("Windkracht Tien");
         team2.setDescription("Altijd volle kracht vooruit");
-        team2.setBoatNumber("17");
         team2.setParticipants(Arrays.asList("Anna de Groot", "Marie Storm", "Lisa Wind"));
         team2.setDeviceId(UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"));
         team2.setCheckedIn(true);
@@ -86,7 +84,6 @@ public class MockTeamRepository implements TeamRepository {
         team3.setGameId(MockGameRepository.GAME_2026_ID);
         team3.setName("De Grachtengorrillas");
         team3.setDescription("Rustig maar doeltreffend");
-        team3.setBoatNumber("8");
         team3.setParticipants(Arrays.asList("Tom de Vries", "Henk Boot"));
         team3.setCheckedIn(true);
         team3.setTotalPoints(250);
@@ -102,7 +99,6 @@ public class MockTeamRepository implements TeamRepository {
         team4.setGameId(MockGameRepository.GAME_2026_ID);
         team4.setName("Kapitein Haak");
         team4.setDescription("Piraten van de grachten");
-        team4.setBoatNumber("23");
         team4.setParticipants(Arrays.asList("Peter Pan", "Wendy Darling", "Tinkerbell"));
         team4.setCheckedIn(false);
         team4.setTotalPoints(0);
@@ -139,12 +135,6 @@ public class MockTeamRepository implements TeamRepository {
                 .findFirst();
     }
 
-    @Override
-    public Optional<Team> findByBoatNumber(String boatNumber) {
-        return teams.values().stream()
-                .filter(t -> boatNumber.equals(t.getBoatNumber()))
-                .findFirst();
-    }
 
     @Override
     public List<Team> findRivals(UUID teamId) {

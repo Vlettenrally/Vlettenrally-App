@@ -212,7 +212,6 @@ class WebSocketTokenServiceTest {
         team.setId(teamId);
         team.setGameId(gameId);
         team.setName("Test Team");
-        team.setBoatNumber("42");
         return team;
     }
 }

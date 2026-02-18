@@ -63,18 +63,6 @@ public class JpaTeamRepository extends ReadReplicaAwareRepository implements Tea
         }
     }
 
-    @Override
-    public Optional<Team> findByBoatNumber(String boatNumber) {
-        try {
-            TeamEntity entity = getReadEntityManager()
-                    .createQuery("SELECT t FROM TeamEntity t WHERE t.boatNumber = :boatNumber", TeamEntity.class)
-                    .setParameter("boatNumber", boatNumber)
-                    .getSingleResult();
-            return Optional.ofNullable(TeamMapper.toDomain(entity));
-        } catch (NoResultException e) {
-            return Optional.empty();
-        }
-    }
 
     @Override
     public List<Team> findRivals(UUID teamId) {

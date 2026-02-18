@@ -380,7 +380,6 @@ public class MessageResource {
                     return new AdminMessageResponse.DeliveryDetail(
                             m.getTeamId(),
                             team.map(Team::getName).orElse("Unknown"),
-                            team.map(Team::getBoatNumber).orElse(""),
                             m.isDelivered(),
                             m.getTransmittedVia() != null 
                                     ? m.getTransmittedVia().stream().map(TransmissionChannel::name).collect(Collectors.toSet())
@@ -419,7 +418,6 @@ public class MessageResource {
                     return new AdminMessageResponse.DeliveryDetail(
                             m.getTeamId(),
                             team.map(Team::getName).orElse("Unknown"),
-                            team.map(Team::getBoatNumber).orElse(""),
                             m.isDelivered(),
                             m.getTransmittedVia() != null 
                                     ? m.getTransmittedVia().stream().map(TransmissionChannel::name).collect(Collectors.toSet())

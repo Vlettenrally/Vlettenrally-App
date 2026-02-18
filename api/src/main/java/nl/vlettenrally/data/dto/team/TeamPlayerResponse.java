@@ -15,7 +15,6 @@ public record TeamPlayerResponse(
     UUID gameId,
     String name,
     String description,
-    String boatNumber,
     boolean checkedIn,
     int totalPoints,
     List<UUID> rivals,

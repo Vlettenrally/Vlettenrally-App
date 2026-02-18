@@ -289,8 +289,9 @@ CREATE TABLE checkpoints (
 CREATE TABLE teams (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   game_id UUID REFERENCES games(id) ON DELETE CASCADE,
-  boat_number VARCHAR(50) UNIQUE NOT NULL,
-  scouting_group VARCHAR(255) NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  scouting_group VARCHAR(255),
   emergency_contact VARCHAR(255),
   participant_names TEXT[],
   special_notes TEXT,

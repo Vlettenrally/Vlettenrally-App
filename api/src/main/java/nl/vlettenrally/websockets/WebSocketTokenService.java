@@ -82,7 +82,7 @@ public class WebSocketTokenService {
                     return Uni.createFrom().item(new WebSocketTokenResult.TeamGameMismatch());
                 }
 
-                String teamName = team.getName() != null ? team.getName() : "Team " + team.getBoatNumber();
+                String teamName = team.getName() != null ? team.getName() : "Team";
                 String token = generateSecureToken();
                 WebSocketTokenData data = WebSocketTokenData.forTeam(teamId, teamName, gameId);
 

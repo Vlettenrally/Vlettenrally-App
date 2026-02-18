@@ -10,7 +10,6 @@ public record TeamCreateRequest(
     UUID gameId,
     String name,
     String description,
-    String boatNumber,
     List<String> participants,
     List<String> emergencyPhoneNumbers,
     String notes

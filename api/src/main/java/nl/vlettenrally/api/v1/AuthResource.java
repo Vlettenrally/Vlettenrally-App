@@ -76,7 +76,7 @@ public class AuthResource {
     public Response registerTeam(TeamRegistrationRequest registration) {
         try {
             // Validate input
-            if (registration.gameId() == null || registration.boatNumber() == null) {
+            if (registration.gameId() == null) {
                 return Response.status(Response.Status.BAD_REQUEST)
                     .entity(new ErrorResponse("gameId and boatNumber are required"))
                     .build();
@@ -89,7 +89,6 @@ public class AuthResource {
 
             RegistrationResult result = authService.registerTeam(
                 registration.gameId(),
-                registration.boatNumber(),
                 registration.scoutingGroup(),
                 registration.emergencyContact(),
                 participants,

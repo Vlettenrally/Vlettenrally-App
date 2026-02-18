@@ -40,10 +40,6 @@ public class TeamServiceImpl implements TeamService {
         return teamRepository.findByDeviceId(deviceId);
     }
 
-    @Override
-    public Optional<Team> findByBoatNumber(String boatNumber) {
-        return teamRepository.findByBoatNumber(boatNumber);
-    }
 
     @Override
     public List<Team> findRivals(UUID teamId) {

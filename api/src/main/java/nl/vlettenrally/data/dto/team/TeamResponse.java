@@ -11,7 +11,6 @@ public record TeamResponse(
     UUID gameId,
     String name,
     String description,
-    String boatNumber,
     List<String> participants,
     UUID deviceId,
     boolean checkedIn,
