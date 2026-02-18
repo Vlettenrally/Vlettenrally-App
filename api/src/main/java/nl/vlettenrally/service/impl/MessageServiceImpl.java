@@ -228,12 +228,9 @@ public class MessageServiceImpl implements MessageService {
      */
     private boolean isTeamInactive(Team team) {
         Optional<DeviceRegistration> deviceOpt = deviceRegistrationRepository.findByTeamId(team.getId());
-        if (deviceOpt.isEmpty()) {
-            // No device registered = considered inactive
-            return true;
-        }
-        
-        return deviceOpt.get().isInactive(inactiveThresholdMinutes);
+        // No device registered = considered inactive
+        return deviceOpt.map(deviceRegistration -> deviceRegistration.isInactive(inactiveThresholdMinutes)).orElse(true);
+
     }
 
     @Override
