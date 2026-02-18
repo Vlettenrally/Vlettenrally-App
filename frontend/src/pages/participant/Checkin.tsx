@@ -293,10 +293,10 @@ export function CheckInPage() {
                   options={sortedTeamOptions}
                   value={selectedTeam}
                   onChange={(_, value) => setSelectedTeam(value)}
-                  getOptionLabel={(option) => option.name}
+                  getOptionLabel={(option) => option.name ?? ''}
                   renderOption={(props, option) => (
                     <Box component="li" {...props} sx={{ minHeight: 48, alignItems: 'center', display: 'flex', gap: 1 }}>
-                      <Typography variant="body1">{option.name}</Typography>
+                      <Typography variant="body1">{option.name ?? ''}</Typography>
                     </Box>
                   )}
                   renderInput={(params) => (
