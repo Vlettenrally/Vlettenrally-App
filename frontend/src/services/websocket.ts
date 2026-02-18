@@ -285,6 +285,25 @@ class WebSocketService {
     }, delay);
   }
 
+  /**
+   * Reset reconnection state and force a new connection attempt.
+   * Call this when you want to force a reconnection after failures.
+   */
+  resetAndReconnect(): void {
+    this.reconnectAttempts = 0;
+    this.reconnectDelay = 1000;
+    this.isIntentionallyClosed = false;
+
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+
+    if (this.config && this.isOnline && !this.isConnected()) {
+      this.createConnection().catch(err => console.error('Manual reconnection failed:', err));
+    }
+  }
+
   private startPing(): void {
     // Clear any existing ping interval
     this.stopPing();

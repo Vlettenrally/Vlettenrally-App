@@ -41,9 +41,20 @@ async function getFirebaseMessaging(): Promise<Messaging | null> {
         return null;
       }
 
-      // Wait for service worker to be ready before initializing messaging
-      // This prevents Firebase from registering its own service worker
-      await navigator.serviceWorker.ready;
+      // Wait for service worker to be ready with a timeout
+      // This prevents hanging indefinitely if service worker has issues
+      const serviceWorkerTimeout = 10000; // 10 seconds
+      const serviceWorkerPromise = navigator.serviceWorker.ready;
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Service worker ready timeout')), serviceWorkerTimeout)
+      );
+
+      try {
+        await Promise.race([serviceWorkerPromise, timeoutPromise]);
+      } catch (error) {
+        console.warn('[FCM] Service worker not ready in time, skipping FCM initialization:', error);
+        return null;
+      }
 
       // Initialize or get existing Firebase app
       const app = getApps().length === 0 ? initializeApp(config.firebaseConfig) : getApp();

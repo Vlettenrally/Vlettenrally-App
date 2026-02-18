@@ -1,7 +1,7 @@
 /**
  * Team Layout Component - Contains navigation and layout structure for team interface
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -47,13 +47,35 @@ export function TeamLayout({ children }: TeamLayoutProps) {
   const location = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { unreadCount } = useMessageStore();
-  const { reset: resetTeam, team } = useTeamStore();
+  const { reset: resetTeam, team, setTeam } = useTeamStore();
   const { reset: resetGame } = useGameStore();
   const { showDisconnected } = useConnectionStatus();
   const gameId = storage.getGameId();
-  
+  const teamId = storage.getTeamId();
+
+  // Initialize team data from storage if not in store (e.g., after page refresh)
+  useEffect(() => {
+    if (!team && teamId) {
+      // First try to load from storage cache
+      const cachedTeam = storage.getTeamData();
+      if (cachedTeam) {
+        setTeam(cachedTeam);
+      }
+      // Then fetch fresh data from API
+      api.getMyTeam().then(response => {
+        if (response.data) {
+          setTeam(response.data);
+          storage.setTeamData(response.data);
+        }
+      }).catch(err => {
+        console.warn('Failed to fetch team data:', err);
+      });
+    }
+  }, [team, teamId, setTeam]);
+
   // Initialize websocket connection for the entire team app
-  useTeamRealtime({ gameId, teamId: team?.id || null });
+  // Use teamId from storage as fallback when store is not yet populated
+  useTeamRealtime({ gameId, teamId: team?.id || teamId || null });
 
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },

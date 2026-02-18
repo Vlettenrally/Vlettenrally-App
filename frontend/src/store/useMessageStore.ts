@@ -44,6 +44,10 @@ export const useMessageStore = create<MessageState>((set) => ({
 
   addMessage: (message) =>
     set((state) => {
+      // Check if message already exists to prevent duplicates
+      if (state.messages.some((m) => m.id === message.id)) {
+        return state;
+      }
       const messages = [message, ...state.messages];
       return {
         messages,

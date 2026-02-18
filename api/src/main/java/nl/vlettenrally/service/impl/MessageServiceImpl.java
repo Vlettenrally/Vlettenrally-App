@@ -10,6 +10,7 @@ import nl.vlettenrally.data.domain.Message;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.dto.message.AdminMessageBatchResult;
 import nl.vlettenrally.data.dto.message.MessageDeliveryUpdatePayload;
+import nl.vlettenrally.data.dto.message.MessageResponse;
 import nl.vlettenrally.data.repository.DeviceRegistrationRepository;
 import nl.vlettenrally.data.repository.MessageRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
@@ -60,7 +61,7 @@ public class MessageServiceImpl implements MessageService {
     @Any
     Instance<MessageTransmitter> transmitters;
 
-    @ConfigProperty(name = "vlettenrally.team.inactive-threshold-minutes", defaultValue = "5")
+    @ConfigProperty(name = "vlettenrally.team.inactive-threshold-minutes", defaultValue = "120")
     int inactiveThresholdMinutes;
 
     @Override
@@ -109,7 +110,7 @@ public class MessageServiceImpl implements MessageService {
         Message finalMessage = messageRepository.save(savedMessage);
         
         // Publish delivery update event
-        publishMessageDeliveryUpdate(finalMessage.getGameId(), finalMessage.getTeamId(), 
+        publishMessageDeliveryUpdate(finalMessage.getGameId(), finalMessage.getBatchId(), finalMessage.getTeamId(),
                                     finalMessage.getId(), finalMessage.isDelivered(), finalMessage.isRead());
         
         return finalMessage;
@@ -193,8 +194,11 @@ public class MessageServiceImpl implements MessageService {
                 return false;
             }
             
+            // Convert to DTO to avoid Instant serialization issues
+            MessageResponse payload = toMessageResponse(message);
+
             // Send via WebSocket publisher
-            webSocketPublisher.sendToTeam(team.getGameId(), team.getId(), "message:new", message);
+            webSocketPublisher.sendToTeam(team.getGameId(), team.getId(), WebSocketMessageType.MESSAGE_NEW.getValue(), payload);
             return true;
         } catch (Exception e) {
             Log.errorf("Failed to send WebSocket message to team %s: %s", 
@@ -204,16 +208,29 @@ public class MessageServiceImpl implements MessageService {
     }
 
     /**
+     * Convert a Message domain object to a MessageResponse DTO.
+     */
+    private MessageResponse toMessageResponse(Message message) {
+        return new MessageResponse(
+            message.getId(),
+            message.getTeamId(),
+            message.getMessageType() != null ? message.getMessageType().name().toLowerCase() : null,
+            message.getContent(),
+            message.getIcon(),
+            message.getSentAt() != null ? message.getSentAt().toString() : null,
+            message.isDelivered(),
+            message.isRead()
+        );
+    }
+
+    /**
      * Check if a team's device has been inactive for longer than the threshold.
      */
     private boolean isTeamInactive(Team team) {
         Optional<DeviceRegistration> deviceOpt = deviceRegistrationRepository.findByTeamId(team.getId());
-        if (deviceOpt.isEmpty()) {
-            // No device registered = considered inactive
-            return true;
-        }
-        
-        return deviceOpt.get().isInactive(inactiveThresholdMinutes);
+        // No device registered = considered inactive
+        return deviceOpt.map(deviceRegistration -> deviceRegistration.isInactive(inactiveThresholdMinutes)).orElse(true);
+
     }
 
     @Override
@@ -229,7 +246,7 @@ public class MessageServiceImpl implements MessageService {
         messageRepository.markAsRead(id);
         
         // Publish websocket event for message delivery update
-        publishMessageDeliveryUpdate(message.getGameId(), message.getTeamId(), id, message.isDelivered(), true);
+        publishMessageDeliveryUpdate(message.getGameId(), message.getBatchId(), message.getTeamId(), id, message.isDelivered(), true);
     }
 
     @Override
@@ -252,7 +269,7 @@ public class MessageServiceImpl implements MessageService {
         
         // Publish websocket events for each message
         for (Message message : messages) {
-            publishMessageDeliveryUpdate(message.getGameId(), message.getTeamId(), 
+            publishMessageDeliveryUpdate(message.getGameId(), message.getBatchId(), message.getTeamId(),
                                         message.getId(), message.isDelivered(), true);
         }
     }
@@ -267,16 +284,16 @@ public class MessageServiceImpl implements MessageService {
         
         // Publish websocket events for each message
         for (Message message : unreadMessages) {
-            publishMessageDeliveryUpdate(message.getGameId(), message.getTeamId(), message.getId(), message.isDelivered(), true);
+            publishMessageDeliveryUpdate(message.getGameId(), message.getBatchId(), message.getTeamId(), message.getId(), message.isDelivered(), true);
         }
     }
 
     /**
-     * Publish a MESSAGE_DELIVERY_UPDATE websocket event to notify clients about message state changes.
+     * Publish a MESSAGE_DELIVERY_UPDATE websocket event to notify admins about message state changes.
      */
-    private void publishMessageDeliveryUpdate(UUID gameId, UUID teamId, UUID messageId, boolean delivered, boolean read) {
-        MessageDeliveryUpdatePayload payload = new MessageDeliveryUpdatePayload(messageId, teamId, delivered, read);
-        webSocketPublisher.broadcastToGame(gameId, WebSocketMessageType.MESSAGE_DELIVERY_UPDATE.getValue(), payload);
+    private void publishMessageDeliveryUpdate(UUID gameId, UUID batchId, UUID teamId, UUID messageId, boolean delivered, boolean read) {
+        MessageDeliveryUpdatePayload payload = new MessageDeliveryUpdatePayload(messageId, batchId, teamId, delivered, read);
+        webSocketPublisher.sendToAdmins(gameId, WebSocketMessageType.MESSAGE_DELIVERY_UPDATE.getValue(), payload);
         Log.debugf("Published MESSAGE_DELIVERY_UPDATE for message %s (delivered=%s, read=%s)", messageId, delivered, read);
     }
 
@@ -342,7 +359,7 @@ public class MessageServiceImpl implements MessageService {
             messageRepository.save(savedMessage);
             
             // Publish delivery update event
-            publishMessageDeliveryUpdate(savedMessage.getGameId(), savedMessage.getTeamId(), 
+            publishMessageDeliveryUpdate(savedMessage.getGameId(), savedMessage.getBatchId(), savedMessage.getTeamId(),
                                         savedMessage.getId(), savedMessage.isDelivered(), savedMessage.isRead());
 
             if (savedMessage.isDelivered()) {
@@ -393,7 +410,7 @@ public class MessageServiceImpl implements MessageService {
             messageRepository.save(message);
             
             // Publish delivery update event
-            publishMessageDeliveryUpdate(message.getGameId(), message.getTeamId(), 
+            publishMessageDeliveryUpdate(message.getGameId(), message.getBatchId(), message.getTeamId(),
                                         message.getId(), message.isDelivered(), message.isRead());
             
             if (message.isDelivered()) {
@@ -424,7 +441,7 @@ public class MessageServiceImpl implements MessageService {
             messageRepository.save(message);
             
             // Publish delivery update event
-            publishMessageDeliveryUpdate(message.getGameId(), message.getTeamId(), 
+            publishMessageDeliveryUpdate(message.getGameId(), message.getBatchId(), message.getTeamId(),
                                         message.getId(), message.isDelivered(), message.isRead());
             
             if (message.isDelivered()) {
