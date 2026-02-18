@@ -16,7 +16,7 @@ import java.util.UUID;
 
 /**
  * JAX-RS filter that enforces team-scoped access control with admin bypass.
- * 
+ * <p>
  * This filter is triggered by the {@link TeamScopedOrAdmin} annotation and verifies
  * that either:
  * - The authenticated user has the "admin" role, OR

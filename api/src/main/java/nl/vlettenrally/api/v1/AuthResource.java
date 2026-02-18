@@ -21,7 +21,6 @@ import nl.vlettenrally.data.dto.auth.TeamRegistrationRequest;
 import nl.vlettenrally.data.dto.auth.UpdatePasswordRequest;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
 import nl.vlettenrally.data.enums.TokenType;
-import nl.vlettenrally.data.repository.AdminRepository;
 import nl.vlettenrally.service.AuthService;
 import nl.vlettenrally.service.TeamService;
 

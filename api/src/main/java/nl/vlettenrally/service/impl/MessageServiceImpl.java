@@ -36,7 +36,7 @@ import java.util.stream.Collectors;
 
 /**
  * Implementation of MessageService with multi-channel transmission support.
- * 
+ * <p>
  * Transmission strategy:
  * 1. Always attempt WebSocket broadcast (real-time)
  * 2. Always attempt Firebase push notification (if FCM token exists)

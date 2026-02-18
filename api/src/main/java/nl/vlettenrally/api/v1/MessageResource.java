@@ -32,13 +32,13 @@ import java.util.stream.Collectors;
 
 /**
  * REST Resource for Message operations
- * 
+ * <p>
  * Team endpoints:
  * - GET /api/v1/messages/team/{teamId} - Get all messages for a team
  * - GET /api/v1/messages/team/{teamId}/unread - Get unread messages count
  * - PUT /api/v1/messages/{messageId}/read - Mark message as read
  * - PUT /api/v1/messages/team/{teamId}/read-all - Mark all messages as read
- * 
+ * <p>
  * Admin endpoints:
  * - POST /api/v1/messages/admin - Send admin message to teams
  * - GET /api/v1/messages/admin/games/{gameId} - Get admin messages for a game

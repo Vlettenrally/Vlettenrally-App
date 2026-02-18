@@ -96,7 +96,7 @@ public class TwilioSmsTransmitter implements MessageTransmitter {
         String toNumber = phoneNumbers.getFirst();
 
         try {
-            String smsBody = formatSmsMessage(message, team);
+            String smsBody = formatSmsMessage(message);
             
             com.twilio.rest.api.v2010.account.Message twilioMessage = 
                     com.twilio.rest.api.v2010.account.Message.creator(
@@ -121,7 +121,7 @@ public class TwilioSmsTransmitter implements MessageTransmitter {
         }
     }
 
-    private String formatSmsMessage(Message message, Team team) {
+    private String formatSmsMessage(Message message) {
         String prefix = switch (message.getMessageType()) {
             case RALLYDESK -> "[RALLYDESK] ";
             case CHECKPOINT -> "[CHECKPOINT] ";

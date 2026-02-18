@@ -65,7 +65,7 @@ public class Team {
             if (phoneNumber == null || phoneNumber.trim().isEmpty()) {
                 throw new IllegalArgumentException("Emergency phone number cannot be null or empty");
             }
-            if (isInValidPhoneNumber(phoneNumber.trim())) {
+            if (!isValidPhoneNumber(phoneNumber.trim())) {
                 throw new IllegalArgumentException("Invalid phone number format: " + phoneNumber);
             }
         }
@@ -76,7 +76,7 @@ public class Team {
         if (phoneNumber == null || phoneNumber.trim().isEmpty()) {
             throw new IllegalArgumentException("Emergency phone number cannot be null or empty");
         }
-        if (isInValidPhoneNumber(phoneNumber.trim())) {
+        if (!isValidPhoneNumber(phoneNumber.trim())) {
             throw new IllegalArgumentException("Invalid phone number format: " + phoneNumber);
         }
         this.emergencyPhoneNumbers.add(phoneNumber.trim());
@@ -86,12 +86,12 @@ public class Team {
      * Validates phone number format using Google's libphonenumber library
      * Supports international phone numbers with proper validation
      */
-    private boolean isInValidPhoneNumber(String phoneNumber) {
+    private boolean isValidPhoneNumber(String phoneNumber) {
         PhoneNumberUtil phoneUtil = PhoneNumberUtil.getInstance();
         try {
             // Default to Netherlands region for numbers without country code
             PhoneNumber numberProto = phoneUtil.parse(phoneNumber, "NL");
-            return !phoneUtil.isValidNumber(numberProto);
+            return phoneUtil.isValidNumber(numberProto);
         } catch (NumberParseException e) {
             return true;
         }
