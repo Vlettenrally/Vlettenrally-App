@@ -33,6 +33,7 @@ import {
   SportsScore as GamesIcon,
   Groups as TeamsIcon,
   Message as MessageIcon,
+  Inbox as InboxIcon,
   AutoFixHigh as AutomationsIcon,
   Logout as LogoutIcon,
   AdminPanelSettings as AdminIcon,
@@ -105,6 +106,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { text: 'Games', icon: <GamesIcon />, path: '/admin/games' },
     { text: 'Teams', icon: <TeamsIcon />, path: '/admin/teams' },
     { text: 'Berichten', icon: <MessageIcon />, path: '/admin/messages' },
+    { text: 'Inbox', icon: <InboxIcon />, path: '/admin/inbox' },
     { text: 'Automations', icon: <AutomationsIcon />, path: '/admin/automations' },
     { text: 'Instellingen', icon: <SettingsIcon />, path: '/admin/settings' },
   ];

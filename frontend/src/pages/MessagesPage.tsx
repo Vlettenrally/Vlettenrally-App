@@ -26,7 +26,8 @@ import { useMessageStore } from '../store/useMessageStore';
 import { useInViewMarkAsRead } from '../hooks/useInViewMarkAsRead';
 import api from '../services/api';
 import { storage } from '../services/storage';
-import { formatRelativeTime } from '../utils/dateTime';
+import { getSubjectFromToken } from '../services/auth';
+import { RelativeTime } from '../components/RelativeTime';
 
 import type { Message } from '../store/useMessageStore';
 
@@ -50,20 +51,23 @@ const getMessageIcon = (type: string) => {
 export function MessagesPage() {
   const { messages, setMessages, isLoading, error } = useMessageStore();
   const { getMessageRef } = useInViewMarkAsRead();
-  const teamId = storage.getTeamId();
+
+  // Get user ID from token (works for both team and admin)
+  const token = storage.getAuthToken();
+  const userId = token ? getSubjectFromToken(token) : null;
 
   useEffect(() => {
-    if (!teamId) return;
+    if (!userId) return;
 
     const loadMessages = async () => {
-      const response = await api.getMessages(teamId);
+      const response = await api.getMessages(userId);
       if (response.data) {
         setMessages(response.data as Message[]);
       }
     };
 
     loadMessages();
-  }, [teamId, setMessages]);
+  }, [userId, setMessages]);
 
   if (error) {
     return (
@@ -120,7 +124,7 @@ export function MessagesPage() {
                         )}
                       </Box>
                     }
-                    secondary={formatRelativeTime(message.sentAt)}
+                    secondary={<RelativeTime date={message.sentAt} />}
                   />
                 </ListItem>
               ))}

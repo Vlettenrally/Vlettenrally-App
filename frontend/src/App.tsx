@@ -250,10 +250,14 @@ function App() {
     
     onForegroundMessage((payload) => {
       // Show notification snackbar
-      if (payload.notification?.title || payload.notification?.body) {
+      // Read title/body from data field since we're using data-only messages
+      const title = payload.data?.title || payload.notification?.title || 'Vlettenrally';
+      const body = payload.data?.body || payload.notification?.body || '';
+
+      if (title || body) {
         setNotification({
-          title: payload.notification.title || 'Vlettenrally',
-          body: payload.notification.body || '',
+          title: title,
+          body: body,
         });
       }
       
@@ -356,6 +360,16 @@ function App() {
               <AdminRoute>
                 <AdminLayout>
                   <AdminMessages />
+                </AdminLayout>
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/inbox"
+            element={
+              <AdminRoute>
+                <AdminLayout>
+                  <MessagesPage />
                 </AdminLayout>
               </AdminRoute>
             }
