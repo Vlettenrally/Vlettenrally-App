@@ -1,9 +1,11 @@
 package nl.vlettenrally.fcm;
 
-import java.io.BufferedInputStream;
-import java.io.FileInputStream;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
+import lombok.Getter;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -33,7 +35,17 @@ public class GoogleOAuth2Authenticator {
     private final ObjectMapper objectMapper = new ObjectMapper();
     
     private GoogleCredentials credentials;
+    /**
+     * -- GETTER --
+     *  Get the Firebase project ID from the service account credentials.
+     */
+    @Getter
     private String projectId;
+    /**
+     * -- GETTER --
+     *  Check if the authenticator is properly initialized.
+     */
+    @Getter
     private boolean initialized = false;
     
     @PostConstruct
@@ -56,19 +68,20 @@ public class GoogleOAuth2Authenticator {
      * Load and configure Google credentials from service account JSON file.
      */
     private void loadCredentials() throws IOException {
-        try (BufferedInputStream bis = new BufferedInputStream(new FileInputStream(credentialsPath))) {
-            // Parse the JSON to extract project ID
-            bis.mark(Integer.MAX_VALUE);
-            JsonNode root = objectMapper.readTree(bis);
-            projectId = root.get("project_id").asText();
+        // Read file content once into memory
+        byte[] credentialsBytes = Files.readAllBytes(Paths.get(credentialsPath));
 
-            // Reset stream and load credentials
-            bis.reset();
-            credentials = GoogleCredentials.fromStream(bis)
+        // Parse the JSON to extract project ID
+        JsonNode root = objectMapper.readTree(credentialsBytes);
+        projectId = root.get("project_id").asText();
+
+        // Create a new stream from the bytes to load credentials
+        try (ByteArrayInputStream bais = new ByteArrayInputStream(credentialsBytes)) {
+            credentials = GoogleCredentials.fromStream(bais)
                     .createScoped(FIREBASE_SCOPE);
-
-            Log.infof("Loaded service account credentials (project: %s)", projectId);
         }
+
+        Log.infof("Loaded service account credentials (project: %s)", projectId);
     }
     
     /**
@@ -85,18 +98,5 @@ public class GoogleOAuth2Authenticator {
         
         return credentials.getAccessToken().getTokenValue();
     }
-    
-    /**
-     * Get the Firebase project ID from the service account credentials.
-     */
-    public String getProjectId() {
-        return projectId;
-    }
-    
-    /**
-     * Check if the authenticator is properly initialized.
-     */
-    public boolean isInitialized() {
-        return initialized;
-    }
+
 }
