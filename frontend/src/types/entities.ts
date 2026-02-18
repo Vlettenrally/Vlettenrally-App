@@ -70,7 +70,6 @@ interface TeamBase {
   id: string;
   gameId: string;
   name: string;
-  boatNumber: string;
   totalPoints: number;
 }
 
@@ -136,7 +135,6 @@ export interface Message {
 export interface DeliveryDetail {
   teamId: string;
   teamName: string;
-  boatNumber: string;
   delivered: boolean;
   transmittedVia: string[];
   transmissionError?: string;
@@ -271,7 +269,6 @@ export interface ResetPasswordResponse {
 export interface TeamOption {
   id: string;
   name: string;
-  boatNumber: string;
 }
 
 /**

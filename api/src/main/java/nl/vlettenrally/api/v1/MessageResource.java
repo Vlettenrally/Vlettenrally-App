@@ -19,38 +19,26 @@ import jakarta.ws.rs.core.SecurityContext;
 import nl.vlettenrally.api.security.TeamScoped;
 import nl.vlettenrally.data.domain.Message;
 import nl.vlettenrally.data.domain.MessageTemplate;
-import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.dto.common.SuccessResponse;
-import nl.vlettenrally.data.dto.message.AdminMessageBatchResult;
-import nl.vlettenrally.data.dto.message.AdminMessageListResponse;
-import nl.vlettenrally.data.dto.message.AdminMessageResponse;
-import nl.vlettenrally.data.dto.message.MessageResponse;
-import nl.vlettenrally.data.dto.message.MessageTemplateRequest;
-import nl.vlettenrally.data.dto.message.MessageTemplateResponse;
-import nl.vlettenrally.data.dto.message.RetryMessageResponse;
-import nl.vlettenrally.data.dto.message.SendAdminMessageRequest;
-import nl.vlettenrally.data.dto.message.UnreadCountResponse;
+import nl.vlettenrally.data.dto.message.*;
 import nl.vlettenrally.data.enums.MessageType;
-import nl.vlettenrally.data.enums.TransmissionChannel;
-import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.service.MessageService;
 import nl.vlettenrally.service.MessageTemplateService;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
  * REST Resource for Message operations
- * 
+ * <p>
  * Team endpoints:
  * - GET /api/v1/messages/team/{teamId} - Get all messages for a team
  * - GET /api/v1/messages/team/{teamId}/unread - Get unread messages count
  * - PUT /api/v1/messages/{messageId}/read - Mark message as read
  * - PUT /api/v1/messages/team/{teamId}/read-all - Mark all messages as read
- * 
+ * <p>
  * Admin endpoints:
  * - POST /api/v1/messages/admin - Send admin message to teams
  * - GET /api/v1/messages/admin/games/{gameId} - Get admin messages for a game
@@ -73,8 +61,6 @@ public class MessageResource {
     @Inject
     MessageTemplateService messageTemplateService;
 
-    @Inject
-    TeamRepository teamRepository;
 
     /**
      * Get a single message by ID
@@ -209,9 +195,9 @@ public class MessageResource {
             messageTemplateService.create(request.templateName(), type, request.content(), request.icon());
         }
 
-        // Build response with delivery details from batch
+        // Build response with delivery details from batch using service method
         List<Message> messagesInBatch = messageService.getMessagesInBatch(batchResult.batchId());
-        AdminMessageResponse response = toAdminDtoFromBatch(batchResult, messagesInBatch);
+        AdminMessageResponse response = messageService.buildAdminMessageResponse(batchResult, messagesInBatch);
 
         return Response.ok(response).build();
     }
@@ -234,7 +220,7 @@ public class MessageResource {
         List<AdminMessageResponse> messageDtos = representativeMessages.stream()
                 .map(m -> {
                     List<Message> batchMessages = messageService.getMessagesInBatch(m.getBatchId());
-                    return toAdminDtoFromMessages(m, batchMessages);
+                    return messageService.buildAdminMessageResponse(m, batchMessages);
                 })
                 .collect(Collectors.toList());
 
@@ -368,82 +354,6 @@ public class MessageResource {
 
     // ==================== Helper Methods ====================
 
-    /**
-     * Convert a batch result and its messages to AdminMessageResponse.
-     */
-    private AdminMessageResponse toAdminDtoFromBatch(AdminMessageBatchResult batchResult, List<Message> messages) {
-        Message firstMessage = messages.isEmpty() ? null : messages.get(0);
-        
-        List<AdminMessageResponse.DeliveryDetail> deliveryDetails = messages.stream()
-                .map(m -> {
-                    Optional<Team> team = teamRepository.findById(m.getTeamId());
-                    return new AdminMessageResponse.DeliveryDetail(
-                            m.getTeamId(),
-                            team.map(Team::getName).orElse("Unknown"),
-                            team.map(Team::getBoatNumber).orElse(""),
-                            m.isDelivered(),
-                            m.getTransmittedVia() != null 
-                                    ? m.getTransmittedVia().stream().map(TransmissionChannel::name).collect(Collectors.toSet())
-                                    : Set.of(),
-                            m.getTransmissionError()
-                    );
-                })
-                .collect(Collectors.toList());
-
-        return new AdminMessageResponse(
-                batchResult.batchId(),
-                firstMessage != null ? firstMessage.getGameId() : null,
-                firstMessage != null && firstMessage.getMessageType() != null ? firstMessage.getMessageType().name().toLowerCase() : null,
-                firstMessage != null ? firstMessage.getContent() : null,
-                firstMessage != null ? firstMessage.getIcon() : null,
-                batchResult.sentAt() != null ? batchResult.sentAt().toString() : null,
-                firstMessage != null && firstMessage.getSource() != null ? firstMessage.getSource().name() : null,
-                firstMessage != null ? firstMessage.getSentByAdminId() : null,
-                batchResult.totalTeams(),
-                batchResult.deliveredCount(),
-                batchResult.failedCount(),
-                deliveryDetails
-        );
-    }
-
-    /**
-     * Convert a representative message and its batch messages to AdminMessageResponse.
-     */
-    private AdminMessageResponse toAdminDtoFromMessages(Message representativeMessage, List<Message> batchMessages) {
-        int deliveredCount = (int) batchMessages.stream().filter(Message::isDelivered).count();
-        int failedCount = batchMessages.size() - deliveredCount;
-
-        List<AdminMessageResponse.DeliveryDetail> deliveryDetails = batchMessages.stream()
-                .map(m -> {
-                    Optional<Team> team = teamRepository.findById(m.getTeamId());
-                    return new AdminMessageResponse.DeliveryDetail(
-                            m.getTeamId(),
-                            team.map(Team::getName).orElse("Unknown"),
-                            team.map(Team::getBoatNumber).orElse(""),
-                            m.isDelivered(),
-                            m.getTransmittedVia() != null 
-                                    ? m.getTransmittedVia().stream().map(TransmissionChannel::name).collect(Collectors.toSet())
-                                    : Set.of(),
-                            m.getTransmissionError()
-                    );
-                })
-                .collect(Collectors.toList());
-
-        return new AdminMessageResponse(
-                representativeMessage.getBatchId(),
-                representativeMessage.getGameId(),
-                representativeMessage.getMessageType() != null ? representativeMessage.getMessageType().name().toLowerCase() : null,
-                representativeMessage.getContent(),
-                representativeMessage.getIcon(),
-                representativeMessage.getSentAt() != null ? representativeMessage.getSentAt().toString() : null,
-                representativeMessage.getSource() != null ? representativeMessage.getSource().name() : null,
-                representativeMessage.getSentByAdminId(),
-                batchMessages.size(),
-                deliveredCount,
-                failedCount,
-                deliveryDetails
-        );
-    }
 
     private MessageTemplateResponse toTemplateDto(MessageTemplate template) {
         return new MessageTemplateResponse(

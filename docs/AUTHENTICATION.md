@@ -149,7 +149,6 @@ Response (200 OK):
   "game": "game-uuid",
   "name": "Scouting Nederland",
   "description": "Team description",
-  "boatNumber": "42",
   "participants": ["Jan", "Piet", "Klaas"],
   "deviceId": null,
   "checkedIn": true,

@@ -58,7 +58,7 @@ public class CheckInResource {
             }
 
             List<TeamOptionResponse> teamOptions = teamService.findByGameId(gameId).stream()
-                .map(team -> new TeamOptionResponse(team.getId(), team.getName(), team.getBoatNumber()))
+                .map(team -> new TeamOptionResponse(team.getId(), team.getName()))
                 .toList();
             return Response.ok(new TeamSelectionResponse(gameId.toString(), teamOptions)).build();
 

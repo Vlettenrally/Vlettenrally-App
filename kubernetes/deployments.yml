@@ -18,7 +18,7 @@ spec:
         - name: ghcr-creds
       containers:
         - name: vlettenrally-api
-          image: ghcr.io/joostvanviegen/vlettenrally-api:2026-02-18-18-native
+          image: ghcr.io/joostvanviegen/vlettenrally-api:2026-02-18-22-native
           resources:
             requests:
               memory: "512Mi"
@@ -156,7 +156,7 @@ spec:
         - name: ghcr-creds
       containers:
         - name: vlettenrally-frontend
-          image: ghcr.io/joostvanviegen/vlettenrally-frontend:2026-02-18-18
+          image: ghcr.io/joostvanviegen/vlettenrally-frontend:2026-02-18-22
           resources:
             requests:
               memory: "64Mi"

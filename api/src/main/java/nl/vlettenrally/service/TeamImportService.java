@@ -67,7 +67,7 @@ public class TeamImportService {
             } catch (Exception e) {
                 errors++;
                 // Log error but continue with other teams
-                Log.error("Failed to import team " + registration.getBoatNumber() + ": " + e.getMessage());
+                Log.error("Failed to import team " + registration.getTeamName() + ": " + e.getMessage());
             }
         }
         
@@ -79,9 +79,8 @@ public class TeamImportService {
         team.setId(UUID.randomUUID());
         team.setGameId(gameId);
         team.setExternalId(String.valueOf(registration.getBookingId()));
-        team.setName(registration.getBoatNumber()); // boat_number is actually the team name
+        team.setName(registration.getTeamName());
         team.setDescription(registration.getScoutingGroup());
-        team.setBoatNumber(null); // Will be assigned later
         team.setParticipants(new ArrayList<>());
         team.setEmergencyPhoneNumbers(new ArrayList<>());
         team.setCheckedIn(false);
@@ -94,7 +93,7 @@ public class TeamImportService {
     
     private void updateTeamFromRegistration(Team team, Registration registration) {
         // Only update certain fields to preserve local changes
-        team.setName(registration.getBoatNumber());
+        team.setName(registration.getTeamName());
         team.setDescription(registration.getScoutingGroup());
         team.setUpdatedAt(Instant.now());
     }

@@ -24,7 +24,7 @@ public class Registration {
     private String eventName;
 
     @JsonProperty("boat_number")
-    private String boatNumber;
+    private String teamName;
 
     @JsonProperty("scouting_group")
     private String scoutingGroup;

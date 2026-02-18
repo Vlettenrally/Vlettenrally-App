@@ -9,6 +9,5 @@ public record RankingResponse(
     int position,
     UUID teamId,
     String teamName,
-    String boatNumber,
     int points
 ) {}

@@ -10,7 +10,6 @@ import nl.vlettenrally.data.repository.TeamRepository;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -51,14 +50,13 @@ public class MockTeamRepository implements TeamRepository {
         team1.setGameId(MockGameRepository.GAME_2026_ID);
         team1.setName("De Watervlooien");
         team1.setDescription("Snelle en wendbare vlettenvaarders");
-        team1.setBoatNumber("42");
-        team1.setParticipants(Arrays.asList("Jan Janssen", "Piet Pietersen", "Klaas Kansen"));
+        team1.setParticipants(List.of("Jan Janssen", "Piet Pietersen", "Klaas Kansen"));
         team1.setDeviceId(UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"));
         team1.setCheckedIn(true);
         team1.setTotalPoints(350);
         team1.setRivals(Collections.singletonList(TEAM_WINDKRACHT_ID));
         team1.setNotes("Favoriet voor de winst!");
-        team1.setEmergencyPhoneNumbers(Arrays.asList("+31612345678", "+31687654321"));
+        team1.setEmergencyPhoneNumbers(List.of("+31612345678", "+31687654321"));
         team1.setCreatedAt(now.minus(48, ChronoUnit.HOURS));
         team1.setUpdatedAt(now.minus(30, ChronoUnit.MINUTES));
         teams.put(team1.getId(), team1);
@@ -69,13 +67,12 @@ public class MockTeamRepository implements TeamRepository {
         team2.setGameId(MockGameRepository.GAME_2026_ID);
         team2.setName("Windkracht Tien");
         team2.setDescription("Altijd volle kracht vooruit");
-        team2.setBoatNumber("17");
-        team2.setParticipants(Arrays.asList("Anna de Groot", "Marie Storm", "Lisa Wind"));
+        team2.setParticipants(List.of("Anna de Groot", "Marie Storm", "Lisa Wind"));
         team2.setDeviceId(UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"));
         team2.setCheckedIn(true);
         team2.setTotalPoints(300);
         team2.setRivals(Collections.singletonList(TEAM_WATERVLOOIEN_ID));
-        team2.setEmergencyPhoneNumbers(Arrays.asList("+31687654321"));
+        team2.setEmergencyPhoneNumbers(List.of("+31687654321"));
         team2.setCreatedAt(now.minus(47, ChronoUnit.HOURS));
         team2.setUpdatedAt(now.minus(45, ChronoUnit.MINUTES));
         teams.put(team2.getId(), team2);
@@ -86,12 +83,11 @@ public class MockTeamRepository implements TeamRepository {
         team3.setGameId(MockGameRepository.GAME_2026_ID);
         team3.setName("De Grachtengorrillas");
         team3.setDescription("Rustig maar doeltreffend");
-        team3.setBoatNumber("8");
-        team3.setParticipants(Arrays.asList("Tom de Vries", "Henk Boot"));
+        team3.setParticipants(List.of("Tom de Vries", "Henk Boot"));
         team3.setCheckedIn(true);
         team3.setTotalPoints(250);
         team3.setRivals(Collections.emptyList());
-        team3.setEmergencyPhoneNumbers(Arrays.asList("+31612345678", "+31687654321"));
+        team3.setEmergencyPhoneNumbers(List.of("+31612345678", "+31687654321"));
         team3.setCreatedAt(now.minus(46, ChronoUnit.HOURS));
         team3.setUpdatedAt(now.minus(1, ChronoUnit.HOURS));
         teams.put(team3.getId(), team3);
@@ -102,12 +98,11 @@ public class MockTeamRepository implements TeamRepository {
         team4.setGameId(MockGameRepository.GAME_2026_ID);
         team4.setName("Kapitein Haak");
         team4.setDescription("Piraten van de grachten");
-        team4.setBoatNumber("23");
-        team4.setParticipants(Arrays.asList("Peter Pan", "Wendy Darling", "Tinkerbell"));
+        team4.setParticipants(List.of("Peter Pan", "Wendy Darling", "Tinkerbell"));
         team4.setCheckedIn(false);
         team4.setTotalPoints(0);
         team4.setRivals(Collections.emptyList());
-        team4.setEmergencyPhoneNumbers(Arrays.asList("+31612345678", "+31687654321"));
+        team4.setEmergencyPhoneNumbers(List.of("+31612345678", "+31687654321"));
         team4.setCreatedAt(now.minus(45, ChronoUnit.HOURS));
         team4.setUpdatedAt(now.minus(2, ChronoUnit.HOURS));
         teams.put(team4.getId(), team4);
@@ -139,12 +134,6 @@ public class MockTeamRepository implements TeamRepository {
                 .findFirst();
     }
 
-    @Override
-    public Optional<Team> findByBoatNumber(String boatNumber) {
-        return teams.values().stream()
-                .filter(t -> boatNumber.equals(t.getBoatNumber()))
-                .findFirst();
-    }
 
     @Override
     public List<Team> findRivals(UUID teamId) {

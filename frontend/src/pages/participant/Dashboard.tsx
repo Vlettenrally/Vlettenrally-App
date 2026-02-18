@@ -55,7 +55,7 @@ export function DashboardPage() {
           <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
             <Grid container spacing={2} alignItems="center">
               <Grid size={{ xs: 12, sm: 4 }}>
-                <Typography variant="h6">Boot {team.boatNumber}</Typography>
+                <Typography variant="h6">{team.name}</Typography>
                 <Typography variant="body2" color="text.secondary">
                   {team.description}
                 </Typography>
