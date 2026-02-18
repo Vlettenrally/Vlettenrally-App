@@ -9,7 +9,6 @@ import nl.vlettenrally.data.domain.FcmToken;
 import nl.vlettenrally.data.repository.DeviceRegistrationRepository;
 import nl.vlettenrally.data.repository.FcmTokenRepository;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
