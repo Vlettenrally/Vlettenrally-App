@@ -72,6 +72,13 @@ public class MockFcmTokenRepository implements FcmTokenRepository {
     }
 
     @Override
+    public Optional<FcmToken> findByToken(String token) {
+        return fcmTokens.values().stream()
+                .filter(t -> t.getToken().equals(token))
+                .findFirst();
+    }
+
+    @Override
     public FcmToken save(FcmToken fcmToken) {
         if (fcmToken.getId() == null) {
             fcmToken.setId(UUID.randomUUID());

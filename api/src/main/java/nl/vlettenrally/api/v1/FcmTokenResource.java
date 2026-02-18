@@ -12,15 +12,11 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
-import nl.vlettenrally.data.domain.DeviceRegistration;
-import nl.vlettenrally.data.domain.FcmToken;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
 import nl.vlettenrally.data.dto.device.FcmTokenRequest;
 import nl.vlettenrally.data.dto.device.FcmTokenResponse;
-import nl.vlettenrally.data.repository.DeviceRegistrationRepository;
-import nl.vlettenrally.data.repository.FcmTokenRepository;
+import nl.vlettenrally.service.FcmTokenService;
 
-import java.util.Optional;
 import java.util.UUID;
 
 import io.quarkus.logging.Log;
@@ -39,10 +35,7 @@ import io.quarkus.logging.Log;
 public class FcmTokenResource {
 
     @Inject
-    FcmTokenRepository fcmTokenRepository;
-
-    @Inject
-    DeviceRegistrationRepository deviceRegistrationRepository;
+    FcmTokenService fcmTokenService;
 
     /**
      * Register an FCM token for push notifications.
@@ -63,46 +56,7 @@ public class FcmTokenResource {
             UUID userId = UUID.fromString(securityContext.getUserPrincipal().getName());
             boolean isAdmin = securityContext.isUserInRole("admin");
             
-            // Find or create device registration for this user (team or admin)
-            DeviceRegistration deviceRegistration;
-            if (isAdmin) {
-                deviceRegistration = deviceRegistrationRepository.findByAdminId(userId)
-                    .orElseGet(() -> {
-                        DeviceRegistration newRegistration = new DeviceRegistration();
-                        newRegistration.setAdminId(userId);
-                        return deviceRegistrationRepository.save(newRegistration);
-                    });
-            } else {
-                deviceRegistration = deviceRegistrationRepository.findByTeamId(userId)
-                    .orElseGet(() -> {
-                        DeviceRegistration newRegistration = new DeviceRegistration();
-                        newRegistration.setTeamId(userId);
-                        return deviceRegistrationRepository.save(newRegistration);
-                    });
-            }
-            
-            // Update last seen
-            deviceRegistration.touch();
-            deviceRegistrationRepository.save(deviceRegistration);
-
-            // Find existing FCM token for this device or create new one
-            Optional<FcmToken> existingToken = fcmTokenRepository.findByDeviceRegistrationId(deviceRegistration.getId());
-            
-            String userType = isAdmin ? "admin" : "team";
-            if (existingToken.isPresent()) {
-                // Update existing token
-                FcmToken fcmToken = existingToken.get();
-                fcmToken.setToken(request.token());
-                fcmTokenRepository.save(fcmToken);
-                Log.infof("Updated FCM token for %s %s", userType, userId);
-            } else {
-                // Create new token
-                FcmToken fcmToken = new FcmToken();
-                fcmToken.setDeviceRegistrationId(deviceRegistration.getId());
-                fcmToken.setToken(request.token());
-                fcmTokenRepository.save(fcmToken);
-                Log.infof("Registered new FCM token for %s %s", userType, userId);
-            }
+            fcmTokenService.registerToken(userId, isAdmin, request.token());
 
             return Response.ok(FcmTokenResponse.ok()).build();
             
@@ -139,17 +93,7 @@ public class FcmTokenResource {
             UUID userId = UUID.fromString(securityContext.getUserPrincipal().getName());
             boolean isAdmin = securityContext.isUserInRole("admin");
             
-            // Find device registration for this user (team or admin)
-            Optional<DeviceRegistration> deviceRegistration = isAdmin 
-                ? deviceRegistrationRepository.findByAdminId(userId)
-                : deviceRegistrationRepository.findByTeamId(userId);
-            
-            if (deviceRegistration.isPresent()) {
-                // Delete FCM token for this device
-                fcmTokenRepository.deleteByDeviceRegistrationId(deviceRegistration.get().getId());
-                String userType = isAdmin ? "admin" : "team";
-                Log.infof("Unregistered FCM token for %s %s", userType, userId);
-            }
+            fcmTokenService.unregisterToken(userId, isAdmin);
 
             return Response.ok(FcmTokenResponse.ok("FCM token unregistered")).build();
             

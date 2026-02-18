@@ -22,6 +22,11 @@ public interface FcmTokenRepository {
      */
     List<FcmToken> findByTeamId(UUID teamId);
     
+    /**
+     * Find an FCM token by its token string value
+     */
+    Optional<FcmToken> findByToken(String token);
+
     FcmToken save(FcmToken fcmToken);
     
     void delete(UUID id);
