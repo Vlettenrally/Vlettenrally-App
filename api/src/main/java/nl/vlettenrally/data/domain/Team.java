@@ -93,7 +93,7 @@ public class Team {
             PhoneNumber numberProto = phoneUtil.parse(phoneNumber, "NL");
             return phoneUtil.isValidNumber(numberProto);
         } catch (NumberParseException e) {
-            return true;
+            return false;
         }
     }
 }
