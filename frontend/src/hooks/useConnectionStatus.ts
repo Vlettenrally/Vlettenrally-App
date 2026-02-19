@@ -10,47 +10,53 @@ import { websocket } from '../services/websocket';
 const DISCONNECT_DELAY_MS = 2000;
 
 export function useConnectionStatus() {
-  const [connected, setConnected] = useState(true); // Assume connected initially
+  const [connected, setConnected] = useState(() => websocket.isConnected());
   const [showDisconnected, setShowDisconnected] = useState(false);
 
   useEffect(() => {
     let disconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const clearDisconnectTimer = () => {
+      if (disconnectTimer) {
+        clearTimeout(disconnectTimer);
+        disconnectTimer = null;
+      }
+    };
+
+    const startDisconnectTimer = () => {
+      // Only start a new timer if one isn't already running
+      if (!disconnectTimer) {
+        disconnectTimer = setTimeout(() => {
+          disconnectTimer = null; // Clear reference when timer fires
+          setShowDisconnected(true);
+        }, DISCONNECT_DELAY_MS);
+      }
+    };
 
     const handleConnectionChange = (isConnected: boolean) => {
       setConnected(isConnected);
 
       if (isConnected) {
         // Clear any pending disconnect timer and immediately show connected
-        if (disconnectTimer) {
-          clearTimeout(disconnectTimer);
-          disconnectTimer = null;
-        }
+        clearDisconnectTimer();
         setShowDisconnected(false);
       } else {
         // Delay showing disconnected state to avoid flickering
-        disconnectTimer = setTimeout(() => {
-          setShowDisconnected(true);
-        }, DISCONNECT_DELAY_MS);
+        startDisconnectTimer();
       }
     };
 
     // Subscribe to connection changes
     const unsubscribe = websocket.onConnectionChange(handleConnectionChange);
 
-    // Check current connection state
-    const currentState = websocket.isConnected();
-    if (!currentState) {
-      // If already disconnected, start the delay timer
-      disconnectTimer = setTimeout(() => {
-        setShowDisconnected(true);
-      }, DISCONNECT_DELAY_MS);
+    // Check current connection state and start timer if disconnected
+    if (!websocket.isConnected()) {
+      startDisconnectTimer();
     }
 
     return () => {
       unsubscribe();
-      if (disconnectTimer) {
-        clearTimeout(disconnectTimer);
-      }
+      clearDisconnectTimer();
     };
   }, []);
 

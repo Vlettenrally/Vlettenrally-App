@@ -4,11 +4,13 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.quarkus.logging.Log;
+import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import jakarta.websocket.OnClose;
 import jakarta.websocket.OnError;
 import jakarta.websocket.Session;
 import nl.vlettenrally.websockets.dto.WebSocketResponse;
+
 
 /**
  * Base class for WebSocket endpoints providing common functionality.
@@ -26,7 +28,7 @@ public abstract class BaseWebSocket {
     
     @Inject
     protected WebSocketPingHandler pingHandler;
-    
+
     @OnClose
     public void onClose(Session session) {
         sessionManager.removeSession(session.getId());
@@ -47,35 +49,45 @@ public abstract class BaseWebSocket {
         );
     }
     
-    protected void ensureSessionRegistered(Session session) {
+    /**
+     * Ensures a session is registered locally, checking Valkey for cross-pod recovery if needed.
+     * Returns a Uni that completes with the WebSocketSession (or null if not found).
+     * Callers must subscribe to this Uni and handle the result asynchronously.
+     */
+    protected Uni<WebSocketSession> ensureSessionRegistered(Session session) {
         String sessionId = session.getId();
         
-        if (sessionManager.getSession(sessionId) != null) {
-            return;
+        WebSocketSession existing = sessionManager.getSession(sessionId);
+        if (existing != null) {
+            return Uni.createFrom().item(existing);
         }
         
-        valkeySessionStore.getSession(sessionId).subscribe().with(
-            metadata -> {
+        // Look up in Valkey for cross-pod session recovery
+        return valkeySessionStore.getSession(sessionId)
+            .map(metadata -> {
                 if (metadata != null) {
                     WebSocketSession wsSession = createSessionFromMetadata(session, metadata);
                     if (wsSession != null) {
                         sessionManager.addSession(wsSession);
                         Log.infof("Registered session %s from Valkey (cross-pod)", sessionId);
+                        return wsSession;
                     }
-                } else {
-                    Log.warnf("Session %s not found in Valkey", sessionId);
                 }
-            },
-            failure -> Log.errorf("Error getting session from Valkey: %s", failure.getMessage())
-        );
+                Log.warnf("Session %s not found in Valkey", sessionId);
+                return null;
+            })
+            .onFailure().recoverWithItem(failure -> {
+                Log.errorf("Error getting session from Valkey: %s", failure.getMessage());
+                return null;
+            });
     }
     
     protected WebSocketSession createSessionFromMetadata(Session session, WebSocketSessionMetadata metadata) {
         if (metadata.isTeam()) {
-            return WebSocketSession.forTeam(session, metadata.getGameId(), metadata.getTeamId());
+            return WebSocketSession.forTeam(session, metadata.gameId(), metadata.teamId());
         } else if (metadata.isAdmin()) {
-            if (metadata.getGameId() != null) {
-                return WebSocketSession.forAdmin(session, metadata.getGameId());
+            if (metadata.gameId() != null) {
+                return WebSocketSession.forAdmin(session, metadata.gameId());
             } else {
                 return WebSocketSession.forAdmin(session);
             }

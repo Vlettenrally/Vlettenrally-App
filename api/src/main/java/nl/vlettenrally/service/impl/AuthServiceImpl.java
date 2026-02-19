@@ -86,7 +86,6 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public RegistrationResult registerTeam(
             String gameId,
-            String boatNumber,
             String scoutingGroup,
             String emergencyContact,
             List<String> participantNames,
@@ -95,8 +94,7 @@ public class AuthServiceImpl implements AuthService {
         // Create new team
         Team team = new Team();
         team.setGameId(UUID.fromString(gameId));
-        team.setBoatNumber(boatNumber);
-        team.setName(scoutingGroup != null ? scoutingGroup : "Team " + boatNumber);
+        team.setName(scoutingGroup != null ? scoutingGroup : "Team");
         team.setDescription(scoutingGroup);
         team.setParticipants(participantNames != null ? participantNames : Collections.emptyList());
         team.setNotes(bookingId);
@@ -114,8 +112,8 @@ public class AuthServiceImpl implements AuthService {
 
         cleanupExpiredTokens();
 
-        Log.infof("Team registration token created - teamId: %s, teamName: %s, gameId: %s, boatNumber: %s",
-            savedTeam.getId(), team.getName(), gameId, boatNumber);
+        Log.infof("Team registration token created - teamId: %s, teamName: %s, gameId: %s",
+            savedTeam.getId(), team.getName(), gameId);
 
         return new RegistrationResult(registrationToken, savedTeam.getId().toString(), expiresAt);
     }

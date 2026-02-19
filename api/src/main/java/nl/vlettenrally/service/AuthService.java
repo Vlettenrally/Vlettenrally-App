@@ -22,7 +22,6 @@ public interface AuthService {
      */
     RegistrationResult registerTeam(
             String gameId,
-            String boatNumber,
             String scoutingGroup,
             String emergencyContact,
             List<String> participantNames,

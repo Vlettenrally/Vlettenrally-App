@@ -1,12 +1,15 @@
 package nl.vlettenrally.websockets;
 
 import jakarta.websocket.Session;
+import lombok.Getter;
+
 import java.time.Instant;
 import java.util.UUID;
 
 /**
  * Represents a WebSocket session with associated metadata
  */
+@Getter
 public class WebSocketSession {
     
     public enum SessionType {
@@ -45,13 +48,7 @@ public class WebSocketSession {
     public static WebSocketSession forAdmin(Session session) {
         return new WebSocketSession(session, SessionType.ADMIN, null, null);
     }
-    
-    public Session getSession() { return session; }
-    public SessionType getType() { return type; }
-    public UUID getGameId() { return gameId; }
-    public UUID getTeamId() { return teamId; }
-    public Instant getLastActivity() { return lastActivity; }
-    
+
     /**
      * Update the last activity timestamp (called when PING is received)
      */

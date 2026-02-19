@@ -11,6 +11,7 @@ import io.quarkus.runtime.annotations.RegisterForReflection;
 @RegisterForReflection
 public record MessageDeliveryUpdatePayload(
     UUID messageId,
+    UUID batchId,
     UUID teamId,
     boolean delivered,
     boolean read

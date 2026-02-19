@@ -1,14 +1,17 @@
 package nl.vlettenrally.websockets;
 
+import java.io.IOException;
 import java.util.UUID;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 
 import io.quarkus.logging.Log;
-import jakarta.annotation.security.RolesAllowed;
+import jakarta.inject.Inject;
+import jakarta.websocket.CloseReason;
 import jakarta.websocket.OnMessage;
 import jakarta.websocket.OnOpen;
 import jakarta.websocket.Session;
+import jakarta.websocket.server.PathParam;
 import jakarta.websocket.server.ServerEndpoint;
 import nl.vlettenrally.websockets.dto.WebSocketMessageType;
 import nl.vlettenrally.websockets.dto.WebSocketRequest;
@@ -16,21 +19,52 @@ import nl.vlettenrally.websockets.dto.WebSocketResponse;
 
 /**
  * WebSocket endpoint for admin connections.
- * Admins connect to: /ws/admin
+ * Admins connect to: /ws/admin/{token}
+ * The token is obtained from GET /api/v1/ws/token/admin
  */
-@ServerEndpoint("/ws/admin")
+@ServerEndpoint("/ws/admin/{token}")
 public class AdminWebSocket extends BaseWebSocket {
     
+    @Inject
+    WebSocketTokenService tokenService;
+
     @OnOpen
-    @RolesAllowed("admin")
-    public void onOpen(Session session) {
-        WebSocketSessionMetadata metadata = WebSocketSessionMetadata.forAdminNoGame(session.getId());
-        valkeySessionStore.storeSession(metadata).subscribe().with(
-            item -> {},
-            failure -> Log.errorf("Error storing session in Valkey: %s", failure.getMessage())
+    public void onOpen(Session session, @PathParam("token") String token) {
+        // Validate token and extract admin data
+        tokenService.validateAndConsumeToken(token).subscribe().with(
+            tokenData -> {
+                if (tokenData == null || !tokenData.isAdmin()) {
+                    Log.warnf("Invalid or non-admin WebSocket token for session %s", session.getId());
+                    closeWithError(session, "Invalid or expired token");
+                    return;
+                }
+
+                // Register session locally for immediate availability
+                WebSocketSession wsSession = WebSocketSession.forAdmin(session);
+                sessionManager.addSession(wsSession);
+
+                // Store to Valkey for cross-pod session recovery
+                WebSocketSessionMetadata metadata = WebSocketSessionMetadata.forAdminNoGame(session.getId());
+                valkeySessionStore.storeSession(metadata).subscribe().with(
+                    item -> Log.debugf("Session %s stored in Valkey", session.getId()),
+                    failure -> Log.errorf("Error storing session in Valkey: %s", failure.getMessage())
+                );
+
+                Log.infof("Admin WebSocket opened - Session: %s, Admin: %s", session.getId(), tokenData.userName());
+            },
+            failure -> {
+                Log.errorf("Error validating WebSocket token: %s", failure.getMessage());
+                closeWithError(session, "Token validation failed");
+            }
         );
-        
-        Log.infof("Admin WebSocket opened - Session: %s", session.getId());
+    }
+
+    private void closeWithError(Session session, String reason) {
+        try {
+            session.close(new CloseReason(CloseReason.CloseCodes.VIOLATED_POLICY, reason));
+        } catch (IOException e) {
+            Log.errorf("Error closing WebSocket session: %s", e.getMessage());
+        }
     }
 
     @OnMessage
@@ -44,21 +78,23 @@ public class AdminWebSocket extends BaseWebSocket {
                 return;
             }
             
-            ensureSessionRegistered(session);
-            
-            WebSocketSession wsSession = sessionManager.getSession(session.getId());
-            if (wsSession == null) {
-                Log.warnf("Session %s not found after registration attempt", session.getId());
-                return;
-            }
-            
-            if (type == WebSocketMessageType.SWITCH_GAME) {
-                handleSwitchGame(request, wsSession, session);
-                return;
-            }
-            
-            Log.infof("Admin WebSocket message from Game %s: %s", wsSession.getGameId(), message);
-            
+            ensureSessionRegistered(session).subscribe().with(
+                wsSession -> {
+                    if (wsSession == null) {
+                        Log.warnf("Session %s not found after registration attempt", session.getId());
+                        return;
+                    }
+
+                    if (type == WebSocketMessageType.SWITCH_GAME) {
+                        handleSwitchGame(request, wsSession, session);
+                        return;
+                    }
+
+                    Log.infof("Admin WebSocket message from Game %s: %s", wsSession.getGameId(), message);
+                },
+                failure -> Log.errorf("Error processing message for session %s: %s", session.getId(), failure.getMessage())
+            );
+
         } catch (JsonProcessingException e) {
             Log.errorf("Failed to parse WebSocket message: %s", e.getMessage());
             sendResponse(session, WebSocketResponse.error("Invalid message format"));

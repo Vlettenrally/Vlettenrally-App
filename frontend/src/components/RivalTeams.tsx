@@ -37,7 +37,6 @@ export const RivalTeams: React.FC<RivalTeamsProps> = ({ teamId }) => {
         {rivals.map((rival) => (
           <li key={rival.id} style={{ borderLeft: `4px solid` }}>
             <span className="rival-name">{rival.name}</span>
-            <span className="rival-boat">Boat #{rival.boatNumber}</span>
             <span className="rival-points">{rival.totalPoints} points</span>
           </li>
         ))}

@@ -21,7 +21,6 @@ import nl.vlettenrally.data.dto.auth.TeamRegistrationRequest;
 import nl.vlettenrally.data.dto.auth.UpdatePasswordRequest;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
 import nl.vlettenrally.data.enums.TokenType;
-import nl.vlettenrally.data.repository.AdminRepository;
 import nl.vlettenrally.service.AuthService;
 import nl.vlettenrally.service.TeamService;
 
@@ -35,7 +34,6 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 /**
  * REST Resource for Authentication operations
- *
  * Endpoints:
  * - POST /api/v1/auth/register - Register a new team
  * - POST /api/v1/auth/refresh - Refresh access token
@@ -55,9 +53,6 @@ public class AuthResource {
     @Inject
     TeamService teamService;
 
-    @Inject
-    AdminRepository adminRepository;
-
     @ConfigProperty(name = "vlettenrally.mock.enabled", defaultValue = "false")
     boolean mockEnabled;
 
@@ -76,9 +71,9 @@ public class AuthResource {
     public Response registerTeam(TeamRegistrationRequest registration) {
         try {
             // Validate input
-            if (registration.gameId() == null || registration.boatNumber() == null) {
+            if (registration.gameId() == null) {
                 return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new ErrorResponse("gameId and boatNumber are required"))
+                    .entity(new ErrorResponse("gameId is required"))
                     .build();
             }
 
@@ -89,7 +84,6 @@ public class AuthResource {
 
             RegistrationResult result = authService.registerTeam(
                 registration.gameId(),
-                registration.boatNumber(),
                 registration.scoutingGroup(),
                 registration.emergencyContact(),
                 participants,

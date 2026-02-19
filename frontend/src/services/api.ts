@@ -424,7 +424,6 @@ class ApiService {
       gameId: data.gameId,
       name: data.name,
       description: data.description,
-      boatNumber: data.boatNumber,
       participants: data.participants,
       emergencyPhoneNumbers: data.emergencyPhoneNumbers,
       notes: data.notes,
@@ -570,6 +569,15 @@ async getGames() : Promise<ApiResponse<Game[]>> {
 
   async deactivateAdmin(adminId: string): Promise<ApiResponse<void>> {
     return this.delete(`/admins/${adminId}`);
+  }
+
+  // WebSocket Token endpoints
+  async getAdminWebSocketToken(): Promise<ApiResponse<{ token: string; expiresInSeconds: number }>> {
+    return this.get('/ws/token/admin');
+  }
+
+  async getTeamWebSocketToken(gameId: string, teamId: string): Promise<ApiResponse<{ token: string; expiresInSeconds: number }>> {
+    return this.get(`/ws/token/team/${gameId}/${teamId}`);
   }
 }
 

@@ -40,10 +40,6 @@ public class TeamServiceImpl implements TeamService {
         return teamRepository.findByDeviceId(deviceId);
     }
 
-    @Override
-    public Optional<Team> findByBoatNumber(String boatNumber) {
-        return teamRepository.findByBoatNumber(boatNumber);
-    }
 
     @Override
     public List<Team> findRivals(UUID teamId) {
@@ -53,7 +49,7 @@ public class TeamServiceImpl implements TeamService {
     @Override
     public Optional<Team> findRivalTeam(UUID teamId) {
         List<Team> rivals = teamRepository.findRivals(teamId);
-        return rivals.isEmpty() ? Optional.empty() : Optional.of(rivals.get(0));
+        return rivals.isEmpty() ? Optional.empty() : Optional.of(rivals.getFirst());
     }
 
     @Override

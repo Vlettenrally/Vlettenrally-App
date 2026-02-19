@@ -66,6 +66,19 @@ public class JpaFcmTokenRepository extends ReadReplicaAwareRepository implements
     }
 
     @Override
+    public Optional<FcmToken> findByToken(String token) {
+        try {
+            FcmTokenEntity entity = getReadEntityManager()
+                    .createQuery("SELECT f FROM FcmTokenEntity f WHERE f.token = :token", FcmTokenEntity.class)
+                    .setParameter("token", token)
+                    .getSingleResult();
+            return Optional.ofNullable(FcmTokenMapper.toDomain(entity));
+        } catch (NoResultException e) {
+            return Optional.empty();
+        }
+    }
+
+    @Override
     @Transactional
     public FcmToken save(FcmToken fcmToken) {
         FcmTokenEntity entity = getWriteEntityManager().find(FcmTokenEntity.class, fcmToken.getId());

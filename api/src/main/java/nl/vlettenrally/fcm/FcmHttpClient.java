@@ -18,9 +18,8 @@ import jakarta.inject.Inject;
 
 /**
  * HTTP client for sending push notifications via Firebase Cloud Messaging REST API v1.
- * 
  * This client uses the FCM v1 API which requires OAuth2 authentication.
- * See: https://firebase.google.com/docs/cloud-messaging/send-message
+ * See: <a href="https://firebase.google.com/docs/cloud-messaging/send-message">...</a>
  */
 @ApplicationScoped
 public class FcmHttpClient {
@@ -98,6 +97,8 @@ public class FcmHttpClient {
     
     /**
      * Build FCM message payload in JSON format.
+     * Uses data-only messages to prevent duplicate notifications on web clients.
+     * The notification fields are sent as data so the service worker can display them.
      */
     private String buildFcmPayload(String fcmToken, String title, String body, java.util.Map<String, String> data) 
             throws IOException {
@@ -108,14 +109,12 @@ public class FcmHttpClient {
         // Set token
         message.put("token", fcmToken);
         
-        // Set notification
-        var notification = message.putObject("notification");
-        notification.put("title", title);
-        notification.put("body", body);
-        
-        // Set data payload
+        var dataNode = message.putObject("data");
+        dataNode.put("title", title);
+        dataNode.put("body", body);
+
+        // Add additional data payload
         if (data != null && !data.isEmpty()) {
-            var dataNode = message.putObject("data");
             data.forEach(dataNode::put);
         }
         

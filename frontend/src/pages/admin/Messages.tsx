@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -166,15 +166,45 @@ export default function AdminMessages() {
     if (!selectedGameId) return;
 
     // Subscribe to delivery updates
-    const unsubscribe = websocket.on(WebSocketEventType.MESSAGE_DELIVERY_UPDATE, () => {
-      // Refresh messages when delivery status changes
-      void fetchMessages();
+    const unsubscribe = websocket.on(WebSocketEventType.MESSAGE_DELIVERY_UPDATE, (wsMessage) => {
+      const payload = wsMessage.payload as {
+        messageId: string;
+        batchId: string;
+        teamId: string;
+        delivered: boolean;
+        read: boolean;
+      };
+
+      // Update local messages state
+      setMessages(prevMessages =>
+        prevMessages.map(msg => {
+          if (msg.id !== payload.batchId) return msg;
+
+          // Update the specific team's delivery status
+          const updatedDeliveries = msg.deliveries.map(delivery =>
+            delivery.teamId === payload.teamId
+              ? { ...delivery, delivered: payload.delivered }
+              : delivery
+          );
+
+          // Recalculate counts
+          const deliveredCount = updatedDeliveries.filter(d => d.delivered).length;
+          const failedCount = updatedDeliveries.length - deliveredCount;
+
+          return {
+            ...msg,
+            deliveries: updatedDeliveries,
+            deliveredCount,
+            failedCount,
+          };
+        })
+      );
     });
 
     return () => {
       unsubscribe();
     };
-  }, [selectedGameId, fetchMessages]);
+  }, [selectedGameId]);
 
   // Handle retry single message
   const handleRetry = async (messageId: string) => {
@@ -319,8 +349,8 @@ export default function AdminMessages() {
                     </TableRow>
                   ) : (
                     messages.map((message) => (
-                      <>
-                        <TableRow key={message.id} hover>
+                      <React.Fragment key={message.id}>
+                        <TableRow hover>
                           <TableCell>
                             <IconButton
                               size="small"
@@ -401,7 +431,7 @@ export default function AdminMessages() {
                         </TableRow>
 
                         {/* Expanded delivery details */}
-                        <TableRow key={`${message.id}-details`}>
+                        <TableRow>
                           <TableCell colSpan={6} sx={{ py: 0, borderBottom: expandedMessageId === message.id ? undefined : 'none' }}>
                             <Collapse in={expandedMessageId === message.id}>
                               <Box sx={{ py: 2, px: 2, bgcolor: 'grey.50' }}>
@@ -412,7 +442,6 @@ export default function AdminMessages() {
                                   <TableHead>
                                     <TableRow>
                                       <TableCell>Team</TableCell>
-                                      <TableCell>Bootnummer</TableCell>
                                       <TableCell>Status</TableCell>
                                       <TableCell>Kanalen</TableCell>
                                       <TableCell>Fout</TableCell>
@@ -422,7 +451,6 @@ export default function AdminMessages() {
                                     {message.deliveries.map((delivery) => (
                                       <TableRow key={delivery.teamId}>
                                         <TableCell>{delivery.teamName}</TableCell>
-                                        <TableCell>{delivery.boatNumber}</TableCell>
                                         <TableCell>
                                           {delivery.delivered ? (
                                             <Chip label="Bezorgd" color="success" size="small" />
@@ -456,7 +484,7 @@ export default function AdminMessages() {
                             </Collapse>
                           </TableCell>
                         </TableRow>
-                      </>
+                      </React.Fragment>
                     ))
                   )}
                 </TableBody>

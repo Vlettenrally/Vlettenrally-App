@@ -22,7 +22,6 @@ public class Team {
     private UUID gameId;
     private String name;
     private String description;
-    private String boatNumber;
     private String externalId;  // External ID from pre-registration system (em_booking_id)
     private List<String> participants;
     private UUID deviceId;
@@ -48,13 +47,12 @@ public class Team {
         this.updatedAt = Instant.now();
     }
 
-    public Team(UUID id, UUID gameId, String name, String description, String boatNumber) {
+    public Team(UUID id, UUID gameId, String name, String description) {
         this();
         this.id = id;
         this.gameId = gameId;
         this.name = name;
         this.description = description;
-        this.boatNumber = boatNumber;
     }
 
     public void setEmergencyPhoneNumbers(List<String> emergencyPhoneNumbers) { 

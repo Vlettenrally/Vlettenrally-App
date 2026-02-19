@@ -9,7 +9,6 @@ import nl.vlettenrally.data.domain.FcmToken;
 import nl.vlettenrally.data.repository.DeviceRegistrationRepository;
 import nl.vlettenrally.data.repository.FcmTokenRepository;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -69,6 +68,13 @@ public class MockFcmTokenRepository implements FcmTokenRepository {
         return fcmTokens.values().stream()
                 .filter(t -> t.getDeviceRegistrationId().equals(deviceReg.get().getId()))
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public Optional<FcmToken> findByToken(String token) {
+        return fcmTokens.values().stream()
+                .filter(t -> t.getToken().equals(token))
+                .findFirst();
     }
 
     @Override

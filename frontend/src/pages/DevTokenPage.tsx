@@ -98,7 +98,6 @@ export default function DevTokenPage() {
       id: user.id,
       name: user.name,
       gameId: user.gameId,
-      boatNumber: '99',
       totalPoints: 0,
       description: '',
       checkedIn: true,

@@ -45,27 +45,42 @@ export function useAdminWebSocket(gameId: string | null) {
  */
 export function useWebSocket(options: UseWebSocketOptions) {
   const { type, gameId, teamId } = options;
-  const isConnectedRef = useRef(false);
   const currentGameIdRef = useRef<string | null>(null);
-  const [connected, setConnected] = useState(false);
+  const currentTeamIdRef = useRef<string | null>(null);
+  const [connected, setConnected] = useState(() => websocket.isConnected());
 
+  // Subscribe to connection state changes (always, regardless of connection status)
   useEffect(() => {
-    // For team connections, require both gameId and teamId
+    const unsubscribe = websocket.onConnectionChange((isConnected) => {
+      setConnected(isConnected);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  // Handle connection logic
+  useEffect(() => {
     if (type === 'team') {
+      // For team connections, require both gameId and teamId
       if (!gameId || !teamId) return;
       
-      const config: ConnectionConfig = { type: 'team', gameId, teamId };
-      
-      if (!isConnectedRef.current) {
+      // Connect if not connected or if team/game changed
+      const needsConnection = !websocket.isConnected() ||
+        currentGameIdRef.current !== gameId ||
+        currentTeamIdRef.current !== teamId;
+
+      if (needsConnection) {
+        const config: ConnectionConfig = { type: 'team', gameId, teamId };
         websocket.connect(config);
-        isConnectedRef.current = true;
         currentGameIdRef.current = gameId;
+        currentTeamIdRef.current = teamId;
       }
     } else {
       // For admin connections, connect once on mount
-      if (!isConnectedRef.current) {
+      if (!websocket.isConnected() && websocket.getConnectionType() !== 'admin') {
         websocket.connectAsAdmin();
-        isConnectedRef.current = true;
       }
       
       // Switch game when gameId changes
@@ -74,23 +89,14 @@ export function useWebSocket(options: UseWebSocketOptions) {
         currentGameIdRef.current = gameId;
       }
     }
-
-    // Subscribe to connection state changes
-    const unsubscribe = websocket.onConnectionChange((isConnected) => {
-      setConnected(isConnected);
-    });
-
-    return () => {
-      unsubscribe();
-    };
   }, [type, gameId, teamId]);
 
   // Cleanup on unmount - disconnect for both team and admin connections
   useEffect(() => {
     return () => {
       websocket.disconnect();
-      isConnectedRef.current = false;
       currentGameIdRef.current = null;
+      currentTeamIdRef.current = null;
     };
   }, [type]);
 

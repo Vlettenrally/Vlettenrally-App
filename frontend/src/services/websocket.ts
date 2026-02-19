@@ -6,7 +6,7 @@
  * Admin connections are game-agnostic and use SWITCH_GAME to select a game.
  */
 
-import { storage } from './storage';
+import api from './api';
 
 const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8080/ws';
 
@@ -87,7 +87,7 @@ class WebSocketService {
     // Immediately attempt reconnection if we were disconnected
     if (this.config && !this.isConnected() && !this.isIntentionallyClosed) {
       this.reconnectAttempts = 0; // Reset counter when coming back online
-      this.createConnection();
+      this.createConnection().catch(err => console.error('Reconnection failed:', err));
     }
   };
 
@@ -164,7 +164,7 @@ class WebSocketService {
 
     this.config = config;
     this.isIntentionallyClosed = false;
-    this.createConnection();
+    this.createConnection().catch(err => console.error('Connection failed:', err));
   }
 
   private isSameConfig(config: ConnectionConfig): boolean {
@@ -177,31 +177,40 @@ class WebSocketService {
     return config.type === 'admin' && this.config.type === 'admin';
   }
 
-  private buildUrl(): string {
+  private async buildUrl(): Promise<string> {
     if (!this.config) {
       throw new Error('Connection config not set');
     }
 
     if (this.config.type === 'team') {
-      const token = storage.getAuthToken();
-      const baseUrl = `${WS_BASE_URL}/game/${this.config.gameId}/team/${this.config.teamId}`;
-      return token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl;
+      // Get a short-lived WebSocket token from the API
+      const response = await api.getTeamWebSocketToken(this.config.gameId, this.config.teamId);
+      if (response.error || !response.data) {
+        throw new Error(`Failed to get WebSocket token: ${response.error || 'Unknown error'}`);
+      }
+      return `${WS_BASE_URL}/team/${response.data.token}`;
     } else {
-      // Admin connection - game-agnostic endpoint
-      return `${WS_BASE_URL}/admin`;
+      // Admin connection - get token from API
+      const response = await api.getAdminWebSocketToken();
+      if (response.error || !response.data) {
+        throw new Error(`Failed to get WebSocket token: ${response.error || 'Unknown error'}`);
+      }
+      return `${WS_BASE_URL}/admin/${response.data.token}`;
     }
   }
 
-  private createConnection(): void {
+  private async createConnection(): Promise<void> {
     if (!this.config) {
       console.error('Cannot connect: config not set');
       return;
     }
 
-    const url = this.buildUrl();
-    console.log('Connecting to WebSocket:', url);
-
     try {
+      const url = await this.buildUrl();
+      // Mask token in logs for security
+      const maskedUrl = url.replace(/\/[^/]+$/, '/[token]');
+      console.log('Connecting to WebSocket:', maskedUrl);
+
       this.socket = new WebSocket(url);
 
       this.socket.onopen = () => {
@@ -235,9 +244,11 @@ class WebSocketService {
         console.log('WebSocket disconnected');
         this.socket = null;
         this.stopPing();
-        this.notifyConnectionState(false);
 
+        // Only notify disconnection if it wasn't intentional
+        // (avoids spurious "disconnected" notifications during route transitions)
         if (!this.isIntentionallyClosed) {
+          this.notifyConnectionState(false);
           this.scheduleReconnect();
         }
       };
@@ -271,9 +282,28 @@ class WebSocketService {
     this.reconnectTimeout = window.setTimeout(() => {
       // Double-check we're still online before attempting
       if (this.isOnline) {
-        this.createConnection();
+        this.createConnection().catch(err => console.error('Reconnection failed:', err));
       }
     }, delay);
+  }
+
+  /**
+   * Reset reconnection state and force a new connection attempt.
+   * Call this when you want to force a reconnection after failures.
+   */
+  resetAndReconnect(): void {
+    this.reconnectAttempts = 0;
+    this.reconnectDelay = 1000;
+    this.isIntentionallyClosed = false;
+
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+
+    if (this.config && this.isOnline && !this.isConnected()) {
+      this.createConnection().catch(err => console.error('Manual reconnection failed:', err));
+    }
   }
 
   private startPing(): void {

@@ -220,9 +220,6 @@ public class TeamResource {
             if (request.description() != null) {
                 team.setDescription(request.description());
             }
-            if (request.boatNumber() != null) {
-                team.setBoatNumber(request.boatNumber());
-            }
             if (request.participants() != null) {
                 team.setParticipants(request.participants());
             }
@@ -268,17 +265,11 @@ public class TeamResource {
                     .entity(new ErrorResponse("Team name is required"))
                     .build();
             }
-            if (request.boatNumber() == null || request.boatNumber().trim().isEmpty()) {
-                return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new ErrorResponse("Boat number is required"))
-                    .build();
-            }
 
             Team team = new Team();
             team.setGameId(request.gameId());
             team.setName(request.name());
             team.setDescription(request.description() != null ? request.description() : "");
-            team.setBoatNumber(request.boatNumber());
             team.setParticipants(request.participants() != null ? request.participants() : new ArrayList<>());
             team.setEmergencyPhoneNumbers(request.emergencyPhoneNumbers() != null ? request.emergencyPhoneNumbers() : new ArrayList<>());
             team.setNotes(request.notes());

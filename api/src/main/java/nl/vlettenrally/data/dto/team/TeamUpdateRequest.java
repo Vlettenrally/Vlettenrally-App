@@ -8,7 +8,6 @@ import io.quarkus.runtime.annotations.RegisterForReflection;
 public record TeamUpdateRequest(
     String name,
     String description,
-    String boatNumber,
     List<String> participants,
     List<String> emergencyPhoneNumbers,
     String notes
