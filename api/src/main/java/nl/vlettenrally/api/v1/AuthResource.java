@@ -35,7 +35,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 /**
  * REST Resource for Authentication operations
- * 
+ *
  * Endpoints:
  * - POST /api/v1/auth/register - Register a new team
  * - POST /api/v1/auth/refresh - Refresh access token
@@ -83,8 +83,8 @@ public class AuthResource {
             }
 
             // Convert array to list
-            List<String> participants = registration.participantNames() != null 
-                ? List.of(registration.participantNames()) 
+            List<String> participants = registration.participantNames() != null
+                ? List.of(registration.participantNames())
                 : Collections.emptyList();
 
             RegistrationResult result = authService.registerTeam(
@@ -159,13 +159,13 @@ public class AuthResource {
             }
 
             return authService.adminLogin(request.username(), request.password())
-                .map(admin -> { 
+                .map(admin -> {
                     long accessTokenExpirySeconds = accessTokenExpiryMinutes * 60L;
                     long refreshTokenExpirySeconds = refreshTokenExpiryDays * 86400L;
-                    
+
                     Instant accessExpiresAt = Instant.now().plusSeconds(accessTokenExpirySeconds);
                     Instant refreshExpiresAt = Instant.now().plusSeconds(refreshTokenExpirySeconds);
-                    
+
                     // Use generateToken overload with Set<AdminRole> for multi-role support
                     String accessToken = authService.generateToken(
                         admin.getId().toString(),
@@ -174,15 +174,9 @@ public class AuthResource {
                         accessExpiresAt,
                         TokenType.ACCESS
                     );
-                    
-                    String refreshToken = authService.generateToken(
-                        admin.getId().toString(),
-                        admin.getUsername(),
-                        admin.getRoles(),
-                        refreshExpiresAt,
-                        TokenType.REFRESH
-                    );
-                    
+
+                    String refreshToken = authService.generateRefreshTokenValue();
+
                     // Store refresh token with Set of lowercase roles
                     Set<String> rolesForStorage = admin.getRoles().stream()
                         .map(role -> role.name().toLowerCase())
@@ -229,7 +223,7 @@ public class AuthResource {
                     .entity(new ErrorResponse("newPassword is required"))
                     .build();
             }
-            
+
             // Validate password strength
             if (request.newPassword().length() < 8) {
                 return Response.status(Response.Status.BAD_REQUEST)
@@ -239,13 +233,13 @@ public class AuthResource {
 
             // Get current admin from security context
             String adminId = securityContext.getUserPrincipal().getName();
-            
+
             boolean success = authService.updateAdminPassword(
                 UUID.fromString(adminId),
                 request.currentPassword(),
                 request.newPassword()
             );
-            
+
             if (success) {
                 return Response.ok().build();
             } else {
@@ -271,7 +265,7 @@ public class AuthResource {
         try {
             String userId = securityContext.getUserPrincipal().getName();
             authService.revokeTokens(UUID.fromString(userId));
-            
+
             return Response.ok().build();
         } catch (Exception e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
@@ -338,7 +332,7 @@ public class AuthResource {
                 .map(team -> {
                     long accessTokenExpirySeconds = accessTokenExpiryMinutes * 60L;
                     Instant expiresAt = Instant.now().plusSeconds(accessTokenExpirySeconds);
-                                      
+
                     String token = authService.generateToken(
                         teamId.toString(),
                         team.getName(),

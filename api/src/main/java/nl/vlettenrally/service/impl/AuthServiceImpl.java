@@ -18,6 +18,8 @@ import nl.vlettenrally.service.AuthService;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.Instant;
+import java.security.SecureRandom;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +42,9 @@ import nl.vlettenrally.data.repository.RefreshTokenRepository;
  */
 @ApplicationScoped
 public class AuthServiceImpl implements AuthService {
+
+    private static final int REFRESH_TOKEN_BYTE_LENGTH = 32;
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     @Inject
     TeamRepository teamRepository;
@@ -104,7 +109,7 @@ public class AuthServiceImpl implements AuthService {
         String registrationToken = UUID.randomUUID().toString();
         long expiresAt = Instant.now().plusSeconds(900).getEpochSecond();
 
-        registrationTokens.put(registrationToken, 
+        registrationTokens.put(registrationToken,
             new RegistrationTokenData(savedTeam.getId().toString(), team.getName(), "team", expiresAt, false));
 
         cleanupExpiredTokens();
@@ -157,7 +162,7 @@ public class AuthServiceImpl implements AuthService {
 
             // Return a result that signals team selection is required
             Log.infof("Game check-in token validated - gameId: %s, gameName: %s", tokenData.subject(), tokenData.name());
-            
+
             return Optional.of(new TokenResult(
                 null,
                 null,
@@ -186,9 +191,9 @@ public class AuthServiceImpl implements AuthService {
         // Generate tokens using config-driven durations
         long accessTokenExpirySeconds = accessTokenExpiryMinutes * 60L;
         long refreshTokenExpirySeconds = refreshTokenExpiryDays * 86400L;
-        
+
         String accessToken = generateToken(tokenData.subject(), tokenData.name(), tokenData.role().toLowerCase(), Instant.now().plusSeconds(accessTokenExpirySeconds), TokenType.ACCESS);
-        String refreshTokenStr = generateToken(tokenData.subject(), tokenData.name(), tokenData.role(), Instant.now().plusSeconds(refreshTokenExpirySeconds), TokenType.REFRESH);
+        String refreshTokenStr = generateRefreshTokenValue();
 
         // Store refresh token in database for persistence
         RefreshToken refreshToken = new RefreshToken();
@@ -213,7 +218,7 @@ public class AuthServiceImpl implements AuthService {
             tokenData.subject(),
             tokenData.name(),
             tokenData.role()
-   
+
         ));
     }
 
@@ -267,16 +272,15 @@ public class AuthServiceImpl implements AuthService {
 
         // Try to get as Admin first
         Optional<Admin> adminOpt = adminRepository.findById(userId);
-        
+
         if (adminOpt.isPresent()) {
             Admin admin = adminOpt.get();
-            
+
             // Use roles from database, not from stored token
             Set<Role> currentRoles = admin.getRoles();
             newAccessToken = generateToken(admin.getId().toString(), admin.getUsername(), currentRoles,
                 Instant.now().plusSeconds(accessTokenExpirySeconds), TokenType.ACCESS);
-            newRefreshTokenStr = generateToken(admin.getId().toString(), admin.getUsername(), currentRoles,
-                Instant.now().plusSeconds(refreshTokenExpirySeconds), TokenType.REFRESH);
+            newRefreshTokenStr = generateRefreshTokenValue();
 
             // Store roles as lowercase strings
             rolesForStorage = currentRoles.stream()
@@ -285,19 +289,18 @@ public class AuthServiceImpl implements AuthService {
         } else {
             // Try to get as Team
             Optional<Team> teamOpt = teamRepository.findById(userId);
-            
+
             if (teamOpt.isEmpty()) {
                 Log.warnf("Token refresh failed - user not found - userId: %s", userId);
                 return Optional.empty();
             }
 
             Team team = teamOpt.get();
-            
+
             // Use data from database
             newAccessToken = generateToken(team.getId().toString(), team.getName(), "team",
                 Instant.now().plusSeconds(accessTokenExpirySeconds), TokenType.ACCESS);
-            newRefreshTokenStr = generateToken(team.getId().toString(), team.getName(), "team",
-                Instant.now().plusSeconds(refreshTokenExpirySeconds), TokenType.REFRESH);
+            newRefreshTokenStr = generateRefreshTokenValue();
 
             rolesForStorage = java.util.Collections.singleton("team");
         }
@@ -363,7 +366,7 @@ public class AuthServiceImpl implements AuthService {
         long refreshTokenExpirySeconds = refreshTokenExpiryDays * 86400L;
 
         String accessToken = generateToken(team.getId().toString(), team.getName(), "team", Instant.now().plusSeconds(accessTokenExpirySeconds), TokenType.ACCESS);
-        String refreshTokenStr = generateToken(team.getId().toString(), team.getName(), "team", Instant.now().plusSeconds(refreshTokenExpirySeconds), TokenType.REFRESH);
+        String refreshTokenStr = generateRefreshTokenValue();
 
         // Store refresh token in database for persistence
         RefreshToken refreshToken = new RefreshToken();
@@ -463,12 +466,22 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    public String generateRefreshTokenValue() {
+        byte[] randomBytes = new byte[REFRESH_TOKEN_BYTE_LENGTH];
+        SECURE_RANDOM.nextBytes(randomBytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
+    }
+
+    @Override
     public String generateToken(String userId, String name, String role, Instant expiresAt, TokenType tokenType) {
         return generateToken(userId, name, Set.of(Role.fromValue(role)), expiresAt, tokenType);
     }
 
     @Override
     public String generateToken(String userId, String name, Set<Role> roles, Instant expiresAt, TokenType tokenType) {
+        if (tokenType == TokenType.REFRESH) {
+            throw new IllegalArgumentException("Refresh tokens must be opaque. Use generateRefreshTokenValue().");
+        }
         // Convert Role enum set to lowercase string array for JWT groups claim
         Set<String> roleNames = roles.stream()
             .map(Role::toString)
@@ -492,40 +505,40 @@ public class AuthServiceImpl implements AuthService {
         Optional<Admin> adminOpt = adminRepository.findByUsername(username)
             .filter(Admin::isActive)
             .filter(admin -> BcryptUtil.matches(password, admin.getPasswordHash()));
-        
+
         if (adminOpt.isPresent()) {
             Admin admin = adminOpt.get();
-            Log.infof("Admin login successful - username: %s, roles: %s", 
+            Log.infof("Admin login successful - username: %s, roles: %s",
                 admin.getUsername(), admin.getRoles());
         } else {
             Log.warnf("Admin login failed - username: %s", username);
         }
-        
+
         return adminOpt;
     }
 
     @Override
     public boolean updateAdminPassword(UUID adminId, String currentPassword, String newPassword) {
         Optional<Admin> adminOpt = adminRepository.findById(adminId);
-        
+
         if (adminOpt.isEmpty()) {
             Log.warnf("Admin password update failed - admin not found: %s", adminId);
             return false;
         }
-        
+
         Admin admin = adminOpt.get();
-        
+
         // Verify current password
         if (!BcryptUtil.matches(currentPassword, admin.getPasswordHash())) {
             Log.warnf("Admin password update failed - incorrect current password - adminId: %s, username: %s",
                 adminId, admin.getUsername());
             return false;
         }
-        
+
         // Update to new password
         admin.setPasswordHash(BcryptUtil.bcryptHash(newPassword));
         adminRepository.save(admin);
-        
+
         Log.infof("Admin password updated - adminId: %s, username: %s", adminId, admin.getUsername());
         return true;
     }
@@ -559,7 +572,7 @@ public class AuthServiceImpl implements AuthService {
 
     /**
      * Calculate when a game's check-in token should expire.
-     * 
+     *
      * Expiry rules:
      * 1. If all teams have checked in, token expires 5 minutes after the last check-in
      * 2. If game start time has passed, token expires immediately

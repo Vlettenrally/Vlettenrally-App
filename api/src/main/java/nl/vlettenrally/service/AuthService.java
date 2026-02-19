@@ -77,21 +77,26 @@ public interface AuthService {
     boolean updateAdminPassword(UUID adminId, String currentPassword, String newPassword);
 
     /**
+     * Generate a secure opaque refresh token string for storage in the database.
+     */
+    String generateRefreshTokenValue();
+
+    /**
      * Generate a JWT token with a single role
-     * @param tokenType TokenType enum (ACCESS, REFRESH, or CHECKIN)
+     * @param tokenType TokenType enum (ACCESS or CHECKIN)
      */
     String generateToken(String userId, String name, String role, Instant expiresAt, TokenType tokenType);
 
     /**
      * Generate a JWT token with multiple roles
-     * @param tokenType TokenType enum (ACCESS, REFRESH, or CHECKIN)
+     * @param tokenType TokenType enum (ACCESS or CHECKIN)
      */
     String generateToken(String userId, String name, Set<Role> roles, Instant expiresAt, TokenType tokenType);
 
     /**
      * Generate a game-scoped check-in token that allows teams to select themselves
      * Token expires at the earlier of: (1) 5 minutes after all teams check in, or (2) game start time
-     * 
+     *
      * @param gameId The ID of the game
      * @return GameCheckInLinkResponse containing the full URL and token details
      */

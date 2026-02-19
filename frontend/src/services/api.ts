@@ -1,20 +1,20 @@
 /**
  * API Service - Handles all HTTP requests to the backend
- * 
+ *
  * When VITE_USE_MOCKS=true, this service automatically delegates
  * to the mock API for development without a backend.
  */
 
 import { config } from '../config';
-import type { 
+import type {
   Game,
   GameRequest,
   ExternalEvent,
   TeamImportResult,
   LocationTestResult,
-  AdminTeam, 
-  PlayerTeam, 
-  PublicTeam, 
+  AdminTeam,
+  PlayerTeam,
+  PublicTeam,
   AdminMessage,
   AdminMessageListResponse,
   MessageTemplate,
@@ -37,30 +37,39 @@ interface ApiResponse<T> {
   status: number;
 }
 
+interface RefreshResult {
+  success: boolean;
+  accessToken?: string;
+  refreshToken?: string;
+}
+
 class ApiService {
   private isRefreshing = false;
-  private refreshPromise: Promise<boolean> | null = null;
+  private refreshPromise: Promise<RefreshResult> | null = null;
+  private cachedAccessToken: string | null = null;
+  private cachedRefreshToken: string | null = null;
 
   /**
    * Refresh token if needed (proactive refresh)
-   * Returns true if token is valid/refreshed, false if refresh failed
+   * Returns refresh result with new tokens if successful
    */
-  private async refreshTokenIfNeeded(): Promise<boolean> {
+  private async refreshTokenIfNeeded(): Promise<RefreshResult> {
     const token = storage.getAuthToken();
     const refreshToken = storage.getRefreshToken();
 
     // No tokens, can't refresh
     if (!token || !refreshToken) {
-      return false;
+      return { success: false };
     }
 
     // Token not expiring soon, no need to refresh
     if (!isTokenExpiringSoon(token)) {
-      return true;
+      return { success: true };
     }
 
     // If already refreshing, wait for the existing refresh to complete
     if (this.isRefreshing && this.refreshPromise) {
+      console.log('[API] Refresh already in progress, waiting...');
       return this.refreshPromise;
     }
 
@@ -77,11 +86,15 @@ class ApiService {
 
         if (!response.ok) {
           console.error('[API] Token refresh failed:', response.status);
-          return false;
+          return { success: false };
         }
 
         const data = await response.json();
-        
+
+        // Cache tokens in memory for concurrent requests
+        this.cachedAccessToken = data.accessToken;
+        this.cachedRefreshToken = data.refreshToken || null;
+
         // Update stored tokens
         storage.setAuthToken(data.accessToken);
         if (data.refreshToken) {
@@ -89,13 +102,22 @@ class ApiService {
         }
 
         console.log('[API] Token refreshed successfully');
-        return true;
+        return {
+          success: true,
+          accessToken: data.accessToken,
+          refreshToken: data.refreshToken
+        };
       } catch (error) {
         console.error('[API] Token refresh error:', error);
-        return false;
+        return { success: false };
       } finally {
         this.isRefreshing = false;
         this.refreshPromise = null;
+        // Clear cached tokens after a short delay to allow concurrent requests to use them
+        setTimeout(() => {
+          this.cachedAccessToken = null;
+          this.cachedRefreshToken = null;
+        }, 1000);
       }
     })();
 
@@ -108,15 +130,15 @@ class ApiService {
   ): Promise<ApiResponse<T>> {
     // Proactively refresh token if expiring soon (but not for auth endpoints)
     if (!endpoint.startsWith('/auth/')) {
-      const refreshed = await this.refreshTokenIfNeeded();
-      if (!refreshed) {
+      const refreshResult = await this.refreshTokenIfNeeded();
+      if (!refreshResult.success) {
         // Token refresh failed, but continue with request (might still work or trigger 401)
         console.warn('[API] Token refresh failed, continuing with request');
       }
     }
 
     const token = storage.getAuthToken();
-    
+
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
       ...(token && { Authorization: `Bearer ${token}` }),
@@ -135,77 +157,142 @@ class ApiService {
       // 403 can occur when API restarts and token validation fails temporarily
       if ((response.status === 401 || response.status === 403) && !endpoint.startsWith('/auth/')) {
         console.log(`[API] Got ${response.status}, attempting token refresh...`);
-        
-        const refreshToken = storage.getRefreshToken();
-        if (!refreshToken) {
-          console.error('[API] No refresh token available, redirecting to login');
-          this.redirectToLogin();
-          return {
-            error: 'Authentication failed',
-            status: response.status,
-          };
-        }
 
-        // Attempt to refresh token
-        try {
-          const refreshResponse = await fetch(`${API_BASE_URL}/auth/refresh`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ refreshToken }),
-          });
+        // Store the original access token to detect if refresh actually happened
+        const originalAccessToken = storage.getAuthToken();
 
-          if (!refreshResponse.ok) {
-            console.error('[API] Token refresh failed, redirecting to login');
+        // If a refresh is already in progress, wait for it instead of starting a new one
+        // This prevents multiple concurrent requests from using the same (soon-to-be-revoked) refresh token
+        let refreshResult: RefreshResult;
+
+        if (this.isRefreshing && this.refreshPromise) {
+          console.log('[API] Waiting for in-flight refresh to complete...');
+          refreshResult = await this.refreshPromise;
+        } else {
+          // No refresh in progress, start one
+          // Use cached refresh token if available (from a recent refresh), otherwise get from storage
+          const refreshToken = this.cachedRefreshToken || storage.getRefreshToken();
+          if (!refreshToken) {
+            console.error('[API] No refresh token available, redirecting to login');
             this.redirectToLogin();
             return {
-              error: 'Session expired',
+              error: 'Authentication failed',
               status: response.status,
             };
           }
 
-          const refreshData = await refreshResponse.json();
-          
-          // Update stored tokens
-          storage.setAuthToken(refreshData.accessToken);
-          if (refreshData.refreshToken) {
-            storage.setRefreshToken(refreshData.refreshToken);
+          // Gate concurrent 401/403 handlers with isRefreshing flag
+          if (this.isRefreshing && this.refreshPromise) {
+            console.log('[API] Refresh started by another request, waiting...');
+            refreshResult = await this.refreshPromise;
+          } else {
+            this.isRefreshing = true;
+            this.refreshPromise = (async () => {
+              try {
+                const refreshResponse = await fetch(`${API_BASE_URL}/auth/refresh`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ refreshToken }),
+                });
+
+                if (!refreshResponse.ok) {
+                  console.error('[API] Token refresh failed, redirecting to login');
+                  return { success: false };
+                }
+
+                const refreshData = await refreshResponse.json();
+
+                // Cache tokens in memory for concurrent requests
+                this.cachedAccessToken = refreshData.accessToken;
+                this.cachedRefreshToken = refreshData.refreshToken || null;
+
+                // Update stored tokens
+                storage.setAuthToken(refreshData.accessToken);
+                if (refreshData.refreshToken) {
+                  storage.setRefreshToken(refreshData.refreshToken);
+                }
+
+                console.log('[API] Token refreshed successfully in 401 handler');
+                return {
+                  success: true,
+                  accessToken: refreshData.accessToken,
+                  refreshToken: refreshData.refreshToken
+                };
+              } catch (error) {
+                console.error('[API] Token refresh error:', error);
+                return { success: false };
+              } finally {
+                this.isRefreshing = false;
+                this.refreshPromise = null;
+                // Clear cached tokens after a short delay
+                setTimeout(() => {
+                  this.cachedAccessToken = null;
+                  this.cachedRefreshToken = null;
+                }, 1000);
+              }
+            })();
+
+            refreshResult = await this.refreshPromise;
           }
+        }
 
-          console.log('[API] Token refreshed, retrying original request');
-
-          // Retry original request with new token
-          const newHeaders: HeadersInit = {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${refreshData.accessToken}`,
-            ...options.headers,
-          };
-
-          const retryResponse = await fetch(`${API_BASE_URL}${endpoint}`, {
-            ...options,
-            headers: newHeaders,
-          });
-
-          const retryData = await retryResponse.json().catch(() => null);
-
-          if (!retryResponse.ok) {
-            return {
-              error: retryData?.message || 'Request failed',
-              status: retryResponse.status,
-            };
-          }
-
-          return {
-            data: retryData,
-            status: retryResponse.status,
-          };
-        } catch (refreshError) {
-          console.error('[API] Token refresh error:', refreshError);
+        if (!refreshResult.success) {
+          console.error('[API] Token refresh failed, redirecting to login');
           this.redirectToLogin();
           return {
             error: 'Session expired',
             status: response.status,
           };
         }
+
+        // Use the fresh access token from the refresh result, or cached token, or storage
+        const newAccessToken = refreshResult.accessToken || this.cachedAccessToken || storage.getAuthToken();
+
+        // Safety check: verify the token actually changed to prevent infinite retry loops
+        if (newAccessToken === originalAccessToken) {
+          console.warn('[API] Token refresh did not produce a new token, not retrying');
+          return {
+            error: 'Authentication failed',
+            status: response.status,
+          };
+        }
+
+        console.log('[API] Token refreshed, retrying original request');
+
+        // Retry original request with new token
+        const newHeaders: HeadersInit = {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${newAccessToken}`,
+          ...options.headers,
+        };
+
+        const retryResponse = await fetch(`${API_BASE_URL}${endpoint}`, {
+          ...options,
+          headers: newHeaders,
+        });
+
+        const retryData = await retryResponse.json().catch(() => null);
+
+        // Safety check: if retry also fails with 401, don't retry again
+        if (retryResponse.status === 401 || retryResponse.status === 403) {
+          console.error('[API] Retry request also failed with auth error, not retrying again');
+          return {
+            error: retryData?.message || 'Authentication failed',
+            status: retryResponse.status,
+          };
+        }
+
+        if (!retryResponse.ok) {
+          return {
+            error: retryData?.message || 'Request failed',
+            status: retryResponse.status,
+          };
+        }
+
+        return {
+          data: retryData,
+          status: retryResponse.status,
+        };
       }
 
       if (!response.ok) {
@@ -234,7 +321,7 @@ class ApiService {
   private redirectToLogin(): void {
     const role = storage.getUserRole();
     storage.clearSession();
-    
+
     if (role === 'admin') {
       window.location.href = '/admin/login';
     } else {
@@ -348,7 +435,7 @@ class ApiService {
 async getGames() : Promise<ApiResponse<Game[]>> {
     return this.get('/games');
   }
-  
+
   async getGame(gameId: string) : Promise<ApiResponse<Game>> {
     return this.get(`/games/${gameId}`);
   }
@@ -413,8 +500,8 @@ async getGames() : Promise<ApiResponse<Game[]>> {
   }
 
   async getAdminMessagesByGame(
-    gameId: string, 
-    page: number = 0, 
+    gameId: string,
+    page: number = 0,
     pageSize: number = 20
   ): Promise<ApiResponse<AdminMessageListResponse>> {
     return this.get(`/messages/admin/games/${gameId}?page=${page}&pageSize=${pageSize}`);
