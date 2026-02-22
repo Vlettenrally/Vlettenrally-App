@@ -30,8 +30,6 @@ spec:
       - name: timescaledb
         image:
           reference: ghcr.io/joostvanviegen/cnpg-timescaledb-extension:18
-        ld_library_path:
-          - system
   plugins:
    - name: barman-cloud.cloudnative-pg.io
      enabled: true
