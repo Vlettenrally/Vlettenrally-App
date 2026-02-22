@@ -3,6 +3,7 @@ package nl.vlettenrally.data.entity.jpa;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.locationtech.jts.geom.Point;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -45,6 +46,9 @@ public class CheckpointEntity {
 
     @Column(name = "longitude")
     private Double longitude;
+
+    @Column(name = "location", columnDefinition = "geometry(Point, 4326)")
+    private Point location;  // PostGIS geometry for geofencing (50m radius)
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
