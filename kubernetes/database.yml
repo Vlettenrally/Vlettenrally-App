@@ -20,22 +20,24 @@ spec:
     - name: postgis_topology
     - name: timescaledb
       version: '2.25.1'
+  postgresql:
+    extensions:
+      - name: postgis
+        image:
+          reference: ghcr.io/cloudnative-pg/postgis-extension:3.6.2-18-trixie
+        ld_library_path:
+          - system
+      - name: timescaledb
+        image:
+          reference: ghcr.io/joostvanviegen/cnpg-timescaledb-extension:18
+        ld_library_path:
+          - system
   plugins:
    - name: barman-cloud.cloudnative-pg.io
      enabled: true
      isWALArchiver: true
      parameters:
       barmanObjectName: backups
-   - name: postgis
-     image:
-      reference: ghcr.io/cloudnative-pg/postgis-extension:3.6.2-18-trixie
-     ld_library_path:
-     - system
-   - name: timescaledb
-     image:
-      reference: ghcr.io/joostvanviegen/cnpg-timescaledb-extension:18
-     ld_library_path:
-     - system
   storage:
     size: 20Gi
     storageClass: longhorn-strict-local
