@@ -1,16 +1,18 @@
 -- Create location_data table with PostGIS geometry
 CREATE TABLE location_data (
-    id UUID PRIMARY KEY,
+    id UUID NOT NULL,
+    location_time TIMESTAMP WITH TIME ZONE NOT NULL,  -- API location_time field (required for TimescaleDB partitioning)
     team_id UUID NOT NULL,
     game_id UUID NOT NULL,
     location GEOMETRY(Point, 4326) NOT NULL,  -- PostGIS Point with WGS84 (EPSG:4326)
-    location_time TIMESTAMP WITH TIME ZONE NOT NULL,  -- API location_time field
     accuracy DECIMAL(8, 2),  -- GPS accuracy in meters
     altitude DECIMAL(8, 2),  -- Altitude in meters
     speed DECIMAL(5, 2),  -- Speed in km/h
     heading DECIMAL(5, 2),  -- Heading/bearing in degrees
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
 
+    -- Composite primary key: (id, location_time) required by TimescaleDB for hypertables
+    PRIMARY KEY (id, location_time),
     CONSTRAINT fk_location_data_team FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
     CONSTRAINT fk_location_data_game FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
 );
