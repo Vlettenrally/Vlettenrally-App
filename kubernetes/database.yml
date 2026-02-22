@@ -5,6 +5,8 @@ metadata:
 spec:
   imageName: ghcr.io/joostvanviegen/cnpg-vlettenrally-custom:17
   instances: 3
+  initdb:
+    database: vlettenrally
   imagePullSecrets:
     - name: ghcr-creds
   postgresql:
