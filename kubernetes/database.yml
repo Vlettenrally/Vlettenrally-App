@@ -5,12 +5,6 @@ metadata:
 spec:
   imageName: ghcr.io/joostvanviegen/cnpg-vlettenrally-custom:17
   instances: 3
-  managed:
-    roles:
-      - name: vlettenrally
-        ensure: present
-        login: true
-        superuser: true
   imagePullSecrets:
     - name: ghcr-creds
   postgresql:
@@ -38,7 +32,7 @@ spec:
     name: vlettenrally
     cluster:
         name: vlettenrally-database
-    owner: vlettenrally
+    owner: app
     extensions:
       - name: postgis
         version: '3.5.2'
