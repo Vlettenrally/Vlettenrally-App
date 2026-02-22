@@ -29,6 +29,13 @@ CREATE INDEX idx_location_data_team_time ON location_data (team_id, location_tim
 -- Create index for game_id and location_time
 CREATE INDEX idx_location_data_game_time ON location_data (game_id, location_time DESC);
 
+-- Enable columnstore compression for the hypertable (required before compression policy)
+ALTER TABLE location_data SET (
+    timescaledb.compress,
+    timescaledb.compress_orderby = 'location_time DESC',
+    timescaledb.compress_segmentby = 'team_id, game_id'
+);
+
 -- Set up automatic compression: compress chunks older than 1 hour to 5-minute intervals
 -- This reduces storage while maintaining recent detailed location history
 SELECT add_compression_policy('location_data', INTERVAL '1 hour', if_not_exists => TRUE);
