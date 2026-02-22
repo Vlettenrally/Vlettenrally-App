@@ -8,12 +8,34 @@ spec:
   bootstrap:
     initdb:
       database: vlettenrally
+  extensions:
+    - name: postgis
+      version: '3.6.2'
+    - name: postgis_raster
+    - name: postgis_sfcgal
+    - name: fuzzystrmatch
+    - name: address_standardizer
+    - name: address_standardizer_data_us
+    - name: postgis_tiger_geocoder
+    - name: postgis_topology
+    - name: timescaledb
+      version: '2.25.1'
   plugins:
    - name: barman-cloud.cloudnative-pg.io
      enabled: true
      isWALArchiver: true
      parameters:
       barmanObjectName: backups
+   - name: postgis
+     image:
+      reference: ghcr.io/cloudnative-pg/postgis-extension:3.6.2-18-trixie
+     ld_library_path:
+     - system
+   - name: timescaledb
+     image:
+      reference: ghcr.io/joostvanviegen/cnpg-timescaledb-extension:18
+     ld_library_path:
+     - system
   storage:
     size: 20Gi
     storageClass: longhorn-strict-local
