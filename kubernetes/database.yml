@@ -41,7 +41,7 @@ spec:
     owner: vlettenrally
     extensions:
       - name: postgis
-        version: '3.6.2'
+        version: '3.5.2'
       - name: postgis_raster
       - name: postgis_sfcgal
       - name: fuzzystrmatch
