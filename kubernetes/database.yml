@@ -5,8 +5,12 @@ metadata:
 spec:
   imageName: ghcr.io/joostvanviegen/cnpg-vlettenrally-custom:17
   instances: 3
-  initdb:
-    database: vlettenrally
+  managed:
+    roles:
+      - name: vlettenrally
+        ensure: present
+        login: true
+        superuser: false
   imagePullSecrets:
     - name: ghcr-creds
   postgresql:
