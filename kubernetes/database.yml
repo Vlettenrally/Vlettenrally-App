@@ -3,33 +3,13 @@ kind: Cluster
 metadata:
   name: vlettenrally-database
 spec:
-  imageName: ghcr.io/cloudnative-pg/postgresql:18.1
+  imageName: ghcr.io/joostvanviegen/cnpg-vlettenrally-custom:17
   instances: 3
-  bootstrap:
-    initdb:
-      database: vlettenrally
-  extensions:
-    - name: postgis
-      version: '3.6.2'
-    - name: postgis_raster
-    - name: postgis_sfcgal
-    - name: fuzzystrmatch
-    - name: address_standardizer
-    - name: address_standardizer_data_us
-    - name: postgis_tiger_geocoder
-    - name: postgis_topology
-    - name: timescaledb
-      version: '2.25.1'
+  imagePullSecrets:
+    - name: ghcr-creds
   postgresql:
-    extensions:
-      - name: postgis
-        image:
-          reference: ghcr.io/cloudnative-pg/postgis-extension:3.6.2-18-trixie
-        ld_library_path:
-          - system
-      - name: timescaledb
-        image:
-          reference: ghcr.io/joostvanviegen/cnpg-timescaledb-extension:18
+    shared_preload_libraries:
+      - timescaledb
   plugins:
    - name: barman-cloud.cloudnative-pg.io
      enabled: true
@@ -43,3 +23,35 @@ spec:
     volumeSnapshot:
       online: true
       className: longhorn-snapshot-class
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+    name: vlettenrally
+spec:
+    name: vlettenrally
+    cluster:
+        name: vlettenrally-database
+    owner: vlettenrally
+    extensions:
+      - name: postgis
+        version: '3.6.2'
+      - name: postgis_raster
+      - name: postgis_sfcgal
+      - name: fuzzystrmatch
+      - name: address_standardizer
+      - name: address_standardizer_data_us
+      - name: postgis_tiger_geocoder
+      - name: postgis_topology
+      - name: timescaledb
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ImageCatalog
+metadata:
+  name: cnpg-vlettenrally-catalog
+spec:
+    images:
+      - major: 18
+        image: ghcr.io/joostvanviegen/cnpg-vlettenrally-custom:18
+      - major: 17
+        image: ghcr.io/joostvanviegen/cnpg-vlettenrally-custom:17
