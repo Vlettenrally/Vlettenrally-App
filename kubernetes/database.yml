@@ -10,7 +10,7 @@ spec:
       - name: vlettenrally
         ensure: present
         login: true
-        superuser: false
+        superuser: true
   imagePullSecrets:
     - name: ghcr-creds
   postgresql:
