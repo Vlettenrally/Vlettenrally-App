@@ -14,6 +14,23 @@ spec:
       labels:
         app: vlettenrally-api
     spec:
+      affinity:
+        nodeAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 80
+              preference:
+                  - matchExpressions:
+                    - key: type
+                      operator: In
+                      values:
+                      - ephemeral
+            - weight: 20
+              preference:
+                - matchExpressions:
+                    - key: type
+                      operator: In
+                      values:
+                        - permanent
       imagePullSecrets:
         - name: ghcr-creds
       containers:
@@ -154,6 +171,23 @@ spec:
       labels:
         app: vlettenrally-frontend
     spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 80
+              preference:
+                - matchExpressions:
+                    - key: type
+                      operator: In
+                      values:
+                        - ephemeral
+            - weight: 20
+              preference:
+                - matchExpressions:
+                    - key: type
+                      operator: In
+                      values:
+                        - permanent
       imagePullSecrets:
         - name: ghcr-creds
       containers:
@@ -202,6 +236,23 @@ spec:
       labels:
         app: vlettenrally-valkey
     spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 20
+              preference:
+                - matchExpressions:
+                    - key: type
+                      operator: In
+                      values:
+                        - ephemeral
+            - weight: 80
+              preference:
+                - matchExpressions:
+                    - key: type
+                      operator: In
+                      values:
+                        - permanent
       containers:
         - name: valkey
           image: valkey/valkey:8-alpine
