@@ -5,17 +5,17 @@ metadata:
 spec:
   retentionPolicy: "30d"
   configuration:
-    destinationPath: s3://cnpg-backups
-    endpointURL: http://garage.garage.svc.cluster.local:3900
+    destinationPath: s3://db-archive
+    endpointURL: https://gateway.storjshare.io
     s3Credentials:
       accessKeyId:
-        name: garage-s3-creds
+        name: db-archive-s3-creds
         key: KEY_ID
       secretAccessKey:
-        name: garage-s3-creds
+        name: db-archive-s3-creds
         key: SECRET_KEY
       region:
-        name: garage-s3-creds
+        name: db-archive-s3-creds
         key: REGION
     wal:
       compression: gzip
