@@ -5,6 +5,9 @@ metadata:
 spec:
   imageName: ghcr.io/joostvanviegen/cnpg-vlettenrally-custom:17
   instances: 3
+  affinity:
+    nodeSelector:
+      type: permanent
   imagePullSecrets:
     - name: ghcr-creds
   postgresql:
