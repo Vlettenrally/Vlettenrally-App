@@ -69,11 +69,11 @@ spec:
   clusterIP: None
   ports:
     - port: 6379
-      targetPort: 6379
+      targetPort: valkey
       protocol: TCP
       name: valkey
     - port: 16379
-      targetPort: 16379
+      targetPort: cluster-bus
       protocol: TCP
       name: cluster-bus
   selector:
