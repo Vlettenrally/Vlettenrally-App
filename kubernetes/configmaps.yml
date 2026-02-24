@@ -18,3 +18,29 @@ data:
   FIREBASE_MESSAGING_SENDER_ID: "380048376680"
   FIREBASE_APP_ID: "1:380048376680:web:3a7114c3c951f5e93e8cdd"
   FIREBASE_VAPID_KEY: "BIMwTKTOamzo2F06exXTOUXretRoqcaERk0Q9AN-AF7PcZet_3FjRBQdpSlH9tUBnMikCXJgigeKpqgjKxg2n2I"
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vlettenrally-valkey-config
+data:
+  valkey.conf: |
+    # Valkey Cluster Configuration
+    bind 0.0.0.0
+    protected-mode no
+    
+    # Memory management
+    maxmemory 200mb
+    maxmemory-policy allkeys-lru
+    
+    # Logging
+    loglevel notice
+    
+    # TCP keepalive
+    tcp-keepalive 300
+    
+    # Slow log
+    slowlog-log-slower-than 10000
+    slowlog-max-len 128
+

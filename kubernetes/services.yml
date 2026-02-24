@@ -49,5 +49,32 @@ spec:
       targetPort: 6379
       protocol: TCP
       name: valkey
+    - port: 16379
+      targetPort: 16379
+      protocol: TCP
+      name: cluster-bus
+  selector:
+    app: vlettenrally-valkey
+
+---
+# Headless service for StatefulSet DNS resolution
+apiVersion: v1
+kind: Service
+metadata:
+  name: vlettenrally-valkey-headless
+  labels:
+    app: vlettenrally-valkey
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - port: 6379
+      targetPort: 6379
+      protocol: TCP
+      name: valkey
+    - port: 16379
+      targetPort: 16379
+      protocol: TCP
+      name: cluster-bus
   selector:
     app: vlettenrally-valkey
