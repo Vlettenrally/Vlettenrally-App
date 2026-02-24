@@ -11,7 +11,7 @@ spec:
     podAntiAffinityType: preferred
     additionalPodAntiAffinityRules:
       preferredDuringSchedulingIgnoredDuringExecution:
-        nodeSelector:
+      - nodeSelector:
           matchExpressions:
           - key: servers.ngpc.rxt.io/type
             operator: In
