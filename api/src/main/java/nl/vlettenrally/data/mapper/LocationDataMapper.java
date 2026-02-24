@@ -45,14 +45,18 @@ public class LocationDataMapper {
         }
 
         LocationDataEntity entity = new LocationDataEntity();
-        entity.setId(domain.getId());
+        if (domain.getId() != null) {
+            entity.setId(domain.getId());
+        }
         entity.setLocation(domain.getLocation());
         entity.setLocationTime(domain.getLocationTime());
         entity.setAccuracy(domain.getAccuracy());
         entity.setAltitude(domain.getAltitude());
         entity.setSpeed(domain.getSpeed());
         entity.setHeading(domain.getHeading());
-        entity.setCreatedAt(domain.getCreatedAt());
+        if (domain.getCreatedAt() != null) {
+            entity.setCreatedAt(domain.getCreatedAt());
+        }
 
         return entity;
     }

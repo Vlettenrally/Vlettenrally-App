@@ -55,6 +55,6 @@ USER 26
 
 # Labels for documentation
 LABEL org.opencontainers.image.title="PostgreSQL 17 with TimescaleDB and PostGIS"
-LABEL org.opencontainers.image.description="CloudNativePG PostgreSQL 18.1 with TimescaleDB 2.25.1 and PostGIS 3.x built-in"
+LABEL org.opencontainers.image.description="CloudNativePG PostgreSQL 17 with TimescaleDB 2.25.1 and PostGIS 3.x built-in"
 LABEL org.opencontainers.image.version="17-timescale2.25.1-postgis3.x"
 LABEL org.opencontainers.image.source="https://github.com/cloudnative-pg/postgresql"

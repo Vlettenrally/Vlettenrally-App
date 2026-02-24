@@ -30,8 +30,13 @@ public class JpaLocationDataRepository implements LocationDataRepository {
 
     @Override
     public Optional<LocationData> findById(UUID id) {
-        LocationDataEntity entity = em.find(LocationDataEntity.class, id);
-        return Optional.ofNullable(LocationDataMapper.toDomain(entity));
+        List<LocationDataEntity> entities = em.createQuery(
+                "SELECT l FROM LocationDataEntity l WHERE l.id = :id ORDER BY l.locationTime DESC",
+                LocationDataEntity.class)
+                .setParameter("id", id)
+                .setMaxResults(1)
+                .getResultList();
+        return entities.stream().findFirst().map(LocationDataMapper::toDomain);
     }
 
     @Override
@@ -165,10 +170,9 @@ public class JpaLocationDataRepository implements LocationDataRepository {
 
     @Override
     public void delete(UUID id) {
-        LocationDataEntity entity = em.find(LocationDataEntity.class, id);
-        if (entity != null) {
-            em.remove(entity);
-        }
+        em.createQuery("DELETE FROM LocationDataEntity l WHERE l.id = :id")
+                .setParameter("id", id)
+                .executeUpdate();
     }
 
     @Override
