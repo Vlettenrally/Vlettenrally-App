@@ -1,0 +1,84 @@
+# =============================================================================
+# Valkey Cluster Initialization Job
+# =============================================================================
+# Run this job AFTER all 6 valkey pods are running and ready.
+# This only needs to be run once when first creating the cluster.
+#
+# Apply with: kubectl apply -f valkey-cluster-init.yml
+# Check logs: kubectl logs job/valkey-cluster-init
+# Delete after success: kubectl delete job valkey-cluster-init
+# =============================================================================
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: valkey-cluster-init
+  labels:
+    app: vlettenrally-valkey-init
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: vlettenrally-valkey-init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: valkey-cluster-init
+          image: valkey/valkey:8-alpine
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              
+              echo "Waiting for all Valkey pods to be ready..."
+              sleep 10
+              
+              # Get all pod IPs using the headless service DNS
+              NODES=""
+              for i in 0 1 2 3 4 5; do
+                HOST="vlettenrally-valkey-${i}.vlettenrally-valkey-headless"
+                echo "Checking ${HOST}..."
+                
+                # Wait for the pod to respond
+                for attempt in $(seq 1 30); do
+                  if valkey-cli -h ${HOST} -p 6379 ping 2>/dev/null | grep -q PONG; then
+                    echo "${HOST} is ready"
+                    break
+                  fi
+                  echo "Waiting for ${HOST}... (attempt ${attempt}/30)"
+                  sleep 2
+                done
+                
+                # Get the IP address
+                IP=$(getent hosts ${HOST} | awk '{ print $1 }')
+                if [ -z "$IP" ]; then
+                  echo "ERROR: Could not resolve ${HOST}"
+                  exit 1
+                fi
+                NODES="${NODES} ${IP}:6379"
+              done
+              
+              echo "All nodes ready. Creating cluster with nodes:${NODES}"
+              
+              # Check if cluster already exists
+              CLUSTER_INFO=$(valkey-cli -h vlettenrally-valkey-0.vlettenrally-valkey-headless cluster info 2>/dev/null || true)
+              if echo "$CLUSTER_INFO" | grep -q "cluster_state:ok"; then
+                echo "Cluster already initialized and healthy. Nothing to do."
+                exit 0
+              fi
+              
+              # Create the cluster with 3 masters and 3 replicas
+              echo "yes" | valkey-cli --cluster create ${NODES} --cluster-replicas 1
+              
+              echo "Cluster creation complete!"
+              
+              # Verify cluster status
+              echo "Cluster status:"
+              valkey-cli -h vlettenrally-valkey-0.vlettenrally-valkey-headless cluster info
+              
+              echo "Cluster nodes:"
+              valkey-cli -h vlettenrally-valkey-0.vlettenrally-valkey-headless cluster nodes
+
