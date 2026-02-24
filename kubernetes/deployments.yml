@@ -196,11 +196,11 @@ spec:
           image: ghcr.io/joostvanviegen/vlettenrally-frontend:2026-02-24-4
           resources:
             requests:
-              memory: "64Mi"
-              cpu: "50m"
-            limits:
               memory: "128Mi"
-              cpu: "100m"
+              cpu: "250m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"
           env:
             - name: TZ
               value: "Europe/Amsterdam"
