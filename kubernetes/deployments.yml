@@ -341,5 +341,5 @@ spec:
           - ReadWriteOnce
         resources:
           requests:
-            storage: 1Gi
-            storageClassName: ssd
+            storage: 5Gi
+            storageClassName: sata
