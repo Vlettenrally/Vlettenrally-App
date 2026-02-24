@@ -24,7 +24,7 @@ spec:
               service:
                 name: vlettenrally-api
                 port:
-                  name: 8080
+                  name: http
           - path: /ws
             pathType: Prefix
             backend:
