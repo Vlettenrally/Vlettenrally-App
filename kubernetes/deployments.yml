@@ -339,7 +339,7 @@ spec:
       spec:
         accessModes:
           - ReadWriteOnce
+        storageClassName: sata
         resources:
           requests:
-            storage: 6Gi
-            storageClassName: sata
+            storage: 5Gi
