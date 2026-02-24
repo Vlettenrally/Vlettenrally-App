@@ -134,7 +134,7 @@ spec:
           livenessProbe:
             httpGet:
               path: /q/health/live
-              port: 8080
+              port: http
             initialDelaySeconds: 30
             periodSeconds: 10
             timeoutSeconds: 5
@@ -142,7 +142,7 @@ spec:
           readinessProbe:
             httpGet:
               path: /q/health/ready
-              port: 8080
+              port: http
             initialDelaySeconds: 10
             periodSeconds: 5
             timeoutSeconds: 3

@@ -24,25 +24,25 @@ spec:
               service:
                 name: vlettenrally-api
                 port:
-                  number: 8080
+                  name: 8080
           - path: /ws
             pathType: Prefix
             backend:
               service:
                 name: vlettenrally-api
                 port:
-                  number: 8080
+                  name: http
           - path: /q
             pathType: Prefix
             backend:
               service:
                 name: vlettenrally-api
                 port:
-                  number: 8080
+                  name: http
           - path: /
             pathType: Prefix
             backend:
               service:
                 name: vlettenrally-frontend
                 port:
-                  number: 80
+                  name: http

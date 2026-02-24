@@ -12,7 +12,7 @@ spec:
   type: ClusterIP
   ports:
     - port: 8080
-      targetPort: 8080
+      targetPort: http
       protocol: TCP
       name: http
   selector:
@@ -29,7 +29,7 @@ spec:
   type: ClusterIP
   ports:
     - port: 80
-      targetPort: 80
+      targetPort: http
       protocol: TCP
       name: http
   selector:
@@ -46,11 +46,11 @@ spec:
   type: ClusterIP
   ports:
     - port: 6379
-      targetPort: 6379
+      targetPort: valkey
       protocol: TCP
       name: valkey
     - port: 16379
-      targetPort: 16379
+      targetPort: cluster-bus
       protocol: TCP
       name: cluster-bus
   selector:
