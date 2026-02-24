@@ -6,8 +6,17 @@ spec:
   imageName: ghcr.io/joostvanviegen/cnpg-vlettenrally-custom:17
   instances: 3
   affinity:
-    nodeSelector:
-      type: permanent
+    enablePodAntiAffinity: true
+    topologyKey: kubernetes.io/hostname
+    podAntiAffinityType: preferred
+    additionalPodAntiAffinityRules:
+      nodeSelector:
+        matchExpressions:
+        - key: servers.ngpc.rxt.io/type
+          operator: In
+          values:
+          - ondemand
+        topologyKey: "kubernetes.io/hostname"
   imagePullSecrets:
     - name: ghcr-creds
   postgresql:

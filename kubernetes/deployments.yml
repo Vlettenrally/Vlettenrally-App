@@ -20,17 +20,17 @@ spec:
           - weight: 80
             preference:
               matchExpressions:
-              - key: type
+              - key: servers.ngpc.rxt.io/type
                 operator: In
                 values:
-                - ephemeral
+                - spot
           - weight: 20
             preference:
               matchExpressions:
-              - key: type
+              - key: servers.ngpc.rxt.io/type
                 operator: In
                 values:
-                - permanent
+                - ondemand
       imagePullSecrets:
         - name: ghcr-creds
       containers:
@@ -162,7 +162,7 @@ metadata:
   labels:
     app: vlettenrally-frontend
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: vlettenrally-frontend
@@ -177,17 +177,17 @@ spec:
           - weight: 80
             preference:
               matchExpressions:
-              - key: type
+              - key: servers.ngpc.rxt.io/type
                 operator: In
                 values:
-                - ephemeral
+                - spot
           - weight: 20
             preference:
               matchExpressions:
-              - key: type
+              - key: servers.ngpc.rxt.io/type
                 operator: In
                 values:
-                - permanent
+                - ondemand
       imagePullSecrets:
         - name: ghcr-creds
       containers:
@@ -242,17 +242,17 @@ spec:
             - weight: 20
               preference:
                 matchExpressions:
-                  - key: type
+                  - key: servers.ngpc.rxt.io/type
                     operator: In
                     values:
-                    - ephemeral
+                    - spot
             - weight: 80
               preference:
                 matchExpressions:
-                  - key: type
+                  - key: servers.ngpc.rxt.io/type
                     operator: In
                     values:
-                    - permanent
+                    - ondemand
       containers:
         - name: valkey
           image: valkey/valkey:8-alpine
