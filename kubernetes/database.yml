@@ -5,6 +5,9 @@ metadata:
 spec:
   imageName: ghcr.io/joostvanviegen/cnpg-vlettenrally-custom:17
   instances: 3
+  affinity:
+    nodeSelector:
+      type: permanent
   imagePullSecrets:
     - name: ghcr-creds
   postgresql:
@@ -18,11 +21,12 @@ spec:
       barmanObjectName: backups
   storage:
     size: 20Gi
-    storageClass: longhorn-strict-local
-  backup:
-    volumeSnapshot:
-      online: true
-      className: longhorn-snapshot-class
+    storageClass: ssd
+  env:
+  - name: AWS_REQUEST_CHECKSUM_CALCULATION
+    value: when_required
+  - name: AWS_RESPONSE_CHECKSUM_VALIDATION
+    value: when_required
 ---
 apiVersion: postgresql.cnpg.io/v1
 kind: Database
