@@ -10,12 +10,13 @@ spec:
     topologyKey: kubernetes.io/hostname
     podAntiAffinityType: preferred
     additionalPodAntiAffinityRules:
-      nodeSelector:
-        matchExpressions:
-        - key: servers.ngpc.rxt.io/type
-          operator: In
-          values:
-          - ondemand
+      preferredDuringSchedulingIgnoredDuringExecution:
+        nodeSelector:
+          matchExpressions:
+          - key: servers.ngpc.rxt.io/type
+            operator: In
+            values:
+            - ondemand
         topologyKey: "kubernetes.io/hostname"
   imagePullSecrets:
     - name: ghcr-creds
