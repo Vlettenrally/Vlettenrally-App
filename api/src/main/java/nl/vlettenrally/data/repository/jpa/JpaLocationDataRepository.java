@@ -3,6 +3,7 @@ package nl.vlettenrally.data.repository.jpa;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
+import jakarta.transaction.Transactional;
 import nl.vlettenrally.data.domain.LocationData;
 import nl.vlettenrally.data.entity.jpa.LocationDataEntity;
 import nl.vlettenrally.data.mapper.LocationDataMapper;
@@ -101,13 +102,13 @@ public class JpaLocationDataRepository implements LocationDataRepository {
 
     @Override
     public List<LocationData> findWithinDistance(Point point, double distanceMeters) {
-        // Using PostGIS ST_DWithin for distance-based proximity search
-        // ST_DWithin(geometry1, geometry2, distance) - checks if geometries are within distance
+        // Using PostGIS ST_DWithin with geography cast for distance-based proximity search
+        // Casting to ::geography ensures the distance parameter is interpreted as meters (not degrees)
         List<LocationDataEntity> entities = em.createNativeQuery(
                 "SELECT l.id, l.team_id, l.game_id, l.location, l.location_time, " +
                 "l.accuracy, l.altitude, l.speed, l.heading, l.created_at " +
                 "FROM location_data l " +
-                "WHERE ST_DWithin(l.location, ?1::geometry, ?2) " +
+                "WHERE ST_DWithin(l.location::geography, ?1::geography, ?2) " +
                 "ORDER BY l.location_time DESC",
                 LocationDataEntity.class)
                 .setParameter(1, point)
@@ -122,7 +123,7 @@ public class JpaLocationDataRepository implements LocationDataRepository {
                 "SELECT l.id, l.team_id, l.game_id, l.location, l.location_time, " +
                 "l.accuracy, l.altitude, l.speed, l.heading, l.created_at " +
                 "FROM location_data l " +
-                "WHERE l.team_id = ?1 AND ST_DWithin(l.location, ?2::geometry, ?3) " +
+                "WHERE l.team_id = ?1 AND ST_DWithin(l.location::geography, ?2::geography, ?3) " +
                 "ORDER BY l.location_time DESC",
                 LocationDataEntity.class)
                 .setParameter(1, teamId)
@@ -139,7 +140,7 @@ public class JpaLocationDataRepository implements LocationDataRepository {
                 "SELECT l.id, l.team_id, l.game_id, l.location, l.location_time, " +
                 "l.accuracy, l.altitude, l.speed, l.heading, l.created_at " +
                 "FROM location_data l " +
-                "WHERE l.team_id = ?1 AND ST_DWithin(l.location, ?2::geometry, ?3) " +
+                "WHERE l.team_id = ?1 AND ST_DWithin(l.location::geography, ?2::geography, ?3) " +
                 "AND l.location_time >= ?4 AND l.location_time <= ?5 " +
                 "ORDER BY l.location_time DESC",
                 LocationDataEntity.class)
@@ -152,6 +153,19 @@ public class JpaLocationDataRepository implements LocationDataRepository {
         return entities.stream().map(LocationDataMapper::toDomain).collect(Collectors.toList());
     }
 
+    @Override
+    public boolean isWithinDistance(Point point1, Point point2, double distanceMeters) {
+        // Delegate geodetic distance check to PostGIS using geography cast for accurate meter-based results
+        Boolean result = (Boolean) em.createNativeQuery(
+                "SELECT ST_DWithin(?1::geography, ?2::geography, ?3)")
+                .setParameter(1, point1)
+                .setParameter(2, point2)
+                .setParameter(3, distanceMeters)
+                .getSingleResult();
+        return Boolean.TRUE.equals(result);
+    }
+
+    @Transactional
     @Override
     public LocationData save(LocationData location) {
         LocationDataEntity entity = LocationDataMapper.toEntity(location);
@@ -168,6 +182,7 @@ public class JpaLocationDataRepository implements LocationDataRepository {
         return LocationDataMapper.toDomain(entity);
     }
 
+    @Transactional
     @Override
     public void delete(UUID id) {
         em.createQuery("DELETE FROM LocationDataEntity l WHERE l.id = :id")
@@ -175,6 +190,7 @@ public class JpaLocationDataRepository implements LocationDataRepository {
                 .executeUpdate();
     }
 
+    @Transactional
     @Override
     public void deleteByTeamId(UUID teamId) {
         em.createQuery("DELETE FROM LocationDataEntity l WHERE l.team.id = :teamId")

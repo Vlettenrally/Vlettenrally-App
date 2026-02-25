@@ -80,6 +80,17 @@ public interface LocationDataRepository {
                                                               double distanceMeters, Instant startTime, Instant endTime);
 
     /**
+     * Check if two points are within a specified distance of each other.
+     * Delegates to PostGIS ST_DWithin with geography cast for accurate meter-based distance.
+     *
+     * @param point1 The first point
+     * @param point2 The second point
+     * @param distanceMeters The maximum distance in meters
+     * @return true if the points are within the specified distance
+     */
+    boolean isWithinDistance(Point point1, Point point2, double distanceMeters);
+
+    /**
      * Save a location
      */
     LocationData save(LocationData location);

@@ -38,10 +38,9 @@ public class GeofencingService {
             return false;
         }
 
-        // Use PostGIS ST_Distance to calculate distance between points
-        // Distance is in meters (using geography type for accuracy)
-        double distance = teamLocation.getLocation().distance(checkpoint.getLocation());
-        return distance <= GEOFENCE_RADIUS_METERS;
+        // Delegate to PostGIS ST_DWithin with geography cast for accurate meter-based distance
+        return locationDataRepository.isWithinDistance(
+            teamLocation.getLocation(), checkpoint.getLocation(), GEOFENCE_RADIUS_METERS);
     }
 
     /**
