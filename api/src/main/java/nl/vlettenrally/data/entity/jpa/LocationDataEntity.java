@@ -26,7 +26,7 @@ import java.util.UUID;
 @Getter
 @Entity
 @Table(name = "location_data", indexes = {
-    @Index(name = "idx_location_data_location", columnList = "location"),
+    @Index(name = "idx_location_data_location_geog", columnList = "location"),
     @Index(name = "idx_location_data_team_time", columnList = "team_id, location_time"),
     @Index(name = "idx_location_data_game_time", columnList = "game_id, location_time")
 })
