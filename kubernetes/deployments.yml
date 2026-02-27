@@ -239,7 +239,7 @@ metadata:
     app: vlettenrally-valkey
 spec:
   serviceName: vlettenrally-valkey-headless
-  replicas: 6
+  replicas: 3
   selector:
     matchLabels:
       app: vlettenrally-valkey
