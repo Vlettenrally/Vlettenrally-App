@@ -65,7 +65,7 @@ public class AuthServiceImpl implements AuthService {
     @ConfigProperty(name = "mp.jwt.verify.audience", defaultValue = "vlettenrally-audience")
     String audience;
 
-    @ConfigProperty(name = "smallrye.jwt.sign.key-location", defaultValue = "privateKey.pem")
+    @ConfigProperty(name = "smallrye.jwt.sign.key-location")
     String keyLocation;
 
     @ConfigProperty(name = "vlettenrally.jwt.access-token-expiry-minutes", defaultValue = "15")
