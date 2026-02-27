@@ -38,7 +38,7 @@ spec:
               
               # Get all pod IPs using the headless service DNS
               NODES=""
-              for i in 0 1 2 3 4 5; do
+              for i in 0 1 2; do
                 HOST="vlettenrally-valkey-${i}.vlettenrally-valkey-headless"
                 echo "Checking ${HOST}..."
                 

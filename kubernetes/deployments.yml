@@ -123,17 +123,7 @@ spec:
             - name: VALKEY_CLIENT_TYPE
               value: "cluster"
             - name: VALKEY_HOSTS
-              value: "redis://vlettenrally-valkey-0.vlettenrally-valkey-headless:6379,redis://vlettenrally-valkey-1.vlettenrally-valkey-headless:6379,redis://vlettenrally-valkey-2.vlettenrally-valkey-headless:6379,redis://vlettenrally-valkey-3.vlettenrally-valkey-headless:6379,redis://vlettenrally-valkey-4.vlettenrally-valkey-headless:6379,redis://vlettenrally-valkey-5.vlettenrally-valkey-headless:6379"
-            - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              valueFrom:
-                secretKeyRef:
-                  name: opentelemetry-destination
-                  key: endpoint
-            - name: OTEL_EXPORTER_OTLP_AUTH_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: opentelemetry-destination
-                  key: headers
+              value: "redis://vlettenrally-valkey-0.vlettenrally-valkey-headless:6379,redis://vlettenrally-valkey-1.vlettenrally-valkey-headless:6379,redis://vlettenrally-valkey-2.vlettenrally-valkey-headless:6379"
           volumeMounts:
             - name: firebase-credentials
               mountPath: /secrets/firebase
@@ -164,6 +154,7 @@ spec:
         - name: jwt-keys
           secret:
             secretName: vlettenrally-jwt-keys
+
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -238,7 +229,7 @@ metadata:
     app: vlettenrally-valkey
 spec:
   serviceName: vlettenrally-valkey-headless
-  replicas: 3
+  replicas: 6
   selector:
     matchLabels:
       app: vlettenrally-valkey
