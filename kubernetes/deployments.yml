@@ -119,11 +119,13 @@ spec:
                   key: api-key
             - name: FRONTEND_BASE_URL
               value: "https://vlettenrally.lntserv.nl"
-            # Valkey Cluster Configuration
+            # Valkey Sentinel Configuration
             - name: VALKEY_CLIENT_TYPE
-              value: "cluster"
+              value: "sentinel"
             - name: VALKEY_HOSTS
-              value: "redis://vlettenrally-valkey-0.vlettenrally-valkey-headless:6379,redis://vlettenrally-valkey-1.vlettenrally-valkey-headless:6379,redis://vlettenrally-valkey-2.vlettenrally-valkey-headless:6379"
+              value: "redis://vlettenrally-valkey-sentinel:26379"
+            - name: VALKEY_SENTINEL_MASTER
+              value: "vlettenrally-valkey-master"
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               valueFrom:
                 secretKeyRef:
@@ -239,7 +241,7 @@ metadata:
     app: vlettenrally-valkey
 spec:
   serviceName: vlettenrally-valkey-headless
-  replicas: 3
+  replicas: 2
   selector:
     matchLabels:
       app: vlettenrally-valkey
@@ -277,36 +279,30 @@ spec:
         - name: valkey
           image: valkey/valkey:8-alpine
           command:
-            - valkey-server
-          args:
-            - /etc/valkey/valkey.conf
-            - --cluster-enabled
-            - "yes"
-            - --cluster-config-file
-            - /data/nodes.conf
-            - --cluster-node-timeout
-            - "5000"
-            - --appendonly
-            - "yes"
-            - --appendfsync
-            - everysec
-            - --dir
-            - /data
-            - --port
-            - "6379"
-            - --cluster-announce-ip
-            - "$(POD_IP)"
-            - --cluster-announce-port
-            - "6379"
-            - --cluster-announce-bus-port
-            - "16379"
+            - /bin/sh
+            - -c
+            - |
+              # Determine ordinal index from hostname (e.g., vlettenrally-valkey-0 → 0)
+              ORDINAL=$(echo "$HOSTNAME" | rev | cut -d'-' -f1 | rev)
+              if [ "$ORDINAL" != "0" ]; then
+                echo "Starting as replica of vlettenrally-valkey-0.vlettenrally-valkey-headless"
+                exec valkey-server /etc/valkey/valkey.conf \
+                  --replicaof vlettenrally-valkey-0.vlettenrally-valkey-headless 6379 \
+                  --appendonly yes \
+                  --appendfsync everysec \
+                  --dir /data \
+                  --port 6379
+              else
+                echo "Starting as master"
+                exec valkey-server /etc/valkey/valkey.conf \
+                  --appendonly yes \
+                  --appendfsync everysec \
+                  --dir /data \
+                  --port 6379
+              fi
           env:
             - name: TZ
               value: "Europe/Amsterdam"
-            - name: POD_IP
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.podIP
           resources:
             requests:
               memory: "128Mi"
@@ -317,8 +313,6 @@ spec:
           ports:
             - name: valkey
               containerPort: 6379
-            - name: cluster-bus
-              containerPort: 16379
           volumeMounts:
             - name: data
               mountPath: /data
@@ -354,3 +348,114 @@ spec:
         resources:
           requests:
             storage: 6Gi
+
+---
+# =============================================================================
+# Valkey Sentinel Deployment
+# =============================================================================
+# 3 Sentinel instances monitor the Valkey master and handle automatic failover.
+# Sentinel rewrites its config at runtime, so we use an initContainer to copy
+# the ConfigMap to a writable emptyDir volume.
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vlettenrally-valkey-sentinel
+  labels:
+    app: vlettenrally-valkey-sentinel
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: vlettenrally-valkey-sentinel
+  template:
+    metadata:
+      labels:
+        app: vlettenrally-valkey-sentinel
+    spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 80
+              preference:
+                matchExpressions:
+                  - key: servers.ngpc.rxt.io/type
+                    operator: In
+                    values:
+                    - spot
+            - weight: 20
+              preference:
+                matchExpressions:
+                  - key: servers.ngpc.rxt.io/type
+                    operator: In
+                    values:
+                    - ondemand
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: vlettenrally-valkey-sentinel
+                topologyKey: kubernetes.io/hostname
+      initContainers:
+        - name: copy-sentinel-config
+          image: valkey/valkey:8-alpine
+          command:
+            - /bin/sh
+            - -c
+            - cp /etc/valkey-readonly/sentinel.conf /etc/valkey/sentinel.conf
+          volumeMounts:
+            - name: sentinel-config-readonly
+              mountPath: /etc/valkey-readonly
+            - name: sentinel-config
+              mountPath: /etc/valkey
+      containers:
+        - name: sentinel
+          image: valkey/valkey:8-alpine
+          command:
+            - valkey-sentinel
+            - /etc/valkey/sentinel.conf
+          env:
+            - name: TZ
+              value: "Europe/Amsterdam"
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+          ports:
+            - name: sentinel
+              containerPort: 26379
+          volumeMounts:
+            - name: sentinel-config
+              mountPath: /etc/valkey
+          livenessProbe:
+            exec:
+              command:
+                - valkey-cli
+                - -p
+                - "26379"
+                - ping
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 3
+          readinessProbe:
+            exec:
+              command:
+                - valkey-cli
+                - -p
+                - "26379"
+                - ping
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+      volumes:
+        - name: sentinel-config-readonly
+          configMap:
+            name: vlettenrally-valkey-sentinel-config
+        - name: sentinel-config
+          emptyDir: {}
+
