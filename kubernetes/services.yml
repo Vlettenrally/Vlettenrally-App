@@ -72,6 +72,26 @@ spec:
     app: vlettenrally-valkey
 
 ---
+# Headless service for Sentinel StatefulSet DNS resolution
+# Provides stable DNS: vlettenrally-valkey-sentinel-{0,1,2}.vlettenrally-valkey-sentinel-headless
+apiVersion: v1
+kind: Service
+metadata:
+  name: vlettenrally-valkey-sentinel-headless
+  labels:
+    app: vlettenrally-valkey-sentinel
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - port: 26379
+      targetPort: sentinel
+      protocol: TCP
+      name: sentinel
+  selector:
+    app: vlettenrally-valkey-sentinel
+
+---
 # Sentinel service for client discovery
 apiVersion: v1
 kind: Service

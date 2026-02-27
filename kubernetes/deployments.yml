@@ -123,7 +123,7 @@ spec:
             - name: VALKEY_CLIENT_TYPE
               value: "sentinel"
             - name: VALKEY_HOSTS
-              value: "redis://vlettenrally-valkey-sentinel:26379"
+              value: "redis://vlettenrally-valkey-sentinel-0.vlettenrally-valkey-sentinel-headless:26379,redis://vlettenrally-valkey-sentinel-1.vlettenrally-valkey-sentinel-headless:26379,redis://vlettenrally-valkey-sentinel-2.vlettenrally-valkey-sentinel-headless:26379"
             - name: VALKEY_SENTINEL_MASTER
               value: "vlettenrally-valkey-master"
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
@@ -351,19 +351,20 @@ spec:
 
 ---
 # =============================================================================
-# Valkey Sentinel Deployment
+# Valkey Sentinel StatefulSet
 # =============================================================================
 # 3 Sentinel instances monitor the Valkey master and handle automatic failover.
 # Sentinel rewrites its config at runtime, so we use an initContainer to copy
 # the ConfigMap to a writable emptyDir volume.
 # =============================================================================
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: vlettenrally-valkey-sentinel
   labels:
     app: vlettenrally-valkey-sentinel
 spec:
+  serviceName: vlettenrally-valkey-sentinel-headless
   replicas: 3
   selector:
     matchLabels:

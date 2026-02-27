@@ -78,7 +78,7 @@ spec:
               # Wait for sentinel to be ready
               echo ""
               echo "Checking Sentinel service..."
-              SENTINEL_HOST="vlettenrally-valkey-sentinel"
+              SENTINEL_HOST="vlettenrally-valkey-sentinel-0.vlettenrally-valkey-sentinel-headless"
               for attempt in $(seq 1 30); do
                 if valkey-cli -h ${SENTINEL_HOST} -p 26379 ping 2>/dev/null | grep -q PONG; then
                   echo "Sentinel is ready"

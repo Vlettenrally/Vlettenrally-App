@@ -76,7 +76,7 @@ data:
     sentinel monitor vlettenrally-valkey-master vlettenrally-valkey-0.vlettenrally-valkey-headless 6379 2
     
     # Time in ms before a master is considered down
-    sentinel down-after-milliseconds vlettenrally-valkey-master 5000
+    sentinel down-after-milliseconds vlettenrally-valkey-master 10000
     
     # Timeout for failover operation
     sentinel failover-timeout vlettenrally-valkey-master 10000
