@@ -68,9 +68,6 @@ data:
     # Valkey Sentinel Configuration
     port 26379
     
-    # Verbose logging for debugging sentinel connectivity issues
-    loglevel verbose
-    
     # Monitor the master named "vlettenrally-valkey-master"
     # The last number (2) is the quorum: number of sentinels that must agree on failover
     sentinel monitor vlettenrally-valkey-master vlettenrally-valkey-0.vlettenrally-valkey-headless 6379 2
