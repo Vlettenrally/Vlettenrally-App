@@ -65,9 +65,6 @@ public class AuthServiceImpl implements AuthService {
     @ConfigProperty(name = "mp.jwt.verify.audience", defaultValue = "vlettenrally-audience")
     String audience;
 
-    @ConfigProperty(name = "smallrye.jwt.sign.key-location")
-    String keyLocation;
-
     @ConfigProperty(name = "vlettenrally.jwt.access-token-expiry-minutes", defaultValue = "15")
     int accessTokenExpiryMinutes;
 
@@ -593,7 +590,6 @@ public class AuthServiceImpl implements AuthService {
 
         Instant allCheckedInAt = allTeamsCheckedInAt.get(game.getId());
         Instant allCheckedInExpiry = allCheckedInAt != null ? allCheckedInAt.plusSeconds(300) : null;
-
         // Check if game has already started
         if (game.getStartTime() != null && now.isAfter(game.getStartTime())) {
             return now; // Already expired
