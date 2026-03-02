@@ -27,7 +27,6 @@ import {
 } from './services/notificationSync';
 import {type Message, useMessageStore} from './store/useMessageStore';
 import api from './services/api';
-import DevTokenPage from './pages/DevTokenPage';
 import {
   AdminDashboard,
   AdminLogin,
@@ -414,9 +413,6 @@ function App() {
               </AdminRoute>
             }
           />
-          
-          {/* Dev routes */}
-          <Route path="/dev/tokens" element={<DevTokenPage />} />
           
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

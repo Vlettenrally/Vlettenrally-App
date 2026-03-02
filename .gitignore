@@ -1,1 +1,3 @@
 .firebase/**
+.idea/**
+/api/src/main/resources/*.pem

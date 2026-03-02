@@ -7,7 +7,6 @@ kind: Ingress
 metadata:
   name: vlettenrally-ingress
   annotations:
-    cert-manager.io/cluster-issuer: letsencrypt
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
     traefik.ingress.kubernetes.io/router.tls: "true"
 spec:
@@ -25,25 +24,25 @@ spec:
               service:
                 name: vlettenrally-api
                 port:
-                  number: 8080
+                  name: http
           - path: /ws
             pathType: Prefix
             backend:
               service:
                 name: vlettenrally-api
                 port:
-                  number: 8080
+                  name: http
           - path: /q
             pathType: Prefix
             backend:
               service:
                 name: vlettenrally-api
                 port:
-                  number: 8080
+                  name: http
           - path: /
             pathType: Prefix
             backend:
               service:
                 name: vlettenrally-frontend
                 port:
-                  number: 80
+                  name: http
