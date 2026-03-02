@@ -127,7 +127,10 @@ spec:
             - name: VALKEY_SENTINEL_MASTER
               value: "vlettenrally-valkey-master"
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: "http://grafana-k8s-monitoring-alloy-receiver.grafana-cloud.svc.cluster.local:4317"
+              valueFrom:
+                secretKeyRef:
+                  name: opentelemetry-destination
+                  key: endpoint
             - name: OTEL_EXPORTER_OTLP_AUTH_TOKEN
               valueFrom:
                 secretKeyRef:
