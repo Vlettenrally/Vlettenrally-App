@@ -2,6 +2,7 @@ package nl.vlettenrally.data.domain;
 
 import lombok.Getter;
 import lombok.Setter;
+import org.locationtech.jts.geom.Point;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -21,6 +22,7 @@ public class Checkpoint {
     private int points;
     private Double latitude;
     private Double longitude;
+    private Point location;  // PostGIS Point for geofencing (50m radius)
     private Instant createdAt;
     private Instant updatedAt;
 
