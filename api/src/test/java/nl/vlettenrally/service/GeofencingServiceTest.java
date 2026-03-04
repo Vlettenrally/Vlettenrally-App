@@ -119,6 +119,40 @@ class GeofencingServiceTest {
     }
 
     @Test
+    void isWithinCheckpointGeofence_justInsideRadius_shouldReturnTrue() {
+        // Team location approximately 44m north of checkpoint (just inside the 50m boundary)
+        Point nearbyPoint = GEOMETRY_FACTORY.createPoint(new Coordinate(4.9000, 52.37840));
+        LocationData teamLocation = new LocationData();
+        teamLocation.setLocation(nearbyPoint);
+
+        Checkpoint checkpoint = new Checkpoint();
+        checkpoint.setLocation(checkpointPoint);
+
+        when(locationDataRepository.isWithinDistance(nearbyPoint, checkpointPoint, 50.0))
+                .thenReturn(true);
+
+        assertTrue(geofencingService.isWithinCheckpointGeofence(teamLocation, checkpoint));
+        verify(locationDataRepository).isWithinDistance(nearbyPoint, checkpointPoint, 50.0);
+    }
+
+    @Test
+    void isWithinCheckpointGeofence_justOutsideRadius_shouldReturnFalse() {
+        // Team location approximately 56m north of checkpoint (just outside the 50m boundary)
+        Point farPoint = GEOMETRY_FACTORY.createPoint(new Coordinate(4.9000, 52.37850));
+        LocationData teamLocation = new LocationData();
+        teamLocation.setLocation(farPoint);
+
+        Checkpoint checkpoint = new Checkpoint();
+        checkpoint.setLocation(checkpointPoint);
+
+        when(locationDataRepository.isWithinDistance(farPoint, checkpointPoint, 50.0))
+                .thenReturn(false);
+
+        assertFalse(geofencingService.isWithinCheckpointGeofence(teamLocation, checkpoint));
+        verify(locationDataRepository).isWithinDistance(farPoint, checkpointPoint, 50.0);
+    }
+
+    @Test
     void getGeofenceRadiusMeters_shouldReturn50() {
         assertEquals(50.0, geofencingService.getGeofenceRadiusMeters());
     }
