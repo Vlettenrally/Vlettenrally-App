@@ -38,8 +38,6 @@ RUN <<EOT
     "timescaledb-2-postgresql-${POSTGRES_VERSION}" \
     "postgis" \
     "postgresql-postgis"
-    #"postgresql-${POSTGRES_VERSION}-postgis-3" \
-    #"postgresql-${POSTGRES_VERSION}-postgis-3-scripts"\
 
   # Cleanup
   apt-get purge -y curl gnupg lsb-release
