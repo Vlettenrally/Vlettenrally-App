@@ -14,6 +14,7 @@ public record TeamResponse(
     List<String> participants,
     UUID deviceId,
     boolean checkedIn,
+    boolean checkedInDigitally,
     int totalPoints,
     List<UUID> rivals,
     String notes,

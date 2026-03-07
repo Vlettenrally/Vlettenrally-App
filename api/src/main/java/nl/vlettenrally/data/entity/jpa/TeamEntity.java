@@ -59,6 +59,9 @@ public class TeamEntity {
     @Column(name = "checked_in", nullable = false)
     private boolean checkedIn = false;
 
+    @Column(name = "checked_in_digitally", nullable = false)
+    private boolean checkedInDigitally = false;
+
     @Column(name = "total_points", nullable = false)
     private int totalPoints = 0;
 

@@ -63,11 +63,13 @@ class TeamServiceImplTest {
 
         // Assert
         assertTrue(result.isCheckedIn());
+        assertTrue(result.isCheckedInDigitally());
         assertNotNull(result.getUpdatedAt());
 
         ArgumentCaptor<Team> teamCaptor = ArgumentCaptor.forClass(Team.class);
         verify(teamRepository).save(teamCaptor.capture());
         assertTrue(teamCaptor.getValue().isCheckedIn());
+        assertTrue(teamCaptor.getValue().isCheckedInDigitally());
     }
 
     @Test
@@ -269,6 +271,7 @@ class TeamServiceImplTest {
         team.setName("Test Team");
         team.setDescription("Test Description");
         team.setCheckedIn(checkedIn);
+        team.setCheckedInDigitally(checkedIn);
         team.setTotalPoints(0);
         team.setParticipants(new ArrayList<>());
         team.setRivals(new ArrayList<>());

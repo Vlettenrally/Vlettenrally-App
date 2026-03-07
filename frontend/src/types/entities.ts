@@ -83,6 +83,7 @@ export interface AdminTeam extends TeamBase {
   deviceId?: string;
   externalId?: string;
   checkedIn: boolean;
+  checkedInDigitally: boolean;
   rivals: string[];
   notes?: string;
   emergencyPhoneNumbers?: string[];

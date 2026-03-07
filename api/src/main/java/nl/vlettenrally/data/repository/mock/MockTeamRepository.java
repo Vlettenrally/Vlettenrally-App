@@ -53,6 +53,7 @@ public class MockTeamRepository implements TeamRepository {
         team1.setParticipants(List.of("Jan Janssen", "Piet Pietersen", "Klaas Kansen"));
         team1.setDeviceId(UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"));
         team1.setCheckedIn(true);
+        team1.setCheckedInDigitally(true);
         team1.setTotalPoints(350);
         team1.setRivals(Collections.singletonList(TEAM_WINDKRACHT_ID));
         team1.setNotes("Favoriet voor de winst!");
@@ -70,6 +71,7 @@ public class MockTeamRepository implements TeamRepository {
         team2.setParticipants(List.of("Anna de Groot", "Marie Storm", "Lisa Wind"));
         team2.setDeviceId(UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"));
         team2.setCheckedIn(true);
+        team2.setCheckedInDigitally(true);
         team2.setTotalPoints(300);
         team2.setRivals(Collections.singletonList(TEAM_WATERVLOOIEN_ID));
         team2.setEmergencyPhoneNumbers(List.of("+31687654321"));
@@ -85,6 +87,7 @@ public class MockTeamRepository implements TeamRepository {
         team3.setDescription("Rustig maar doeltreffend");
         team3.setParticipants(List.of("Tom de Vries", "Henk Boot"));
         team3.setCheckedIn(true);
+        team3.setCheckedInDigitally(true);
         team3.setTotalPoints(250);
         team3.setRivals(Collections.emptyList());
         team3.setEmergencyPhoneNumbers(List.of("+31612345678", "+31687654321"));
@@ -100,6 +103,7 @@ public class MockTeamRepository implements TeamRepository {
         team4.setDescription("Piraten van de grachten");
         team4.setParticipants(List.of("Peter Pan", "Wendy Darling", "Tinkerbell"));
         team4.setCheckedIn(false);
+        team4.setCheckedInDigitally(false);
         team4.setTotalPoints(0);
         team4.setRivals(Collections.emptyList());
         team4.setEmergencyPhoneNumbers(List.of("+31612345678", "+31687654321"));

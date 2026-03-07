@@ -69,6 +69,7 @@ public class TeamServiceImpl implements TeamService {
                     throw new IllegalArgumentException("At least one emergency phone number is required for check-in");
                 }
                 team.setCheckedIn(true);
+                team.setCheckedInDigitally(true);
                 team.setUpdatedAt(Instant.now());
                 return teamRepository.save(team);
             })

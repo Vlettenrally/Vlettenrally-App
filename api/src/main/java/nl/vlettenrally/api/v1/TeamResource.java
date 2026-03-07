@@ -230,6 +230,23 @@ public class TeamResource {
                 team.setNotes(request.notes());
             }
             
+            // Handle check-in status updates with reset logic
+            // If checkedIn is explicitly set to false, also reset checkedInDigitally
+            if (request.checkedIn() != null) {
+                team.setCheckedIn(request.checkedIn());
+                if (!request.checkedIn()) {
+                    // Reset digital check-in when unchecking
+                    team.setCheckedInDigitally(false);
+                }
+            }
+
+            // Allow explicit setting of checkedInDigitally (admin override)
+            // Only if checkedIn wasn't just set to false
+            if (request.checkedInDigitally() != null &&
+                (request.checkedIn() == null || request.checkedIn())) {
+                team.setCheckedInDigitally(request.checkedInDigitally());
+            }
+
             Team updatedTeam = teamService.save(team);
             
             // Broadcast update via WebSocket

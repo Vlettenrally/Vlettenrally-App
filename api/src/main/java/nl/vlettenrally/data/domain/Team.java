@@ -26,6 +26,7 @@ public class Team {
     private List<String> participants;
     private UUID deviceId;
     private boolean checkedIn;
+    private boolean checkedInDigitally;
     private int totalPoints;
     private List<UUID> rivals;
     private String notes;
@@ -42,6 +43,7 @@ public class Team {
         this.rivals = new ArrayList<>();
         this.emergencyPhoneNumbers = new ArrayList<>();
         this.checkedIn = false;
+        this.checkedInDigitally = false;
         this.totalPoints = 0;
         this.createdAt = Instant.now();
         this.updatedAt = Instant.now();

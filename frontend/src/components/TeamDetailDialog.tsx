@@ -10,6 +10,8 @@ import {
   Chip,
   CircularProgress,
   Alert,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import { useState, useEffect } from 'react';
 import type { AdminTeam } from '../types/entities';
@@ -42,6 +44,8 @@ export default function TeamDetailDialog({
     participants: '',
     emergencyPhoneNumbers: '',
     notes: '',
+    checkedIn: false,
+    checkedInDigitally: false,
   });
 
   const isCreateMode = !team;
@@ -54,6 +58,8 @@ export default function TeamDetailDialog({
         participants: team.participants ? team.participants.join('\n') : '',
         emergencyPhoneNumbers: team.emergencyPhoneNumbers ? team.emergencyPhoneNumbers.join('\n') : '',
         notes: team.notes || '',
+        checkedIn: team.checkedIn,
+        checkedInDigitally: team.checkedInDigitally,
       });
       setIsEditing(false);
       
@@ -84,6 +90,8 @@ export default function TeamDetailDialog({
         participants: '',
         emergencyPhoneNumbers: '',
         notes: '',
+        checkedIn: false,
+        checkedInDigitally: false,
       });
       setIsEditing(true);
       setRivalTeams([]);
@@ -108,6 +116,8 @@ export default function TeamDetailDialog({
           participants: team.participants.join('\n'),
           emergencyPhoneNumbers: team.emergencyPhoneNumbers ? team.emergencyPhoneNumbers.join('\n') : '',
           notes: team.notes || '',
+          checkedIn: team.checkedIn,
+          checkedInDigitally: team.checkedInDigitally,
         });
       }
       setError(null);
@@ -135,6 +145,8 @@ export default function TeamDetailDialog({
         participants,
         emergencyPhoneNumbers,
         notes: formData.notes || undefined,
+        checkedIn: formData.checkedIn,
+        checkedInDigitally: formData.checkedInDigitally,
       };
 
       if (isCreateMode) {
@@ -163,6 +175,26 @@ export default function TeamDetailDialog({
       ...prev,
       [field]: event.target.value,
     }));
+  };
+
+  const handleCheckboxChange = (field: 'checkedIn' | 'checkedInDigitally') => (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const newValue = event.target.checked;
+    setFormData((prev) => {
+      // If unchecking checkedIn, also uncheck checkedInDigitally
+      if (field === 'checkedIn' && !newValue) {
+        return {
+          ...prev,
+          checkedIn: false,
+          checkedInDigitally: false,
+        };
+      }
+      return {
+        ...prev,
+        [field]: newValue,
+      };
+    });
   };
 
   return (
@@ -231,16 +263,53 @@ export default function TeamDetailDialog({
 
           {!isCreateMode && team && (
             <>
-              <Box>
-                <Typography variant="subtitle2" gutterBottom>
-                  Status
-                </Typography>
-                <Chip
-                  label={team.checkedIn ? 'Checked In' : 'Not Checked In'}
-                  color={team.checkedIn ? 'success' : 'default'}
-                  size="small"
-                />
-              </Box>
+              {isEditing ? (
+                <Box>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Check-in Status (Admin Override)
+                  </Typography>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={formData.checkedIn}
+                        onChange={handleCheckboxChange('checkedIn')}
+                      />
+                    }
+                    label="Checked In"
+                  />
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={formData.checkedInDigitally}
+                        onChange={handleCheckboxChange('checkedInDigitally')}
+                        disabled={!formData.checkedIn}
+                      />
+                    }
+                    label="Checked In Digitally"
+                  />
+                </Box>
+              ) : (
+                <Box>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Status
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    <Chip
+                      label={team.checkedIn ? 'Checked In' : 'Not Checked In'}
+                      color={team.checkedIn ? 'success' : 'default'}
+                      size="small"
+                    />
+                    {team.checkedIn && (
+                      <Chip
+                        label={team.checkedInDigitally ? 'Digital Check-in' : 'Manual Check-in'}
+                        color={team.checkedInDigitally ? 'info' : 'warning'}
+                        size="small"
+                        variant="outlined"
+                      />
+                    )}
+                  </Box>
+                </Box>
+              )}
 
               <Box>
                 <Typography variant="subtitle2" gutterBottom>

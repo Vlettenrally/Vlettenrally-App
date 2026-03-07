@@ -10,5 +10,7 @@ public record TeamUpdateRequest(
     String description,
     List<String> participants,
     List<String> emergencyPhoneNumbers,
+    Boolean checkedIn,
+    Boolean checkedInDigitally,
     String notes
 ) {}
