@@ -11,11 +11,6 @@ import io.quarkus.runtime.annotations.RegisterForReflection;
         // PostGIS geometry types
         net.postgis.jdbc.PGbox3d.class,
         net.postgis.jdbc.PGbox2d.class,
-        net.postgis.jdbc.PGlseg.class,
-        net.postgis.jdbc.PGpath.class,
-        net.postgis.jdbc.PGpoint.class,
-        net.postgis.jdbc.PGpolygon.class,
-        net.postgis.jdbc.PGcircle.class,
 
         // Additional PostGIS JDBC classes if needed
         net.postgis.jdbc.PGgeometry.class,
@@ -29,7 +24,6 @@ import io.quarkus.runtime.annotations.RegisterForReflection;
         net.postgis.jdbc.geometry.GeometryCollection.class
     },
     classNames = {
-        // Register by class name in case some types are optional or dynamic
         "net.postgis.jdbc.PGbox3d",
         "net.postgis.jdbc.PGbox2d",
         "net.postgis.jdbc.PGlseg",
@@ -49,6 +43,5 @@ import io.quarkus.runtime.annotations.RegisterForReflection;
     }
 )
 public class PostGisReflectionConfig {
-    // This class is purely for GraalVM native image configuration via annotations
+    // Reflection registration marker for native image builds.
 }
-
