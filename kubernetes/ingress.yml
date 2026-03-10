@@ -12,10 +12,10 @@ metadata:
 spec:
   tls:
     - hosts:
-        - vlettenrally.lntserv.nl
+        - game.vlettenrally.nl
       secretName: vlettenrally-tls
   rules:
-    - host: vlettenrally.lntserv.nl
+    - host: game.vlettenrally.nl
       http:
         paths:
           - path: /api

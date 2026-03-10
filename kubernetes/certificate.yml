@@ -10,6 +10,6 @@ spec:
     issuerRef:
         name: letsencrypt-production
         kind: ClusterIssuer
-    commonName: vlettenrally.lntserv.nl
+    commonName: game.vlettenrally.nl
     dnsNames:
-    - vlettenrally.lntserv.nl
+    - game.vlettenrally.nl
