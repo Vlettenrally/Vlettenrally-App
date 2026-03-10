@@ -7,8 +7,8 @@ kind: ConfigMap
 metadata:
   name: vlettenrally-frontend-config
 data:
-  API_BASE_URL: "https://vlettenrally.lntserv.nl/api/v1"
-  WS_URL: "wss://vlettenrally.lntserv.nl/ws"
+  API_BASE_URL: "https://game.vlettenrally.nl/api/v1"
+  WS_URL: "wss://game.vlettenrally.nl/ws"
   USE_MOCKS: "false"
   # Firebase Configuration
   FIREBASE_API_KEY: "AIzaSyDYkywznpK4UZO1cZHIhm7TpI7_7GDLrWI"
