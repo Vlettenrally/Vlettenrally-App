@@ -20,6 +20,7 @@ import { storage } from '../../services/storage';
 import teamService from '../../services/teamService';
 import { useTeamStore } from '../../store/useTeamStore';
 import { isPhoneNumber, validateParticipantNames } from '../../utils/validators';
+import { initializePushNotifications } from '../../services/firebaseMessaging';
 import type { PlayerTeam, TeamOption, TokenExchangeResponse } from '../../types/entities';
 
 export function CheckInPage() {
@@ -32,6 +33,9 @@ export function CheckInPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [step, setStep] = useState<'loading' | 'select' | 'details' | 'notifications'>('loading');
+  const [notificationError, setNotificationError] = useState<string | null>(null);
+  const [notificationSubmitting, setNotificationSubmitting] = useState(false);
 
   const [teamOptions, setTeamOptions] = useState<TeamOption[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<TeamOption | null>(null);
@@ -41,7 +45,51 @@ export function CheckInPage() {
   const [participantsText, setParticipantsText] = useState('');
   const [emergencyPhonesText, setEmergencyPhonesText] = useState('');
 
-  const [step, setStep] = useState<'loading' | 'select' | 'details'>('loading');
+  const persistTeamData = (teamData: PlayerTeam) => {
+    storage.setTeamId(teamData.id);
+    storage.setGameId(teamData.gameId);
+    storage.setTeamData(teamData);
+    setTeam(teamData);
+  };
+
+  const continueWithTeam = async (
+    teamData: PlayerTeam,
+    setErrorMessage: (message: string) => void
+  ) => {
+    if (teamData.checkedInDigitally) {
+      persistTeamData(teamData);
+      setStep('notifications');
+      return;
+    }
+
+    if (teamData.checkedIn) {
+      persistTeamData(teamData);
+
+      const checkedInTeam = await teamService.checkIn(teamData.id);
+      if (!checkedInTeam) {
+        setErrorMessage('Inchecken mislukt.');
+        return;
+      }
+
+      const teamResponse = await api.getMyTeam();
+      if (teamResponse.error) {
+        setErrorMessage('Kon teamgegevens niet ophalen: ' + teamResponse.error);
+        return;
+      }
+
+      if (teamResponse.data) {
+        const refreshedTeam = teamResponse.data as PlayerTeam;
+        persistTeamData(refreshedTeam);
+      }
+
+      setStep('notifications');
+      return;
+    }
+
+    setTeamId(teamData.id);
+    setGameId(teamData.gameId);
+    setStep('details');
+  };
 
   const sortedTeamOptions = useMemo(() => {
     return [...teamOptions].sort((a, b) => {
@@ -97,18 +145,7 @@ export function CheckInPage() {
 
             if (teamResponse.data) {
               const teamData = teamResponse.data as PlayerTeam;
-              if (teamData.checkedIn) {
-                storage.setTeamId(teamData.id);
-                storage.setGameId(teamData.gameId);
-                storage.setTeamData(teamData);
-                setTeam(teamData);
-                navigate('/dashboard', { replace: true });
-                return;
-              }
-
-              setTeamId(teamData.id);
-              setGameId(teamData.gameId);
-              setStep('details');
+              await continueWithTeam(teamData, setError);
             }
           }
         }
@@ -161,18 +198,7 @@ export function CheckInPage() {
 
           if (teamResponse.data) {
             const teamData = teamResponse.data as PlayerTeam;
-            if (teamData.checkedIn) {
-              storage.setTeamId(teamData.id);
-              storage.setGameId(teamData.gameId);
-              storage.setTeamData(teamData);
-              setTeam(teamData);
-              navigate('/dashboard', { replace: true });
-              return;
-            }
-
-            setTeamId(teamData.id);
-            setGameId(teamData.gameId);
-            setStep('details');
+            await continueWithTeam(teamData, setFormError);
           }
         }
       }
@@ -251,13 +277,37 @@ export function CheckInPage() {
         setTeam(teamData);
       }
 
-      navigate('/dashboard', { replace: true });
+      setStep('notifications');
     } catch (err) {
       setFormError('Er is een fout opgetreden tijdens het inchecken.');
       console.error('Check-in error:', err);
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleEnableNotifications = async () => {
+    setNotificationSubmitting(true);
+    setNotificationError(null);
+
+    try {
+      const initialized = await initializePushNotifications();
+      if (!initialized) {
+        setNotificationError('Meldingen toestaan is mislukt of geweigerd. Je kunt verder zonder meldingen.');
+        return;
+      }
+
+      navigate('/dashboard', { replace: true });
+    } catch (err) {
+      console.error('Notification permission error:', err);
+      setNotificationError('Er is een fout opgetreden bij het inschakelen van meldingen.');
+    } finally {
+      setNotificationSubmitting(false);
+    }
+  };
+
+  const handleSkipNotifications = () => {
+    navigate('/dashboard', { replace: true });
   };
 
   return (
@@ -270,7 +320,9 @@ export function CheckInPage() {
                 Vlettenrally
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Vul je teamgegevens in om door te gaan.
+                {step === 'notifications'
+                  ? 'Rond je check-in af en stel meldingen in om updates te ontvangen.'
+                  : 'Vul je teamgegevens in om door te gaan.'}
               </Typography>
             </Box>
 
@@ -360,6 +412,36 @@ export function CheckInPage() {
                   onClick={handleCheckIn}
                 >
                   {submitting ? 'Bezig met inchecken...' : 'Inchecken'}
+                </Button>
+              </Stack>
+            )}
+
+            {!loading && !error && step === 'notifications' && (
+              <Stack spacing={2}>
+                <Typography variant="h6">Meldingen toestaan</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Sta meldingen toe zodat je updates en berichten ontvangt tijdens de rally.
+                </Typography>
+
+                {notificationError && <Alert severity="warning">{notificationError}</Alert>}
+
+                <Button
+                  variant="contained"
+                  size="large"
+                  fullWidth
+                  disabled={notificationSubmitting}
+                  onClick={handleEnableNotifications}
+                >
+                  {notificationSubmitting ? 'Meldingen inschakelen...' : 'Sta meldingen toe'}
+                </Button>
+
+                <Button
+                  variant="text"
+                  size="large"
+                  fullWidth
+                  onClick={handleSkipNotifications}
+                >
+                  Verder zonder meldingen
                 </Button>
               </Stack>
             )}

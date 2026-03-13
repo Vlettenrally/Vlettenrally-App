@@ -87,8 +87,31 @@ class TeamServiceImplTest {
             () -> teamService.checkIn(teamId)
         );
 
-        assertEquals("Team is already checked in", exception.getMessage());
+        assertEquals("Team is already checked in digitally", exception.getMessage());
         verify(teamRepository, never()).save(any(Team.class));
+    }
+
+    @Test
+    void checkIn_manualCheckedIn_setsCheckedInDigitally() {
+        // Arrange
+        Team team = createTeam(true);
+        team.setCheckedInDigitally(false);
+        team.getEmergencyPhoneNumbers().clear();
+
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+        when(teamRepository.save(any(Team.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        Team result = teamService.checkIn(teamId);
+
+        // Assert
+        assertTrue(result.isCheckedIn());
+        assertTrue(result.isCheckedInDigitally());
+        assertNotNull(result.getUpdatedAt());
+
+        ArgumentCaptor<Team> teamCaptor = ArgumentCaptor.forClass(Team.class);
+        verify(teamRepository).save(teamCaptor.capture());
+        assertTrue(teamCaptor.getValue().isCheckedInDigitally());
     }
 
     @Test

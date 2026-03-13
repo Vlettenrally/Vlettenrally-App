@@ -351,11 +351,6 @@ public class AuthServiceImpl implements AuthService {
             return Optional.empty();
         }
 
-        // Prevent issuing tokens for teams that are already checked in
-        if (team.isCheckedIn()) {
-            throw new IllegalStateException("Team is already checked in");
-        }
-
         // Generate tokens using config-driven durations
         long accessTokenExpirySeconds = accessTokenExpiryMinutes * 60L;
         long refreshTokenExpirySeconds = refreshTokenExpiryDays * 86400L;

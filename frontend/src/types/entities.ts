@@ -98,6 +98,7 @@ export interface AdminTeam extends TeamBase {
 export interface PlayerTeam extends TeamBase {
   description: string;
   checkedIn: boolean;
+  checkedInDigitally: boolean;
   rivals: string[];
   createdAt: string;
 }

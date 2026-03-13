@@ -62,7 +62,12 @@ public class TeamServiceImpl implements TeamService {
         return teamRepository.findById(teamId)
             .map(team -> {
                 if (team.isCheckedIn()) {
-                    throw new IllegalStateException("Team is already checked in");
+                    if (team.isCheckedInDigitally()) {
+                        throw new IllegalStateException("Team is already checked in digitally");
+                    }
+                    team.setCheckedInDigitally(true);
+                    team.setUpdatedAt(Instant.now());
+                    return teamRepository.save(team);
                 }
                 // Validate that at least one emergency phone number is provided before check-in
                 if (team.getEmergencyPhoneNumbers() == null || team.getEmergencyPhoneNumbers().isEmpty()) {
