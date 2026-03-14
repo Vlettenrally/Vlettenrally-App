@@ -1,0 +1,24 @@
+# Martin Tile Server Configuration
+# Serves pre-built .mbtiles from Planetiler
+
+listen_addresses: '0.0.0.0:3000'
+
+# CORS headers for frontend access
+web:
+  cors:
+    allow_origins:
+      - "game.vlettenrally.nl"
+      - "vlettenrally.lntserv.nl"
+      - "localhost:5173"
+    allow_methods:
+      - GET
+      - OPTIONS
+    allow_headers:
+      - Content-Type
+
+# MBTiles sources
+mbtiles:
+  sources:
+    netherlands:
+      path: /data/output.mbtiles
+
