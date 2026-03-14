@@ -15,13 +15,13 @@ RUN apt-get update && apt-get install -y wget && \
     wget -q https://github.com/onthegomap/planetiler/releases/latest/download/planetiler.jar
 
 # Download Netherlands OSM data and generate .mbtiles
-# --Xmx2g: Planetiler needs ~2GB RAM for Netherlands data
-RUN java -Xmx2g -jar planetiler.jar \
+# Uses sparsearray + mmap to keep memory usage under ~4GB (fits in CI runners)
+RUN java -Xmx4g -jar planetiler.jar \
     --download \
     --area=netherlands \
     --output=/build/output.mbtiles \
-    --nodemap-type=array \
-    --storage=ram
+    --nodemap-type=sparsearray \
+    --storage=mmap
 
 # Stage 2: Serve with Martin
 FROM ghcr.io/maplibre/martin:v0.15.0
