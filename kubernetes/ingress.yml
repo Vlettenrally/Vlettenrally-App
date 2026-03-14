@@ -32,6 +32,13 @@ spec:
                 name: vlettenrally-api
                 port:
                   name: http
+          - path: /tiles
+            pathType: Prefix
+            backend:
+              service:
+                name: vlettenrally-tileserver
+                port:
+                  name: http
           - path: /q
             pathType: Prefix
             backend:
