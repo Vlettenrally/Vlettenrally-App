@@ -35,7 +35,7 @@ spec:
         - name: ghcr-creds
       containers:
         - name: vlettenrally-api
-          image: ghcr.io/joostvanviegen/vlettenrally-api:2026-03-13-2-native
+          image: ghcr.io/joostvanviegen/vlettenrally-api:2026-03-14-1-native
           resources:
             requests:
               memory: "512Mi"
@@ -205,7 +205,7 @@ spec:
         - name: ghcr-creds
       containers:
         - name: vlettenrally-frontend
-          image: ghcr.io/joostvanviegen/vlettenrally-frontend:2026-03-13-2
+          image: ghcr.io/joostvanviegen/vlettenrally-frontend:2026-03-14-1
           resources:
             requests:
               memory: "128Mi"
@@ -231,6 +231,68 @@ spec:
               port: 8080
             initialDelaySeconds: 5
             periodSeconds: 5
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vlettenrally-tileserver
+  labels:
+    app: vlettenrally-tileserver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vlettenrally-tileserver
+  template:
+    metadata:
+      labels:
+        app: vlettenrally-tileserver
+    spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 80
+            preference:
+              matchExpressions:
+              - key: servers.ngpc.rxt.io/type
+                operator: In
+                values:
+                - spot
+          - weight: 20
+            preference:
+              matchExpressions:
+              - key: servers.ngpc.rxt.io/type
+                operator: In
+                values:
+                - ondemand
+      imagePullSecrets:
+        - name: ghcr-creds
+      containers:
+        - name: vlettenrally-tileserver
+          image: ghcr.io/joostvanviegen/vlettenrally-tileserver:latest
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          ports:
+            - name: http
+              containerPort: 3000
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
 
 ---
 apiVersion: apps/v1
