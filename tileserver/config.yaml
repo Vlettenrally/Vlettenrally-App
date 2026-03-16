@@ -2,6 +2,7 @@
 # Serves pre-built .mbtiles from Planetiler
 
 listen_addresses: '0.0.0.0:3000'
+route_prefix: /tiles
 
 # CORS headers for frontend access
 web:
