@@ -292,8 +292,12 @@ spec:
                 secretKeyRef:
                   name: vlettenrally-maps-storj
                   key: secret-key
-            - name: AWS_ENDPOINT_URL
+            - name: AWS_ENDPOINT
               value: "https://gateway.storjshare.io"
+            - name: AWS_VIRTUAL_HOSTED_STYLE_REQUEST
+              value: "false"
+            - name: AWS_REGION
+              value: "eu-west-1"
           volumeMounts:
             - name: tileserver-config
               mountPath: /config.yaml
