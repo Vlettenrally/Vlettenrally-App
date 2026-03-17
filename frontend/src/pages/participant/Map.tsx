@@ -9,8 +9,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Box, Alert, CircularProgress, Typography } from '@mui/material';
 import { TeamLayout } from '../../components/TeamLayout';
-import { MapView, getTeamColor } from '../../components/MapView';
+import { MapView } from '../../components/MapView';
 import type { MapMarker } from '../../components/MapView';
+import { getTeamColor } from '../../utils/teamColors';
 import type { TeamLocation, Checkpoint } from '../../types/entities';
 import { useTeamStore } from '../../store/useTeamStore';
 import { useTeamWebSocket } from '../../hooks/useWebSocket';
@@ -26,35 +27,42 @@ export default function ParticipantMap() {
 
   const [myLocation, setMyLocation] = useState<TeamLocation | null>(null);
   const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!!gameId);
   const [error, setError] = useState<string | null>(null);
 
   // Fetch checkpoints on mount
   useEffect(() => {
     if (!gameId) {
-      setLoading(false);
       return;
     }
 
-    setLoading(true);
-    setError(null);
+    let cancelled = false;
 
-    api.getCheckpoints(gameId)
-      .then(response => {
+    const fetchCheckpoints = async () => {
+      try {
+        const response = await api.getCheckpoints(gameId);
+        if (cancelled) return;
+
         if (response.data) {
           setCheckpoints(response.data);
         }
         if (response.error) {
           setError(response.error);
         }
-      })
-      .catch(err => {
+      } catch (err) {
+        if (cancelled) return;
         console.error('Failed to load checkpoints:', err);
         setError('Kon checkpoints niet laden');
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchCheckpoints();
+
+    return () => { cancelled = true; };
   }, [gameId]);
 
   // Subscribe to real-time location updates (team receives only their own location)

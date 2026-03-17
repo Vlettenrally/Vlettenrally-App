@@ -1,7 +1,7 @@
 /**
  * Check-in Page - Game-scoped token authentication with team selection and data collection
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Alert,
@@ -45,14 +45,14 @@ export function CheckInPage() {
   const [participantsText, setParticipantsText] = useState('');
   const [emergencyPhonesText, setEmergencyPhonesText] = useState('');
 
-  const persistTeamData = (teamData: PlayerTeam) => {
+  const persistTeamData = useCallback((teamData: PlayerTeam) => {
     storage.setTeamId(teamData.id);
     storage.setGameId(teamData.gameId);
     storage.setTeamData(teamData);
     setTeam(teamData);
-  };
+  }, [setTeam]);
 
-  const continueWithTeam = async (
+  const continueWithTeam = useCallback(async (
     teamData: PlayerTeam,
     setErrorMessage: (message: string) => void
   ) => {
@@ -89,7 +89,7 @@ export function CheckInPage() {
     setTeamId(teamData.id);
     setGameId(teamData.gameId);
     setStep('details');
-  };
+  }, [persistTeamData]);
 
   const sortedTeamOptions = useMemo(() => {
     return [...teamOptions].sort((a, b) => {
@@ -158,7 +158,7 @@ export function CheckInPage() {
     };
 
     authenticateWithToken();
-  }, [searchParams, navigate, setTeam]);
+  }, [searchParams, navigate, setTeam, continueWithTeam]);
 
   const handleTeamSelection = async () => {
     if (!checkInToken || !selectedTeam) {
