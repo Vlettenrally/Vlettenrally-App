@@ -281,18 +281,27 @@ spec:
           ports:
             - name: http
               containerPort: 3000
+          volumeMounts:
+            - name: tileserver-config
+              mountPath: /config.yaml
+              subPath: config.yaml
+              readOnly: true
           livenessProbe:
             httpGet:
-              path: /health
-              port: 3000
+              path: /tiles/health
+              port: http
             initialDelaySeconds: 10
             periodSeconds: 30
           readinessProbe:
             httpGet:
-              path: /health
-              port: 3000
+              path: /tiles/health
+              port: http
             initialDelaySeconds: 5
             periodSeconds: 10
+      volumes:
+        - name: tileserver-config
+          secret:
+            secretName: vlettenrally-tileserver-config
 
 ---
 apiVersion: apps/v1

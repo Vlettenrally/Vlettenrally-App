@@ -20,6 +20,7 @@ data:
   FIREBASE_APP_ID: "1:380048376680:web:3a7114c3c951f5e93e8cdd"
   FIREBASE_VAPID_KEY: "BIMwTKTOamzo2F06exXTOUXretRoqcaERk0Q9AN-AF7PcZet_3FjRBQdpSlH9tUBnMikCXJgigeKpqgjKxg2n2I"
 
+
 ---
 apiVersion: v1
 kind: ConfigMap
