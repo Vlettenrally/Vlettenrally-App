@@ -5,9 +5,9 @@ route_prefix: /tiles
 # CORS headers for frontend access
 cors:
   origin:
-    - "game.vlettenrally.nl"
-    - "vlettenrally.lntserv.nl"
-    - "localhost:5173"
+    - "https://game.vlettenrally.nl"
+    - "https://vlettenrally.lntserv.nl"
+    - "http://localhost:5173"
 
 # PMTiles sources from Storj S3
 pmtiles:

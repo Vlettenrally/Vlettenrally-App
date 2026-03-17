@@ -10,7 +10,6 @@ data:
   API_BASE_URL: "https://game.vlettenrally.nl/api/v1"
   WS_URL: "wss://game.vlettenrally.nl/ws"
   USE_MOCKS: "false"
-  TILE_SERVER_URL: "https://game.vlettenrally.nl/tiles"
   # Firebase Configuration
   FIREBASE_API_KEY: "AIzaSyDYkywznpK4UZO1cZHIhm7TpI7_7GDLrWI"
   FIREBASE_AUTH_DOMAIN: "vlettenrally-prod.firebaseapp.com"

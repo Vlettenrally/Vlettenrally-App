@@ -183,9 +183,9 @@ registerRoute(
 
 // Cache map tiles
 registerRoute(
-  ({ request }) => request.url.includes('map-tiles'),
+  ({ request }) => request.url.includes('/tiles/'),
   new CacheFirst({
-    cacheName: 'osm-tiles-cache',
+    cacheName: 'map-tiles-cache',
     plugins: [
       new CacheableResponsePlugin({
         statuses: [0, 200],
