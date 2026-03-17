@@ -24,12 +24,12 @@ jobs:
       image: eclipse-temurin:21.0.10_7-jdk
 
     steps:
-      - name: Install AWS CLI
+      - name: Install uplink CLI
         run: |
-          apt-get update && apt-get install -y unzip curl
-          curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o awscliv2.zip
-          unzip -q awscliv2.zip
-          ./aws/install
+          apt-get update && apt-get install -y curl
+          curl -fsSL https://github.com/storj/storj/releases/latest/download/uplink_linux_amd64.zip -o uplink.zip
+          unzip -q uplink.zip
+          install uplink /usr/local/bin/
 
       - name: Download Planetiler
         run: wget -q https://github.com/onthegomap/planetiler/releases/latest/download/planetiler.jar
@@ -45,14 +45,8 @@ jobs:
 
       - name: Upload to Storj
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.STORJ_MAPS_ACCESS_KEY }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.STORJ_MAPS_SECRET_KEY }}
+          UPLINK_ACCESS: ${{ secrets.STORJ_MAPS_UPLINK_ACCESS }}
         run: |
-          FILESIZE=$(stat -c%s netherlands.pmtiles)
-          aws s3api put-object \
-            --bucket ${{ secrets.STORJ_MAPS_BUCKET }} \
-            --key netherlands.pmtiles \
-            --body netherlands.pmtiles \
-            --content-length "$FILESIZE" \
-            --endpoint-url=https://gateway.storjshare.io
+          uplink cp netherlands.pmtiles \
+            sj://${{ secrets.STORJ_MAPS_BUCKET }}/netherlands.pmtiles
 
