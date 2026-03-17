@@ -19,21 +19,24 @@ on:
 jobs:
   generate-and-upload:
     name: Generate & Upload Tiles
-    runs-on: ubuntu-latest
+    runs-on: arc-runner-set-vlettenrally
+    container:
+      image: eclipse-temurin:21.0.10_7-jdk
 
     steps:
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '21'
+      - name: Install AWS CLI
+        run: |
+          apt-get update && apt-get install -y unzip curl
+          curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o awscliv2.zip
+          unzip -q awscliv2.zip
+          ./aws/install
 
       - name: Download Planetiler
         run: wget -q https://github.com/onthegomap/planetiler/releases/latest/download/planetiler.jar
 
       - name: Generate PMTiles
         run: |
-          java -Xmx4g -jar planetiler.jar \
+          java -Xmx6g -jar planetiler.jar \
             --download \
             --area=netherlands \
             --output=netherlands.pmtiles \
