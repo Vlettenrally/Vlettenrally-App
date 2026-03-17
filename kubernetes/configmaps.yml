@@ -23,6 +23,29 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
+  name: vlettenrally-tileserver-config
+data:
+  config.yaml: |
+    listen_addresses: '0.0.0.0:3000'
+    route_prefix: /tiles
+
+    # CORS headers for frontend access
+    cors:
+      origin:
+        - "game.vlettenrally.nl"
+        - "vlettenrally.lntserv.nl"
+        - "localhost:5173"
+
+    # PMTiles sources from Storj S3
+    pmtiles:
+      sources:
+        netherlands:
+          path: s3://maps/netherlands.pmtiles
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
   name: vlettenrally-valkey-config
 data:
   valkey.conf: |

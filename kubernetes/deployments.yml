@@ -281,6 +281,24 @@ spec:
           ports:
             - name: http
               containerPort: 3000
+          env:
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: vlettenrally-maps-storj
+                  key: access-key
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: vlettenrally-maps-storj
+                  key: secret-key
+            - name: AWS_ENDPOINT_URL
+              value: "https://gateway.storjshare.io"
+          volumeMounts:
+            - name: tileserver-config
+              mountPath: /config.yaml
+              subPath: config.yaml
+              readOnly: true
           livenessProbe:
             httpGet:
               path: /health
@@ -293,6 +311,10 @@ spec:
               port: 3000
             initialDelaySeconds: 5
             periodSeconds: 10
+      volumes:
+        - name: tileserver-config
+          configMap:
+            name: vlettenrally-tileserver-config
 
 ---
 apiVersion: apps/v1
