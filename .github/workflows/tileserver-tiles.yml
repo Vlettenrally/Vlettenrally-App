@@ -48,7 +48,11 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.STORJ_MAPS_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.STORJ_MAPS_SECRET_KEY }}
         run: |
-          aws s3 cp netherlands.pmtiles \
-            s3://${{ secrets.STORJ_MAPS_BUCKET }}/netherlands.pmtiles \
+          FILESIZE=$(stat -c%s netherlands.pmtiles)
+          aws s3api put-object \
+            --bucket ${{ secrets.STORJ_MAPS_BUCKET }} \
+            --key netherlands.pmtiles \
+            --body netherlands.pmtiles \
+            --content-length "$FILESIZE" \
             --endpoint-url=https://gateway.storjshare.io
 
