@@ -10,7 +10,8 @@ public enum WebSocketMessageType {
     // Client -> Server messages
     PING("PING"),
     SWITCH_GAME("SWITCH_GAME"),
-    
+    MAP_HEARTBEAT("MAP_HEARTBEAT"),
+
     // Server -> Client messages
     PONG("PONG"),
     GAME_SWITCHED("GAME_SWITCHED"),
@@ -26,8 +27,9 @@ public enum WebSocketMessageType {
     GAME_STATUS("GAME_STATUS"),
     ADMIN_ALERT("ADMIN_ALERT"),
     TEAM_CHECKIN("TEAM_CHECKIN"),
-    TEAM_UPDATE("TEAM_UPDATE");
-    
+    TEAM_UPDATE("TEAM_UPDATE"),
+    LOCATION_UPDATE("LOCATION_UPDATE");
+
     private final String value;
     
     WebSocketMessageType(String value) {

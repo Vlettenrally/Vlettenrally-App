@@ -3,3 +3,4 @@ export { DashboardPage, DashboardPage as ParticipantDashboard } from './Dashboar
 export { default as ParticipantMessages } from './Messages';
 export { default as Rankings } from './Rankings';
 export { default as Rivals } from './Rivals';
+export { default as ParticipantMap } from './Map';

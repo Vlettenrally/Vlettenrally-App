@@ -29,4 +29,7 @@ public final class WebSocketEventTypes {
     
     // Admin events
     public static final String ADMIN_ALERT = "ADMIN_ALERT";
+
+    // Location events
+    public static final String LOCATION_UPDATE = "LOCATION_UPDATE";
 }

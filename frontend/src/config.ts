@@ -39,6 +39,19 @@ export const config = {
   wsUrl: import.meta.env.VITE_WS_URL ?? 'ws://localhost:8080/ws',
 
   /**
+   * Map style URL for MapLibre.
+   * When set, used as the full style (e.g. OpenFreeMap in dev).
+   * When empty, the local /map-style.json is used with self-hosted tiles.
+   */
+  mapStyleUrl: import.meta.env.VITE_MAP_STYLE_URL ?? '',
+
+  /**
+   * Tile URL template for self-hosted map tiles (used when mapStyleUrl is empty).
+   * Must include {z}/{x}/{y} placeholders.
+   */
+  tileUrl: import.meta.env.VITE_TILE_URL ?? '/tiles/netherlands/{z}/{x}/{y}',
+
+  /**
    * Enable verbose logging
    */
   debug: import.meta.env.DEV,

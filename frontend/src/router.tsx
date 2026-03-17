@@ -5,12 +5,14 @@ import {
   ParticipantMessages,
   Rankings,
   Rivals,
+  ParticipantMap,
   AdminDashboard,
   Games,
   Teams,
   AdminMessages,
   Automations,
   Analytics,
+  AdminMap,
 } from './pages';
 import AdminUsers from './pages/admin/AdminUsers';
 
@@ -21,6 +23,7 @@ const participantRoutes = [
   { path: '/messages', element: <ParticipantMessages /> },
   { path: '/rankings', element: <Rankings /> },
   { path: '/rivals', element: <Rivals /> },
+  { path: '/map', element: <ParticipantMap /> },
 ];
 
 // Admin routes
@@ -32,6 +35,7 @@ const adminRoutes = [
   { path: '/admin/automations', element: <Automations /> },
   { path: '/admin/analytics', element: <Analytics /> },
   { path: '/admin/admin-users', element: <AdminUsers /> },
+  { path: '/admin/map', element: <AdminMap /> },
 ];
 
 export const router = createBrowserRouter([

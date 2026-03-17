@@ -23,6 +23,7 @@ export const WebSocketEventType = {
   TEAM_UPDATE: 'TEAM_UPDATE',
   PONG: 'PONG',
   GAME_SWITCHED: 'GAME_SWITCHED',
+  LOCATION_UPDATE: 'LOCATION_UPDATE',
   ERROR: 'ERROR',
 } as const;
 

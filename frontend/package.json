@@ -17,6 +17,7 @@
     "@mui/x-data-grid": "^7.24.2",
     "date-fns": "^4.1.0",
     "firebase": "^12.8.0",
+    "maplibre-gl": "^5.20.1",
     "qrcode": "^1.5.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

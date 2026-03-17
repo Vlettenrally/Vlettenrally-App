@@ -12,12 +12,11 @@ public class TeamConverter {
         if (dto == null) {
             return null;
         }
-        Team team = new Team(
+        return new Team(
                 dto.id(),
                 dto.gameId(),
                 dto.name(),
                 dto.description());
-        return team;
     }
     
     public TeamResponse toDto(Team domain) {

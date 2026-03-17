@@ -64,6 +64,33 @@ export interface LocationTestResult {
 }
 
 /**
+ * Team location data from location tracking
+ */
+export interface TeamLocation {
+  teamId: string;
+  teamName: string;
+  latitude: number;
+  longitude: number;
+  speed?: number;
+  heading?: number;
+  locationTime: string;
+}
+
+/**
+ * Checkpoint data for map display
+ */
+export interface Checkpoint {
+  id: string;
+  gameId: string;
+  name: string;
+  openingTime?: string;
+  closingTime?: string;
+  points: number;
+  latitude?: number;
+  longitude?: number;
+}
+
+/**
  * Base team fields shared across all team types
  */
 interface TeamBase {

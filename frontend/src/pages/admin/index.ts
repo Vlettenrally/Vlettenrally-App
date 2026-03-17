@@ -6,3 +6,4 @@ export { default as Automations } from './Automations';
 export { default as Analytics } from './Analytics';
 export { default as AdminLogin } from './AdminLogin';
 export { default as Settings } from './Settings';
+export { default as AdminMap } from './Map';

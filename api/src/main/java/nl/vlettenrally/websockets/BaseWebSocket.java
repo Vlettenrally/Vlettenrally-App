@@ -29,8 +29,12 @@ public abstract class BaseWebSocket {
     @Inject
     protected WebSocketPingHandler pingHandler;
 
+    @Inject
+    protected MapSubscriptionManager mapSubscriptionManager;
+
     @OnClose
     public void onClose(Session session) {
+        cleanupMapSubscription(session);
         sessionManager.removeSession(session.getId());
         valkeySessionStore.removeSession(session.getId()).subscribe().with(
             item -> {},
@@ -42,11 +46,22 @@ public abstract class BaseWebSocket {
     @OnError
     public void onError(Session session, Throwable throwable) {
         Log.errorf("WebSocket error on session %s: %s", session.getId(), throwable.getMessage());
+        cleanupMapSubscription(session);
         sessionManager.removeSession(session.getId());
         valkeySessionStore.removeSession(session.getId()).subscribe().with(
             item -> {},
             failure -> Log.errorf("Error removing session from Valkey: %s", failure.getMessage())
         );
+    }
+
+    /**
+     * Remove any map subscription for this session (admin sessions only).
+     */
+    private void cleanupMapSubscription(Session session) {
+        WebSocketSession wsSession = sessionManager.getSession(session.getId());
+        if (wsSession != null && wsSession.isAdmin() && wsSession.getGameId() != null) {
+            mapSubscriptionManager.unsubscribe(session.getId(), wsSession.getGameId());
+        }
     }
     
     /**

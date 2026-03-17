@@ -29,6 +29,7 @@ import {
   Leaderboard as LeaderboardIcon,
   Logout as LogoutIcon,
   WifiOff as WifiOffIcon,
+  Map as MapIcon,
 } from '@mui/icons-material';
 import { useMessageStore } from '../store/useMessageStore';
 import { storage } from '../services/storage';
@@ -79,6 +80,7 @@ export function TeamLayout({ children }: TeamLayoutProps) {
 
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
+    { text: 'Kaart', icon: <MapIcon />, path: '/map' },
     { text: 'Berichten', icon: <MessageIcon />, path: '/messages', badge: unreadCount },
     { text: 'Rankings', icon: <LeaderboardIcon />, path: '/rankings' },
     { text: 'Rivaal', icon: <RivalIcon />, path: '/rival' },

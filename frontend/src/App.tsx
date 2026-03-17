@@ -30,6 +30,7 @@ import api from './services/api';
 import {
   AdminDashboard,
   AdminLogin,
+  AdminMap,
   AdminMessages,
   Analytics,
   Automations,
@@ -329,6 +330,16 @@ function App() {
               <AdminRoute>
                 <AdminLayout>
                   <AdminDashboard />
+                </AdminLayout>
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/map"
+            element={
+              <AdminRoute>
+                <AdminLayout>
+                  <AdminMap />
                 </AdminLayout>
               </AdminRoute>
             }

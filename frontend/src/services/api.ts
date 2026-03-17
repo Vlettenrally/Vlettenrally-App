@@ -12,6 +12,8 @@ import type {
   ExternalEvent,
   TeamImportResult,
   LocationTestResult,
+  TeamLocation,
+  Checkpoint,
   AdminTeam,
   PlayerTeam,
   PublicTeam,
@@ -469,6 +471,15 @@ async getGames() : Promise<ApiResponse<Game[]>> {
 
   async testLocationEndpoint(gameId: string) : Promise<ApiResponse<LocationTestResult>> {
     return this.post(`/games/${gameId}/test-location-endpoint`);
+  }
+
+  // Location endpoints
+  async getLatestTeamLocations(gameId: string): Promise<ApiResponse<TeamLocation[]>> {
+    return this.get(`/games/${gameId}/locations/latest`);
+  }
+
+  async getCheckpoints(gameId: string): Promise<ApiResponse<Checkpoint[]>> {
+    return this.get(`/games/${gameId}/checkpoints`);
   }
 
   // External API endpoints

@@ -28,6 +28,9 @@ public class AdminWebSocket extends BaseWebSocket {
     @Inject
     WebSocketTokenService tokenService;
 
+    @Inject
+    MapSubscriptionManager mapSubscriptionManager;
+
     @OnOpen
     public void onOpen(Session session, @PathParam("token") String token) {
         // Validate token and extract admin data
@@ -90,6 +93,11 @@ public class AdminWebSocket extends BaseWebSocket {
                         return;
                     }
 
+                    if (type == WebSocketMessageType.MAP_HEARTBEAT) {
+                        mapSubscriptionManager.subscribe(session.getId(), wsSession.getGameId());
+                        return;
+                    }
+
                     Log.infof("Admin WebSocket message from Game %s: %s", wsSession.getGameId(), message);
                 },
                 failure -> Log.errorf("Error processing message for session %s: %s", session.getId(), failure.getMessage())
@@ -112,6 +120,12 @@ public class AdminWebSocket extends BaseWebSocket {
         try {
             UUID gameId = UUID.fromString(gameIdStr);
             UUID previousGameId = wsSession.getGameId();
+
+            // Unsubscribe from map on previous game
+            if (previousGameId != null) {
+                mapSubscriptionManager.unsubscribe(session.getId(), previousGameId);
+            }
+
             wsSession.setGameId(gameId);
             valkeySessionStore.updateGameId(session.getId(), gameId).subscribe().with(
                 item -> {},
