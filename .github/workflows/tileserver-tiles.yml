@@ -1,0 +1,51 @@
+# =============================================================================
+# Tile Generation Pipeline
+# =============================================================================
+# Downloads Netherlands OSM data from Geofabrik, builds PMTiles with
+# Planetiler, and uploads to Storj S3-compatible storage.
+#
+# Schedule: 1st of every month at 04:00 UTC
+# Manual:   workflow_dispatch
+# =============================================================================
+
+name: Generate Map Tiles
+
+on:
+  schedule:
+    # Run at 04:00 UTC on the 1st of every month
+    - cron: '0 4 1 * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  generate-and-upload:
+    name: Generate & Upload Tiles
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Download Planetiler
+        run: wget -q https://github.com/onthegomap/planetiler/releases/latest/download/planetiler.jar
+
+      - name: Generate PMTiles
+        run: |
+          java -Xmx4g -jar planetiler.jar \
+            --download \
+            --area=netherlands \
+            --output=netherlands.pmtiles \
+            --nodemap-type=sparsearray \
+            --storage=mmap
+
+      - name: Upload to Storj
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.STORJ_MAPS_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.STORJ_MAPS_SECRET_KEY }}
+        run: |
+          aws s3 cp netherlands.pmtiles \
+            s3://${{ secrets.STORJ_MAPS_BUCKET }}/netherlands.pmtiles \
+            --endpoint-url=https://gateway.storjshare.io
+
