@@ -24,7 +24,7 @@ RUN java -Xmx4g -jar planetiler.jar \
     --storage=mmap
 
 # Stage 2: Serve with Martin
-FROM ghcr.io/maplibre/martin:v1.4.0
+FROM ghcr.io/maplibre/martin:1.4.0
 
 COPY --from=builder /build/output.mbtiles /data/output.mbtiles
 COPY config.yaml /config.yaml
