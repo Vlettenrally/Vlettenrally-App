@@ -91,7 +91,11 @@ export function MapView({ markers, center, zoom, className }: MapViewProps) {
       : fetch('/map-style.json')
           .then(res => res.json())
           .then(style => {
-            style.sources.openmaptiles.tiles = [config.tileUrl];
+            // Resolve to absolute URL — MapLibre web workers can't handle relative URLs
+            const tileUrl = config.tileUrl.startsWith('http')
+              ? config.tileUrl
+              : `${window.location.origin}${config.tileUrl}`;
+            style.sources.openmaptiles.tiles = [tileUrl];
             return style;
           });
 
