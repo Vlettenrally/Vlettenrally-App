@@ -6,7 +6,7 @@
       "type": "vector",
       "tiles": [],
       "minzoom": 0,
-      "maxzoom": 6,
+      "maxzoom": 14,
       "attribution": "© <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors"
     }
   },
