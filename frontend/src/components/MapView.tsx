@@ -105,10 +105,15 @@ export function MapView({ markers, center, zoom, className }: MapViewProps) {
           style: style,
           center: center || [5.2913, 52.1326], // Default: center of Netherlands
           zoom: zoom || 7,
+          maxPitch: 0,
+          dragRotate: false,
+          pitchWithRotate: false,
           attributionControl: {},
         });
 
-        map.addControl(new maplibregl.NavigationControl(), 'top-right');
+        map.touchZoomRotate.disableRotation();
+
+        map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
         map.addControl(new maplibregl.GeolocateControl({
           positionOptions: { enableHighAccuracy: true },
           trackUserLocation: true,
