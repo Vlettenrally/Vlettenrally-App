@@ -23,13 +23,17 @@ interface MapViewProps {
   center?: [number, number]; // [lng, lat]
   zoom?: number;
   className?: string;
+  /** When provided, replaces the browser GeolocateControl with a button that flies to this team location */
+  teamLocation?: [number, number]; // [lng, lat]
 }
 
 
-export function MapView({ markers, center, zoom, className }: MapViewProps) {
+export function MapView({ markers, center, zoom, className, teamLocation }: MapViewProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersSourceRef = useRef<boolean>(false);
+  const teamLocationRef = useRef(teamLocation);
+  teamLocationRef.current = teamLocation;
 
   const updateMarkers = useCallback(() => {
     const map = mapRef.current;
@@ -115,10 +119,52 @@ export function MapView({ markers, center, zoom, className }: MapViewProps) {
         map.touchZoomRotate.disableRotation();
 
         map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
-        map.addControl(new maplibregl.GeolocateControl({
-          positionOptions: { enableHighAccuracy: true },
-          trackUserLocation: true,
-        }), 'top-right');
+
+        if (teamLocation) {
+          // Custom locate button that flies to the team's last known tracker location
+          class TeamLocateControl implements maplibregl.IControl {
+            private _container: HTMLDivElement | undefined;
+            private _map: maplibregl.Map | undefined;
+
+            onAdd(map: maplibregl.Map) {
+              this._map = map;
+              this._container = document.createElement('div');
+              this._container.className = 'maplibregl-ctrl maplibregl-ctrl-group';
+
+              const button = document.createElement('button');
+              button.type = 'button';
+              button.title = 'Ga naar teamlocatie';
+              button.setAttribute('aria-label', 'Ga naar teamlocatie');
+              button.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/></svg>';
+              button.style.display = 'flex';
+              button.style.alignItems = 'center';
+              button.style.justifyContent = 'center';
+              button.style.cursor = 'pointer';
+
+              button.addEventListener('click', () => {
+                if (teamLocationRef.current) {
+                  this._map?.flyTo({ center: teamLocationRef.current, zoom: 14 });
+                }
+              });
+
+              this._container.appendChild(button);
+              return this._container;
+            }
+
+            onRemove() {
+              this._container?.parentNode?.removeChild(this._container);
+              this._map = undefined;
+            }
+          }
+
+          map.addControl(new TeamLocateControl(), 'top-right');
+        } else {
+          // Admin / fallback: use browser geolocation
+          map.addControl(new maplibregl.GeolocateControl({
+            positionOptions: { enableHighAccuracy: true },
+            trackUserLocation: true,
+          }), 'top-right');
+        }
 
         map.on('load', () => {
           // Add team markers source and layer

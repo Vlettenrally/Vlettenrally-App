@@ -8,7 +8,6 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { Box, Alert, CircularProgress, Typography } from '@mui/material';
-import { TeamLayout } from '../../components/TeamLayout';
 import { MapView } from '../../components/MapView';
 import type { MapMarker } from '../../components/MapView';
 import { getTeamColor } from '../../utils/teamColors';
@@ -107,61 +106,59 @@ export default function ParticipantMap() {
     : [5.2913, 52.1326];
 
   return (
-    <TeamLayout>
-      <Box sx={{ height: 'calc(100vh - 56px)', display: 'flex', flexDirection: 'column' }}>
-        {error && (
-          <Alert severity="error" sx={{ borderRadius: 0 }}>
-            {error}
-          </Alert>
-        )}
+    <Box sx={{ height: 'calc(100vh - 56px)', display: 'flex', flexDirection: 'column' }}>
+      {error && (
+        <Alert severity="error" sx={{ borderRadius: 0 }}>
+          {error}
+        </Alert>
+      )}
 
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
-            <CircularProgress />
-          </Box>
-        ) : !gameId ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
-            <Typography color="text.secondary">Geen game geselecteerd</Typography>
-          </Box>
-        ) : (
-          <Box sx={{ flex: 1, position: 'relative' }}>
-            <MapView
-              markers={markers}
-              center={center}
-              zoom={myLocation ? 14 : 8}
-            />
-            {/* Status indicator */}
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
+          <CircularProgress />
+        </Box>
+      ) : !gameId ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
+          <Typography color="text.secondary">Geen game geselecteerd</Typography>
+        </Box>
+      ) : (
+        <Box sx={{ flex: 1, position: 'relative' }}>
+          <MapView
+            markers={markers}
+            center={center}
+            zoom={myLocation ? 14 : 8}
+          />
+          {/* Status indicator */}
+          <Box
+            sx={{
+              position: 'absolute',
+              bottom: 16,
+              left: 16,
+              bgcolor: 'background.paper',
+              borderRadius: 1,
+              px: 1.5,
+              py: 0.5,
+              boxShadow: 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+            }}
+          >
             <Box
               sx={{
-                position: 'absolute',
-                bottom: 16,
-                left: 16,
-                bgcolor: 'background.paper',
-                borderRadius: 1,
-                px: 1.5,
-                py: 0.5,
-                boxShadow: 1,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                bgcolor: connected ? 'success.main' : 'warning.main',
               }}
-            >
-              <Box
-                sx={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  bgcolor: connected ? 'success.main' : 'warning.main',
-                }}
-              />
-              <Typography variant="caption" color="text.secondary">
-                {myLocation ? 'Locatie beschikbaar' : 'Wachten op locatie...'}
-              </Typography>
-            </Box>
+            />
+            <Typography variant="caption" color="text.secondary">
+              {myLocation ? 'Locatie beschikbaar' : 'Wachten op locatie...'}
+            </Typography>
           </Box>
-        )}
-      </Box>
-    </TeamLayout>
+        </Box>
+      )}
+    </Box>
   );
 }
 

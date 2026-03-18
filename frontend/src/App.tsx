@@ -6,7 +6,7 @@ import {useCallback, useEffect, useState} from 'react';
 import {BrowserRouter, Navigate, Route, Routes, useNavigate} from 'react-router-dom';
 import {Alert, Button, createTheme, CssBaseline, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Snackbar, ThemeProvider} from '@mui/material';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
-import {CheckInPage, DashboardPage} from './pages';
+import {CheckInPage, DashboardPage, ParticipantMap} from './pages';
 import {MessagesPage} from './pages/MessagesPage';
 import {TeamLayout} from './components/TeamLayout';
 import {AdminLayout} from './components/AdminLayout';
@@ -317,6 +317,16 @@ function App() {
               <TeamRoute>
                 <TeamLayout>
                   <MessagesPage />
+                </TeamLayout>
+              </TeamRoute>
+            }
+          />
+          <Route
+            path="/map"
+            element={
+              <TeamRoute>
+                <TeamLayout>
+                  <ParticipantMap />
                 </TeamLayout>
               </TeamRoute>
             }
