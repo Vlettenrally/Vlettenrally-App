@@ -105,6 +105,7 @@ export function MapView({ markers, center, zoom, className }: MapViewProps) {
           style: style,
           center: center || [5.2913, 52.1326], // Default: center of Netherlands
           zoom: zoom || 7,
+          maxZoom: 16,
           attributionControl: {},
         });
 

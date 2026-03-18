@@ -40,6 +40,7 @@ jobs:
             --download \
             --area=netherlands \
             --output=netherlands.pmtiles \
+            --maxzoom=16 \
             --nodemap-type=sparsearray \
             --storage=mmap
 
