@@ -135,3 +135,6 @@ export function MessagesPage() {
     </Container>
   );
 }
+
+export default MessagesPage;
+

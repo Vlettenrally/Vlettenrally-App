@@ -451,3 +451,6 @@ export function CheckInPage() {
     </Container>
   );
 }
+
+export default CheckInPage;
+

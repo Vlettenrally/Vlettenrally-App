@@ -6,9 +6,9 @@
  * - Checkpoint markers for the game
  * - User's device geolocation via MapLibre GeolocateControl
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { Box, Alert, CircularProgress, Typography } from '@mui/material';
-import { MapView } from '../../components/MapView';
+const MapView = lazy(() => import('../../components/MapView'));
 import type { MapMarker } from '../../components/MapView';
 import { getTeamColor } from '../../utils/teamColors';
 import type { TeamLocation, Checkpoint } from '../../types/entities';
@@ -123,11 +123,13 @@ export default function ParticipantMap() {
         </Box>
       ) : (
         <Box sx={{ flex: 1, position: 'relative' }}>
-          <MapView
-            markers={markers}
-            center={center}
-            zoom={myLocation ? 14 : 8}
-          />
+          <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1, height: '100%' }}><CircularProgress /></Box>}>
+            <MapView
+              markers={markers}
+              center={center}
+              zoom={myLocation ? 14 : 8}
+            />
+          </Suspense>
           {/* Status indicator */}
           <Box
             sx={{

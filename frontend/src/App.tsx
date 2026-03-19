@@ -2,12 +2,10 @@
  * Main App Component with Routing
  */
 import type {ReactNode} from 'react';
-import {useCallback, useEffect, useState} from 'react';
+import {lazy, Suspense, useCallback, useEffect, useState} from 'react';
 import {BrowserRouter, Navigate, Route, Routes, useNavigate} from 'react-router-dom';
-import {Alert, Button, createTheme, CssBaseline, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Snackbar, ThemeProvider} from '@mui/material';
+import {Alert, Box, Button, CircularProgress, createTheme, CssBaseline, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Snackbar, ThemeProvider} from '@mui/material';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
-import {CheckInPage, DashboardPage, ParticipantMap} from './pages';
-import {MessagesPage} from './pages/MessagesPage';
 import {TeamLayout} from './components/TeamLayout';
 import {AdminLayout} from './components/AdminLayout';
 import {storage} from './services/storage';
@@ -27,18 +25,35 @@ import {
 } from './services/notificationSync';
 import {type Message, useMessageStore} from './store/useMessageStore';
 import api from './services/api';
-import {
-  AdminDashboard,
-  AdminLogin,
-  AdminMap,
-  AdminMessages,
-  Analytics,
-  Automations,
-  Games,
-  Settings,
-  Teams,
-} from './pages/admin';
-import AdminUsers from './pages/admin/AdminUsers';
+
+// Lazy-loaded participant pages
+const CheckInPage = lazy(() => import('./pages/participant/Checkin'));
+const DashboardPage = lazy(() => import('./pages/participant/Dashboard'));
+const MessagesPage = lazy(() => import('./pages/MessagesPage'));
+const ParticipantMap = lazy(() => import('./pages/participant/Map'));
+
+// Lazy-loaded admin pages
+const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'));
+const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
+const AdminMap = lazy(() => import('./pages/admin/Map'));
+const AdminMessages = lazy(() => import('./pages/admin/Messages'));
+const Games = lazy(() => import('./pages/admin/Games'));
+const Teams = lazy(() => import('./pages/admin/Teams'));
+const Automations = lazy(() => import('./pages/admin/Automations'));
+const Analytics = lazy(() => import('./pages/admin/Analytics'));
+const Settings = lazy(() => import('./pages/admin/Settings'));
+const AdminUsers = lazy(() => import('./pages/admin/AdminUsers'));
+
+/**
+ * Shared loading fallback for Suspense boundaries
+ */
+function PageLoader() {
+  return (
+    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: 8 }}>
+      <CircularProgress />
+    </Box>
+  );
+}
 
 const theme = createTheme({
   palette: {
@@ -57,11 +72,11 @@ const theme = createTheme({
  */
 function TeamRoute({ children }: { children: ReactNode }) {
   const isCheckedIn = storage.isCheckedIn();
-  
+
   if (!isCheckedIn) {
     return <Navigate to="/check-in" replace />;
   }
-  
+
   return <>{children}</>;
 }
 
@@ -71,12 +86,12 @@ function TeamRoute({ children }: { children: ReactNode }) {
 function AdminRoute({ children }: { children: ReactNode }) {
   const token = storage.getAuthToken();
   const role = storage.getUserRole();
-  
+
   // If no token, redirect to admin login
   if (!token) {
     return <Navigate to="/admin/login" replace />;
   }
-  
+
   // Try to get role from token if not in storage
   if (!role) {
     const roles = getRolesFromToken(token);
@@ -96,7 +111,7 @@ function AdminRoute({ children }: { children: ReactNode }) {
   } else if (role !== 'admin') {
     return <Navigate to="/dashboard" replace />;
   }
-  
+
   return <>{children}</>;
 }
 
@@ -105,11 +120,11 @@ function AdminRoute({ children }: { children: ReactNode }) {
  */
 function RootRedirect() {
   const navigate = useNavigate();
-  
+
   useEffect(() => {
     const token = storage.getAuthToken();
     let role = storage.getUserRole();
-    
+
     // Try to extract role from token if not stored
     if (token && !role) {
       const roles = getRolesFromToken(token);
@@ -122,7 +137,7 @@ function RootRedirect() {
         }
       }
     }
-    
+
     if (role === 'admin') {
       navigate('/admin', { replace: true });
     } else if (storage.isCheckedIn()) {
@@ -131,7 +146,7 @@ function RootRedirect() {
       navigate('/check-in', { replace: true });
     }
   }, [navigate]);
-  
+
   return null;
 }
 
@@ -143,7 +158,7 @@ function App() {
     if (!token) return false;
     return getNotificationPermission() === 'default';
   });
-  
+
   const { addMessage, messages } = useMessageStore();
 
   // Fetch and add a single message to the store (avoiding duplicates)
@@ -152,7 +167,7 @@ function App() {
     if (messages.some((m) => m.id === messageId)) {
       return;
     }
-    
+
     try {
       const response = await api.getMessage(messageId);
       if (response.data) {
@@ -169,13 +184,13 @@ function App() {
     try {
       const pendingIds = await getPendingMessageIds();
       if (pendingIds.length === 0) return;
-      
+
       console.log('[App] Processing pending messages:', pendingIds.length);
-      
+
       for (const messageId of pendingIds) {
         await fetchAndAddMessage(messageId);
       }
-      
+
       await clearPendingMessageIds();
     } catch (error) {
       console.error('[App] Failed to process pending messages:', error);
@@ -205,7 +220,7 @@ function App() {
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    
+
     // Also process on initial mount
     processPendingMessages();
 
@@ -237,7 +252,7 @@ function App() {
     if (!token) return;
 
     const permission = getNotificationPermission();
-    
+
     if (permission === 'granted') {
       // Permission already granted, just register the token
       registerIfPermissionGranted().catch((err) => {
@@ -247,7 +262,7 @@ function App() {
 
     // Set up foreground message handler (async)
     let unsubscribe: (() => void) | null = null;
-    
+
     onForegroundMessage((payload) => {
       // Show notification snackbar
       // Read title/body from data field since we're using data-only messages
@@ -260,7 +275,7 @@ function App() {
           body: body,
         });
       }
-      
+
       // Fetch and add the message to the store
       const messageId = payload.data?.messageId;
       if (messageId) {
@@ -300,13 +315,15 @@ function App() {
           <Route path="/" element={<RootRedirect />} />
           
           {/* Team/Participant routes */}
-          <Route path="/check-in" element={<CheckInPage />} />
+          <Route path="/check-in" element={<Suspense fallback={<PageLoader />}><CheckInPage /></Suspense>} />
           <Route
             path="/dashboard"
             element={
               <TeamRoute>
                 <TeamLayout>
-                  <DashboardPage />
+                  <Suspense fallback={<PageLoader />}>
+                    <DashboardPage />
+                  </Suspense>
                 </TeamLayout>
               </TeamRoute>
             }
@@ -316,7 +333,9 @@ function App() {
             element={
               <TeamRoute>
                 <TeamLayout>
-                  <MessagesPage />
+                  <Suspense fallback={<PageLoader />}>
+                    <MessagesPage />
+                  </Suspense>
                 </TeamLayout>
               </TeamRoute>
             }
@@ -326,20 +345,24 @@ function App() {
             element={
               <TeamRoute>
                 <TeamLayout>
-                  <ParticipantMap />
+                  <Suspense fallback={<PageLoader />}>
+                    <ParticipantMap />
+                  </Suspense>
                 </TeamLayout>
               </TeamRoute>
             }
           />
           
           {/* Admin routes */}
-          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin/login" element={<Suspense fallback={<PageLoader />}><AdminLogin /></Suspense>} />
           <Route
             path="/admin"
             element={
               <AdminRoute>
                 <AdminLayout>
-                  <AdminDashboard />
+                  <Suspense fallback={<PageLoader />}>
+                    <AdminDashboard />
+                  </Suspense>
                 </AdminLayout>
               </AdminRoute>
             }
@@ -349,7 +372,9 @@ function App() {
             element={
               <AdminRoute>
                 <AdminLayout>
-                  <AdminMap />
+                  <Suspense fallback={<PageLoader />}>
+                    <AdminMap />
+                  </Suspense>
                 </AdminLayout>
               </AdminRoute>
             }
@@ -359,7 +384,9 @@ function App() {
             element={
               <AdminRoute>
                 <AdminLayout>
-                  <Games />
+                  <Suspense fallback={<PageLoader />}>
+                    <Games />
+                  </Suspense>
                 </AdminLayout>
               </AdminRoute>
             }
@@ -369,7 +396,9 @@ function App() {
             element={
               <AdminRoute>
                 <AdminLayout>
-                  <Teams />
+                  <Suspense fallback={<PageLoader />}>
+                    <Teams />
+                  </Suspense>
                 </AdminLayout>
               </AdminRoute>
             }
@@ -379,7 +408,9 @@ function App() {
             element={
               <AdminRoute>
                 <AdminLayout>
-                  <AdminMessages />
+                  <Suspense fallback={<PageLoader />}>
+                    <AdminMessages />
+                  </Suspense>
                 </AdminLayout>
               </AdminRoute>
             }
@@ -389,7 +420,9 @@ function App() {
             element={
               <AdminRoute>
                 <AdminLayout>
-                  <MessagesPage />
+                  <Suspense fallback={<PageLoader />}>
+                    <MessagesPage />
+                  </Suspense>
                 </AdminLayout>
               </AdminRoute>
             }
@@ -399,7 +432,9 @@ function App() {
             element={
               <AdminRoute>
                 <AdminLayout>
-                  <Automations />
+                  <Suspense fallback={<PageLoader />}>
+                    <Automations />
+                  </Suspense>
                 </AdminLayout>
               </AdminRoute>
             }
@@ -409,7 +444,9 @@ function App() {
             element={
               <AdminRoute>
                 <AdminLayout>
-                  <Analytics />
+                  <Suspense fallback={<PageLoader />}>
+                    <Analytics />
+                  </Suspense>
                 </AdminLayout>
               </AdminRoute>
             }
@@ -419,7 +456,9 @@ function App() {
             element={
               <AdminRoute>
                 <AdminLayout>
-                  <Settings />
+                  <Suspense fallback={<PageLoader />}>
+                    <Settings />
+                  </Suspense>
                 </AdminLayout>
               </AdminRoute>
             }
@@ -429,7 +468,9 @@ function App() {
             element={
               <AdminRoute>
                 <AdminLayout>
-                  <AdminUsers />
+                  <Suspense fallback={<PageLoader />}>
+                    <AdminUsers />
+                  </Suspense>
                 </AdminLayout>
               </AdminRoute>
             }

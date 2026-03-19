@@ -308,4 +308,4 @@ export function MapView({ markers, center, zoom, className, teamLocation }: MapV
   );
 }
 
-
+export default MapView;

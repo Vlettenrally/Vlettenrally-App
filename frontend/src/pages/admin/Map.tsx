@@ -7,9 +7,9 @@
  * - MAP_HEARTBEAT sent every 10s so backend streams location data to this session
  * - Initial data loaded via REST API on mount
  */
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { Box, Alert, CircularProgress, Typography } from '@mui/material';
-import { MapView } from '../../components/MapView';
+const MapView = lazy(() => import('../../components/MapView'));
 import type { MapMarker } from '../../components/MapView';
 import { getTeamColor } from '../../utils/teamColors';
 import type { TeamLocation, Checkpoint } from '../../types/entities';
@@ -154,10 +154,12 @@ export default function AdminMap() {
         </Box>
       ) : (
         <Box sx={{ flex: 1, position: 'relative' }}>
-          <MapView
-            markers={markers}
-            zoom={10}
-          />
+          <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1, height: '100%' }}><CircularProgress /></Box>}>
+            <MapView
+              markers={markers}
+              zoom={10}
+            />
+          </Suspense>
           {/* Status indicator */}
           <Box
             sx={{
