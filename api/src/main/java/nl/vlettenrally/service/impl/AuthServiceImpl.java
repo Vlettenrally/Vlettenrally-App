@@ -71,6 +71,9 @@ public class AuthServiceImpl implements AuthService {
     @ConfigProperty(name = "vlettenrally.jwt.refresh-token-expiry-days", defaultValue = "1")
     int refreshTokenExpiryDays;
 
+    @ConfigProperty(name = "vlettenrally.jwt.refresh-token-reuse-grace-seconds", defaultValue = "30")
+    int refreshTokenReuseGraceSeconds;
+
     @ConfigProperty(name = "vlettenrally.frontend.base-url", defaultValue = "http://localhost:5173")
     String frontendBaseUrl;
 
@@ -227,8 +230,17 @@ public class AuthServiceImpl implements AuthService {
 
         RefreshToken tokenData = tokenOpt.get();
 
-        // Check if token is already revoked (replay attack detection)
+        // Check if token is already revoked (replay attack detection with grace period)
         if (tokenData.isRevoked()) {
+            // If the token was revoked very recently, this is likely a duplicate request (race condition)
+            // rather than a genuine replay attack. Return empty without revoking all tokens.
+            Instant revokedAt = tokenData.getRevokedAt();
+            if (revokedAt != null && Instant.now().isBefore(revokedAt.plusSeconds(refreshTokenReuseGraceSeconds))) {
+                Log.warnf("Duplicate refresh token usage within grace period - subject: %s, name: %s, revokedAt: %s",
+                    tokenData.getSubject(), tokenData.getName(), revokedAt);
+                return Optional.empty();
+            }
+
             Log.warnf("SECURITY: Replay attack detected - subject: %s, name: %s, revoking all tokens",
                 tokenData.getSubject(), tokenData.getName());
             // Possible token replay attack - revoke all tokens for this user
@@ -302,6 +314,7 @@ public class AuthServiceImpl implements AuthService {
 
         // Mark old refresh token as revoked (token rotation)
         tokenData.setRevoked(true);
+        tokenData.setRevokedAt(Instant.now());
         refreshTokenRepository.save(tokenData);
 
         // Store new refresh token with fresh data

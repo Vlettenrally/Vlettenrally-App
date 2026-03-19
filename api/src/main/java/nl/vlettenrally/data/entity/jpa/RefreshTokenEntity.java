@@ -46,6 +46,9 @@ public class RefreshTokenEntity {
     @Column(name = "revoked", nullable = false)
     private boolean revoked;
 
+    @Column(name = "revoked_at")
+    private Instant revokedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

@@ -23,6 +23,7 @@ public class RefreshToken {
     private Set<String> roles;
     private Instant expiresAt;
     private boolean revoked;
+    private Instant revokedAt;
     private Instant createdAt;
     private Instant updatedAt;
 
