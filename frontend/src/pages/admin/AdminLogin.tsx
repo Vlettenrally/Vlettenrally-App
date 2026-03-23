@@ -73,7 +73,7 @@ export function AdminLogin() {
       }
 
       // Navigate to admin dashboard
-      navigate('/admin', { replace: true });
+      navigate('/admin/dashboard', { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {

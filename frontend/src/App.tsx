@@ -139,7 +139,7 @@ function RootRedirect() {
     }
 
     if (role === 'admin') {
-      navigate('/admin', { replace: true });
+      navigate('/admin/dashboard', { replace: true });
     } else if (storage.isCheckedIn()) {
       navigate('/dashboard', { replace: true });
     } else {
@@ -355,8 +355,9 @@ function App() {
           
           {/* Admin routes */}
           <Route path="/admin/login" element={<Suspense fallback={<PageLoader />}><AdminLogin /></Suspense>} />
+          <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
           <Route
-            path="/admin"
+            path="/admin/dashboard"
             element={
               <AdminRoute>
                 <AdminLayout>

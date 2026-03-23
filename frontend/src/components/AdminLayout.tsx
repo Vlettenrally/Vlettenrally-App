@@ -30,6 +30,7 @@ import {
 import type { SelectChangeEvent } from '@mui/material';
 import {
   Menu as MenuIcon,
+  Dashboard as DashboardIcon,
   SportsScore as GamesIcon,
   Groups as TeamsIcon,
   Message as MessageIcon,
@@ -102,6 +103,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   }, [sidebarCollapsed]);
 
   const menuItems = [
+    { text: 'Dashboard', icon: <DashboardIcon />, path: '/admin/dashboard' },
     { text: 'Kaart', icon: <MapIcon />, path: '/admin/map' },
     { text: 'Games', icon: <GamesIcon />, path: '/admin/games' },
     { text: 'Teams', icon: <TeamsIcon />, path: '/admin/teams' },
