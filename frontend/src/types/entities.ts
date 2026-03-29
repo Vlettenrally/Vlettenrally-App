@@ -88,6 +88,28 @@ export interface Checkpoint {
   points: number;
   latitude?: number;
   longitude?: number;
+  externalId?: string;
+}
+
+/**
+ * Request to create or update a checkpoint (zone)
+ */
+export interface CheckpointRequest {
+  name: string;
+  openingTime?: string;
+  closingTime?: string;
+  points: number;
+  latitude?: number;
+  longitude?: number;
+}
+
+/**
+ * Result of checkpoint import operation
+ */
+export interface CheckpointImportResult {
+  created: number;
+  updated: number;
+  errors: number;
 }
 
 /**

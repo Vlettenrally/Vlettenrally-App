@@ -16,7 +16,8 @@ import java.util.UUID;
 @Entity
 @Table(name = "checkpoints", indexes = {
     @Index(name = "idx_checkpoints_game_id", columnList = "game_id"),
-    @Index(name = "idx_checkpoints_opening_time", columnList = "opening_time")
+    @Index(name = "idx_checkpoints_opening_time", columnList = "opening_time"),
+    @Index(name = "idx_checkpoints_game_external_id", columnList = "game_id, external_id")
 })
 public class CheckpointEntity {
 
@@ -49,6 +50,9 @@ public class CheckpointEntity {
 
     @Column(name = "location", columnDefinition = "geometry(Point, 4326)")
     private Point location;  // PostGIS geometry for geofencing (50m radius)
+
+    @Column(name = "external_id")
+    private String externalId;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

@@ -30,6 +30,7 @@ public class CheckpointMapper {
         domain.setLatitude(entity.getLatitude());
         domain.setLongitude(entity.getLongitude());
         domain.setLocation(entity.getLocation());
+        domain.setExternalId(entity.getExternalId());
         domain.setCreatedAt(entity.getCreatedAt());
         domain.setUpdatedAt(entity.getUpdatedAt());
 
@@ -54,6 +55,7 @@ public class CheckpointMapper {
         entity.setLatitude(domain.getLatitude());
         entity.setLongitude(domain.getLongitude());
         entity.setLocation(domain.getLocation());
+        entity.setExternalId(domain.getExternalId());
         entity.setCreatedAt(domain.getCreatedAt());
         entity.setUpdatedAt(domain.getUpdatedAt());
 
@@ -75,6 +77,7 @@ public class CheckpointMapper {
         entity.setLatitude(domain.getLatitude());
         entity.setLongitude(domain.getLongitude());
         entity.setLocation(domain.getLocation());
+        entity.setExternalId(domain.getExternalId());
         entity.setUpdatedAt(domain.getUpdatedAt());
     }
 }

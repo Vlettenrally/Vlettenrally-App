@@ -23,6 +23,7 @@ public class Checkpoint {
     private Double latitude;
     private Double longitude;
     private Point location;  // PostGIS Point for geofencing (50m radius)
+    private String externalId;  // External ID from location tracker (SocialrunDetail.id)
     private Instant createdAt;
     private Instant updatedAt;
 

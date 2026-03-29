@@ -35,6 +35,11 @@ public class CheckpointServiceImpl implements CheckpointService {
     }
 
     @Override
+    public Optional<Checkpoint> findByGameIdAndExternalId(UUID gameId, String externalId) {
+        return checkpointRepository.findByGameIdAndExternalId(gameId, externalId);
+    }
+
+    @Override
     public Checkpoint save(Checkpoint checkpoint) {
         return checkpointRepository.save(checkpoint);
     }

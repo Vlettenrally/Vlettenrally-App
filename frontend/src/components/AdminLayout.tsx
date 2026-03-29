@@ -44,6 +44,7 @@ import {
   WifiOff as WifiOffIcon,
   Settings as SettingsIcon,
   ManageAccounts as ManageAccountsIcon,
+  Place as PlaceIcon,
 } from '@mui/icons-material';
 import { storage } from '../services/storage';
 import { useGameStore } from '../store/useGameStore';
@@ -107,6 +108,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { text: 'Kaart', icon: <MapIcon />, path: '/admin/map' },
     { text: 'Games', icon: <GamesIcon />, path: '/admin/games' },
     { text: 'Teams', icon: <TeamsIcon />, path: '/admin/teams' },
+    { text: 'Zones', icon: <PlaceIcon />, path: '/admin/zones' },
     { text: 'Berichten', icon: <MessageIcon />, path: '/admin/messages' },
     { text: 'Inbox', icon: <InboxIcon />, path: '/admin/inbox' },
     { text: 'Automations', icon: <AutomationsIcon />, path: '/admin/automations' },
@@ -115,7 +117,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   // Add Admin Users menu item for super admins only
   if (isSuperAdminUser) {
-    menuItems.splice(5, 0, { text: 'Admin Users', icon: <ManageAccountsIcon />, path: '/admin/admin-users' });
+    menuItems.splice(6, 0, { text: 'Admin Users', icon: <ManageAccountsIcon />, path: '/admin/admin-users' });
   }
 
   const handleNavigate = (path: string) => {

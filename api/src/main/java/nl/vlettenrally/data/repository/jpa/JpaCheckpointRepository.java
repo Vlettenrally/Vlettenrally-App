@@ -52,6 +52,20 @@ public class JpaCheckpointRepository extends ReadReplicaAwareRepository implemen
     }
 
     @Override
+    public Optional<Checkpoint> findByGameIdAndExternalId(UUID gameId, String externalId) {
+        try {
+            CheckpointEntity entity = getReadEntityManager()
+                    .createQuery("SELECT c FROM CheckpointEntity c WHERE c.game.id = :gameId AND c.externalId = :externalId", CheckpointEntity.class)
+                    .setParameter("gameId", gameId)
+                    .setParameter("externalId", externalId)
+                    .getSingleResult();
+            return Optional.ofNullable(CheckpointMapper.toDomain(entity));
+        } catch (jakarta.persistence.NoResultException e) {
+            return Optional.empty();
+        }
+    }
+
+    @Override
     @Transactional
     public Checkpoint save(Checkpoint checkpoint) {
         CheckpointEntity entity = getWriteEntityManager().find(CheckpointEntity.class, checkpoint.getId());

@@ -14,6 +14,8 @@ import type {
   LocationTestResult,
   TeamLocation,
   Checkpoint,
+  CheckpointRequest,
+  CheckpointImportResult,
   AdminTeam,
   PlayerTeam,
   PublicTeam,
@@ -480,6 +482,22 @@ async getGames() : Promise<ApiResponse<Game[]>> {
 
   async getCheckpoints(gameId: string): Promise<ApiResponse<Checkpoint[]>> {
     return this.get(`/games/${gameId}/checkpoints`);
+  }
+
+  async createCheckpoint(gameId: string, data: CheckpointRequest): Promise<ApiResponse<Checkpoint>> {
+    return this.post(`/games/${gameId}/checkpoints`, data);
+  }
+
+  async updateCheckpoint(gameId: string, checkpointId: string, data: CheckpointRequest): Promise<ApiResponse<Checkpoint>> {
+    return this.put(`/games/${gameId}/checkpoints/${checkpointId}`, data);
+  }
+
+  async deleteCheckpoint(gameId: string, checkpointId: string): Promise<ApiResponse<void>> {
+    return this.delete(`/games/${gameId}/checkpoints/${checkpointId}`);
+  }
+
+  async importCheckpoints(gameId: string): Promise<ApiResponse<CheckpointImportResult>> {
+    return this.post(`/games/${gameId}/import-checkpoints`);
   }
 
   // External API endpoints

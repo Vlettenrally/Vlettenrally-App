@@ -16,7 +16,9 @@ public interface CheckpointService {
     List<Checkpoint> findAll();
     
     List<Checkpoint> findByGameId(UUID gameId);
-    
+
+    Optional<Checkpoint> findByGameIdAndExternalId(UUID gameId, String externalId);
+
     Checkpoint save(Checkpoint checkpoint);
     
     void delete(UUID id);

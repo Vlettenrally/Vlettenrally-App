@@ -127,6 +127,13 @@ public class MockCheckpointRepository implements CheckpointRepository {
     }
 
     @Override
+    public Optional<Checkpoint> findByGameIdAndExternalId(UUID gameId, String externalId) {
+        return checkpoints.values().stream()
+                .filter(cp -> gameId.equals(cp.getGameId()) && externalId.equals(cp.getExternalId()))
+                .findFirst();
+    }
+
+    @Override
     public Checkpoint save(Checkpoint checkpoint) {
         if (checkpoint.getId() == null) {
             checkpoint.setId(UUID.randomUUID());

@@ -13,10 +13,14 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import nl.vlettenrally.client.LocationApiClient;
+import nl.vlettenrally.client.dto.LocationResponse;
+import nl.vlettenrally.client.dto.SocialrunDetail;
 import nl.vlettenrally.client.dto.TestConnectionResult;
 import nl.vlettenrally.client.exception.LocationApiException;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
 import nl.vlettenrally.data.dto.auth.GameCheckInLinkResponse;
+import nl.vlettenrally.data.dto.game.CheckpointImportResponse;
+import nl.vlettenrally.data.dto.game.CheckpointRequest;
 import nl.vlettenrally.data.dto.game.CheckpointResponse;
 import nl.vlettenrally.data.dto.game.GameRequest;
 import nl.vlettenrally.data.dto.game.GameResponse;
@@ -34,8 +38,10 @@ import nl.vlettenrally.service.AuthService;
 import nl.vlettenrally.service.TeamService;
 import nl.vlettenrally.service.TeamImportService;
 
+import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -52,6 +58,10 @@ import java.util.UUID;
  * - GET /api/v1/games/{gameId}/rankings - Get team rankings for a game
  * - POST /api/v1/games/{gameId}/import-teams - Import teams from pre-registration
  * - POST /api/v1/games/{gameId}/test-location-endpoint - Test location endpoint connection
+ * - POST /api/v1/games/{gameId}/checkpoints - Create a checkpoint
+ * - PUT /api/v1/games/{gameId}/checkpoints/{checkpointId} - Update a checkpoint
+ * - DELETE /api/v1/games/{gameId}/checkpoints/{checkpointId} - Delete a checkpoint
+ * - POST /api/v1/games/{gameId}/import-checkpoints - Import checkpoints from location tracker
  */
 @Path("/api/v1/games")
 @RolesAllowed({"admin", "team"})
@@ -378,6 +388,192 @@ public class GameResource {
 
     // Helper methods
 
+    /**
+     * Create a checkpoint for a game
+     */
+    @POST
+    @Path("/{gameId}/checkpoints")
+    @RolesAllowed("admin")
+    public Response createCheckpoint(@PathParam("gameId") UUID gameId, CheckpointRequest request) {
+        if (gameService.findById(gameId).isEmpty()) {
+            return Response.status(Response.Status.NOT_FOUND)
+                .entity(new ErrorResponse("Game not found"))
+                .build();
+        }
+
+        if (request.name() == null || request.name().isBlank()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("Checkpoint name is required"))
+                .build();
+        }
+
+        Checkpoint checkpoint = new Checkpoint();
+        checkpoint.setGameId(gameId);
+        checkpoint.setName(request.name());
+        checkpoint.setPoints(request.points());
+        checkpoint.setLatitude(request.latitude());
+        checkpoint.setLongitude(request.longitude());
+        if (request.openingTime() != null) {
+            checkpoint.setOpeningTime(Instant.parse(request.openingTime()));
+        }
+        if (request.closingTime() != null) {
+            checkpoint.setClosingTime(Instant.parse(request.closingTime()));
+        }
+
+        Checkpoint saved = checkpointService.save(checkpoint);
+        return Response.status(Response.Status.CREATED).entity(toCheckpointDto(saved)).build();
+    }
+
+    /**
+     * Update a checkpoint
+     */
+    @PUT
+    @Path("/{gameId}/checkpoints/{checkpointId}")
+    @RolesAllowed("admin")
+    public Response updateCheckpoint(
+            @PathParam("gameId") UUID gameId,
+            @PathParam("checkpointId") UUID checkpointId,
+            CheckpointRequest request) {
+
+        Optional<Checkpoint> existing = checkpointService.findById(checkpointId);
+        if (existing.isEmpty()) {
+            return Response.status(Response.Status.NOT_FOUND)
+                .entity(new ErrorResponse("Checkpoint not found"))
+                .build();
+        }
+
+        Checkpoint checkpoint = existing.get();
+        if (request.name() != null) checkpoint.setName(request.name());
+        checkpoint.setPoints(request.points());
+        checkpoint.setLatitude(request.latitude());
+        checkpoint.setLongitude(request.longitude());
+        if (request.openingTime() != null) {
+            checkpoint.setOpeningTime(Instant.parse(request.openingTime()));
+        }
+        if (request.closingTime() != null) {
+            checkpoint.setClosingTime(Instant.parse(request.closingTime()));
+        }
+        checkpoint.setUpdatedAt(Instant.now());
+
+        Checkpoint saved = checkpointService.save(checkpoint);
+        return Response.ok(toCheckpointDto(saved)).build();
+    }
+
+    /**
+     * Delete a checkpoint
+     */
+    @DELETE
+    @Path("/{gameId}/checkpoints/{checkpointId}")
+    @RolesAllowed("admin")
+    public Response deleteCheckpoint(
+            @PathParam("gameId") UUID gameId,
+            @PathParam("checkpointId") UUID checkpointId) {
+
+        Optional<Checkpoint> existing = checkpointService.findById(checkpointId);
+        if (existing.isEmpty()) {
+            return Response.status(Response.Status.NOT_FOUND)
+                .entity(new ErrorResponse("Checkpoint not found"))
+                .build();
+        }
+
+        checkpointService.delete(checkpointId);
+        return Response.noContent().build();
+    }
+
+    /**
+     * Import checkpoints from location tracker.
+     * Matches by externalId (SocialrunDetail.id). Creates new or updates location of existing.
+     */
+    @POST
+    @Path("/{gameId}/import-checkpoints")
+    @RolesAllowed("admin")
+    public Response importCheckpoints(@PathParam("gameId") UUID gameId) {
+        return gameService.findById(gameId)
+            .map(game -> {
+                if (game.getLocationEndpointUrl() == null || game.getLocationEndpointUrl().isBlank()) {
+                    return Response.status(Response.Status.BAD_REQUEST)
+                        .entity(new ErrorResponse("Game has no location endpoint configured"))
+                        .build();
+                }
+
+                try {
+                    LocationResponse locationResponse =
+                        locationApiClient.fetchLocations(game.getLocationEndpointUrl());
+
+                    if (locationResponse.getSocialrunParticipantsLocations() == null
+                            || locationResponse.getSocialrunParticipantsLocations().getSocialrunDetails() == null) {
+                        return Response.status(Response.Status.BAD_GATEWAY)
+                            .entity(new ErrorResponse("No socialrun details found in location tracker response"))
+                            .build();
+                    }
+
+                    List<SocialrunDetail> details = locationResponse.getSocialrunParticipantsLocations().getSocialrunDetails();
+                    int created = 0;
+                    int updated = 0;
+                    int errors = 0;
+
+                    for (SocialrunDetail detail : details) {
+                        try {
+                            String externalId = String.valueOf(detail.getId());
+                            Optional<Checkpoint> existing = checkpointService.findByGameIdAndExternalId(gameId, externalId);
+
+                            if (existing.isPresent()) {
+                                // Update location and name if changed
+                                Checkpoint cp = existing.get();
+                                boolean changed = false;
+
+                                if (detail.getCenter() != null) {
+                                    Double newLat = detail.getCenter().getLatitude();
+                                    Double newLng = detail.getCenter().getLongitude();
+                                    if (!java.util.Objects.equals(cp.getLatitude(), newLat)
+                                            || !java.util.Objects.equals(cp.getLongitude(), newLng)) {
+                                        cp.setLatitude(newLat);
+                                        cp.setLongitude(newLng);
+                                        changed = true;
+                                    }
+                                }
+
+                                if (detail.getName() != null && !detail.getName().equals(cp.getName())) {
+                                    cp.setName(detail.getName());
+                                    changed = true;
+                                }
+
+                                if (changed) {
+                                    cp.setUpdatedAt(Instant.now());
+                                    checkpointService.save(cp);
+                                    updated++;
+                                }
+                            } else {
+                                // Create new checkpoint
+                                Checkpoint cp = new Checkpoint();
+                                cp.setGameId(gameId);
+                                cp.setExternalId(externalId);
+                                cp.setName(detail.getName() != null ? detail.getName() : "Zone " + externalId);
+                                cp.setPoints(0);
+                                if (detail.getCenter() != null) {
+                                    cp.setLatitude(detail.getCenter().getLatitude());
+                                    cp.setLongitude(detail.getCenter().getLongitude());
+                                }
+                                checkpointService.save(cp);
+                                created++;
+                            }
+                        } catch (Exception e) {
+                            errors++;
+                        }
+                    }
+
+                    return Response.ok(new CheckpointImportResponse(created, updated, errors)).build();
+                } catch (LocationApiException e) {
+                    return Response.status(Response.Status.BAD_GATEWAY)
+                        .entity(new ErrorResponse("Failed to fetch from location tracker: " + e.getMessage()))
+                        .build();
+                }
+            })
+            .orElse(Response.status(Response.Status.NOT_FOUND)
+                .entity(new ErrorResponse("Game not found"))
+                .build());
+    }
+
     private GameResponse toDto(Game game) {
         return new GameResponse(
             game.getId(),
@@ -407,7 +603,8 @@ public class GameResource {
             checkpoint.getClosingTime() != null ? checkpoint.getClosingTime().toString() : null,
             checkpoint.getPoints(),
             checkpoint.getLatitude(),
-            checkpoint.getLongitude()
+            checkpoint.getLongitude(),
+            checkpoint.getExternalId()
         );
     }
 }

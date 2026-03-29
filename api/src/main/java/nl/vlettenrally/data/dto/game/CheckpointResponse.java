@@ -13,5 +13,6 @@ public record CheckpointResponse(
     String closingTime,
     int points,
     Double latitude,
-    Double longitude
+    Double longitude,
+    String externalId
 ) {}
