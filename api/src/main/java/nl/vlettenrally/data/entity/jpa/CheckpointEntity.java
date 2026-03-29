@@ -54,6 +54,24 @@ public class CheckpointEntity {
     @Column(name = "external_id")
     private String externalId;
 
+    @Column(name = "zone_type", nullable = false)
+    private String zoneType = "circle";
+
+    @Column(name = "radius_meters", nullable = false)
+    private double radiusMeters = 50.0;
+
+    @Column(name = "bounds_north")
+    private Double boundsNorth;
+
+    @Column(name = "bounds_south")
+    private Double boundsSouth;
+
+    @Column(name = "bounds_east")
+    private Double boundsEast;
+
+    @Column(name = "bounds_west")
+    private Double boundsWest;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

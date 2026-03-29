@@ -22,8 +22,14 @@ public class Checkpoint {
     private int points;
     private Double latitude;
     private Double longitude;
-    private Point location;  // PostGIS Point for geofencing (50m radius)
+    private Point location;  // PostGIS Point for geofencing
     private String externalId;  // External ID from location tracker (SocialrunDetail.id)
+    private String zoneType = "circle";       // "circle" or "rectangle"
+    private double radiusMeters = 50.0;       // radius for circle zones (meters)
+    private Double boundsNorth;               // bounding box for rectangle zones
+    private Double boundsSouth;
+    private Double boundsEast;
+    private Double boundsWest;
     private Instant createdAt;
     private Instant updatedAt;
 

@@ -8,6 +8,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { resolveMapStyle, DEFAULT_CENTER } from '../utils/mapStyle';
+import turfCircle from '@turf/circle';
 
 export interface MapMarker {
   id: string;
@@ -16,6 +17,13 @@ export interface MapMarker {
   label: string;
   color: string;
   type: 'team' | 'checkpoint';
+  /** Zone shape for checkpoint markers */
+  zoneType?: 'circle' | 'rectangle';
+  radiusMeters?: number;
+  boundsNorth?: number;
+  boundsSouth?: number;
+  boundsEast?: number;
+  boundsWest?: number;
 }
 
 interface MapViewProps {
@@ -83,6 +91,41 @@ export function MapView({ markers, center, zoom, className, teamLocation }: MapV
         type: 'FeatureCollection',
         features: checkpointFeatures,
       });
+    }
+
+    // Build zone boundary features (circles → polygon approximation, rectangles → polygon)
+    const zoneFeatures = markers
+      .filter(m => m.type === 'checkpoint')
+      .map(m => {
+        if (m.zoneType === 'rectangle' && m.boundsNorth != null && m.boundsSouth != null && m.boundsEast != null && m.boundsWest != null) {
+          return {
+            type: 'Feature' as const,
+            geometry: {
+              type: 'Polygon' as const,
+              coordinates: [[
+                [m.boundsWest, m.boundsNorth],
+                [m.boundsEast, m.boundsNorth],
+                [m.boundsEast, m.boundsSouth],
+                [m.boundsWest, m.boundsSouth],
+                [m.boundsWest, m.boundsNorth],
+              ]],
+            },
+            properties: { id: m.id, label: m.label },
+          };
+        }
+        // Default: circle
+        const radius = m.radiusMeters ?? 50;
+        const circle = turfCircle([m.lng, m.lat], radius / 1000, { steps: 64, units: 'kilometers' });
+        return {
+          type: 'Feature' as const,
+          geometry: circle.geometry,
+          properties: { id: m.id, label: m.label },
+        };
+      });
+
+    const zoneSource = map.getSource('checkpoint-zones') as maplibregl.GeoJSONSource;
+    if (zoneSource) {
+      zoneSource.setData({ type: 'FeatureCollection', features: zoneFeatures });
     }
   }, [markers]);
 
@@ -190,6 +233,34 @@ export function MapView({ markers, center, zoom, className, teamLocation }: MapV
               'text-color': '#333333',
               'text-halo-color': '#ffffff',
               'text-halo-width': 1.5,
+            },
+          });
+
+          // Add checkpoint zone shapes (rendered BEFORE point markers so they appear underneath)
+          map.addSource('checkpoint-zones', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] },
+          });
+
+          map.addLayer({
+            id: 'checkpoint-zones-fill',
+            type: 'fill',
+            source: 'checkpoint-zones',
+            paint: {
+              'fill-color': '#ff9800',
+              'fill-opacity': 0.15,
+            },
+          });
+
+          map.addLayer({
+            id: 'checkpoint-zones-outline',
+            type: 'line',
+            source: 'checkpoint-zones',
+            paint: {
+              'line-color': '#ff9800',
+              'line-width': 2,
+              'line-opacity': 0.6,
+              'line-dasharray': [3, 2],
             },
           });
 

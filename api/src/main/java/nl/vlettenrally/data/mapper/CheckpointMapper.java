@@ -31,6 +31,12 @@ public class CheckpointMapper {
         domain.setLongitude(entity.getLongitude());
         domain.setLocation(entity.getLocation());
         domain.setExternalId(entity.getExternalId());
+        domain.setZoneType(entity.getZoneType());
+        domain.setRadiusMeters(entity.getRadiusMeters());
+        domain.setBoundsNorth(entity.getBoundsNorth());
+        domain.setBoundsSouth(entity.getBoundsSouth());
+        domain.setBoundsEast(entity.getBoundsEast());
+        domain.setBoundsWest(entity.getBoundsWest());
         domain.setCreatedAt(entity.getCreatedAt());
         domain.setUpdatedAt(entity.getUpdatedAt());
 
@@ -56,6 +62,12 @@ public class CheckpointMapper {
         entity.setLongitude(domain.getLongitude());
         entity.setLocation(domain.getLocation());
         entity.setExternalId(domain.getExternalId());
+        entity.setZoneType(domain.getZoneType());
+        entity.setRadiusMeters(domain.getRadiusMeters());
+        entity.setBoundsNorth(domain.getBoundsNorth());
+        entity.setBoundsSouth(domain.getBoundsSouth());
+        entity.setBoundsEast(domain.getBoundsEast());
+        entity.setBoundsWest(domain.getBoundsWest());
         entity.setCreatedAt(domain.getCreatedAt());
         entity.setUpdatedAt(domain.getUpdatedAt());
 
@@ -78,6 +90,12 @@ public class CheckpointMapper {
         entity.setLongitude(domain.getLongitude());
         entity.setLocation(domain.getLocation());
         entity.setExternalId(domain.getExternalId());
+        entity.setZoneType(domain.getZoneType());
+        entity.setRadiusMeters(domain.getRadiusMeters());
+        entity.setBoundsNorth(domain.getBoundsNorth());
+        entity.setBoundsSouth(domain.getBoundsSouth());
+        entity.setBoundsEast(domain.getBoundsEast());
+        entity.setBoundsWest(domain.getBoundsWest());
         entity.setUpdatedAt(domain.getUpdatedAt());
     }
 }

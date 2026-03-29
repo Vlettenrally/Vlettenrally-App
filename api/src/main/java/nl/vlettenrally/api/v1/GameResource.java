@@ -413,9 +413,24 @@ public class GameResource {
         checkpoint.setPoints(request.points());
         checkpoint.setLatitude(request.latitude());
         checkpoint.setLongitude(request.longitude());
+
+        if (request.zoneType() != null) {
+            checkpoint.setZoneType(request.zoneType());
+        }
+
+        if (request.radiusMeters() != null) {
+            checkpoint.setRadiusMeters(request.radiusMeters());
+        }
+
+        checkpoint.setBoundsNorth(request.boundsNorth());
+        checkpoint.setBoundsSouth(request.boundsSouth());
+        checkpoint.setBoundsEast(request.boundsEast());
+        checkpoint.setBoundsWest(request.boundsWest());
+
         if (request.openingTime() != null) {
             checkpoint.setOpeningTime(Instant.parse(request.openingTime()));
         }
+
         if (request.closingTime() != null) {
             checkpoint.setClosingTime(Instant.parse(request.closingTime()));
         }
@@ -447,6 +462,16 @@ public class GameResource {
         checkpoint.setPoints(request.points());
         checkpoint.setLatitude(request.latitude());
         checkpoint.setLongitude(request.longitude());
+        if (request.zoneType() != null) {
+            checkpoint.setZoneType(request.zoneType());
+        }
+        if (request.radiusMeters() != null) {
+            checkpoint.setRadiusMeters(request.radiusMeters());
+        }
+        checkpoint.setBoundsNorth(request.boundsNorth());
+        checkpoint.setBoundsSouth(request.boundsSouth());
+        checkpoint.setBoundsEast(request.boundsEast());
+        checkpoint.setBoundsWest(request.boundsWest());
         if (request.openingTime() != null) {
             checkpoint.setOpeningTime(Instant.parse(request.openingTime()));
         }
@@ -604,7 +629,13 @@ public class GameResource {
             checkpoint.getPoints(),
             checkpoint.getLatitude(),
             checkpoint.getLongitude(),
-            checkpoint.getExternalId()
+            checkpoint.getExternalId(),
+            checkpoint.getZoneType(),
+            checkpoint.getRadiusMeters(),
+            checkpoint.getBoundsNorth(),
+            checkpoint.getBoundsSouth(),
+            checkpoint.getBoundsEast(),
+            checkpoint.getBoundsWest()
         );
     }
 }

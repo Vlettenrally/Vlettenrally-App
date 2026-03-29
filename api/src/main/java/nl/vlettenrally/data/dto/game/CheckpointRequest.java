@@ -12,6 +12,11 @@ public record CheckpointRequest(
     String closingTime,
     int points,
     Double latitude,
-    Double longitude
+    Double longitude,
+    String zoneType,
+    Double radiusMeters,
+    Double boundsNorth,
+    Double boundsSouth,
+    Double boundsEast,
+    Double boundsWest
 ) {}
-

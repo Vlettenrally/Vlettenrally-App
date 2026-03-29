@@ -263,6 +263,9 @@ const Zones = () => {
                     <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
                       {formatLocation(cp.latitude, cp.longitude)}
                     </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {cp.zoneType === 'rectangle' ? '▭ Rechthoek' : `⊙ ${cp.radiusMeters ?? 50}m`}
+                    </Typography>
                   </TableCell>
                   <TableCell>{formatDateTime(cp.openingTime)}</TableCell>
                   <TableCell>{formatDateTime(cp.closingTime)}</TableCell>

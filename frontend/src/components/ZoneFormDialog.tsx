@@ -11,7 +11,13 @@ import {
   Typography,
   useTheme,
   useMediaQuery,
+  ToggleButtonGroup,
+  ToggleButton,
 } from '@mui/material';
+import {
+  CircleOutlined as CircleIcon,
+  CropSquare as RectangleIcon,
+} from '@mui/icons-material';
 import { useState, useEffect } from 'react';
 import api from '../services/api';
 import type { Checkpoint, CheckpointRequest } from '../types/entities';
@@ -38,13 +44,19 @@ export default function ZoneFormDialog({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState<CheckpointRequest>({
+  const [formData, setFormData] = useState<Omit<CheckpointRequest, 'points'> & { points?: number }>({
     name: '',
     openingTime: '',
     closingTime: '',
     points: 0,
     latitude: undefined,
     longitude: undefined,
+    zoneType: 'circle',
+    radiusMeters: 50,
+    boundsNorth: undefined,
+    boundsSouth: undefined,
+    boundsEast: undefined,
+    boundsWest: undefined,
   });
 
   const isCreateMode = !checkpoint;
@@ -58,6 +70,12 @@ export default function ZoneFormDialog({
         points: checkpoint.points,
         latitude: checkpoint.latitude,
         longitude: checkpoint.longitude,
+        zoneType: checkpoint.zoneType || 'circle',
+        radiusMeters: checkpoint.radiusMeters ?? 50,
+        boundsNorth: checkpoint.boundsNorth,
+        boundsSouth: checkpoint.boundsSouth,
+        boundsEast: checkpoint.boundsEast,
+        boundsWest: checkpoint.boundsWest,
       });
     } else {
       setFormData({
@@ -67,6 +85,12 @@ export default function ZoneFormDialog({
         points: 0,
         latitude: undefined,
         longitude: undefined,
+        zoneType: 'circle',
+        radiusMeters: 50,
+        boundsNorth: undefined,
+        boundsSouth: undefined,
+        boundsEast: undefined,
+        boundsWest: undefined,
       });
     }
     setError(null);
@@ -101,11 +125,17 @@ export default function ZoneFormDialog({
     try {
       const requestData: CheckpointRequest = {
         name: formData.name.trim(),
-        points: formData.points,
+        points: formData.points ?? 0,
         latitude: formData.latitude || undefined,
         longitude: formData.longitude || undefined,
         openingTime: formatToISOString(formData.openingTime || ''),
         closingTime: formatToISOString(formData.closingTime || ''),
+        zoneType: formData.zoneType,
+        radiusMeters: formData.zoneType === 'circle' ? (formData.radiusMeters ?? 50) : undefined,
+        boundsNorth: formData.zoneType === 'rectangle' ? formData.boundsNorth : undefined,
+        boundsSouth: formData.zoneType === 'rectangle' ? formData.boundsSouth : undefined,
+        boundsEast: formData.zoneType === 'rectangle' ? formData.boundsEast : undefined,
+        boundsWest: formData.zoneType === 'rectangle' ? formData.boundsWest : undefined,
       };
 
       let response;
@@ -155,12 +185,56 @@ export default function ZoneFormDialog({
           label="Punten"
           fullWidth
           type="number"
-          value={formData.points}
-          onChange={(e) => setFormData({ ...formData, points: parseInt(e.target.value) || 0 })}
+          value={formData.points ?? ''}
+          onChange={(e) => {
+            const raw = e.target.value;
+            setFormData({ ...formData, points: raw === '' ? undefined : parseInt(raw) });
+          }}
           margin="normal"
         />
 
+        {/* Zone type & radius/bounds config */}
         <Typography variant="subtitle2" sx={{ mt: 2, mb: 0.5 }}>
+          Zone-vorm
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap', mb: 1 }}>
+          <ToggleButtonGroup
+            value={formData.zoneType}
+            exclusive
+            onChange={(_, val) => { if (val) setFormData({ ...formData, zoneType: val }); }}
+            size="small"
+          >
+            <ToggleButton value="circle">
+              <CircleIcon sx={{ mr: 0.5 }} fontSize="small" /> Cirkel
+            </ToggleButton>
+            <ToggleButton value="rectangle">
+              <RectangleIcon sx={{ mr: 0.5 }} fontSize="small" /> Rechthoek
+            </ToggleButton>
+          </ToggleButtonGroup>
+
+          {formData.zoneType === 'circle' && (
+            <TextField
+              label="Straal (m)"
+              type="number"
+              size="small"
+              value={formData.radiusMeters ?? ''}
+              onChange={(e) => {
+                const raw = e.target.value;
+                setFormData({ ...formData, radiusMeters: raw === '' ? undefined : parseFloat(raw) });
+              }}
+              slotProps={{ htmlInput: { min: 1, step: 1 } }}
+              sx={{ width: 130 }}
+            />
+          )}
+        </Box>
+
+        {formData.zoneType === 'rectangle' && (
+          <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+            Sleep op de kaart om een rechthoek te tekenen.
+          </Typography>
+        )}
+
+        <Typography variant="subtitle2" sx={{ mt: 1, mb: 0.5 }}>
           Locatie
         </Typography>
         <LocationPickerMap
@@ -169,11 +243,25 @@ export default function ZoneFormDialog({
               ? { lat: formData.latitude, lng: formData.longitude }
               : null
           }
-          onChange={(lat, lng) => setFormData({ ...formData, latitude: lat, longitude: lng })}
+          onChange={(lat, lng) => setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }))}
           height={isMobile ? 250 : 350}
+          zoneType={formData.zoneType as 'circle' | 'rectangle'}
+          radiusMeters={formData.radiusMeters}
+          bounds={
+            formData.boundsNorth != null && formData.boundsSouth != null && formData.boundsEast != null && formData.boundsWest != null
+              ? { north: formData.boundsNorth, south: formData.boundsSouth, east: formData.boundsEast, west: formData.boundsWest }
+              : undefined
+          }
+          onBoundsChange={(bounds) => setFormData(prev => ({
+            ...prev,
+            boundsNorth: bounds.north,
+            boundsSouth: bounds.south,
+            boundsEast: bounds.east,
+            boundsWest: bounds.west,
+          }))}
         />
 
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
           <TextField
             label="Openingstijd"
             fullWidth
@@ -205,6 +293,3 @@ export default function ZoneFormDialog({
     </Dialog>
   );
 }
-
-
-

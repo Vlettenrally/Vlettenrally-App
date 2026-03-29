@@ -133,6 +133,12 @@ export default function AdminMap() {
         label: cp.name,
         color: '#ff9800',
         type: 'checkpoint' as const,
+        zoneType: cp.zoneType,
+        radiusMeters: cp.radiusMeters,
+        boundsNorth: cp.boundsNorth,
+        boundsSouth: cp.boundsSouth,
+        boundsEast: cp.boundsEast,
+        boundsWest: cp.boundsWest,
       })),
   ];
 

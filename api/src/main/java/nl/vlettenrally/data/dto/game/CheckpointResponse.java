@@ -14,5 +14,11 @@ public record CheckpointResponse(
     int points,
     Double latitude,
     Double longitude,
-    String externalId
+    String externalId,
+    String zoneType,
+    double radiusMeters,
+    Double boundsNorth,
+    Double boundsSouth,
+    Double boundsEast,
+    Double boundsWest
 ) {}

@@ -23,7 +23,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * Unit tests for GeofencingService.
- * Verifies that proximity checks delegate to PostGIS via the repository.
+ * Verifies that proximity checks delegate to PostGIS via the repository,
+ * and that rectangle zone types use bounding-box logic.
  */
 @ExtendWith(MockitoExtension.class)
 class GeofencingServiceTest {
@@ -46,13 +47,16 @@ class GeofencingServiceTest {
         teamPoint = GEOMETRY_FACTORY.createPoint(new Coordinate(4.9003, 52.3782));
     }
 
+    //Circle zone type (default)
+
     @Test
-    void isWithinCheckpointGeofence_withinRadius_shouldReturnTrue() {
+    void isWithinCheckpointGeofence_circleWithinRadius_shouldReturnTrue() {
         LocationData teamLocation = new LocationData();
         teamLocation.setLocation(teamPoint);
 
         Checkpoint checkpoint = new Checkpoint();
         checkpoint.setLocation(checkpointPoint);
+        // default zoneType = "circle", radiusMeters = 50
 
         when(locationDataRepository.isWithinDistance(teamPoint, checkpointPoint, 50.0))
                 .thenReturn(true);
@@ -62,7 +66,7 @@ class GeofencingServiceTest {
     }
 
     @Test
-    void isWithinCheckpointGeofence_outsideRadius_shouldReturnFalse() {
+    void isWithinCheckpointGeofence_circleOutsideRadius_shouldReturnFalse() {
         LocationData teamLocation = new LocationData();
         teamLocation.setLocation(teamPoint);
 
@@ -73,7 +77,22 @@ class GeofencingServiceTest {
                 .thenReturn(false);
 
         assertFalse(geofencingService.isWithinCheckpointGeofence(teamLocation, checkpoint));
-        verify(locationDataRepository).isWithinDistance(teamPoint, checkpointPoint, 50.0);
+    }
+
+    @Test
+    void isWithinCheckpointGeofence_customRadius_shouldUseConfiguredValue() {
+        LocationData teamLocation = new LocationData();
+        teamLocation.setLocation(teamPoint);
+
+        Checkpoint checkpoint = new Checkpoint();
+        checkpoint.setLocation(checkpointPoint);
+        checkpoint.setRadiusMeters(200.0);
+
+        when(locationDataRepository.isWithinDistance(teamPoint, checkpointPoint, 200.0))
+                .thenReturn(true);
+
+        assertTrue(geofencingService.isWithinCheckpointGeofence(teamLocation, checkpoint));
+        verify(locationDataRepository).isWithinDistance(teamPoint, checkpointPoint, 200.0);
     }
 
     @Test
@@ -118,38 +137,51 @@ class GeofencingServiceTest {
         verifyNoInteractions(locationDataRepository);
     }
 
+    //Rectangle zone type
+
     @Test
-    void isWithinCheckpointGeofence_justInsideRadius_shouldReturnTrue() {
-        // Team location approximately 44m north of checkpoint (just inside the 50m boundary)
-        Point nearbyPoint = GEOMETRY_FACTORY.createPoint(new Coordinate(4.9000, 52.37840));
+    void isWithinCheckpointGeofence_rectangleInside_shouldReturnTrue() {
+        // Team at 52.3782, 4.9003 — inside the rectangle
         LocationData teamLocation = new LocationData();
-        teamLocation.setLocation(nearbyPoint);
+        teamLocation.setLocation(teamPoint);
 
         Checkpoint checkpoint = new Checkpoint();
-        checkpoint.setLocation(checkpointPoint);
-
-        when(locationDataRepository.isWithinDistance(nearbyPoint, checkpointPoint, 50.0))
-                .thenReturn(true);
+        checkpoint.setZoneType("rectangle");
+        checkpoint.setBoundsNorth(52.3800);
+        checkpoint.setBoundsSouth(52.3770);
+        checkpoint.setBoundsEast(4.9050);
+        checkpoint.setBoundsWest(4.8950);
 
         assertTrue(geofencingService.isWithinCheckpointGeofence(teamLocation, checkpoint));
-        verify(locationDataRepository).isWithinDistance(nearbyPoint, checkpointPoint, 50.0);
+        verifyNoInteractions(locationDataRepository); // rectangle doesn't use PostGIS
     }
 
     @Test
-    void isWithinCheckpointGeofence_justOutsideRadius_shouldReturnFalse() {
-        // Team location approximately 56m north of checkpoint (just outside the 50m boundary)
-        Point farPoint = GEOMETRY_FACTORY.createPoint(new Coordinate(4.9000, 52.37850));
+    void isWithinCheckpointGeofence_rectangleOutside_shouldReturnFalse() {
+        // Team at 52.3782, 4.9003 — outside the rectangle (east boundary too tight)
         LocationData teamLocation = new LocationData();
-        teamLocation.setLocation(farPoint);
+        teamLocation.setLocation(teamPoint);
 
         Checkpoint checkpoint = new Checkpoint();
-        checkpoint.setLocation(checkpointPoint);
-
-        when(locationDataRepository.isWithinDistance(farPoint, checkpointPoint, 50.0))
-                .thenReturn(false);
+        checkpoint.setZoneType("rectangle");
+        checkpoint.setBoundsNorth(52.3800);
+        checkpoint.setBoundsSouth(52.3770);
+        checkpoint.setBoundsEast(4.9001); // team lng 4.9003 is outside
+        checkpoint.setBoundsWest(4.8950);
 
         assertFalse(geofencingService.isWithinCheckpointGeofence(teamLocation, checkpoint));
-        verify(locationDataRepository).isWithinDistance(farPoint, checkpointPoint, 50.0);
+    }
+
+    @Test
+    void isWithinCheckpointGeofence_rectangleNullBounds_shouldReturnFalse() {
+        LocationData teamLocation = new LocationData();
+        teamLocation.setLocation(teamPoint);
+
+        Checkpoint checkpoint = new Checkpoint();
+        checkpoint.setZoneType("rectangle");
+        // bounds are null
+
+        assertFalse(geofencingService.isWithinCheckpointGeofence(teamLocation, checkpoint));
     }
 
     @Test
@@ -157,6 +189,3 @@ class GeofencingServiceTest {
         assertEquals(50.0, geofencingService.getGeofenceRadiusMeters());
     }
 }
-
-
-

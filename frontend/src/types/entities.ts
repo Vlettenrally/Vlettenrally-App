@@ -89,6 +89,12 @@ export interface Checkpoint {
   latitude?: number;
   longitude?: number;
   externalId?: string;
+  zoneType: 'circle' | 'rectangle';
+  radiusMeters: number;
+  boundsNorth?: number;
+  boundsSouth?: number;
+  boundsEast?: number;
+  boundsWest?: number;
 }
 
 /**
@@ -101,6 +107,12 @@ export interface CheckpointRequest {
   points: number;
   latitude?: number;
   longitude?: number;
+  zoneType?: 'circle' | 'rectangle';
+  radiusMeters?: number;
+  boundsNorth?: number;
+  boundsSouth?: number;
+  boundsEast?: number;
+  boundsWest?: number;
 }
 
 /**
