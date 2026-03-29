@@ -60,7 +60,11 @@ export default defineConfig({
         manualChunks: {
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-mui': ['@mui/material', '@mui/icons-material', '@emotion/react', '@emotion/styled'],
+          'vendor-mui-datagrid': ['@mui/x-data-grid'],
           'vendor-firebase': ['firebase/app', 'firebase/messaging'],
+          'vendor-maplibre': ['maplibre-gl', '@turf/circle', '@turf/helpers'],
+          'vendor-date-fns': ['date-fns'],
+          'vendor-qrcode': ['qrcode'],
         },
       },
     },
