@@ -7,7 +7,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { config } from '../config';
+import { resolveMapStyle, DEFAULT_CENTER } from '../utils/mapStyle';
 
 export interface MapMarker {
   id: string;
@@ -90,24 +90,13 @@ export function MapView({ markers, center, zoom, className, teamLocation }: MapV
     if (!mapContainerRef.current) return;
 
     // Resolve map style: use remote style URL if configured, otherwise local style with self-hosted tiles
-    const stylePromise = config.mapStyleUrl
-      ? Promise.resolve(config.mapStyleUrl)
-      : fetch('/map-style.json')
-          .then(res => res.json())
-          .then(style => {
-            // Resolve to absolute URL — MapLibre web workers can't handle relative URLs
-            const tileUrl = config.tileUrl.startsWith('http')
-              ? config.tileUrl
-              : `${window.location.origin}${config.tileUrl}`;
-            style.sources.openmaptiles.tiles = [tileUrl];
-            return style;
-          });
+    const stylePromise = resolveMapStyle();
 
     stylePromise.then(style => {
         const map = new maplibregl.Map({
           container: mapContainerRef.current!,
           style: style,
-          center: center || [5.2913, 52.1326], // Default: center of Netherlands
+          center: center || DEFAULT_CENTER,
           zoom: zoom || 7,
           maxZoom: 16,
           maxPitch: 0,

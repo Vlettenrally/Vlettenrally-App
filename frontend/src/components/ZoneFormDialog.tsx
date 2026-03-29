@@ -8,10 +8,14 @@ import {
   Box,
   CircularProgress,
   Alert,
+  Typography,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import { useState, useEffect } from 'react';
 import api from '../services/api';
 import type { Checkpoint, CheckpointRequest } from '../types/entities';
+import LocationPickerMap from './LocationPickerMap';
 
 interface ZoneFormDialogProps {
   open: boolean;
@@ -28,6 +32,9 @@ export default function ZoneFormDialog({
   gameId,
   onSave,
 }: ZoneFormDialogProps) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -125,7 +132,7 @@ export default function ZoneFormDialog({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth fullScreen={isMobile}>
       <DialogTitle>{isCreateMode ? 'Zone toevoegen' : 'Zone bewerken'}</DialogTitle>
       <DialogContent>
         {error && (
@@ -153,30 +160,18 @@ export default function ZoneFormDialog({
           margin="normal"
         />
 
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <TextField
-            label="Breedtegraad"
-            fullWidth
-            type="number"
-            slotProps={{ htmlInput: { step: 'any' } }}
-            value={formData.latitude ?? ''}
-            onChange={(e) =>
-              setFormData({ ...formData, latitude: e.target.value ? parseFloat(e.target.value) : undefined })
-            }
-            margin="normal"
-          />
-          <TextField
-            label="Lengtegraad"
-            fullWidth
-            type="number"
-            slotProps={{ htmlInput: { step: 'any' } }}
-            value={formData.longitude ?? ''}
-            onChange={(e) =>
-              setFormData({ ...formData, longitude: e.target.value ? parseFloat(e.target.value) : undefined })
-            }
-            margin="normal"
-          />
-        </Box>
+        <Typography variant="subtitle2" sx={{ mt: 2, mb: 0.5 }}>
+          Locatie
+        </Typography>
+        <LocationPickerMap
+          value={
+            formData.latitude != null && formData.longitude != null
+              ? { lat: formData.latitude, lng: formData.longitude }
+              : null
+          }
+          onChange={(lat, lng) => setFormData({ ...formData, latitude: lat, longitude: lng })}
+          height={isMobile ? 250 : 350}
+        />
 
         <Box sx={{ display: 'flex', gap: 2 }}>
           <TextField
