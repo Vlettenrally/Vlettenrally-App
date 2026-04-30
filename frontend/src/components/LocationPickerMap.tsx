@@ -3,13 +3,13 @@
  *
  * Features:
  *  - Click the map to place / move a draggable marker (circle mode)
- *  - Drag on the map to draw a rectangle (rectangle mode)
+ *  - Click to add polygon vertices, double-click to close (polygon mode)
  *  - Search bar that accepts "lat, lng" coordinates or a place name (via Nominatim)
  *  - Shows selected coordinates as helper text
- *  - Renders zone shape preview (circle or rectangle)
+ *  - Renders zone shape preview (circle or polygon)
  *  - Reuses the shared map style resolution used by MapView
  */
-import { useEffect, useRef, useState, useCallback } from 'react';
+import {useEffect, useRef, useState, useCallback } from 'react';
 import {
   Box,
   TextField,
@@ -24,13 +24,6 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { resolveMapStyle, DEFAULT_CENTER, DEFAULT_ZOOM } from '../utils/mapStyle';
 import turfCircle from '@turf/circle';
 
-interface Bounds {
-  north: number;
-  south: number;
-  east: number;
-  west: number;
-}
-
 interface LocationPickerMapProps {
   /** Current value — null means nothing selected yet */
   value: { lat: number; lng: number } | null;
@@ -39,13 +32,13 @@ interface LocationPickerMapProps {
   /** Map container height (default 350, smaller on mobile) */
   height?: number;
   /** Zone type for preview rendering */
-  zoneType?: 'circle' | 'rectangle';
+  zoneType?: 'circle' | 'polygon';
   /** Radius in meters for circle zones */
   radiusMeters?: number;
-  /** Bounds for rectangle zones */
-  bounds?: Bounds;
-  /** Called when rectangle bounds change (user draws/resizes) */
-  onBoundsChange?: (bounds: Bounds) => void;
+  /** Polygon points as [[lat, lng], ...] for polygon zones */
+  polygonPoints?: number[][];
+  /** Called when polygon points change (user adds/edits vertices) */
+  onPolygonPointsChange?: (points: number[][]) => void;
 }
 
 /** Try to parse a string as "lat, lng" */
@@ -84,15 +77,24 @@ async function geocode(query: string): Promise<{ lat: number; lng: number } | nu
   return null;
 }
 
+/** Compute the centroid of a polygon given its vertices [[lat,lng], ...] */
+function computeCentroid(points: number[][]): { lat: number; lng: number } {
+  const n = points.length;
+  if (n === 0) return { lat: 0, lng: 0 };
+  const sumLat = points.reduce((s, p) => s + p[0], 0);
+  const sumLng = points.reduce((s, p) => s + p[1], 0);
+  return { lat: sumLat / n, lng: sumLng / n };
+}
+
 export default function LocationPickerMap({
   value,
   onChange,
   height = 350,
   zoneType = 'circle',
   radiusMeters = 50,
-  bounds,
-  onBoundsChange,
-}: LocationPickerMapProps) {
+  polygonPoints,
+  onPolygonPointsChange,
+}: LocationPickerMapProps): React.JSX.Element {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markerRef = useRef<maplibregl.Marker | null>(null);
@@ -105,27 +107,29 @@ export default function LocationPickerMap({
   // Stable refs so the map event handlers always see the latest callbacks/values
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
-  const onBoundsChangeRef = useRef(onBoundsChange);
-  onBoundsChangeRef.current = onBoundsChange;
+  const onPolygonPointsChangeRef = useRef(onPolygonPointsChange);
+  onPolygonPointsChangeRef.current = onPolygonPointsChange;
   const zoneTypeRef = useRef(zoneType);
   zoneTypeRef.current = zoneType;
   const radiusMetersRef = useRef(radiusMeters);
   radiusMetersRef.current = radiusMeters;
-  const boundsRef = useRef(bounds);
-  boundsRef.current = bounds;
+  const polygonPointsRef = useRef(polygonPoints);
+  polygonPointsRef.current = polygonPoints;
 
   // Track the last-placed marker position so zone shape updates use it immediately
-  // (avoids a React render round-trip where the circle would briefly use stale coords)
   const lastPlacedRef = useRef<{ lat: number; lng: number } | null>(value);
 
-  // Rectangle drag state
-  const dragStartRef = useRef<{ lat: number; lng: number } | null>(null);
-  const isDraggingRectRef = useRef(false);
+  // Polygon vertex markers (small dots for each polygon vertex)
+  const vertexMarkersRef = useRef<maplibregl.Marker[]>([]);
+
+  // Track whether polygon is currently being built (not yet closed)
+  const polygonBuildingRef = useRef<number[][]>([]);
+  const isPolygonClosedRef = useRef(false);
 
   /** Draw the zone shape overlay on the map using the freshest coordinates */
   const drawZoneShape = useCallback((
     overrideCenter?: { lat: number; lng: number } | null,
-    overrideBounds?: Bounds | null,
+    overridePolygonPoints?: number[][] | null,
   ) => {
     const map = mapRef.current;
     if (!map || !zoneSourceReady.current) return;
@@ -135,23 +139,30 @@ export default function LocationPickerMap({
 
     const zt = zoneTypeRef.current;
     const rm = radiusMetersRef.current;
-    const b = overrideBounds !== undefined ? overrideBounds : boundsRef.current;
+    const pp = overridePolygonPoints !== undefined ? overridePolygonPoints : polygonPointsRef.current;
     const center = overrideCenter !== undefined ? overrideCenter : lastPlacedRef.current;
 
     let feature: GeoJSON.Feature | null = null;
 
-    if (zt === 'rectangle' && b) {
+    if (zt === 'polygon' && pp && pp.length >= 3) {
+      const coords = pp.map(p => [p[1], p[0]]); // [lng, lat]
+      coords.push(coords[0]); // close ring
       feature = {
         type: 'Feature',
         geometry: {
           type: 'Polygon',
-          coordinates: [[
-            [b.west, b.north],
-            [b.east, b.north],
-            [b.east, b.south],
-            [b.west, b.south],
-            [b.west, b.north],
-          ]],
+          coordinates: [coords],
+        },
+        properties: {},
+      };
+    } else if (zt === 'polygon' && pp && pp.length >= 2) {
+      // While building: show a line
+      const coords = pp.map(p => [p[1], p[0]]);
+      feature = {
+        type: 'Feature',
+        geometry: {
+          type: 'LineString',
+          coordinates: coords,
         },
         properties: {},
       };
@@ -170,7 +181,78 @@ export default function LocationPickerMap({
     });
   }, []);
 
-  /** Place or move the marker and notify parent */
+  // Flag to suppress click events during/after marker drags
+  const isDraggingRef = useRef(false);
+
+  /** Update vertex markers on the map for polygon mode (draggable) */
+  const updateVertexMarkers = useCallback((points: number[][]) => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    // Remove existing vertex markers
+    vertexMarkersRef.current.forEach(m => m.remove());
+    vertexMarkersRef.current = [];
+
+    // Create new draggable vertex markers
+    points.forEach((p, index) => {
+      const el = document.createElement('div');
+      el.style.width = '12px';
+      el.style.height = '12px';
+      el.style.borderRadius = '50%';
+      el.style.backgroundColor = '#ff9800';
+      el.style.border = '2px solid white';
+      el.style.boxShadow = '0 0 4px rgba(0,0,0,0.3)';
+      el.style.cursor = 'grab';
+
+      const marker = new maplibregl.Marker({ element: el, draggable: true })
+        .setLngLat([p[1], p[0]])
+        .addTo(map);
+
+      marker.on('dragstart', () => {
+        isDraggingRef.current = true;
+      });
+
+      // Live preview while dragging a vertex
+      marker.on('drag', () => {
+        const lngLat = marker.getLngLat();
+        const pts = polygonPointsRef.current ? [...polygonPointsRef.current] : [];
+        if (index < pts.length) {
+          pts[index] = [lngLat.lat, lngLat.lng];
+          drawZoneShape(null, pts);
+        }
+      });
+
+      // Finalize on drag end — update the polygon and sync to form
+      marker.on('dragend', () => {
+        // Keep flag true briefly to suppress the click event that follows dragend
+        setTimeout(() => { isDraggingRef.current = false; }, 300);
+
+        const lngLat = marker.getLngLat();
+        const pts = polygonPointsRef.current ? [...polygonPointsRef.current] : [];
+        if (index < pts.length) {
+          pts[index] = [lngLat.lat, lngLat.lng];
+          polygonPointsRef.current = pts;
+          drawZoneShape(null, pts);
+
+          // Update centroid marker position
+          if (pts.length >= 3) {
+            const centroid = computeCentroid(pts);
+            if (markerRef.current) {
+              markerRef.current.setLngLat([centroid.lng, centroid.lat]);
+            }
+            lastPlacedRef.current = centroid;
+          }
+
+          // Sync to form
+          onPolygonPointsChangeRef.current?.(pts);
+        }
+      });
+
+      vertexMarkersRef.current.push(marker);
+    });
+  }, [drawZoneShape]);
+
+  /** Place or move the center marker and notify parent */
   const placeMarker = useCallback((lat: number, lng: number, flyTo = false) => {
     const map = mapRef.current;
     if (!map) return;
@@ -182,30 +264,27 @@ export default function LocationPickerMap({
         .setLngLat([lng, lat])
         .addTo(map);
 
-      // Snapshot the center + bounds at drag start so we can compute deltas
+      // Snapshot the center + polygon at drag start so we can compute deltas
       let dragOrigin: { lat: number; lng: number } | null = null;
-      let dragOriginBounds: Bounds | null = null;
+      let dragOriginPolygon: number[][] | null = null;
 
       marker.on('dragstart', () => {
+        isDraggingRef.current = true;
         dragOrigin = lastPlacedRef.current ? { ...lastPlacedRef.current } : null;
-        dragOriginBounds = boundsRef.current ? { ...boundsRef.current } : null;
+        dragOriginPolygon = polygonPointsRef.current ? [...polygonPointsRef.current] : null;
       });
 
-      // Live preview: shift rectangle while dragging
+      // Live preview: shift polygon while dragging
       marker.on('drag', () => {
         const lngLat = marker.getLngLat();
         const cur = { lat: lngLat.lat, lng: lngLat.lng };
 
-        if (zoneTypeRef.current === 'rectangle' && dragOriginBounds && dragOrigin) {
+        if (zoneTypeRef.current === 'polygon' && dragOriginPolygon && dragOrigin) {
           const dLat = cur.lat - dragOrigin.lat;
           const dLng = cur.lng - dragOrigin.lng;
-          const shifted: Bounds = {
-            north: dragOriginBounds.north + dLat,
-            south: dragOriginBounds.south + dLat,
-            east: dragOriginBounds.east + dLng,
-            west: dragOriginBounds.west + dLng,
-          };
+          const shifted = dragOriginPolygon.map(p => [p[0] + dLat, p[1] + dLng]);
           drawZoneShape(cur, shifted);
+          updateVertexMarkers(shifted);
         } else {
           drawZoneShape(cur);
         }
@@ -213,23 +292,21 @@ export default function LocationPickerMap({
 
       // Finalize on drag end
       marker.on('dragend', () => {
+        setTimeout(() => { isDraggingRef.current = false; }, 300);
+
         const lngLat = marker.getLngLat();
         const newCenter = { lat: lngLat.lat, lng: lngLat.lng };
 
-        if (zoneTypeRef.current === 'rectangle' && dragOriginBounds && dragOrigin) {
+        if (zoneTypeRef.current === 'polygon' && dragOriginPolygon && dragOrigin) {
           const dLat = newCenter.lat - dragOrigin.lat;
           const dLng = newCenter.lng - dragOrigin.lng;
-          const shifted: Bounds = {
-            north: dragOriginBounds.north + dLat,
-            south: dragOriginBounds.south + dLat,
-            east: dragOriginBounds.east + dLng,
-            west: dragOriginBounds.west + dLng,
-          };
-          boundsRef.current = shifted;
-          onBoundsChangeRef.current?.(shifted);
+          const shifted = dragOriginPolygon.map(p => [p[0] + dLat, p[1] + dLng]);
+          polygonPointsRef.current = shifted;
+          onPolygonPointsChangeRef.current?.(shifted);
           lastPlacedRef.current = newCenter;
           onChangeRef.current(newCenter.lat, newCenter.lng);
           drawZoneShape(newCenter, shifted);
+          updateVertexMarkers(shifted);
         } else {
           lastPlacedRef.current = newCenter;
           onChangeRef.current(newCenter.lat, newCenter.lng);
@@ -237,14 +314,15 @@ export default function LocationPickerMap({
         }
 
         dragOrigin = null;
-        dragOriginBounds = null;
+        dragOriginPolygon = null;
 
-        // Smoothly pan so the zone is centered / fully visible
-        if (zoneTypeRef.current === 'rectangle' && boundsRef.current) {
-          const b = boundsRef.current;
+        // Smoothly pan so the zone is fully visible
+        if (zoneTypeRef.current === 'polygon' && polygonPointsRef.current && polygonPointsRef.current.length >= 2) {
+          const lats = polygonPointsRef.current.map(p => p[0]);
+          const lngs = polygonPointsRef.current.map(p => p[1]);
           map.fitBounds(
-            [[b.west, b.south], [b.east, b.north]],
-            { padding: 60, duration: 400, maxZoom: map.getZoom() },
+            [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+            { padding: 60, maxZoom: map.getZoom(), duration: 400 },
           );
         } else {
           map.easeTo({ center: [lngLat.lng, lngLat.lat], duration: 300 });
@@ -262,7 +340,7 @@ export default function LocationPickerMap({
     onChangeRef.current(lat, lng);
     // Immediately redraw the zone shape with the new coordinates
     drawZoneShape({ lat, lng });
-  }, [drawZoneShape]);
+  }, [drawZoneShape, updateVertexMarkers]);
 
   // Initialize map
   useEffect(() => {
@@ -324,121 +402,98 @@ export default function LocationPickerMap({
         if (value) {
           placeMarker(value.lat, value.lng);
         }
+        // Show initial polygon vertex markers and fit bounds to polygon
+        if (polygonPointsRef.current && polygonPointsRef.current.length > 0) {
+          updateVertexMarkers(polygonPointsRef.current);
+          isPolygonClosedRef.current = true;
+
+          // Fit the map to the polygon extent so the whole shape is visible
+          if (polygonPointsRef.current.length >= 2) {
+            const lats = polygonPointsRef.current.map(p => p[0]);
+            const lngs = polygonPointsRef.current.map(p => p[1]);
+            map.fitBounds(
+              [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+              { padding: 60, maxZoom: 17, duration: 0 },
+            );
+          }
+        }
         drawZoneShape();
       });
 
-      // ── Click handler (circle mode: place marker) ──
+      // ── Click handler ──
       map.on('click', (e) => {
-        // In rectangle mode, clicks are handled by the drag sequence
-        if (zoneTypeRef.current === 'rectangle') return;
-        placeMarker(e.lngLat.lat, e.lngLat.lng);
+        // Suppress clicks that follow marker drags
+        if (isDraggingRef.current) return;
+
+        if (zoneTypeRef.current === 'polygon') {
+          // Polygon mode: add vertex on click
+          if (isPolygonClosedRef.current) {
+            // Polygon already closed — ignore clicks (user must clear first)
+            return;
+          }
+          const newPoint: number[] = [e.lngLat.lat, e.lngLat.lng];
+          polygonBuildingRef.current = [...polygonBuildingRef.current, newPoint];
+          const pts = polygonBuildingRef.current;
+          updateVertexMarkers(pts);
+          drawZoneShape(null, pts);
+
+          // Sync every click to the form so the point list stays up to date
+          polygonPointsRef.current = pts;
+          onPolygonPointsChangeRef.current?.(pts);
+        } else {
+          // Circle mode: place marker
+          placeMarker(e.lngLat.lat, e.lngLat.lng);
+        }
       });
 
-      // ── Rectangle drag drawing ──
-      // We listen on the canvas so we can intercept before MapLibre's pan handler.
-      const canvas = map.getCanvas();
-
-      const onMouseDown = (e: MouseEvent) => {
-        if (zoneTypeRef.current !== 'rectangle') return;
-        // Only left-click
-        if (e.button !== 0) return;
-
-        // Don't hijack the marker's own drag — check if the click target is
-        // inside the marker element (or the marker itself).
-        if (markerRef.current) {
-          const markerEl = markerRef.current.getElement();
-          if (markerEl && (markerEl === e.target || markerEl.contains(e.target as Node))) {
-            return; // let MapLibre handle the marker drag
-          }
-        }
+      // ── Double-click handler (polygon mode: close polygon) ──
+      map.on('dblclick', (e) => {
+        if (zoneTypeRef.current !== 'polygon') return;
+        if (isPolygonClosedRef.current) return;
 
         e.preventDefault();
-        const lngLat = map.unproject([e.offsetX, e.offsetY]);
-        dragStartRef.current = { lat: lngLat.lat, lng: lngLat.lng };
-        isDraggingRectRef.current = false;
 
-        // Disable map panning while drawing
-        map.dragPan.disable();
-      };
+        const pts = polygonBuildingRef.current;
+        if (pts.length < 3) return;
 
-      const onMouseMove = (e: MouseEvent) => {
-        if (!dragStartRef.current) return;
-        if (zoneTypeRef.current !== 'rectangle') return;
+        // Close the polygon — place center marker and stop accepting new clicks
+        isPolygonClosedRef.current = true;
+        polygonPointsRef.current = pts;
+        onPolygonPointsChangeRef.current?.(pts);
 
-        isDraggingRectRef.current = true;
-        const lngLat = map.unproject([e.offsetX, e.offsetY]);
-        const c1 = dragStartRef.current;
+        // Place marker at centroid
+        const centroid = computeCentroid(pts);
+        placeMarker(centroid.lat, centroid.lng);
+        drawZoneShape(centroid, pts);
+        updateVertexMarkers(pts);
 
-        // Live preview of the rectangle during drag
-        const liveBounds: Bounds = {
-          north: Math.max(c1.lat, lngLat.lat),
-          south: Math.min(c1.lat, lngLat.lat),
-          east: Math.max(c1.lng, lngLat.lng),
-          west: Math.min(c1.lng, lngLat.lng),
-        };
-        drawZoneShape(null, liveBounds);
-      };
+        // Fit map to show the entire polygon
+        const lats = pts.map(p => p[0]);
+        const lngs = pts.map(p => p[1]);
+        map.fitBounds(
+          [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+          { padding: 60, maxZoom: 17, duration: 400 },
+        );
 
-      const onMouseUp = (e: MouseEvent) => {
-        map.dragPan.enable();
-
-        if (!dragStartRef.current || zoneTypeRef.current !== 'rectangle') {
-          dragStartRef.current = null;
-          return;
-        }
-
-        const lngLat = map.unproject([e.offsetX, e.offsetY]);
-        const c1 = dragStartRef.current;
-        dragStartRef.current = null;
-
-        if (!isDraggingRectRef.current) {
-          // It was just a click, not a drag — place center marker
-          isDraggingRectRef.current = false;
-          placeMarker(lngLat.lat, lngLat.lng);
-          return;
-        }
-        isDraggingRectRef.current = false;
-
-        const newBounds: Bounds = {
-          north: Math.max(c1.lat, lngLat.lat),
-          south: Math.min(c1.lat, lngLat.lat),
-          east: Math.max(c1.lng, lngLat.lng),
-          west: Math.min(c1.lng, lngLat.lng),
-        };
-
-        // Place marker at the center of the rectangle
-        const centerLat = (newBounds.north + newBounds.south) / 2;
-        const centerLng = (newBounds.east + newBounds.west) / 2;
-        placeMarker(centerLat, centerLng);
-        onBoundsChangeRef.current?.(newBounds);
-        drawZoneShape(null, newBounds);
-      };
-
-      canvas.addEventListener('mousedown', onMouseDown);
-      canvas.addEventListener('mousemove', onMouseMove);
-      canvas.addEventListener('mouseup', onMouseUp);
+        // Reset building state
+        polygonBuildingRef.current = [];
+      });
 
       // Crosshair cursor to indicate the map is clickable
       map.getCanvas().style.cursor = 'crosshair';
 
       mapRef.current = map;
-
-      // Store cleanup references
-      (map as unknown as Record<string, unknown>)._rectCleanup = () => {
-        canvas.removeEventListener('mousedown', onMouseDown);
-        canvas.removeEventListener('mousemove', onMouseMove);
-        canvas.removeEventListener('mouseup', onMouseUp);
-      };
     }).catch((err) => {
       console.error('Failed to load map style:', err);
     });
 
     return () => {
       zoneSourceReady.current = false;
-      dragStartRef.current = null;
+      polygonBuildingRef.current = [];
+      isPolygonClosedRef.current = false;
+      vertexMarkersRef.current.forEach(m => m.remove());
+      vertexMarkersRef.current = [];
       if (mapRef.current) {
-        const cleanup = (mapRef.current as unknown as Record<string, unknown>)._rectCleanup as (() => void) | undefined;
-        cleanup?.();
         markerRef.current?.remove();
         markerRef.current = null;
         mapRef.current.remove();
@@ -453,8 +508,6 @@ export default function LocationPickerMap({
     if (!mapRef.current) return;
     if (value) {
       // Skip if the marker is already at this position (internal drag / click).
-      // This prevents an unwanted flyTo that would move the map mid-interaction
-      // and desync the marker from the zone shape.
       const last = lastPlacedRef.current;
       if (
         last &&
@@ -474,10 +527,44 @@ export default function LocationPickerMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value?.lat, value?.lng]);
 
-  // Redraw zone shape when zoneType, radius, or bounds change from parent
+  // Redraw zone shape when zoneType, radius, or polygonPoints change from parent
   useEffect(() => {
+    if (polygonPoints && polygonPoints.length > 0) {
+      // Check if this update came from the map's own click handler (building ref matches)
+      const fromMapClick = polygonBuildingRef.current.length === polygonPoints.length
+        && polygonBuildingRef.current.every((p, i) => p[0] === polygonPoints[i][0] && p[1] === polygonPoints[i][1]);
+
+      if (!fromMapClick) {
+        // Points changed externally (form input fields, add/remove buttons) — mark as closed
+        isPolygonClosedRef.current = true;
+        polygonBuildingRef.current = [];
+
+        // Update center marker to centroid and fit map to show full polygon
+        if (polygonPoints.length >= 3) {
+          const centroid = computeCentroid(polygonPoints);
+          if (mapRef.current) {
+            placeMarker(centroid.lat, centroid.lng);
+            // Fit bounds so the entire polygon is visible
+            const lats = polygonPoints.map(p => p[0]);
+            const lngs = polygonPoints.map(p => p[1]);
+            mapRef.current.fitBounds(
+              [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+              { padding: 60, maxZoom: 17, duration: 400 },
+            );
+          }
+        }
+      }
+
+      updateVertexMarkers(polygonPoints);
+    } else if (zoneType === 'polygon') {
+      // Points were cleared
+      isPolygonClosedRef.current = false;
+      polygonBuildingRef.current = [];
+      vertexMarkersRef.current.forEach(m => m.remove());
+      vertexMarkersRef.current = [];
+    }
     drawZoneShape();
-  }, [zoneType, radiusMeters, bounds, drawZoneShape]);
+  }, [zoneType, radiusMeters, polygonPoints, drawZoneShape, updateVertexMarkers, placeMarker]);
 
   const handleSearch = async () => {
     const q = searchQuery.trim();
@@ -508,7 +595,11 @@ export default function LocationPickerMap({
       markerRef.current = null;
     }
     lastPlacedRef.current = null;
-    dragStartRef.current = null;
+    polygonBuildingRef.current = [];
+    isPolygonClosedRef.current = false;
+    vertexMarkersRef.current.forEach(m => m.remove());
+    vertexMarkersRef.current = [];
+    onPolygonPointsChangeRef.current?.([]);
     drawZoneShape(null, null);
     mapRef.current?.flyTo({ center: DEFAULT_CENTER, zoom: DEFAULT_ZOOM });
   };
@@ -572,8 +663,8 @@ export default function LocationPickerMap({
         <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
           {value
             ? `📍 ${value.lat.toFixed(5)}, ${value.lng.toFixed(5)}`
-            : zoneType === 'rectangle'
-              ? 'Sleep op de kaart om een rechthoek te tekenen'
+            : zoneType === 'polygon'
+              ? 'Klik op de kaart om punten toe te voegen (min. 3)'
               : 'Klik op de kaart om een locatie te selecteren'}
         </Typography>
         {value && (
@@ -590,4 +681,5 @@ export default function LocationPickerMap({
     </Box>
   );
 }
+
 

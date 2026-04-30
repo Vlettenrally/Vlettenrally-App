@@ -8,12 +8,18 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Checkpoint entity representing a rally checkpoint
+ * Abstract base class for rally checkpoints.
+ * <p>
+ * Subclasses define the zone shape used for geofencing:
+ * <ul>
+ *     <li>{@link CircleCheckpoint} — radius-based circle zone</li>
+ *     <li>{@link PolygonCheckpoint} — arbitrary polygon zone (PostGIS geometry)</li>
+ * </ul>
  */
 @Setter
 @Getter
-public class Checkpoint {
-    // Getters and Setters
+public abstract sealed class Checkpoint permits CircleCheckpoint, PolygonCheckpoint {
+
     private UUID id;
     private UUID gameId;
     private String name;
@@ -22,30 +28,19 @@ public class Checkpoint {
     private int points;
     private Double latitude;
     private Double longitude;
-    private Point location;  // PostGIS Point for geofencing
-    private String externalId;  // External ID from location tracker (SocialrunDetail.id)
-    private String zoneType = "circle";       // "circle" or "rectangle"
-    private double radiusMeters = 50.0;       // radius for circle zones (meters)
-    private Double boundsNorth;               // bounding box for rectangle zones
-    private Double boundsSouth;
-    private Double boundsEast;
-    private Double boundsWest;
+    private Point location;       // PostGIS Point for geofencing
+    private String externalId;    // External ID from location tracker
     private Instant createdAt;
     private Instant updatedAt;
 
-    public Checkpoint() {
+    protected Checkpoint() {
         this.id = UUID.randomUUID();
         this.createdAt = Instant.now();
         this.updatedAt = Instant.now();
     }
 
-    public Checkpoint(UUID id, UUID gameId, String name, Instant openingTime, int points) {
-        this();
-        this.id = id;
-        this.gameId = gameId;
-        this.name = name;
-        this.openingTime = openingTime;
-        this.points = points;
-    }
-
+    /**
+     * Returns the zone type discriminator string used for persistence.
+     */
+    public abstract String getZoneType();
 }

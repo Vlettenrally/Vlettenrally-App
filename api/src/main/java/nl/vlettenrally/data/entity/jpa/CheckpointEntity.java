@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.Polygon;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -60,17 +61,8 @@ public class CheckpointEntity {
     @Column(name = "radius_meters", nullable = false)
     private double radiusMeters = 50.0;
 
-    @Column(name = "bounds_north")
-    private Double boundsNorth;
-
-    @Column(name = "bounds_south")
-    private Double boundsSouth;
-
-    @Column(name = "bounds_east")
-    private Double boundsEast;
-
-    @Column(name = "bounds_west")
-    private Double boundsWest;
+    @Column(name = "zone_polygon", columnDefinition = "geometry(Polygon, 4326)")
+    private Polygon zonePolygon;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

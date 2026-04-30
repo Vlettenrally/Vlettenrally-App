@@ -1,6 +1,8 @@
 package nl.vlettenrally.data.mapper;
 
 import nl.vlettenrally.data.domain.Checkpoint;
+import nl.vlettenrally.data.domain.CircleCheckpoint;
+import nl.vlettenrally.data.domain.PolygonCheckpoint;
 import nl.vlettenrally.data.entity.jpa.CheckpointEntity;
 
 /**
@@ -13,33 +15,25 @@ public class CheckpointMapper {
     }
 
     /**
-     * Convert a JPA entity to a domain object.
+     * Convert a JPA entity to the appropriate domain subtype.
      */
     public static Checkpoint toDomain(CheckpointEntity entity) {
         if (entity == null) {
             return null;
         }
 
-        Checkpoint domain = new Checkpoint();
-        domain.setId(entity.getId());
-        domain.setGameId(entity.getGame() != null ? entity.getGame().getId() : null);
-        domain.setName(entity.getName());
-        domain.setOpeningTime(entity.getOpeningTime());
-        domain.setClosingTime(entity.getClosingTime());
-        domain.setPoints(entity.getPoints());
-        domain.setLatitude(entity.getLatitude());
-        domain.setLongitude(entity.getLongitude());
-        domain.setLocation(entity.getLocation());
-        domain.setExternalId(entity.getExternalId());
-        domain.setZoneType(entity.getZoneType());
-        domain.setRadiusMeters(entity.getRadiusMeters());
-        domain.setBoundsNorth(entity.getBoundsNorth());
-        domain.setBoundsSouth(entity.getBoundsSouth());
-        domain.setBoundsEast(entity.getBoundsEast());
-        domain.setBoundsWest(entity.getBoundsWest());
-        domain.setCreatedAt(entity.getCreatedAt());
-        domain.setUpdatedAt(entity.getUpdatedAt());
+        Checkpoint domain;
+        if ("polygon".equals(entity.getZoneType())) {
+            PolygonCheckpoint poly = new PolygonCheckpoint();
+            poly.setZonePolygon(entity.getZonePolygon());
+            domain = poly;
+        } else {
+            CircleCheckpoint circle = new CircleCheckpoint();
+            circle.setRadiusMeters(entity.getRadiusMeters());
+            domain = circle;
+        }
 
+        mapCommonFields(entity, domain);
         return domain;
     }
 
@@ -54,20 +48,9 @@ public class CheckpointMapper {
 
         CheckpointEntity entity = new CheckpointEntity();
         entity.setId(domain.getId());
-        entity.setName(domain.getName());
-        entity.setOpeningTime(domain.getOpeningTime());
-        entity.setClosingTime(domain.getClosingTime());
-        entity.setPoints(domain.getPoints());
-        entity.setLatitude(domain.getLatitude());
-        entity.setLongitude(domain.getLongitude());
-        entity.setLocation(domain.getLocation());
-        entity.setExternalId(domain.getExternalId());
         entity.setZoneType(domain.getZoneType());
-        entity.setRadiusMeters(domain.getRadiusMeters());
-        entity.setBoundsNorth(domain.getBoundsNorth());
-        entity.setBoundsSouth(domain.getBoundsSouth());
-        entity.setBoundsEast(domain.getBoundsEast());
-        entity.setBoundsWest(domain.getBoundsWest());
+        setZoneSpecificFields(entity, domain);
+        setCommonEntityFields(entity, domain);
         entity.setCreatedAt(domain.getCreatedAt());
         entity.setUpdatedAt(domain.getUpdatedAt());
 
@@ -82,6 +65,28 @@ public class CheckpointMapper {
             return;
         }
 
+        entity.setZoneType(domain.getZoneType());
+        setZoneSpecificFields(entity, domain);
+        setCommonEntityFields(entity, domain);
+        entity.setUpdatedAt(domain.getUpdatedAt());
+    }
+
+    private static void mapCommonFields(CheckpointEntity entity, Checkpoint domain) {
+        domain.setId(entity.getId());
+        domain.setGameId(entity.getGame() != null ? entity.getGame().getId() : null);
+        domain.setName(entity.getName());
+        domain.setOpeningTime(entity.getOpeningTime());
+        domain.setClosingTime(entity.getClosingTime());
+        domain.setPoints(entity.getPoints());
+        domain.setLatitude(entity.getLatitude());
+        domain.setLongitude(entity.getLongitude());
+        domain.setLocation(entity.getLocation());
+        domain.setExternalId(entity.getExternalId());
+        domain.setCreatedAt(entity.getCreatedAt());
+        domain.setUpdatedAt(entity.getUpdatedAt());
+    }
+
+    private static void setCommonEntityFields(CheckpointEntity entity, Checkpoint domain) {
         entity.setName(domain.getName());
         entity.setOpeningTime(domain.getOpeningTime());
         entity.setClosingTime(domain.getClosingTime());
@@ -90,12 +95,15 @@ public class CheckpointMapper {
         entity.setLongitude(domain.getLongitude());
         entity.setLocation(domain.getLocation());
         entity.setExternalId(domain.getExternalId());
-        entity.setZoneType(domain.getZoneType());
-        entity.setRadiusMeters(domain.getRadiusMeters());
-        entity.setBoundsNorth(domain.getBoundsNorth());
-        entity.setBoundsSouth(domain.getBoundsSouth());
-        entity.setBoundsEast(domain.getBoundsEast());
-        entity.setBoundsWest(domain.getBoundsWest());
-        entity.setUpdatedAt(domain.getUpdatedAt());
+    }
+
+    private static void setZoneSpecificFields(CheckpointEntity entity, Checkpoint domain) {
+        if (domain instanceof CircleCheckpoint circle) {
+            entity.setRadiusMeters(circle.getRadiusMeters());
+            entity.setZonePolygon(null);
+        } else if (domain instanceof PolygonCheckpoint polygon) {
+            entity.setZonePolygon(polygon.getZonePolygon());
+            entity.setRadiusMeters(0.0);
+        }
     }
 }

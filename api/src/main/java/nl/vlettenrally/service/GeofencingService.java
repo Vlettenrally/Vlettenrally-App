@@ -3,7 +3,9 @@ package nl.vlettenrally.service;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import nl.vlettenrally.data.domain.Checkpoint;
+import nl.vlettenrally.data.domain.CircleCheckpoint;
 import nl.vlettenrally.data.domain.LocationData;
+import nl.vlettenrally.data.domain.PolygonCheckpoint;
 import nl.vlettenrally.data.repository.LocationDataRepository;
 import org.locationtech.jts.geom.Point;
 
@@ -13,7 +15,7 @@ import java.util.UUID;
 /**
  * Service for geofencing operations.
  * Detects when teams approach checkpoints and triggers notifications.
- * Supports both circle (radius-based) and rectangle (bounding-box) zone types.
+ * Uses polymorphic checkpoint types for zone-specific containment logic.
  */
 @ApplicationScoped
 public class GeofencingService {
@@ -25,7 +27,7 @@ public class GeofencingService {
 
     /**
      * Check if a location is within the geofence boundary of a checkpoint.
-     * Supports both circle (radius) and rectangle (bounding box) zone types.
+     * Dispatches to the appropriate containment check based on checkpoint type.
      *
      * @param teamLocation The team's current location
      * @param checkpoint The checkpoint to check proximity to
@@ -36,11 +38,13 @@ public class GeofencingService {
             return false;
         }
 
-        if ("rectangle".equals(checkpoint.getZoneType())) {
-            return isWithinRectangle(teamLocation, checkpoint);
-        }
+        return switch (checkpoint) {
+            case PolygonCheckpoint poly -> isWithinPolygon(teamLocation, poly);
+            case CircleCheckpoint circle -> isWithinCircle(teamLocation, circle);
+        };
+    }
 
-        // Default: circle geofence
+    private boolean isWithinCircle(LocationData teamLocation, CircleCheckpoint checkpoint) {
         if (checkpoint.getLocation() == null) {
             return false;
         }
@@ -51,18 +55,11 @@ public class GeofencingService {
             teamLocation.getLocation(), checkpoint.getLocation(), radius);
     }
 
-    /**
-     * Check if a team location falls within a rectangular bounding box.
-     */
-    private boolean isWithinRectangle(LocationData teamLocation, Checkpoint checkpoint) {
-        if (checkpoint.getBoundsNorth() == null || checkpoint.getBoundsSouth() == null ||
-            checkpoint.getBoundsEast() == null || checkpoint.getBoundsWest() == null) {
+    private boolean isWithinPolygon(LocationData teamLocation, PolygonCheckpoint checkpoint) {
+        if (checkpoint.getZonePolygon() == null) {
             return false;
         }
-        double lat = teamLocation.getLocation().getY();
-        double lng = teamLocation.getLocation().getX();
-        return lat <= checkpoint.getBoundsNorth() && lat >= checkpoint.getBoundsSouth()
-            && lng <= checkpoint.getBoundsEast() && lng >= checkpoint.getBoundsWest();
+        return checkpoint.getZonePolygon().contains(teamLocation.getLocation());
     }
 
     /**
@@ -94,7 +91,6 @@ public class GeofencingService {
     /**
      * Placeholder for checkpoint approach detection logic.
      * Will notify admins when a team approaches a checkpoint within its zone.
-     *
      * TODO: Implement checkpoint approach detection
      * - Track previous location state to detect new entries into geofence
      * - Create admin notification when team first approaches checkpoint

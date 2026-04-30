@@ -1,9 +1,14 @@
 package nl.vlettenrally.data.dto.game;
 
+import java.util.List;
 import java.util.UUID;
 
 import io.quarkus.runtime.annotations.RegisterForReflection;
 
+/**
+ * Response DTO for checkpoint data.
+ * polygonPoints is a list of [lat, lng] pairs defining the polygon vertices (excludes closing point).
+ */
 @RegisterForReflection
 public record CheckpointResponse(
     UUID id,
@@ -17,8 +22,5 @@ public record CheckpointResponse(
     String externalId,
     String zoneType,
     double radiusMeters,
-    Double boundsNorth,
-    Double boundsSouth,
-    Double boundsEast,
-    Double boundsWest
+    List<List<Double>> polygonPoints
 ) {}

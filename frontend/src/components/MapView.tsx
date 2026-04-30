@@ -18,12 +18,10 @@ export interface MapMarker {
   color: string;
   type: 'team' | 'checkpoint';
   /** Zone shape for checkpoint markers */
-  zoneType?: 'circle' | 'rectangle';
+  zoneType?: 'circle' | 'polygon';
   radiusMeters?: number;
-  boundsNorth?: number;
-  boundsSouth?: number;
-  boundsEast?: number;
-  boundsWest?: number;
+  /** Polygon vertices as [[lat, lng], ...] */
+  polygonPoints?: number[][];
 }
 
 interface MapViewProps {
@@ -93,22 +91,18 @@ export function MapView({ markers, center, zoom, className, teamLocation }: MapV
       });
     }
 
-    // Build zone boundary features (circles → polygon approximation, rectangles → polygon)
+    // Build zone boundary features (circles → polygon approximation, polygons → polygon)
     const zoneFeatures = markers
       .filter(m => m.type === 'checkpoint')
       .map(m => {
-        if (m.zoneType === 'rectangle' && m.boundsNorth != null && m.boundsSouth != null && m.boundsEast != null && m.boundsWest != null) {
+        if (m.zoneType === 'polygon' && m.polygonPoints && m.polygonPoints.length >= 3) {
+          const coords = m.polygonPoints.map(p => [p[1], p[0]]); // [lng, lat]
+          coords.push(coords[0]); // close ring
           return {
             type: 'Feature' as const,
             geometry: {
               type: 'Polygon' as const,
-              coordinates: [[
-                [m.boundsWest, m.boundsNorth],
-                [m.boundsEast, m.boundsNorth],
-                [m.boundsEast, m.boundsSouth],
-                [m.boundsWest, m.boundsSouth],
-                [m.boundsWest, m.boundsNorth],
-              ]],
+              coordinates: [coords],
             },
             properties: { id: m.id, label: m.label },
           };

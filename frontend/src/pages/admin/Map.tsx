@@ -7,15 +7,16 @@
  * - MAP_HEARTBEAT sent every 10s so backend streams location data to this session
  * - Initial data loaded via REST API on mount
  */
-import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
-import { Box, Alert, CircularProgress, Typography } from '@mui/material';
-const MapView = lazy(() => import('../../components/MapView'));
-import type { MapMarker } from '../../components/MapView';
-import { getTeamColor } from '../../utils/teamColors';
-import type { TeamLocation, Checkpoint } from '../../types/entities';
-import { useGameStore } from '../../store/useGameStore';
-import { useAdminWebSocket } from '../../hooks/useWebSocket';
+import {lazy, Suspense, useCallback, useEffect, useRef, useState} from 'react';
+import {Alert, Box, CircularProgress, Typography} from '@mui/material';
+import type {MapMarker} from '../../components/MapView';
+import {getTeamColor} from '../../utils/teamColors';
+import type {Checkpoint, TeamLocation} from '../../types/entities';
+import {useGameStore} from '../../store/useGameStore';
+import {useAdminWebSocket} from '../../hooks/useWebSocket';
 import api from '../../services/api';
+
+const MapView = lazy(() => import('../../components/MapView'));
 
 const MAP_HEARTBEAT_INTERVAL_MS = 10_000; // 10 seconds
 
@@ -110,8 +111,7 @@ export default function AdminMap() {
 
   useEffect(() => {
     if (!selectedGameId) return;
-    const unsubscribe = subscribe('LOCATION_UPDATE', handleLocationUpdate);
-    return unsubscribe;
+    return subscribe('LOCATION_UPDATE', handleLocationUpdate);
   }, [selectedGameId, subscribe, handleLocationUpdate]);
 
   // Build map markers
@@ -135,10 +135,7 @@ export default function AdminMap() {
         type: 'checkpoint' as const,
         zoneType: cp.zoneType,
         radiusMeters: cp.radiusMeters,
-        boundsNorth: cp.boundsNorth,
-        boundsSouth: cp.boundsSouth,
-        boundsEast: cp.boundsEast,
-        boundsWest: cp.boundsWest,
+        polygonPoints: cp.polygonPoints,
       })),
   ];
 

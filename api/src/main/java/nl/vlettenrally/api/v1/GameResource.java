@@ -29,6 +29,8 @@ import nl.vlettenrally.data.dto.game.RankingResponse;
 import nl.vlettenrally.data.dto.game.TeamImportResponse;
 import nl.vlettenrally.data.converter.TeamConverter;
 import nl.vlettenrally.data.domain.Checkpoint;
+import nl.vlettenrally.data.domain.CircleCheckpoint;
+import nl.vlettenrally.data.domain.PolygonCheckpoint;
 import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.service.GameService;
@@ -39,14 +41,19 @@ import nl.vlettenrally.service.TeamService;
 import nl.vlettenrally.service.TeamImportService;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.PrecisionModel;
+import org.locationtech.jts.geom.Polygon;
+
 /**
  * REST Resource for Game operations
- * 
  * Endpoints:
  * - GET /api/v1/games - Get all games
  * - GET /api/v1/games/active - Get active and planned games
@@ -68,6 +75,8 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class GameResource {
+
+    private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory(new PrecisionModel(), 4326);
 
     @Inject
     GameService gameService;
@@ -127,9 +136,7 @@ public class GameResource {
     public Response getGameById(@PathParam("gameId") UUID gameId) {
         return gameService.findById(gameId)
             .map(game -> Response.ok(toDto(game)).build())
-            .orElse(Response.status(Response.Status.NOT_FOUND)
-                .entity(new ErrorResponse("Game not found"))
-                .build());
+            .orElse(gameNotFoundResponse());
     }
 
     /**
@@ -140,9 +147,7 @@ public class GameResource {
     public Response getCheckpoints(@PathParam("gameId") UUID gameId) {
         // Verify game exists
         if (gameService.findById(gameId).isEmpty()) {
-            return Response.status(Response.Status.NOT_FOUND)
-                .entity(new ErrorResponse("Game not found"))
-                .build();
+            return gameNotFoundResponse();
         }
 
         List<Checkpoint> checkpoints = checkpointService.findByGameId(gameId);
@@ -155,9 +160,7 @@ public class GameResource {
     public Response getTeamsForGame(@PathParam("gameId") UUID gameId) {
         // Verify game exists
         if (gameService.findById(gameId).isEmpty()) {
-            return Response.status(Response.Status.NOT_FOUND)
-                    .entity(new ErrorResponse("Game not fo  und"))
-                    .build();
+            return gameNotFoundResponse();
         }
         List<Team> teams = teamService.findByGameId(gameId);
         return Response.ok(teams.stream().map(teamConverter::toDto).toList()).build();
@@ -192,9 +195,7 @@ public class GameResource {
     public Response getRankings(@PathParam("gameId") UUID gameId) {
         // Verify game exists
         if (gameService.findById(gameId).isEmpty()) {
-            return Response.status(Response.Status.NOT_FOUND)
-                .entity(new ErrorResponse("Game not found"))
-                .build();
+            return gameNotFoundResponse();
         }
 
         List<Team> teams = teamService.findByGameId(gameId);
@@ -295,22 +296,18 @@ public class GameResource {
                 Game updated = gameService.save(game);
                 return Response.ok(toDto(updated)).build();
             })
-            .orElse(Response.status(Response.Status.NOT_FOUND)
-                .entity(new ErrorResponse("Game not found"))
-                .build());
+            .orElse(gameNotFoundResponse());
     }
 
     /**
-     * Delete a game
+     * Update an existing game
      */
     @DELETE
     @Path("/{gameId}")
     @RolesAllowed("admin")
     public Response deleteGame(@PathParam("gameId") UUID gameId) {
         if (gameService.findById(gameId).isEmpty()) {
-            return Response.status(Response.Status.NOT_FOUND)
-                .entity(new ErrorResponse("Game not found"))
-                .build();
+            return gameNotFoundResponse();
         }
 
         gameService.delete(gameId);
@@ -345,13 +342,11 @@ public class GameResource {
                         .build();
                 }
             })
-            .orElse(Response.status(Response.Status.NOT_FOUND)
-                .entity(new ErrorResponse("Game not found"))
-                .build());
+            .orElse(gameNotFoundResponse());
     }
 
     /**
-     * Test location endpoint connection
+     * Delete a game
      */
     @POST
     @Path("/{gameId}/test-location-endpoint")
@@ -381,9 +376,7 @@ public class GameResource {
                     )).build();
                 }
             })
-            .orElse(Response.status(Response.Status.NOT_FOUND)
-                .entity(new ErrorResponse("Game not found"))
-                .build());
+            .orElse(gameNotFoundResponse());
     }
 
     // Helper methods
@@ -396,9 +389,7 @@ public class GameResource {
     @RolesAllowed("admin")
     public Response createCheckpoint(@PathParam("gameId") UUID gameId, CheckpointRequest request) {
         if (gameService.findById(gameId).isEmpty()) {
-            return Response.status(Response.Status.NOT_FOUND)
-                .entity(new ErrorResponse("Game not found"))
-                .build();
+            return gameNotFoundResponse();
         }
 
         if (request.name() == null || request.name().isBlank()) {
@@ -407,25 +398,23 @@ public class GameResource {
                 .build();
         }
 
-        Checkpoint checkpoint = new Checkpoint();
+        Checkpoint checkpoint;
+        if ("polygon".equals(request.zoneType()) && request.polygonPoints() != null && request.polygonPoints().size() >= 3) {
+            PolygonCheckpoint poly = new PolygonCheckpoint();
+            poly.setZonePolygon(toPolygon(request.polygonPoints()));
+            checkpoint = poly;
+        } else {
+            CircleCheckpoint circle = new CircleCheckpoint();
+            if (request.radiusMeters() != null) {
+                circle.setRadiusMeters(request.radiusMeters());
+            }
+            checkpoint = circle;
+        }
         checkpoint.setGameId(gameId);
         checkpoint.setName(request.name());
         checkpoint.setPoints(request.points());
         checkpoint.setLatitude(request.latitude());
         checkpoint.setLongitude(request.longitude());
-
-        if (request.zoneType() != null) {
-            checkpoint.setZoneType(request.zoneType());
-        }
-
-        if (request.radiusMeters() != null) {
-            checkpoint.setRadiusMeters(request.radiusMeters());
-        }
-
-        checkpoint.setBoundsNorth(request.boundsNorth());
-        checkpoint.setBoundsSouth(request.boundsSouth());
-        checkpoint.setBoundsEast(request.boundsEast());
-        checkpoint.setBoundsWest(request.boundsWest());
 
         if (request.openingTime() != null) {
             checkpoint.setOpeningTime(Instant.parse(request.openingTime()));
@@ -450,28 +439,47 @@ public class GameResource {
             @PathParam("checkpointId") UUID checkpointId,
             CheckpointRequest request) {
 
-        Optional<Checkpoint> existing = checkpointService.findById(checkpointId);
-        if (existing.isEmpty()) {
+        Checkpoint existing = checkpointService.findById(checkpointId).orElse(null);
+        if (existing == null) {
             return Response.status(Response.Status.NOT_FOUND)
                 .entity(new ErrorResponse("Checkpoint not found"))
                 .build();
         }
 
-        Checkpoint checkpoint = existing.get();
+        // Determine if the zone type is changing
+        boolean switchingToPolygon = "polygon".equals(request.zoneType())
+            && request.polygonPoints() != null && request.polygonPoints().size() >= 3;
+        boolean switchingToCircle = "circle".equals(request.zoneType()) || request.zoneType() == null;
+
+        Checkpoint checkpoint;
+        if (switchingToPolygon && !(existing instanceof PolygonCheckpoint)) {
+            // Type changed from circle → polygon: create a new PolygonCheckpoint preserving common fields
+            PolygonCheckpoint poly = new PolygonCheckpoint();
+            copyCommonFields(existing, poly);
+            poly.setZonePolygon(toPolygon(request.polygonPoints()));
+            checkpoint = poly;
+        } else if (switchingToCircle && !(existing instanceof CircleCheckpoint)) {
+            // Type changed from polygon → circle: create a new CircleCheckpoint preserving common fields
+            CircleCheckpoint circle = new CircleCheckpoint();
+            copyCommonFields(existing, circle);
+            if (request.radiusMeters() != null) {
+                circle.setRadiusMeters(request.radiusMeters());
+            }
+            checkpoint = circle;
+        } else {
+            // Same type — update in place
+            checkpoint = existing;
+            if (checkpoint instanceof PolygonCheckpoint poly && request.polygonPoints() != null && request.polygonPoints().size() >= 3) {
+                poly.setZonePolygon(toPolygon(request.polygonPoints()));
+            } else if (checkpoint instanceof CircleCheckpoint circle && request.radiusMeters() != null) {
+                circle.setRadiusMeters(request.radiusMeters());
+            }
+        }
+
         if (request.name() != null) checkpoint.setName(request.name());
         checkpoint.setPoints(request.points());
         checkpoint.setLatitude(request.latitude());
         checkpoint.setLongitude(request.longitude());
-        if (request.zoneType() != null) {
-            checkpoint.setZoneType(request.zoneType());
-        }
-        if (request.radiusMeters() != null) {
-            checkpoint.setRadiusMeters(request.radiusMeters());
-        }
-        checkpoint.setBoundsNorth(request.boundsNorth());
-        checkpoint.setBoundsSouth(request.boundsSouth());
-        checkpoint.setBoundsEast(request.boundsEast());
-        checkpoint.setBoundsWest(request.boundsWest());
         if (request.openingTime() != null) {
             checkpoint.setOpeningTime(Instant.parse(request.openingTime()));
         }
@@ -569,8 +577,8 @@ public class GameResource {
                                     updated++;
                                 }
                             } else {
-                                // Create new checkpoint
-                                Checkpoint cp = new Checkpoint();
+                                // Create new checkpoint (default to circle zone)
+                                CircleCheckpoint cp = new CircleCheckpoint();
                                 cp.setGameId(gameId);
                                 cp.setExternalId(externalId);
                                 cp.setName(detail.getName() != null ? detail.getName() : "Zone " + externalId);
@@ -594,9 +602,7 @@ public class GameResource {
                         .build();
                 }
             })
-            .orElse(Response.status(Response.Status.NOT_FOUND)
-                .entity(new ErrorResponse("Game not found"))
-                .build());
+            .orElse(gameNotFoundResponse());
     }
 
     private GameResponse toDto(Game game) {
@@ -620,6 +626,15 @@ public class GameResource {
     }
 
     private CheckpointResponse toCheckpointDto(Checkpoint checkpoint) {
+        double radiusMeters = 0;
+        List<List<Double>> polygonPoints = null;
+
+        if (checkpoint instanceof CircleCheckpoint circle) {
+            radiusMeters = circle.getRadiusMeters();
+        } else if (checkpoint instanceof PolygonCheckpoint polygon) {
+            polygonPoints = fromPolygon(polygon.getZonePolygon());
+        }
+
         return new CheckpointResponse(
             checkpoint.getId(),
             checkpoint.getGameId(),
@@ -631,11 +646,61 @@ public class GameResource {
             checkpoint.getLongitude(),
             checkpoint.getExternalId(),
             checkpoint.getZoneType(),
-            checkpoint.getRadiusMeters(),
-            checkpoint.getBoundsNorth(),
-            checkpoint.getBoundsSouth(),
-            checkpoint.getBoundsEast(),
-            checkpoint.getBoundsWest()
+            radiusMeters,
+            polygonPoints
         );
+    }
+
+    private Response gameNotFoundResponse() {
+        return Response.status(Response.Status.NOT_FOUND)
+            .entity(new ErrorResponse("Game not found"))
+            .build();
+    }
+
+    /**
+     * Copy common Checkpoint fields from one instance to another (used when zone type changes).
+     */
+    private void copyCommonFields(Checkpoint source, Checkpoint target) {
+        target.setId(source.getId());
+        target.setGameId(source.getGameId());
+        target.setName(source.getName());
+        target.setOpeningTime(source.getOpeningTime());
+        target.setClosingTime(source.getClosingTime());
+        target.setPoints(source.getPoints());
+        target.setLatitude(source.getLatitude());
+        target.setLongitude(source.getLongitude());
+        target.setLocation(source.getLocation());
+        target.setExternalId(source.getExternalId());
+        target.setCreatedAt(source.getCreatedAt());
+        target.setUpdatedAt(source.getUpdatedAt());
+    }
+
+    /**
+     * Convert a list of [lat, lng] pairs to a JTS Polygon.
+     */
+    private Polygon toPolygon(List<List<Double>> points) {
+        // Build coordinate array: close the ring by repeating the first point
+        Coordinate[] coords = new Coordinate[points.size() + 1];
+        for (int i = 0; i < points.size(); i++) {
+            List<Double> p = points.get(i);
+            coords[i] = new Coordinate(p.get(1), p.get(0)); // JTS uses (x=lng, y=lat)
+        }
+        coords[points.size()] = coords[0]; // close the ring
+        return GEOMETRY_FACTORY.createPolygon(coords);
+    }
+
+    /**
+     * Extract polygon vertices as a list of [lat, lng] pairs from a JTS Polygon.
+     * Excludes the closing point (which duplicates the first).
+     */
+    private List<List<Double>> fromPolygon(Polygon polygon) {
+        if (polygon == null) return null;
+        Coordinate[] coords = polygon.getExteriorRing().getCoordinates();
+        List<List<Double>> result = new ArrayList<>();
+        // Skip the last coordinate (closing point that duplicates the first)
+        for (int i = 0; i < coords.length - 1; i++) {
+            result.add(List.of(coords[i].getY(), coords[i].getX())); // [lat, lng]
+        }
+        return result;
     }
 }

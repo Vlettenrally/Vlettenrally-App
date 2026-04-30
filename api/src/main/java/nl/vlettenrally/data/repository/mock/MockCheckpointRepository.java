@@ -5,6 +5,7 @@ import io.quarkus.logging.Log;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import nl.vlettenrally.data.domain.Checkpoint;
+import nl.vlettenrally.data.domain.CircleCheckpoint;
 import nl.vlettenrally.data.repository.CheckpointRepository;
 
 import java.time.Instant;
@@ -46,7 +47,7 @@ public class MockCheckpointRepository implements CheckpointRepository {
         Instant now = Instant.now();
 
         // Checkpoint 1 - Start
-        Checkpoint cp1 = new Checkpoint();
+        Checkpoint cp1 = new CircleCheckpoint();
         cp1.setId(CHECKPOINT_START_ID);
         cp1.setGameId(MockGameRepository.GAME_2026_ID);
         cp1.setName("Start - Havenkade");
@@ -58,7 +59,7 @@ public class MockCheckpointRepository implements CheckpointRepository {
         checkpoints.put(cp1.getId(), cp1);
 
         // Checkpoint 2 - Amstel
-        Checkpoint cp2 = new Checkpoint();
+        Checkpoint cp2 = new CircleCheckpoint();
         cp2.setId(CHECKPOINT_AMSTEL_ID);
         cp2.setGameId(MockGameRepository.GAME_2026_ID);
         cp2.setName("Checkpoint Amstel");
@@ -70,7 +71,7 @@ public class MockCheckpointRepository implements CheckpointRepository {
         checkpoints.put(cp2.getId(), cp2);
 
         // Checkpoint 3 - Prinsengracht
-        Checkpoint cp3 = new Checkpoint();
+        Checkpoint cp3 = new CircleCheckpoint();
         cp3.setId(CHECKPOINT_PRINSEN_ID);
         cp3.setGameId(MockGameRepository.GAME_2026_ID);
         cp3.setName("Checkpoint Prinsengracht");
@@ -82,7 +83,7 @@ public class MockCheckpointRepository implements CheckpointRepository {
         checkpoints.put(cp3.getId(), cp3);
 
         // Checkpoint 4 - Keizersgracht
-        Checkpoint cp4 = new Checkpoint();
+        Checkpoint cp4 = new CircleCheckpoint();
         cp4.setId(CHECKPOINT_KEIZER_ID);
         cp4.setGameId(MockGameRepository.GAME_2026_ID);
         cp4.setName("Checkpoint Keizersgracht");
@@ -94,7 +95,7 @@ public class MockCheckpointRepository implements CheckpointRepository {
         checkpoints.put(cp4.getId(), cp4);
 
         // Checkpoint 5 - Finish
-        Checkpoint cp5 = new Checkpoint();
+        Checkpoint cp5 = new CircleCheckpoint();
         cp5.setId(CHECKPOINT_FINISH_ID);
         cp5.setGameId(MockGameRepository.GAME_2026_ID);
         cp5.setName("Finish - Centraal Station");
@@ -122,7 +123,7 @@ public class MockCheckpointRepository implements CheckpointRepository {
     public List<Checkpoint> findByGameId(UUID gameId) {
         return checkpoints.values().stream()
                 .filter(cp -> gameId.equals(cp.getGameId()))
-                .sorted(Comparator.comparing(Checkpoint::getOpeningTime))
+                .sorted(Comparator.comparing(Checkpoint::getOpeningTime, Comparator.nullsLast(Comparator.naturalOrder())))
                 .collect(Collectors.toList());
     }
 

@@ -264,7 +264,7 @@ const Zones = () => {
                       {formatLocation(cp.latitude, cp.longitude)}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {cp.zoneType === 'rectangle' ? '▭ Rechthoek' : `⊙ ${cp.radiusMeters ?? 50}m`}
+                      {cp.zoneType === 'polygon' ? `⬡ Polygoon (${cp.polygonPoints?.length ?? 0} punten)` : `⊙ ${cp.radiusMeters ?? 50}m`}
                     </Typography>
                   </TableCell>
                   <TableCell>{formatDateTime(cp.openingTime)}</TableCell>

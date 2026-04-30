@@ -6,16 +6,17 @@
  * - Checkpoint markers for the game
  * - User's device geolocation via MapLibre GeolocateControl
  */
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
-import { Box, Alert, CircularProgress, Typography } from '@mui/material';
-const MapView = lazy(() => import('../../components/MapView'));
-import type { MapMarker } from '../../components/MapView';
-import { getTeamColor } from '../../utils/teamColors';
-import type { TeamLocation, Checkpoint } from '../../types/entities';
-import { useTeamStore } from '../../store/useTeamStore';
-import { useTeamWebSocket } from '../../hooks/useWebSocket';
-import { storage } from '../../services/storage';
+import {lazy, Suspense, useCallback, useEffect, useState} from 'react';
+import {Alert, Box, CircularProgress, Typography} from '@mui/material';
+import type {MapMarker} from '../../components/MapView';
+import {getTeamColor} from '../../utils/teamColors';
+import type {Checkpoint, TeamLocation} from '../../types/entities';
+import {useTeamStore} from '../../store/useTeamStore';
+import {useTeamWebSocket} from '../../hooks/useWebSocket';
+import {storage} from '../../services/storage';
 import api from '../../services/api';
+
+const MapView = lazy(() => import('../../components/MapView'));
 
 export default function ParticipantMap() {
   const { team } = useTeamStore();
@@ -74,8 +75,7 @@ export default function ParticipantMap() {
 
   useEffect(() => {
     if (!gameId || !teamId) return;
-    const unsubscribe = subscribe('LOCATION_UPDATE', handleLocationUpdate);
-    return unsubscribe;
+    return subscribe('LOCATION_UPDATE', handleLocationUpdate);
   }, [gameId, teamId, subscribe, handleLocationUpdate]);
 
   // Build map markers
@@ -99,10 +99,7 @@ export default function ParticipantMap() {
         type: 'checkpoint' as const,
         zoneType: cp.zoneType,
         radiusMeters: cp.radiusMeters,
-        boundsNorth: cp.boundsNorth,
-        boundsSouth: cp.boundsSouth,
-        boundsEast: cp.boundsEast,
-        boundsWest: cp.boundsWest,
+        polygonPoints: cp.polygonPoints,
       })),
   ];
 
