@@ -190,6 +190,7 @@ export default function Teams() {
                 <TableRow>
                   <TableCell><strong>Team Name</strong></TableCell>
                   <TableCell><strong>Description</strong></TableCell>
+                  <TableCell align="right"><strong>Points</strong></TableCell>
                   <TableCell align="center"><strong>Checked In</strong></TableCell>
                   <TableCell align="center"><strong>Digital</strong></TableCell>
                 </TableRow>
@@ -204,6 +205,7 @@ export default function Teams() {
                   >
                     <TableCell>{team.name}</TableCell>
                     <TableCell>{team.description}</TableCell>
+                    <TableCell align="right">{team.totalPoints}</TableCell>
                     <TableCell align="center">
                       <Chip 
                         label={team.checkedIn ? 'Yes' : 'No'} 

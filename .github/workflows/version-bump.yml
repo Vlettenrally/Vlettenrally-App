@@ -1,12 +1,11 @@
 name: Bump Version
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
   group: version-bump-main
@@ -15,7 +14,6 @@ concurrency:
 jobs:
   bump-version:
     name: Update version files
-    if: ${{ github.actor != 'github-actions[bot]' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -73,3 +71,8 @@ jobs:
           git add VERSION kubernetes/deployments.yml
           git commit -m "Version bump."
           git push
+
+      - name: Trigger build workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run build.yml --ref main

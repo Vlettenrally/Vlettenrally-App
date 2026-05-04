@@ -89,12 +89,10 @@ export interface Checkpoint {
   latitude?: number;
   longitude?: number;
   externalId?: string;
-  zoneType: 'circle' | 'rectangle';
+  zoneType: 'circle' | 'polygon';
   radiusMeters: number;
-  boundsNorth?: number;
-  boundsSouth?: number;
-  boundsEast?: number;
-  boundsWest?: number;
+  /** Polygon vertices as [[lat, lng], ...] — only for polygon zones */
+  polygonPoints?: number[][];
 }
 
 /**
@@ -107,12 +105,10 @@ export interface CheckpointRequest {
   points: number;
   latitude?: number;
   longitude?: number;
-  zoneType?: 'circle' | 'rectangle';
+  zoneType?: 'circle' | 'polygon';
   radiusMeters?: number;
-  boundsNorth?: number;
-  boundsSouth?: number;
-  boundsEast?: number;
-  boundsWest?: number;
+  /** Polygon vertices as [[lat, lng], ...] — only for polygon zones */
+  polygonPoints?: number[][];
 }
 
 /**

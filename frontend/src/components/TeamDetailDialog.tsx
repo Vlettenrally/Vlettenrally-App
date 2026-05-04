@@ -46,6 +46,7 @@ export default function TeamDetailDialog({
     notes: '',
     checkedIn: false,
     checkedInDigitally: false,
+    totalPoints: 0,
   });
 
   const isCreateMode = !team;
@@ -60,6 +61,7 @@ export default function TeamDetailDialog({
         notes: team.notes || '',
         checkedIn: team.checkedIn,
         checkedInDigitally: team.checkedInDigitally,
+        totalPoints: team.totalPoints,
       });
       setIsEditing(false);
       
@@ -92,6 +94,7 @@ export default function TeamDetailDialog({
         notes: '',
         checkedIn: false,
         checkedInDigitally: false,
+        totalPoints: 0,
       });
       setIsEditing(true);
       setRivalTeams([]);
@@ -118,6 +121,7 @@ export default function TeamDetailDialog({
           notes: team.notes || '',
           checkedIn: team.checkedIn,
           checkedInDigitally: team.checkedInDigitally,
+          totalPoints: team.totalPoints,
         });
       }
       setError(null);
@@ -147,6 +151,7 @@ export default function TeamDetailDialog({
         notes: formData.notes || undefined,
         checkedIn: formData.checkedIn,
         checkedInDigitally: formData.checkedInDigitally,
+        totalPoints: formData.totalPoints,
       };
 
       if (isCreateMode) {
@@ -315,7 +320,21 @@ export default function TeamDetailDialog({
                 <Typography variant="subtitle2" gutterBottom>
                   Points
                 </Typography>
-                <Typography>{team.totalPoints}</Typography>
+                {isEditing ? (
+                  <TextField
+                    type="number"
+                    value={formData.totalPoints}
+                    onChange={(e) => {
+                      const value = Math.max(0, parseInt(e.target.value, 10) || 0);
+                      setFormData((prev) => ({ ...prev, totalPoints: value }));
+                    }}
+                    slotProps={{ htmlInput: { min: 0 } }}
+                    size="small"
+                    fullWidth
+                  />
+                ) : (
+                  <Typography>{team.totalPoints}</Typography>
+                )}
               </Box>
 
               <Box>
