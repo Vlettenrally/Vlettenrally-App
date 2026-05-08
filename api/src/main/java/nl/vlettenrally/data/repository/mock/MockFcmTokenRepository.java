@@ -71,6 +71,16 @@ public class MockFcmTokenRepository implements FcmTokenRepository {
     }
 
     @Override
+    public List<FcmToken> findAllAdminTokens() {
+        return new ArrayList<>();
+    }
+
+    @Override
+    public List<FcmToken> findAdminTokensByAdminIds(java.util.Collection<UUID> adminIds) {
+        return new ArrayList<>();
+    }
+
+    @Override
     public Optional<FcmToken> findByToken(String token) {
         return fcmTokens.values().stream()
                 .filter(t -> t.getToken().equals(token))

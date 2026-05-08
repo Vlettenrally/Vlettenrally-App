@@ -35,8 +35,8 @@ public class AchievementEntity {
     @JoinColumn(name = "checkpoint_id", nullable = false)
     private CheckpointEntity checkpoint;
 
-    @Column(name = "points_earned", nullable = false)
-    private int pointsEarned = 0;
+    @Column(name = "bonus_points", nullable = false)
+    private int bonusPoints = 0;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)

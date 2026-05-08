@@ -21,6 +21,7 @@ public class WebSocketSession {
     private final SessionType type;
     private UUID gameId; // mutable for admin sessions to switch games
     private final UUID teamId; // null for admin sessions
+    private UUID checkpointId; // optional: tracks the checkpoint an admin is currently manning
     private Instant lastActivity;
     
     public WebSocketSession(Session session, SessionType type, UUID gameId, UUID teamId) {
@@ -65,6 +66,17 @@ public class WebSocketSession {
             throw new IllegalStateException("Cannot change gameId for team sessions");
         }
         this.gameId = gameId;
+    }
+
+    /**
+     * Set the checkpoint the admin is currently manning. May be null when the
+     * admin clears their selection.
+     */
+    public void setCheckpointId(UUID checkpointId) {
+        if (!isAdmin()) {
+            throw new IllegalStateException("Cannot set checkpointId for team sessions");
+        }
+        this.checkpointId = checkpointId;
     }
     
     public boolean isAdmin() {

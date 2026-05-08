@@ -28,7 +28,9 @@ import type {
   AdminUser,
   CreateAdminRequest,
   UpdateAdminRolesRequest,
-  ResetPasswordResponse
+  ResetPasswordResponse,
+  Achievement,
+  CheckpointTeamStatus,
 } from '../types/entities';
 import storage from './storage';
 import { isTokenExpiringSoon } from './auth';
@@ -568,6 +570,22 @@ async getGames() : Promise<ApiResponse<Game[]>> {
   // Achievements endpoints
   async getTeamAchievements(teamId: string) {
     return this.get(`/teams/${teamId}/achievements`);
+  }
+
+  async getTeamsNearCheckpoint(gameId: string, checkpointId: string): Promise<ApiResponse<CheckpointTeamStatus[]>> {
+    return this.get(`/games/${gameId}/checkpoints/${checkpointId}/teams/nearby`);
+  }
+
+  async verifyAchievement(achievementId: string, notes?: string, bonusPoints?: number): Promise<ApiResponse<Achievement>> {
+    return this.post(`/achievements/${achievementId}/verify`, { notes, bonusPoints });
+  }
+
+  async rejectAchievement(achievementId: string, notes: string): Promise<ApiResponse<Achievement>> {
+    return this.post(`/achievements/${achievementId}/reject`, { notes });
+  }
+
+  async detectProximity(teamId: string, checkpointId: string): Promise<ApiResponse<Achievement>> {
+    return this.post('/achievements/detect', { teamId, checkpointId });
   }
 
   // FCM Token registration

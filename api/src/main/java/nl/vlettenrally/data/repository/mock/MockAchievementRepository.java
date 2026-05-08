@@ -55,7 +55,7 @@ public class MockAchievementRepository implements AchievementRepository {
             UUID.fromString("aaaa0002-0000-0000-0000-000000000002"),
             MockTeamRepository.TEAM_WATERVLOOIEN_ID,
             MockCheckpointRepository.CHECKPOINT_AMSTEL_ID,
-            100,
+            0,
             now.minus(90, ChronoUnit.MINUTES)
         );
         achievements.put(ach2.getId(), ach2);
@@ -64,7 +64,7 @@ public class MockAchievementRepository implements AchievementRepository {
             UUID.fromString("aaaa0003-0000-0000-0000-000000000003"),
             MockTeamRepository.TEAM_WATERVLOOIEN_ID,
             MockCheckpointRepository.CHECKPOINT_PRINSEN_ID,
-            150,
+            0,
             now.minus(45, ChronoUnit.MINUTES)
         );
         achievements.put(ach3.getId(), ach3);
@@ -74,7 +74,7 @@ public class MockAchievementRepository implements AchievementRepository {
             UUID.fromString("aaaa0004-0000-0000-0000-000000000004"),
             MockTeamRepository.TEAM_WATERVLOOIEN_ID,
             MockCheckpointRepository.CHECKPOINT_KEIZER_ID,
-            100,
+            0,
             now.minus(5, ChronoUnit.MINUTES)
         );
         achievements.put(ach4.getId(), ach4);
@@ -93,7 +93,7 @@ public class MockAchievementRepository implements AchievementRepository {
             UUID.fromString("aaaa0006-0000-0000-0000-000000000006"),
             MockTeamRepository.TEAM_WINDKRACHT_ID,
             MockCheckpointRepository.CHECKPOINT_AMSTEL_ID,
-            100,
+            0,
             now.minus(75, ChronoUnit.MINUTES)
         );
         achievements.put(ach6.getId(), ach6);
@@ -103,7 +103,7 @@ public class MockAchievementRepository implements AchievementRepository {
             UUID.fromString("aaaa0007-0000-0000-0000-000000000007"),
             MockTeamRepository.TEAM_WINDKRACHT_ID,
             MockCheckpointRepository.CHECKPOINT_PRINSEN_ID,
-            150,
+            0,
             now.minus(3, ChronoUnit.MINUTES)
         );
         achievements.put(ach7.getId(), ach7);
@@ -122,7 +122,7 @@ public class MockAchievementRepository implements AchievementRepository {
             UUID.fromString("aaaa0009-0000-0000-0000-000000000009"),
             MockTeamRepository.TEAM_GORILLAS_ID,
             MockCheckpointRepository.CHECKPOINT_AMSTEL_ID,
-            100,
+            0,
             now.minus(60, ChronoUnit.MINUTES)
         );
         achievements.put(ach9.getId(), ach9);
@@ -131,7 +131,7 @@ public class MockAchievementRepository implements AchievementRepository {
             UUID.fromString("aaaa0010-0000-0000-0000-000000000010"),
             MockTeamRepository.TEAM_GORILLAS_ID,
             MockCheckpointRepository.CHECKPOINT_PRINSEN_ID,
-            150,
+            0,
             now.minus(30, ChronoUnit.MINUTES)
         );
         achievements.put(ach10.getId(), ach10);
@@ -152,18 +152,18 @@ public class MockAchievementRepository implements AchievementRepository {
     }
 
     // Helper methods for creating achievements with different statuses
-    private Achievement createVerifiedAchievement(UUID id, UUID teamId, UUID checkpointId, int points, Instant detectedAt) {
-        Achievement a = new Achievement(id, teamId, checkpointId, points, AchievementStatus.VERIFIED, detectedAt);
+    private Achievement createVerifiedAchievement(UUID id, UUID teamId, UUID checkpointId, int bonusPoints, Instant detectedAt) {
+        Achievement a = new Achievement(id, teamId, checkpointId, bonusPoints, AchievementStatus.VERIFIED, detectedAt);
         a.setVerifiedAt(detectedAt.plus(2, ChronoUnit.MINUTES)); // Verified 2 minutes after detection
         return a;
     }
 
-    private Achievement createPendingAchievement(UUID id, UUID teamId, UUID checkpointId, int points, Instant detectedAt) {
-        return new Achievement(id, teamId, checkpointId, points, AchievementStatus.PENDING, detectedAt);
+    private Achievement createPendingAchievement(UUID id, UUID teamId, UUID checkpointId, int bonusPoints, Instant detectedAt) {
+        return new Achievement(id, teamId, checkpointId, bonusPoints, AchievementStatus.PENDING, detectedAt);
     }
 
-    private Achievement createRejectedAchievement(UUID id, UUID teamId, UUID checkpointId, int points, Instant detectedAt, String reason) {
-        Achievement a = new Achievement(id, teamId, checkpointId, points, AchievementStatus.REJECTED, detectedAt);
+    private Achievement createRejectedAchievement(UUID id, UUID teamId, UUID checkpointId, int bonusPoints, Instant detectedAt, String reason) {
+        Achievement a = new Achievement(id, teamId, checkpointId, bonusPoints, AchievementStatus.REJECTED, detectedAt);
         a.setVerifiedAt(detectedAt.plus(1, ChronoUnit.MINUTES));
         a.setNotes(reason);
         return a;
@@ -217,5 +217,17 @@ public class MockAchievementRepository implements AchievementRepository {
     @Override
     public void delete(UUID id) {
         achievements.remove(id);
+    }
+
+    @Override
+    public int deleteRejectedOlderThan(java.time.Instant cutoff) {
+        List<UUID> toRemove = achievements.values().stream()
+                .filter(a -> a.getStatus() == AchievementStatus.REJECTED
+                    && a.getVerifiedAt() != null
+                    && a.getVerifiedAt().isBefore(cutoff))
+                .map(Achievement::getId)
+                .toList();
+        toRemove.forEach(achievements::remove);
+        return toRemove.size();
     }
 }

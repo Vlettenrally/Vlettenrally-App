@@ -24,7 +24,7 @@ public class AchievementMapper {
         domain.setId(entity.getId());
         domain.setTeamId(entity.getTeam() != null ? entity.getTeam().getId() : null);
         domain.setCheckpointId(entity.getCheckpoint() != null ? entity.getCheckpoint().getId() : null);
-        domain.setPointsEarned(entity.getPointsEarned());
+        domain.setBonusPoints(entity.getBonusPoints());
         domain.setStatus(entity.getStatus());
         domain.setDetectedAt(entity.getDetectedAt());
         domain.setVerifiedAt(entity.getVerifiedAt());
@@ -45,7 +45,7 @@ public class AchievementMapper {
 
         AchievementEntity entity = new AchievementEntity();
         entity.setId(domain.getId());
-        entity.setPointsEarned(domain.getPointsEarned());
+        entity.setBonusPoints(domain.getBonusPoints());
         entity.setStatus(domain.getStatus());
         entity.setDetectedAt(domain.getDetectedAt());
         entity.setVerifiedAt(domain.getVerifiedAt());
@@ -62,7 +62,7 @@ public class AchievementMapper {
             return;
         }
 
-        entity.setPointsEarned(domain.getPointsEarned());
+        entity.setBonusPoints(domain.getBonusPoints());
         entity.setStatus(domain.getStatus());
         entity.setVerifiedAt(domain.getVerifiedAt());
         entity.setNotes(domain.getNotes());

@@ -323,6 +323,36 @@ export interface ResetPasswordResponse {
 }
 
 /**
+ * Achievement with full status (admin / checkpoint-station view)
+ */
+export interface Achievement {
+  id: string;
+  teamId: string;
+  checkpointId: string;
+  pointsEarned: number | null;
+  bonusPoints: number;
+  status: 'PENDING' | 'VERIFIED' | 'REJECTED';
+  detectedAt: string;
+  verifiedAt?: string;
+  notes?: string;
+}
+
+/**
+ * Team entry shown in the checkpoint station (GPS + achievement status merged)
+ */
+export interface CheckpointTeamStatus {
+  teamId: string;
+  teamName: string;
+  detectedAt: string | null;
+  achievementStatus: 'PENDING' | 'VERIFIED' | 'REJECTED' | null;
+  achievementId: string | null;
+  defaultPoints: number;
+  pointsEarned: number | null;
+  verifiedAt: string | null;
+  notes: string | null;
+}
+
+/**
  * Team option for check-in team selection
  */
 export interface TeamOption {

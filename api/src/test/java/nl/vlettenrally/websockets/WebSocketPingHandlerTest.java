@@ -170,7 +170,7 @@ class WebSocketPingHandlerTest {
         when(sessionManager.getSession(sessionId)).thenReturn(null);
         
         // Admin session exists in Valkey
-        WebSocketSessionMetadata metadata = WebSocketSessionMetadata.forAdmin(sessionId, gameId);
+        WebSocketSessionMetadata metadata = WebSocketSessionMetadata.forAdmin(sessionId, gameId, UUID.randomUUID());
         when(valkeySessionStore.getSession(sessionId)).thenReturn(Uni.createFrom().item(metadata));
         when(valkeySessionStore.updateActivity(sessionId)).thenReturn(Uni.createFrom().voidItem());
 
@@ -199,7 +199,7 @@ class WebSocketPingHandlerTest {
         when(sessionManager.getSession(sessionId)).thenReturn(null);
         
         // Admin session with no game exists in Valkey
-        WebSocketSessionMetadata metadata = WebSocketSessionMetadata.forAdminNoGame(sessionId);
+        WebSocketSessionMetadata metadata = WebSocketSessionMetadata.forAdminNoGame(sessionId, UUID.randomUUID());
         when(valkeySessionStore.getSession(sessionId)).thenReturn(Uni.createFrom().item(metadata));
         when(valkeySessionStore.updateActivity(sessionId)).thenReturn(Uni.createFrom().voidItem());
 

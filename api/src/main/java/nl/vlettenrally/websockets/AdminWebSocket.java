@@ -31,6 +31,9 @@ public class AdminWebSocket extends BaseWebSocket {
     @Inject
     MapSubscriptionManager mapSubscriptionManager;
 
+    @Inject
+    CheckpointFcmSubscriptionManager checkpointFcmSubscriptionManager;
+
     @OnOpen
     public void onOpen(Session session, @PathParam("token") String token) {
         // Validate token and extract admin data
@@ -47,7 +50,7 @@ public class AdminWebSocket extends BaseWebSocket {
                 sessionManager.addSession(wsSession);
 
                 // Store to Valkey for cross-pod session recovery
-                WebSocketSessionMetadata metadata = WebSocketSessionMetadata.forAdminNoGame(session.getId());
+                WebSocketSessionMetadata metadata = WebSocketSessionMetadata.forAdminNoGame(session.getId(), tokenData.userId());
                 valkeySessionStore.storeSession(metadata).subscribe().with(
                     item -> Log.debugf("Session %s stored in Valkey", session.getId()),
                     failure -> Log.errorf("Error storing session in Valkey: %s", failure.getMessage())
@@ -98,6 +101,21 @@ public class AdminWebSocket extends BaseWebSocket {
                         return;
                     }
 
+                    if (type == WebSocketMessageType.CHECKPOINT_HEARTBEAT) {
+                        handleCheckpointHeartbeat(request, wsSession, session);
+                        return;
+                    }
+
+                    if (type == WebSocketMessageType.CHECKPOINT_SUBSCRIBE) {
+                        handleCheckpointFcmSubscribe(request, session, true);
+                        return;
+                    }
+
+                    if (type == WebSocketMessageType.CHECKPOINT_UNSUBSCRIBE) {
+                        handleCheckpointFcmSubscribe(request, session, false);
+                        return;
+                    }
+
                     Log.infof("Admin WebSocket message from Game %s: %s", wsSession.getGameId(), message);
                 },
                 failure -> Log.errorf("Error processing message for session %s: %s", session.getId(), failure.getMessage())
@@ -109,6 +127,63 @@ public class AdminWebSocket extends BaseWebSocket {
         }
     }
     
+    private void handleCheckpointFcmSubscribe(WebSocketRequest request, Session session, boolean subscribe) {
+        String checkpointIdStr = request.getCheckpointId();
+        if (checkpointIdStr == null || checkpointIdStr.isEmpty()) {
+            sendResponse(session, WebSocketResponse.error("checkpointId is required"));
+            return;
+        }
+        UUID checkpointId;
+        try {
+            checkpointId = UUID.fromString(checkpointIdStr);
+        } catch (IllegalArgumentException e) {
+            sendResponse(session, WebSocketResponse.error("Invalid checkpointId format"));
+            return;
+        }
+
+        valkeySessionStore.getSession(session.getId()).subscribe().with(
+            metadata -> {
+                if (metadata == null || metadata.adminId() == null) {
+                    Log.warnf("No admin metadata for session %s — cannot %s FCM checkpoint subscription",
+                        session.getId(), subscribe ? "add" : "remove");
+                    return;
+                }
+                if (subscribe) {
+                    checkpointFcmSubscriptionManager.subscribe(checkpointId, metadata.adminId());
+                } else {
+                    checkpointFcmSubscriptionManager.unsubscribe(checkpointId, metadata.adminId());
+                }
+            },
+            failure -> Log.errorf("Failed to load session metadata for FCM (un)subscribe: %s", failure.getMessage())
+        );
+    }
+
+    private void handleCheckpointHeartbeat(WebSocketRequest request, WebSocketSession wsSession, Session session) {
+        String checkpointIdStr = request.getCheckpointId();
+        UUID newCheckpointId = null;
+        if (checkpointIdStr != null && !checkpointIdStr.isEmpty()) {
+            try {
+                newCheckpointId = UUID.fromString(checkpointIdStr);
+            } catch (IllegalArgumentException e) {
+                Log.warnf("Invalid checkpointId in CHECKPOINT_HEARTBEAT: %s", checkpointIdStr);
+                sendResponse(session, WebSocketResponse.error("Invalid checkpointId format"));
+                return;
+            }
+        }
+
+        UUID previous = wsSession.getCheckpointId();
+        if (previous != null && !previous.equals(newCheckpointId)) {
+            // Operator switched (or cleared) their checkpoint — drop the old subscription
+            checkpointSubscriptionManager.unsubscribe(session.getId(), previous);
+        }
+
+        wsSession.setCheckpointId(newCheckpointId);
+
+        if (newCheckpointId != null) {
+            checkpointSubscriptionManager.subscribe(session.getId(), newCheckpointId);
+        }
+    }
+
     private void handleSwitchGame(WebSocketRequest request, WebSocketSession wsSession, Session session) {
         String gameIdStr = request.getGameId();
         

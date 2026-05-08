@@ -10,8 +10,10 @@ import nl.vlettenrally.data.entity.jpa.AdminEntity;
 import nl.vlettenrally.data.entity.jpa.CheckpointEntity;
 import nl.vlettenrally.data.entity.jpa.TeamEntity;
 import nl.vlettenrally.data.mapper.AchievementMapper;
+import nl.vlettenrally.data.enums.AchievementStatus;
 import nl.vlettenrally.data.repository.AchievementRepository;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -134,5 +136,15 @@ public class JpaAchievementRepository extends ReadReplicaAwareRepository impleme
         if (entity != null) {
             getWriteEntityManager().remove(entity);
         }
+    }
+
+    @Override
+    @Transactional
+    public int deleteRejectedOlderThan(Instant cutoff) {
+        return getWriteEntityManager()
+            .createQuery("DELETE FROM AchievementEntity a WHERE a.status = :status AND a.verifiedAt < :cutoff")
+            .setParameter("status", AchievementStatus.REJECTED)
+            .setParameter("cutoff", cutoff)
+            .executeUpdate();
     }
 }

@@ -5,6 +5,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import nl.vlettenrally.data.domain.Achievement;
+import nl.vlettenrally.data.dto.achievement.CheckpointTeamResponse;
 
 /**
  * Service interface for Achievement operations.
@@ -52,7 +53,7 @@ public interface AchievementService {
      * @param notes Optional notes
      * @return The verified achievement, or empty if not found/already processed
      */
-    Optional<Achievement> verifyAchievement(UUID achievementId, UUID gameMasterId, String notes);
+    Optional<Achievement> verifyAchievement(UUID achievementId, UUID gameMasterId, String notes, int bonusPoints);
     
     /**
      * Game master rejects a pending achievement.
@@ -64,7 +65,20 @@ public interface AchievementService {
      */
     Optional<Achievement> rejectAchievement(UUID achievementId, UUID gameMasterId, String notes);
     
+    /**
+     * Returns all teams that are relevant for a checkpoint operator:
+     * teams currently within the checkpoint zone (by latest GPS) plus
+     * teams with an existing PENDING achievement for this checkpoint.
+     */
+    List<CheckpointTeamResponse> getTeamsNearCheckpoint(UUID gameId, UUID checkpointId);
+
     Achievement save(Achievement achievement);
-    
+
     void delete(UUID id);
+
+    /**
+     * Computes the points earned for an achievement based on the current checkpoint
+     * value plus any bonus. Returns null when the achievement is not VERIFIED.
+     */
+    Integer computePointsEarned(Achievement achievement);
 }

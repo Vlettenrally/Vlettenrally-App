@@ -33,6 +33,8 @@ import nl.vlettenrally.data.domain.CircleCheckpoint;
 import nl.vlettenrally.data.domain.PolygonCheckpoint;
 import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.Team;
+import nl.vlettenrally.data.dto.achievement.CheckpointTeamResponse;
+import nl.vlettenrally.service.AchievementService;
 import nl.vlettenrally.service.GameService;
 import nl.vlettenrally.service.CheckpointService;
 import nl.vlettenrally.service.ImportResult;
@@ -99,6 +101,9 @@ public class GameResource {
     @Inject
     AuthService authService;
 
+    @Inject
+    AchievementService achievementService;
+
     /**
      * Get all games
      */
@@ -152,6 +157,23 @@ public class GameResource {
 
         List<Checkpoint> checkpoints = checkpointService.findByGameId(gameId);
         return Response.ok(checkpoints.stream().map(this::toCheckpointDto).toList()).build();
+    }
+
+    /** Teams near a checkpoint: GPS within zone + any existing achievement */
+    @GET
+    @RolesAllowed({"admin", "checkpoint_manager"})
+    @Path("/{gameId}/checkpoints/{checkpointId}/teams/nearby")
+    public Response getTeamsNearCheckpoint(
+            @PathParam("gameId") UUID gameId,
+            @PathParam("checkpointId") UUID checkpointId) {
+        try {
+            List<CheckpointTeamResponse> teams = achievementService.getTeamsNearCheckpoint(gameId, checkpointId);
+            return Response.ok(teams).build();
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.NOT_FOUND)
+                .entity(new ErrorResponse(e.getMessage()))
+                .build();
+        }
     }
 
     /** Get teams for a game */

@@ -23,7 +23,7 @@ public class Achievement {
     private UUID id;
     private UUID teamId;
     private UUID checkpointId;
-    private int pointsEarned;
+    private int bonusPoints;        // Operator-awarded bonus, on top of the checkpoint's current point value
     private AchievementStatus status;
     private Instant detectedAt;     // When system detected proximity
     private Instant verifiedAt;     // When game master verified/rejected
@@ -36,11 +36,11 @@ public class Achievement {
         this.status = AchievementStatus.PENDING;
     }
 
-    public Achievement(UUID id, UUID teamId, UUID checkpointId, int pointsEarned, AchievementStatus status, Instant detectedAt) {
+    public Achievement(UUID id, UUID teamId, UUID checkpointId, int bonusPoints, AchievementStatus status, Instant detectedAt) {
         this.id = id;
         this.teamId = teamId;
         this.checkpointId = checkpointId;
-        this.pointsEarned = pointsEarned;
+        this.bonusPoints = bonusPoints;
         this.status = status;
         this.detectedAt = detectedAt;
     }

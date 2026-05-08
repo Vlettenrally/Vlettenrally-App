@@ -11,6 +11,8 @@ import nl.vlettenrally.data.mapper.FcmTokenMapper;
 import nl.vlettenrally.data.repository.FcmTokenRepository;
 
 import java.time.Instant;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -59,6 +61,30 @@ public class JpaFcmTokenRepository extends ReadReplicaAwareRepository implements
         List<FcmTokenEntity> entities = getReadEntityManager()
                 .createQuery("SELECT f FROM FcmTokenEntity f WHERE f.deviceRegistration.team.id = :teamId ORDER BY f.updatedAt DESC", FcmTokenEntity.class)
                 .setParameter("teamId", teamId)
+                .getResultList();
+        return entities.stream()
+                .map(FcmTokenMapper::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<FcmToken> findAllAdminTokens() {
+        List<FcmTokenEntity> entities = getReadEntityManager()
+                .createQuery("SELECT f FROM FcmTokenEntity f WHERE f.deviceRegistration.adminId IS NOT NULL ORDER BY f.updatedAt DESC", FcmTokenEntity.class)
+                .getResultList();
+        return entities.stream()
+                .map(FcmTokenMapper::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<FcmToken> findAdminTokensByAdminIds(Collection<UUID> adminIds) {
+        if (adminIds == null || adminIds.isEmpty()) return Collections.emptyList();
+        List<FcmTokenEntity> entities = getReadEntityManager()
+                .createQuery(
+                    "SELECT f FROM FcmTokenEntity f WHERE f.deviceRegistration.adminId IN :adminIds ORDER BY f.updatedAt DESC",
+                    FcmTokenEntity.class)
+                .setParameter("adminIds", adminIds)
                 .getResultList();
         return entities.stream()
                 .map(FcmTokenMapper::toDomain)

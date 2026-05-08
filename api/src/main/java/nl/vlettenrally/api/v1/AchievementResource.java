@@ -88,7 +88,7 @@ public class AchievementResource {
      * Get pending achievements for a specific checkpoint (for game masters at that location)
      */
     @GET
-    @RolesAllowed("admin")
+    @RolesAllowed({"admin", "checkpoint_manager"})
     @Path("/checkpoints/{checkpointId}/achievements/pending")
     public Response getPendingAchievementsForCheckpoint(@PathParam("checkpointId") UUID checkpointId) {
         List<Achievement> pending = achievementService.findPendingByCheckpointId(checkpointId);
@@ -100,7 +100,7 @@ public class AchievementResource {
      * This awards points to the team.
      */
     @POST
-    @RolesAllowed("admin")
+    @RolesAllowed({"admin", "checkpoint_manager"})
     @Path("/achievements/{achievementId}/verify")
     public Response verifyAchievement(
             @PathParam("achievementId") UUID achievementId,
@@ -108,8 +108,9 @@ public class AchievementResource {
             @Context SecurityContext securityContext) {
         UUID gameMasterId = securityContext.getUserPrincipal() != null ? UUID.fromString(securityContext.getUserPrincipal().getName()) : null;
         String notes = request != null ? request.notes() : null;
+        int bonusPoints = request != null && request.bonusPoints() != null ? request.bonusPoints() : 0;
 
-        return achievementService.verifyAchievement(achievementId, gameMasterId, notes)
+        return achievementService.verifyAchievement(achievementId, gameMasterId, notes, bonusPoints)
             .map(achievement -> Response.ok(toDto(achievement)).build())
             .orElse(Response.status(Response.Status.NOT_FOUND)
                 .entity(new ErrorResponse("Achievement not found or already processed"))
@@ -121,7 +122,7 @@ public class AchievementResource {
      * No points are awarded.
      */
     @POST
-    @RolesAllowed("admin")
+    @RolesAllowed({"admin", "checkpoint_manager"})
     @Path("/achievements/{achievementId}/reject")
     public Response rejectAchievement(
             @PathParam("achievementId") UUID achievementId,
@@ -186,7 +187,8 @@ public class AchievementResource {
             achievement.getId(),
             achievement.getTeamId(),
             achievement.getCheckpointId(),
-            achievement.getPointsEarned(),
+            achievementService.computePointsEarned(achievement),
+            achievement.getBonusPoints(),
             achievement.getStatus().name(),
             achievement.getDetectedAt() != null ? achievement.getDetectedAt().toString() : null,
             achievement.getVerifiedAt() != null ? achievement.getVerifiedAt().toString() : null,

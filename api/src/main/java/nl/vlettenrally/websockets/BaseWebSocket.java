@@ -32,9 +32,12 @@ public abstract class BaseWebSocket {
     @Inject
     protected MapSubscriptionManager mapSubscriptionManager;
 
+    @Inject
+    protected CheckpointSubscriptionManager checkpointSubscriptionManager;
+
     @OnClose
     public void onClose(Session session) {
-        cleanupMapSubscription(session);
+        cleanupSubscriptions(session);
         sessionManager.removeSession(session.getId());
         valkeySessionStore.removeSession(session.getId()).subscribe().with(
             item -> {},
@@ -46,7 +49,7 @@ public abstract class BaseWebSocket {
     @OnError
     public void onError(Session session, Throwable throwable) {
         Log.errorf("WebSocket error on session %s: %s", session.getId(), throwable.getMessage());
-        cleanupMapSubscription(session);
+        cleanupSubscriptions(session);
         sessionManager.removeSession(session.getId());
         valkeySessionStore.removeSession(session.getId()).subscribe().with(
             item -> {},
@@ -55,12 +58,16 @@ public abstract class BaseWebSocket {
     }
 
     /**
-     * Remove any map subscription for this session (admin sessions only).
+     * Remove any map and checkpoint subscriptions for this session (admin sessions only).
      */
-    private void cleanupMapSubscription(Session session) {
+    private void cleanupSubscriptions(Session session) {
         WebSocketSession wsSession = sessionManager.getSession(session.getId());
-        if (wsSession != null && wsSession.isAdmin() && wsSession.getGameId() != null) {
+        if (wsSession == null || !wsSession.isAdmin()) return;
+        if (wsSession.getGameId() != null) {
             mapSubscriptionManager.unsubscribe(session.getId(), wsSession.getGameId());
+        }
+        if (wsSession.getCheckpointId() != null) {
+            checkpointSubscriptionManager.unsubscribe(session.getId(), wsSession.getCheckpointId());
         }
     }
     
@@ -106,6 +113,8 @@ public abstract class BaseWebSocket {
             } else {
                 return WebSocketSession.forAdmin(session);
             }
+            // Note: metadata.adminId() is preserved in Valkey but not propagated to the
+            // local WebSocketSession — local code paths don't currently need it.
         }
         return null;
     }

@@ -44,6 +44,7 @@ const Automations = lazy(() => import('./pages/admin/Automations'));
 const Analytics = lazy(() => import('./pages/admin/Analytics'));
 const Settings = lazy(() => import('./pages/admin/Settings'));
 const AdminUsers = lazy(() => import('./pages/admin/AdminUsers'));
+const CheckpointStation = lazy(() => import('./pages/admin/CheckpointStation'));
 
 /**
  * Shared loading fallback for Suspense boundaries
@@ -484,6 +485,18 @@ function App() {
                 <AdminLayout>
                   <Suspense fallback={<PageLoader />}>
                     <AdminUsers />
+                  </Suspense>
+                </AdminLayout>
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/checkpoint-station"
+            element={
+              <AdminRoute>
+                <AdminLayout>
+                  <Suspense fallback={<PageLoader />}>
+                    <CheckpointStation />
                   </Suspense>
                 </AdminLayout>
               </AdminRoute>
