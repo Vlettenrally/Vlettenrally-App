@@ -51,29 +51,68 @@ public class MockLocationDataRepository implements LocationDataRepository {
         locations.clear();
 
         Instant now = Instant.now();
+        UUID watervlooien = MockTeamRepository.TEAM_WATERVLOOIEN_ID;
+        UUID windkracht = MockTeamRepository.TEAM_WINDKRACHT_ID;
+        UUID gorillas = MockTeamRepository.TEAM_GORILLAS_ID;
+        UUID game = MockGameRepository.GAME_2026_ID;
 
-        // Team Watervlooien – recent track near Amstel checkpoint (52.3580, 4.9000)
-        addLocation(MockTeamRepository.TEAM_WATERVLOOIEN_ID, MockGameRepository.GAME_2026_ID,
-                4.8995, 52.3582, now.minus(5, ChronoUnit.MINUTES),
+        // Team Watervlooien – approaching the Amstel checkpoint (52.3580, 4.9000)
+        // from the southwest. Latest point at t-1min is roughly on the checkpoint.
+        addLocation(watervlooien, game, 4.8930, 52.3520, now.minus(60, ChronoUnit.MINUTES),
+                new BigDecimal("7.0"), null, new BigDecimal("9.5"), new BigDecimal("40.0"));
+        addLocation(watervlooien, game, 4.8945, 52.3535, now.minus(50, ChronoUnit.MINUTES),
+                new BigDecimal("6.5"), null, new BigDecimal("9.0"), new BigDecimal("42.0"));
+        addLocation(watervlooien, game, 4.8960, 52.3548, now.minus(40, ChronoUnit.MINUTES),
+                new BigDecimal("6.0"), null, new BigDecimal("8.8"), new BigDecimal("44.0"));
+        addLocation(watervlooien, game, 4.8970, 52.3560, now.minus(30, ChronoUnit.MINUTES),
+                new BigDecimal("5.5"), null, new BigDecimal("8.5"), new BigDecimal("45.0"));
+        addLocation(watervlooien, game, 4.8978, 52.3568, now.minus(22, ChronoUnit.MINUTES),
+                new BigDecimal("5.0"), null, new BigDecimal("8.2"), new BigDecimal("45.0"));
+        addLocation(watervlooien, game, 4.8985, 52.3574, now.minus(15, ChronoUnit.MINUTES),
+                new BigDecimal("5.0"), null, new BigDecimal("8.0"), new BigDecimal("48.0"));
+        addLocation(watervlooien, game, 4.8990, 52.3578, now.minus(10, ChronoUnit.MINUTES),
+                new BigDecimal("5.0"), null, new BigDecimal("8.5"), new BigDecimal("50.0"));
+        addLocation(watervlooien, game, 4.8995, 52.3582, now.minus(5, ChronoUnit.MINUTES),
                 new BigDecimal("5.0"), null, new BigDecimal("8.5"), new BigDecimal("45.0"));
-        addLocation(MockTeamRepository.TEAM_WATERVLOOIEN_ID, MockGameRepository.GAME_2026_ID,
-                4.8998, 52.3579, now.minus(3, ChronoUnit.MINUTES),
+        addLocation(watervlooien, game, 4.8998, 52.3579, now.minus(3, ChronoUnit.MINUTES),
                 new BigDecimal("4.0"), null, new BigDecimal("7.2"), new BigDecimal("90.0"));
-        addLocation(MockTeamRepository.TEAM_WATERVLOOIEN_ID, MockGameRepository.GAME_2026_ID,
-                4.9001, 52.3580, now.minus(1, ChronoUnit.MINUTES),
+        addLocation(watervlooien, game, 4.9001, 52.3580, now.minus(1, ChronoUnit.MINUTES),
                 new BigDecimal("3.5"), null, new BigDecimal("6.0"), new BigDecimal("120.0"));
 
-        // Team Windkracht – near Prinsengracht checkpoint (52.3738, 4.8820)
-        addLocation(MockTeamRepository.TEAM_WINDKRACHT_ID, MockGameRepository.GAME_2026_ID,
-                4.8825, 52.3740, now.minus(4, ChronoUnit.MINUTES),
+        // Team Windkracht – approaching Prinsengracht checkpoint (52.3738, 4.8820) from the southeast.
+        addLocation(windkracht, game, 4.8880, 52.3690, now.minus(55, ChronoUnit.MINUTES),
+                new BigDecimal("7.0"), null, new BigDecimal("9.5"), new BigDecimal("310.0"));
+        addLocation(windkracht, game, 4.8865, 52.3700, now.minus(45, ChronoUnit.MINUTES),
+                new BigDecimal("6.5"), null, new BigDecimal("9.2"), new BigDecimal("315.0"));
+        addLocation(windkracht, game, 4.8850, 52.3710, now.minus(35, ChronoUnit.MINUTES),
+                new BigDecimal("6.0"), null, new BigDecimal("9.0"), new BigDecimal("320.0"));
+        addLocation(windkracht, game, 4.8840, 52.3720, now.minus(25, ChronoUnit.MINUTES),
+                new BigDecimal("5.5"), null, new BigDecimal("8.8"), new BigDecimal("330.0"));
+        addLocation(windkracht, game, 4.8832, 52.3728, now.minus(15, ChronoUnit.MINUTES),
+                new BigDecimal("5.5"), null, new BigDecimal("8.5"), new BigDecimal("340.0"));
+        addLocation(windkracht, game, 4.8827, 52.3733, now.minus(9, ChronoUnit.MINUTES),
+                new BigDecimal("6.0"), null, new BigDecimal("8.2"), new BigDecimal("350.0"));
+        addLocation(windkracht, game, 4.8825, 52.3740, now.minus(4, ChronoUnit.MINUTES),
                 new BigDecimal("6.0"), null, new BigDecimal("9.0"), new BigDecimal("180.0"));
-        addLocation(MockTeamRepository.TEAM_WINDKRACHT_ID, MockGameRepository.GAME_2026_ID,
-                4.8822, 52.3737, now.minus(2, ChronoUnit.MINUTES),
+        addLocation(windkracht, game, 4.8822, 52.3737, now.minus(2, ChronoUnit.MINUTES),
                 new BigDecimal("5.5"), null, new BigDecimal("8.0"), new BigDecimal("200.0"));
 
-        // Team Gorillas – far from any checkpoint (north of Amsterdam)
-        addLocation(MockTeamRepository.TEAM_GORILLAS_ID, MockGameRepository.GAME_2026_ID,
-                4.9100, 52.3900, now.minus(6, ChronoUnit.MINUTES),
+        // Team Gorillas – drifting north of Amsterdam in a rough loop.
+        addLocation(gorillas, game, 4.9120, 52.3870, now.minus(55, ChronoUnit.MINUTES),
+                new BigDecimal("8.0"), null, new BigDecimal("7.5"), new BigDecimal("30.0"));
+        addLocation(gorillas, game, 4.9140, 52.3885, now.minus(45, ChronoUnit.MINUTES),
+                new BigDecimal("8.0"), null, new BigDecimal("8.0"), new BigDecimal("60.0"));
+        addLocation(gorillas, game, 4.9150, 52.3895, now.minus(35, ChronoUnit.MINUTES),
+                new BigDecimal("8.5"), null, new BigDecimal("8.5"), new BigDecimal("90.0"));
+        addLocation(gorillas, game, 4.9145, 52.3905, now.minus(25, ChronoUnit.MINUTES),
+                new BigDecimal("8.0"), null, new BigDecimal("9.0"), new BigDecimal("180.0"));
+        addLocation(gorillas, game, 4.9130, 52.3910, now.minus(18, ChronoUnit.MINUTES),
+                new BigDecimal("8.0"), null, new BigDecimal("9.5"), new BigDecimal("220.0"));
+        addLocation(gorillas, game, 4.9115, 52.3908, now.minus(12, ChronoUnit.MINUTES),
+                new BigDecimal("8.0"), null, new BigDecimal("10.0"), new BigDecimal("260.0"));
+        addLocation(gorillas, game, 4.9105, 52.3903, now.minus(9, ChronoUnit.MINUTES),
+                new BigDecimal("8.0"), null, new BigDecimal("11.0"), new BigDecimal("350.0"));
+        addLocation(gorillas, game, 4.9100, 52.3900, now.minus(6, ChronoUnit.MINUTES),
                 new BigDecimal("8.0"), null, new BigDecimal("12.0"), new BigDecimal("0.0"));
 
         Log.info("🎭 MockLocationDataRepository initialized with " + locations.size() + " location points");

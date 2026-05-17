@@ -24,6 +24,13 @@ export interface MapMarker {
   polygonPoints?: number[][];
 }
 
+export interface MapTrack {
+  teamId: string;
+  color: string;
+  /** Points as [lng, lat] in time-ascending order */
+  points: Array<[number, number]>;
+}
+
 interface MapViewProps {
   markers: MapMarker[];
   center?: [number, number]; // [lng, lat]
@@ -31,10 +38,11 @@ interface MapViewProps {
   className?: string;
   /** When provided, replaces the browser GeolocateControl with a button that flies to this team location */
   teamLocation?: [number, number]; // [lng, lat]
+  tracks?: MapTrack[];
 }
 
 
-export function MapView({ markers, center, zoom, className, teamLocation }: MapViewProps) {
+export function MapView({ markers, center, zoom, className, teamLocation, tracks }: MapViewProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersSourceRef = useRef<boolean>(false);
@@ -123,6 +131,30 @@ export function MapView({ markers, center, zoom, className, teamLocation }: MapV
     }
   }, [markers]);
 
+  const updateTracks = useCallback(() => {
+    const map = mapRef.current;
+    if (!map || !markersSourceRef.current) return;
+
+    const trackFeatures = (tracks ?? [])
+      .filter(t => t.points.length >= 2)
+      .map(t => ({
+        type: 'Feature' as const,
+        geometry: {
+          type: 'LineString' as const,
+          coordinates: t.points,
+        },
+        properties: {
+          teamId: t.teamId,
+          color: t.color,
+        },
+      }));
+
+    const trackSource = map.getSource('team-tracks') as maplibregl.GeoJSONSource | undefined;
+    if (trackSource) {
+      trackSource.setData({ type: 'FeatureCollection', features: trackFeatures });
+    }
+  }, [tracks]);
+
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
@@ -193,6 +225,27 @@ export function MapView({ markers, center, zoom, className, teamLocation }: MapV
         }
 
         map.on('load', () => {
+          // Add team-tracks first so the line renders BENEATH team and checkpoint markers
+          map.addSource('team-tracks', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] },
+          });
+
+          map.addLayer({
+            id: 'team-tracks-line',
+            type: 'line',
+            source: 'team-tracks',
+            layout: {
+              'line-cap': 'round',
+              'line-join': 'round',
+            },
+            paint: {
+              'line-color': ['get', 'color'],
+              'line-width': 3,
+              'line-opacity': 0.75,
+            },
+          });
+
           // Add team markers source and layer
           map.addSource('team-markers', {
             type: 'geojson',
@@ -298,6 +351,7 @@ export function MapView({ markers, center, zoom, className, teamLocation }: MapV
 
           markersSourceRef.current = true;
           updateMarkers();
+          updateTracks();
         });
 
         // Popup on team marker click
@@ -352,6 +406,10 @@ export function MapView({ markers, center, zoom, className, teamLocation }: MapV
   useEffect(() => {
     updateMarkers();
   }, [updateMarkers]);
+
+  useEffect(() => {
+    updateTracks();
+  }, [updateTracks]);
 
   return (
     <div
