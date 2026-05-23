@@ -22,6 +22,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import nl.vlettenrally.client.PreRegistrationApiClient;
+import nl.vlettenrally.client.dto.Attendee;
 import nl.vlettenrally.client.dto.Registration;
 import nl.vlettenrally.client.exception.PreRegistrationApiException;
 import nl.vlettenrally.data.domain.Team;
@@ -29,7 +30,7 @@ import nl.vlettenrally.data.repository.TeamRepository;
 
 /**
  * Unit tests for TeamImportService.
- * Tests team import from external pre-registration API.
+ * Each attendee inside a booking becomes its own Team.
  */
 @ExtendWith(MockitoExtension.class)
 class TeamImportServiceTest {
@@ -53,48 +54,45 @@ class TeamImportServiceTest {
     }
 
     @Test
-    void importTeams_createsNewTeams_whenNoExistingTeams() throws PreRegistrationApiException {
-        // Arrange
-        List<Registration> registrations = List.of(
-            createRegistration(1, "Team Alpha", "Scouting Group A"),
-            createRegistration(2, "Team Beta", "Scouting Group B")
+    void importTeams_createsNewTeams_oneTeamPerAttendee() throws PreRegistrationApiException {
+        List<Registration> bookings = List.of(
+            createBooking(299, "Bas 't Hart",
+                attendee(897, "1001", "4", ""),
+                attendee(898, "1623", "4", "")),
+            createBooking(298, "Cornelis de Houtman",
+                attendee(893, "642", "5", ""))
         );
 
-        when(preRegistrationClient.fetchRegistrations(externalEventId)).thenReturn(registrations);
+        when(preRegistrationClient.fetchRegistrations(externalEventId)).thenReturn(bookings);
         when(teamRepository.findByGameIdAndExternalId(eq(gameId), any())).thenReturn(Optional.empty());
         when(teamRepository.save(any(Team.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        // Act
         ImportResult result = teamImportService.importTeams(gameId, externalEventId);
 
-        // Assert
-        assertEquals(2, result.created());
+        assertEquals(3, result.created());
         assertEquals(0, result.updated());
         assertEquals(0, result.errors());
-        verify(teamRepository, times(2)).save(any(Team.class));
+        verify(teamRepository, times(3)).save(any(Team.class));
     }
 
     @Test
-    void importTeams_updatesExistingTeams_whenTeamsAlreadyExist() throws PreRegistrationApiException {
-        // Arrange
-        Registration registration = createRegistration(1, "Updated Team Name", "Updated Group");
-        List<Registration> registrations = List.of(registration);
+    void importTeams_updatesExistingTeams_keyedByTicketBookingId() throws PreRegistrationApiException {
+        Registration booking = createBooking(299, "Updated Group",
+            attendee(897, "1001-new", "5", "updated notes"));
 
         Team existingTeam = new Team();
         existingTeam.setId(UUID.randomUUID());
         existingTeam.setGameId(gameId);
-        existingTeam.setExternalId("1");
-        existingTeam.setName("Old Name");
+        existingTeam.setExternalId("897");
+        existingTeam.setName("1001-old");
         existingTeam.setDescription("Old Group");
 
-        when(preRegistrationClient.fetchRegistrations(externalEventId)).thenReturn(registrations);
-        when(teamRepository.findByGameIdAndExternalId(gameId, "1")).thenReturn(Optional.of(existingTeam));
+        when(preRegistrationClient.fetchRegistrations(externalEventId)).thenReturn(List.of(booking));
+        when(teamRepository.findByGameIdAndExternalId(gameId, "897")).thenReturn(Optional.of(existingTeam));
         when(teamRepository.save(any(Team.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        // Act
         ImportResult result = teamImportService.importTeams(gameId, externalEventId);
 
-        // Assert
         assertEquals(0, result.created());
         assertEquals(1, result.updated());
         assertEquals(0, result.errors());
@@ -103,67 +101,60 @@ class TeamImportServiceTest {
         verify(teamRepository).save(teamCaptor.capture());
 
         Team savedTeam = teamCaptor.getValue();
-        assertEquals("Updated Team Name", savedTeam.getName());
+        assertEquals("1001-new", savedTeam.getName());
         assertEquals("Updated Group", savedTeam.getDescription());
+        assertEquals("updated notes", savedTeam.getNotes());
     }
 
     @Test
-    void importTeams_mapsTeamNameFromBoatNumberField() throws PreRegistrationApiException {
-        // Arrange - the external API's boat_number field is actually the team name
-        Registration registration = createRegistration(1, "My Team Name", "My Scouting Group");
-        List<Registration> registrations = List.of(registration);
+    void importTeams_mapsTeamNameFromBoatNumber() throws PreRegistrationApiException {
+        Registration booking = createBooking(299, "Scouting Den Hoorn",
+            attendee(891, "408", "5", "Hij is rood"));
 
-        when(preRegistrationClient.fetchRegistrations(externalEventId)).thenReturn(registrations);
+        when(preRegistrationClient.fetchRegistrations(externalEventId)).thenReturn(List.of(booking));
         when(teamRepository.findByGameIdAndExternalId(eq(gameId), any())).thenReturn(Optional.empty());
         when(teamRepository.save(any(Team.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        // Act
         teamImportService.importTeams(gameId, externalEventId);
 
-        // Assert
         ArgumentCaptor<Team> teamCaptor = ArgumentCaptor.forClass(Team.class);
         verify(teamRepository).save(teamCaptor.capture());
 
         Team savedTeam = teamCaptor.getValue();
-        assertEquals("My Team Name", savedTeam.getName());
-        assertEquals("My Scouting Group", savedTeam.getDescription());
+        assertEquals("408", savedTeam.getName());
+        assertEquals("Scouting Den Hoorn", savedTeam.getDescription());
+        assertEquals("Hij is rood", savedTeam.getNotes());
     }
 
     @Test
-    void importTeams_setsExternalIdFromBookingId() throws PreRegistrationApiException {
-        // Arrange
-        Registration registration = createRegistration(42, "Team Name", "Group");
-        List<Registration> registrations = List.of(registration);
+    void importTeams_setsExternalIdFromTicketBookingId() throws PreRegistrationApiException {
+        Registration booking = createBooking(299, "Group",
+            attendee(897, "1001", "4", ""));
 
-        when(preRegistrationClient.fetchRegistrations(externalEventId)).thenReturn(registrations);
+        when(preRegistrationClient.fetchRegistrations(externalEventId)).thenReturn(List.of(booking));
         when(teamRepository.findByGameIdAndExternalId(eq(gameId), any())).thenReturn(Optional.empty());
         when(teamRepository.save(any(Team.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        // Act
         teamImportService.importTeams(gameId, externalEventId);
 
-        // Assert
         ArgumentCaptor<Team> teamCaptor = ArgumentCaptor.forClass(Team.class);
         verify(teamRepository).save(teamCaptor.capture());
 
         Team savedTeam = teamCaptor.getValue();
-        assertEquals("42", savedTeam.getExternalId());
+        assertEquals("897", savedTeam.getExternalId());
     }
 
     @Test
     void importTeams_initializesTeamWithDefaults() throws PreRegistrationApiException {
-        // Arrange
-        Registration registration = createRegistration(1, "Team Name", "Group");
-        List<Registration> registrations = List.of(registration);
+        Registration booking = createBooking(299, "Group",
+            attendee(897, "1001", "4", ""));
 
-        when(preRegistrationClient.fetchRegistrations(externalEventId)).thenReturn(registrations);
+        when(preRegistrationClient.fetchRegistrations(externalEventId)).thenReturn(List.of(booking));
         when(teamRepository.findByGameIdAndExternalId(eq(gameId), any())).thenReturn(Optional.empty());
         when(teamRepository.save(any(Team.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        // Act
         teamImportService.importTeams(gameId, externalEventId);
 
-        // Assert
         ArgumentCaptor<Team> teamCaptor = ArgumentCaptor.forClass(Team.class);
         verify(teamRepository).save(teamCaptor.capture());
 
@@ -174,20 +165,37 @@ class TeamImportServiceTest {
         assertEquals(0, savedTeam.getTotalPoints());
         assertNotNull(savedTeam.getParticipants());
         assertNotNull(savedTeam.getEmergencyPhoneNumbers());
+        assertTrue(savedTeam.getEmergencyPhoneNumbers().isEmpty());
         assertNotNull(savedTeam.getRivals());
         assertNotNull(savedTeam.getCreatedAt());
         assertNotNull(savedTeam.getUpdatedAt());
     }
 
     @Test
-    void importTeams_handlesEmptyRegistrationList() throws PreRegistrationApiException {
-        // Arrange
+    void importTeams_handlesEmptyBookingList() throws PreRegistrationApiException {
         when(preRegistrationClient.fetchRegistrations(externalEventId)).thenReturn(new ArrayList<>());
 
-        // Act
         ImportResult result = teamImportService.importTeams(gameId, externalEventId);
 
-        // Assert
+        assertEquals(0, result.created());
+        assertEquals(0, result.updated());
+        assertEquals(0, result.errors());
+        verify(teamRepository, never()).save(any(Team.class));
+    }
+
+    @Test
+    void importTeams_skipsBookingsWithNoAttendees() throws PreRegistrationApiException {
+        Registration emptyBooking = createBooking(299, "Empty Group");
+        Registration nullAttendeesBooking = new Registration();
+        nullAttendeesBooking.setBookingId(300);
+        nullAttendeesBooking.setScoutingGroup("Null Attendees");
+        nullAttendeesBooking.setAttendees(null);
+
+        when(preRegistrationClient.fetchRegistrations(externalEventId))
+            .thenReturn(List.of(emptyBooking, nullAttendeesBooking));
+
+        ImportResult result = teamImportService.importTeams(gameId, externalEventId);
+
         assertEquals(0, result.created());
         assertEquals(0, result.updated());
         assertEquals(0, result.errors());
@@ -196,26 +204,21 @@ class TeamImportServiceTest {
 
     @Test
     void importTeams_continuesOnError_andCountsErrors() throws PreRegistrationApiException {
-        // Arrange
-        List<Registration> registrations = List.of(
-            createRegistration(1, "Team 1", "Group 1"),
-            createRegistration(2, "Team 2", "Group 2"),
-            createRegistration(3, "Team 3", "Group 3")
-        );
+        Registration booking = createBooking(299, "Group",
+            attendee(1, "B1", "4", ""),
+            attendee(2, "B2", "4", ""),
+            attendee(3, "B3", "4", ""));
 
-        when(preRegistrationClient.fetchRegistrations(externalEventId)).thenReturn(registrations);
+        when(preRegistrationClient.fetchRegistrations(externalEventId)).thenReturn(List.of(booking));
         when(teamRepository.findByGameIdAndExternalId(eq(gameId), any())).thenReturn(Optional.empty());
 
-        // First and third succeed, second throws exception
         when(teamRepository.save(any(Team.class)))
             .thenAnswer(invocation -> invocation.getArgument(0))
             .thenThrow(new RuntimeException("Database error"))
             .thenAnswer(invocation -> invocation.getArgument(0));
 
-        // Act
         ImportResult result = teamImportService.importTeams(gameId, externalEventId);
 
-        // Assert
         assertEquals(2, result.created());
         assertEquals(0, result.updated());
         assertEquals(1, result.errors());
@@ -223,40 +226,45 @@ class TeamImportServiceTest {
 
     @Test
     void importTeams_mixedCreateAndUpdate() throws PreRegistrationApiException {
-        // Arrange
-        List<Registration> registrations = List.of(
-            createRegistration(1, "New Team", "New Group"),
-            createRegistration(2, "Existing Team Updated", "Existing Group Updated")
-        );
+        Registration booking = createBooking(299, "Group",
+            attendee(1, "B1", "4", ""),
+            attendee(2, "B2-updated", "4", ""));
 
         Team existingTeam = new Team();
         existingTeam.setId(UUID.randomUUID());
         existingTeam.setGameId(gameId);
         existingTeam.setExternalId("2");
-        existingTeam.setName("Existing Team");
+        existingTeam.setName("B2-old");
 
-        when(preRegistrationClient.fetchRegistrations(externalEventId)).thenReturn(registrations);
+        when(preRegistrationClient.fetchRegistrations(externalEventId)).thenReturn(List.of(booking));
         when(teamRepository.findByGameIdAndExternalId(gameId, "1")).thenReturn(Optional.empty());
         when(teamRepository.findByGameIdAndExternalId(gameId, "2")).thenReturn(Optional.of(existingTeam));
         when(teamRepository.save(any(Team.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        // Act
         ImportResult result = teamImportService.importTeams(gameId, externalEventId);
 
-        // Assert
         assertEquals(1, result.created());
         assertEquals(1, result.updated());
         assertEquals(0, result.errors());
         verify(teamRepository, times(2)).save(any(Team.class));
     }
 
-    private Registration createRegistration(int bookingId, String teamName, String scoutingGroup) {
-        Registration reg = new Registration();
-        reg.setBookingId(bookingId);
-        reg.setEventId(externalEventId);
-        reg.setTeamName(teamName);
-        reg.setScoutingGroup(scoutingGroup);
-        return reg;
+    private Registration createBooking(int bookingId, String scoutingGroup, Attendee... attendees) {
+        Registration booking = new Registration();
+        booking.setBookingId(bookingId);
+        booking.setEventId(externalEventId);
+        booking.setScoutingGroup(scoutingGroup);
+        booking.setAttendees(new ArrayList<>(List.of(attendees)));
+        booking.setBoatCount(attendees.length);
+        return booking;
+    }
+
+    private Attendee attendee(int ticketBookingId, String boatNumber, String participantCount, String notes) {
+        Attendee attendee = new Attendee();
+        attendee.setTicketBookingId(ticketBookingId);
+        attendee.setBoatNumber(boatNumber);
+        attendee.setParticipantCount(participantCount);
+        attendee.setNotes(notes);
+        return attendee;
     }
 }
-

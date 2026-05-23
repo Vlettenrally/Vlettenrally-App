@@ -6,29 +6,50 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.List;
+
 /**
- * Team registration from the pre-registration API.
+ * Booking from the pre-registration API. Each booking represents one
+ * scouting group's registration and contains one or more boat attendees.
  */
 @RegisterForReflection
 @NoArgsConstructor
 @Getter
 @Setter
 public class Registration {
-    @JsonProperty("em_booking_id")
+    @JsonProperty("booking_id")
     private int bookingId;
 
-    @JsonProperty("em_event_id")
+    @JsonProperty("event_id")
     private int eventId;
 
     @JsonProperty("event_name")
     private String eventName;
 
-    @JsonProperty("boat_number")
-    private String teamName;
-
-    @JsonProperty("scouting_group")
-    private String scoutingGroup;
-
     @JsonProperty("booking_date")
     private String bookingDate;
+
+    @JsonProperty("booking_status")
+    private int bookingStatus;
+
+    @JsonProperty("naam_scoutinggroep")
+    private String scoutingGroup;
+
+    @JsonProperty("contactpersoon")
+    private String contactPerson;
+
+    @JsonProperty("contactpersoon_email")
+    private String contactEmail;
+
+    @JsonProperty("telefoonnummer_1")
+    private String phoneNumber1;
+
+    @JsonProperty("telefoonnummer_2")
+    private String phoneNumber2;
+
+    @JsonProperty("attendees")
+    private List<Attendee> attendees;
+
+    @JsonProperty("aantal_boten")
+    private int boatCount;
 }

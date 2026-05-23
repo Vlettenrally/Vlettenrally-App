@@ -22,7 +22,7 @@ public class Team {
     private UUID gameId;
     private String name;
     private String description;
-    private String externalId;  // External ID from pre-registration system (em_booking_id)
+    private String externalId;  // External ID from pre-registration system (ticket_booking_id)
     private List<String> participants;
     private UUID deviceId;
     private boolean checkedIn;
