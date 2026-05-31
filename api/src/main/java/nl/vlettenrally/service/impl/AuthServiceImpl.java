@@ -45,7 +45,9 @@ import nl.vlettenrally.data.repository.RefreshTokenRepository;
 public class AuthServiceImpl implements AuthService {
 
     private static final int REFRESH_TOKEN_BYTE_LENGTH = 32;
-    private final SecureRandom secureRandom = new SecureRandom();
+    private static final class SecureRandomHolder {
+        static final SecureRandom INSTANCE = new SecureRandom();
+    }
 
     @Inject
     TeamRepository teamRepository;
@@ -536,7 +538,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public String generateRefreshTokenValue() {
         byte[] randomBytes = new byte[REFRESH_TOKEN_BYTE_LENGTH];
-        secureRandom.nextBytes(randomBytes);
+        SecureRandomHolder.INSTANCE.nextBytes(randomBytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
     }
 
