@@ -82,7 +82,7 @@ export default function EditEntryDialog({ open, onClose, entry, onSaved }: EditE
             type="number"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            inputProps={{ step: 1, inputMode: 'numeric' }}
+            slotProps={{ htmlInput: { step: 1, inputMode: 'numeric' } }}
             fullWidth
             autoFocus
             error={!amountIsValid && amount.trim() !== ''}

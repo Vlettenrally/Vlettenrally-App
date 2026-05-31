@@ -103,7 +103,7 @@ export default function CreateAdjustmentDialog({ open, onClose, gameId, teams, o
             type="number"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            inputProps={{ step: 1, inputMode: 'numeric' }}
+            slotProps={{ htmlInput: { step: 1, inputMode: 'numeric' } }}
             fullWidth
             required
             error={!amountIsValid && amount.trim() !== ''}
