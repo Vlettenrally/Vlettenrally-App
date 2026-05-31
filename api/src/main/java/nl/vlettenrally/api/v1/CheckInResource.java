@@ -13,8 +13,6 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
-import nl.vlettenrally.data.domain.Game;
-import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.dto.auth.AuthTokenResponse;
 import nl.vlettenrally.data.dto.auth.CheckInStateResponse;
 import nl.vlettenrally.data.dto.auth.RegisterDeviceRequest;

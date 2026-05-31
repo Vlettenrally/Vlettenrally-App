@@ -232,7 +232,7 @@ public class CheckInCoordinationServiceImpl implements CheckInCoordinationServic
                 team.setMainDeviceId(null);
                 newMainDeviceId = null;
             } else {
-                DeviceRegistration next = remaining.get(0);
+                DeviceRegistration next = remaining.getFirst();
                 team.setMainDeviceId(next.getId());
                 newMainDeviceId = next.getId();
                 newMainNickname = next.getNickname();

@@ -52,7 +52,7 @@ public class JpaDeviceRegistrationRepository extends ReadReplicaAwareRepository 
         if (entities.isEmpty()) {
             return Optional.empty();
         }
-        return Optional.ofNullable(DeviceRegistrationMapper.toDomain(entities.get(0)));
+        return Optional.ofNullable(DeviceRegistrationMapper.toDomain(entities.getFirst()));
     }
 
     @Override
@@ -99,7 +99,7 @@ public class JpaDeviceRegistrationRepository extends ReadReplicaAwareRepository 
         if (entities.isEmpty()) {
             return Optional.empty();
         }
-        return Optional.ofNullable(DeviceRegistrationMapper.toDomain(entities.get(0)));
+        return Optional.ofNullable(DeviceRegistrationMapper.toDomain(entities.getFirst()));
     }
 
     @Override

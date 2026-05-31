@@ -55,19 +55,19 @@ import java.util.UUID;
 public class TeamResource {
 
     @Inject
-    private TeamService teamService;
+    TeamService teamService;
 
     @Inject
-    private TeamConverter teamConverter;
+    TeamConverter teamConverter;
 
     @Inject
-    private WebSocketPublisher webSocketPublisher;
+    WebSocketPublisher webSocketPublisher;
 
     @Inject
-    private CheckInCoordinationService coordinationService;
+    CheckInCoordinationService coordinationService;
 
     @Inject
-    private DeviceRegistrationRepository deviceRegistrationRepository;
+    DeviceRegistrationRepository deviceRegistrationRepository;
 
     /**
      * Get all teams

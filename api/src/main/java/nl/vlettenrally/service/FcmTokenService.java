@@ -21,12 +21,6 @@ public interface FcmTokenService {
      * @param token The FCM token to register
      */
     /**
-     * Register an FCM token. The client may pass a {@code deviceIdHint} (typically
-     * the value previously returned and persisted in localStorage); the server treats
-     * it as a resumption hint only — if no row exists for {@code (userId, hint)}, a
-     * fresh server-side UUID is allocated. Returns the device id the token is now
-     * attached to.
-     */
     UUID registerToken(UUID userId, boolean isAdmin, String token, UUID deviceIdHint, String nickname);
 
     /**
