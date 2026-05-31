@@ -232,39 +232,6 @@ class TeamServiceImplTest {
     }
 
     @Test
-    void updatePoints_updatesPointsAndTimestamp() {
-        // Arrange
-        Team team = createTeam(true);
-        team.setTotalPoints(10);
-        Instant beforeUpdate = team.getUpdatedAt();
-
-        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
-        when(teamRepository.save(any(Team.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        // Act
-        Team result = teamService.updatePoints(teamId, 50);
-
-        // Assert
-        assertEquals(50, result.getTotalPoints());
-        assertTrue(result.getUpdatedAt().isAfter(beforeUpdate) ||
-                   result.getUpdatedAt().equals(beforeUpdate));
-    }
-
-    @Test
-    void updatePoints_teamNotFound_throwsIllegalArgumentException() {
-        // Arrange
-        when(teamRepository.findById(teamId)).thenReturn(Optional.empty());
-
-        // Act & Assert
-        IllegalArgumentException exception = assertThrows(
-            IllegalArgumentException.class,
-            () -> teamService.updatePoints(teamId, 50)
-        );
-
-        assertTrue(exception.getMessage().contains("Team not found"));
-    }
-
-    @Test
     void save_delegatesToRepository() {
         // Arrange
         Team team = createTeam(false);

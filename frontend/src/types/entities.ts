@@ -375,3 +375,54 @@ export type TokenExchangeResponse =
       gameId: string;
       teamOptions: TeamOption[];
     };
+
+/**
+ * Points ledger entry — one row per change to a team's totalPoints.
+ * originalAmount is immutable; currentAmount may be edited (admin "Aftrek" / correction).
+ */
+export type PointEntryType = 'CHECKPOINT_VERIFICATION' | 'MANUAL_ADJUSTMENT';
+
+export interface PointEntry {
+  id: string;
+  teamId: string;
+  gameId: string;
+  entryType: PointEntryType;
+  originalAmount: number;
+  currentAmount: number;
+  sourceAchievementId?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  description?: string | null;
+  createdAt: string;
+  createdBy?: string | null;
+  editedAt?: string | null;
+  editedBy?: string | null;
+  editReason?: string | null;
+}
+
+export interface PointEntryListResponse {
+  entries: PointEntry[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+}
+
+export interface PointEntryListParams {
+  teamId?: string;
+  entryType?: PointEntryType;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface CreatePointAdjustmentRequest {
+  teamId: string;
+  gameId: string;
+  amount: number;
+  description?: string;
+}
+
+export interface EditPointEntryRequest {
+  amount: number;
+  reason: string;
+}

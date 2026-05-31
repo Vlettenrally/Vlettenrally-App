@@ -39,10 +39,19 @@ interface MapViewProps {
   /** When provided, replaces the browser GeolocateControl with a button that flies to this team location */
   teamLocation?: [number, number]; // [lng, lat]
   tracks?: MapTrack[];
+  /** Team marker shape. 'circle' (default) for live tracking maps; 'pin' for single-location callouts. */
+  markerStyle?: 'circle' | 'pin';
 }
 
 
-export function MapView({ markers, center, zoom, className, teamLocation, tracks }: MapViewProps) {
+/** Teardrop-shaped pin SVG, anchored at its bottom tip. Colour is fixed and matches the default team marker. */
+const PIN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="44" viewBox="0 0 32 44">
+  <path d="M16 1C7.7 1 1 7.7 1 16c0 11 15 26 15 26s15-15 15-26C31 7.7 24.3 1 16 1z" fill="#1976d2" stroke="#ffffff" stroke-width="2"/>
+  <circle cx="16" cy="16" r="5.5" fill="#ffffff"/>
+</svg>`;
+const PIN_IMAGE_ID = 'team-pin';
+
+export function MapView({ markers, center, zoom, className, teamLocation, tracks, markerStyle = 'circle' }: MapViewProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersSourceRef = useRef<boolean>(false);
@@ -252,36 +261,80 @@ export function MapView({ markers, center, zoom, className, teamLocation, tracks
             data: { type: 'FeatureCollection', features: [] },
           });
 
-          map.addLayer({
-            id: 'team-markers-circle',
-            type: 'circle',
-            source: 'team-markers',
-            paint: {
-              'circle-radius': 8,
-              'circle-color': ['get', 'color'],
-              'circle-stroke-width': 2,
-              'circle-stroke-color': '#ffffff',
-            },
-          });
+          if (markerStyle === 'pin') {
+            // Render team markers as a teardrop pin. Image is loaded async; MapLibre
+            // will start rendering features as soon as the image is registered.
+            const img = new Image(32, 44);
+            img.onload = () => {
+              if (!map.hasImage(PIN_IMAGE_ID)) {
+                map.addImage(PIN_IMAGE_ID, img);
+              }
+            };
+            img.src = `data:image/svg+xml;base64,${btoa(PIN_SVG)}`;
 
-          map.addLayer({
-            id: 'team-markers-label',
-            type: 'symbol',
-            source: 'team-markers',
-            layout: {
-              'text-field': ['get', 'label'],
-              'text-font': ['Noto Sans Regular'],
-              'text-size': 11,
-              'text-offset': [0, 1.8],
-              'text-anchor': 'top',
-              'text-max-width': 8,
-            },
-            paint: {
-              'text-color': '#333333',
-              'text-halo-color': '#ffffff',
-              'text-halo-width': 1.5,
-            },
-          });
+            map.addLayer({
+              id: 'team-markers-pin',
+              type: 'symbol',
+              source: 'team-markers',
+              layout: {
+                'icon-image': PIN_IMAGE_ID,
+                'icon-size': 0.9,
+                'icon-anchor': 'bottom',
+                'icon-allow-overlap': true,
+                'icon-ignore-placement': true,
+              },
+            });
+
+            map.addLayer({
+              id: 'team-markers-label',
+              type: 'symbol',
+              source: 'team-markers',
+              layout: {
+                'text-field': ['get', 'label'],
+                'text-font': ['Noto Sans Bold'],
+                'text-size': 12,
+                'text-offset': [0, -3.2],
+                'text-anchor': 'bottom',
+                'text-max-width': 8,
+              },
+              paint: {
+                'text-color': '#222222',
+                'text-halo-color': '#ffffff',
+                'text-halo-width': 2,
+              },
+            });
+          } else {
+            map.addLayer({
+              id: 'team-markers-circle',
+              type: 'circle',
+              source: 'team-markers',
+              paint: {
+                'circle-radius': 8,
+                'circle-color': ['get', 'color'],
+                'circle-stroke-width': 2,
+                'circle-stroke-color': '#ffffff',
+              },
+            });
+
+            map.addLayer({
+              id: 'team-markers-label',
+              type: 'symbol',
+              source: 'team-markers',
+              layout: {
+                'text-field': ['get', 'label'],
+                'text-font': ['Noto Sans Regular'],
+                'text-size': 11,
+                'text-offset': [0, 1.8],
+                'text-anchor': 'top',
+                'text-max-width': 8,
+              },
+              paint: {
+                'text-color': '#333333',
+                'text-halo-color': '#ffffff',
+                'text-halo-width': 1.5,
+              },
+            });
+          }
 
           // Add checkpoint zone shapes (rendered BEFORE point markers so they appear underneath)
           map.addSource('checkpoint-zones', {
@@ -354,14 +407,15 @@ export function MapView({ markers, center, zoom, className, teamLocation, tracks
           updateTracks();
         });
 
-        // Popup on team marker click
-        map.on('click', 'team-markers-circle', (e) => {
+        // Popup on team marker click (works for both circle and pin layers)
+        const teamMarkerLayerId = markerStyle === 'pin' ? 'team-markers-pin' : 'team-markers-circle';
+        map.on('click', teamMarkerLayerId, (e) => {
           if (!e.features || e.features.length === 0) return;
           const feature = e.features[0];
           const coords = (feature.geometry as GeoJSON.Point).coordinates.slice() as [number, number];
           const label = feature.properties?.label || '';
 
-          new maplibregl.Popup({ offset: 12, closeButton: false })
+          new maplibregl.Popup({ offset: markerStyle === 'pin' ? 32 : 12, closeButton: false })
             .setLngLat(coords)
             .setHTML(`<strong>${label}</strong>`)
             .addTo(map);
@@ -381,8 +435,8 @@ export function MapView({ markers, center, zoom, className, teamLocation, tracks
         });
 
         // Cursor change on hover
-        map.on('mouseenter', 'team-markers-circle', () => { map.getCanvas().style.cursor = 'pointer'; });
-        map.on('mouseleave', 'team-markers-circle', () => { map.getCanvas().style.cursor = ''; });
+        map.on('mouseenter', teamMarkerLayerId, () => { map.getCanvas().style.cursor = 'pointer'; });
+        map.on('mouseleave', teamMarkerLayerId, () => { map.getCanvas().style.cursor = ''; });
         map.on('mouseenter', 'checkpoint-markers-circle', () => { map.getCanvas().style.cursor = 'pointer'; });
         map.on('mouseleave', 'checkpoint-markers-circle', () => { map.getCanvas().style.cursor = ''; });
 

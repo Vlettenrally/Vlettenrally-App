@@ -26,9 +26,7 @@ public interface TeamService {
     Team save(Team team);
     
     Team checkIn(UUID teamId);
-    
-    Team updatePoints(UUID teamId, int points);
-    
+
     void delete(UUID id);
 
     /**

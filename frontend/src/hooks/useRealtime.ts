@@ -9,7 +9,8 @@ import teamService from '../services/teamService';
 import { storage } from '../services/storage';
 import { useMessageStore, type Message } from '../store/useMessageStore';
 import { useTeamStore, type Achievement } from '../store/useTeamStore';
-import type { PublicTeam } from '../types/entities';
+import { usePointEntryStore } from '../store/usePointEntryStore';
+import type { PublicTeam, PointEntry } from '../types/entities';
 
 interface UseRealtimeTeamOptions {
   gameId: string | null;
@@ -96,6 +97,7 @@ export function useTeamRealtime({ gameId, teamId }: UseRealtimeTeamOptions) {
 export function useAdminRealtime({ gameId }: UseRealtimeAdminOptions) {
   const { subscribe, connected } = useAdminWebSocket(gameId);
   const { addMessage } = useMessageStore();
+  const { addEntry: addPointEntry, updateEntry: updatePointEntry } = usePointEntryStore();
 
   useEffect(() => {
     if (!gameId) return;
@@ -155,6 +157,15 @@ export function useAdminRealtime({ gameId }: UseRealtimeAdminOptions) {
       console.log('Ranking update:', message.payload);
     });
 
+    // Subscribe to points-ledger events for the Points Management page
+    const unsubscribePointCreated = subscribe('POINT_ENTRY_CREATED', (message) => {
+      addPointEntry(message.payload as PointEntry);
+    });
+
+    const unsubscribePointUpdated = subscribe('POINT_ENTRY_UPDATED', (message) => {
+      updatePointEntry(message.payload as PointEntry);
+    });
+
     return () => {
       unsubscribeMessages();
       unsubscribeAlerts();
@@ -162,8 +173,10 @@ export function useAdminRealtime({ gameId }: UseRealtimeAdminOptions) {
       unsubscribeTeamUpdates();
       unsubscribeGameStatus();
       unsubscribeRanking();
+      unsubscribePointCreated();
+      unsubscribePointUpdated();
     };
-  }, [gameId, subscribe, addMessage]);
+  }, [gameId, subscribe, addMessage, addPointEntry, updatePointEntry]);
 
   return { connected };
 }

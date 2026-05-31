@@ -31,6 +31,11 @@ import type {
   ResetPasswordResponse,
   Achievement,
   CheckpointTeamStatus,
+  PointEntry,
+  PointEntryListResponse,
+  PointEntryListParams,
+  CreatePointAdjustmentRequest,
+  EditPointEntryRequest,
 } from '../types/entities';
 import storage from './storage';
 import { isTokenExpiringSoon } from './auth';
@@ -356,6 +361,14 @@ class ApiService {
     });
   }
 
+  // PATCH request
+  async patch<T>(endpoint: string, data?: unknown): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
   // DELETE request
   async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, { method: 'DELETE' });
@@ -633,6 +646,24 @@ async getGames() : Promise<ApiResponse<Game[]>> {
 
   async getTeamWebSocketToken(gameId: string, teamId: string): Promise<ApiResponse<{ token: string; expiresInSeconds: number }>> {
     return this.get(`/ws/token/team/${gameId}/${teamId}`);
+  }
+
+  // Points ledger endpoints
+  async getPointEntries(gameId: string, params: PointEntryListParams = {}): Promise<ApiResponse<PointEntryListResponse>> {
+    const search = new URLSearchParams({ gameId });
+    if (params.teamId) search.set('teamId', params.teamId);
+    if (params.entryType) search.set('entryType', params.entryType);
+    if (params.page !== undefined) search.set('page', String(params.page));
+    if (params.pageSize !== undefined) search.set('pageSize', String(params.pageSize));
+    return this.get(`/admin/point-entries?${search.toString()}`);
+  }
+
+  async createPointAdjustment(request: CreatePointAdjustmentRequest): Promise<ApiResponse<PointEntry>> {
+    return this.post('/admin/point-entries', request);
+  }
+
+  async editPointEntry(entryId: string, request: EditPointEntryRequest): Promise<ApiResponse<PointEntry>> {
+    return this.patch(`/admin/point-entries/${entryId}`, request);
   }
 }
 

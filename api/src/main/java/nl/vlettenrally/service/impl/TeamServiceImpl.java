@@ -82,20 +82,6 @@ public class TeamServiceImpl implements TeamService {
     }
 
     @Override
-    public Team updatePoints(UUID teamId, int points) {
-        if (points < 0) {
-            throw new IllegalArgumentException("Points cannot be negative: " + points);
-        }
-        return teamRepository.findById(teamId)
-            .map(team -> {
-                team.setTotalPoints(points);
-                team.setUpdatedAt(Instant.now());
-                return teamRepository.save(team);
-            })
-            .orElseThrow(() -> new IllegalArgumentException("Team not found: " + teamId));
-    }
-
-    @Override
     public void delete(UUID id) {
         teamRepository.delete(id);
     }

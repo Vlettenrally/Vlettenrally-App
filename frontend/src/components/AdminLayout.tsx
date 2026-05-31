@@ -46,6 +46,7 @@ import {
   ManageAccounts as ManageAccountsIcon,
   Place as PlaceIcon,
   Flag as FlagIcon,
+  Scoreboard as ScoreboardIcon,
 } from '@mui/icons-material';
 import { storage } from '../services/storage';
 import { useGameStore } from '../store/useGameStore';
@@ -109,6 +110,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { text: 'Kaart', icon: <MapIcon />, path: '/admin/map' },
     { text: 'Games', icon: <GamesIcon />, path: '/admin/games' },
     { text: 'Teams', icon: <TeamsIcon />, path: '/admin/teams' },
+    { text: 'Puntenbeheer', icon: <ScoreboardIcon />, path: '/admin/points-management' },
     { text: 'Zones', icon: <PlaceIcon />, path: '/admin/zones' },
     { text: 'Checkpoint Beheer', icon: <FlagIcon />, path: '/admin/checkpoint-station' },
     { text: 'Berichten', icon: <MessageIcon />, path: '/admin/messages' },

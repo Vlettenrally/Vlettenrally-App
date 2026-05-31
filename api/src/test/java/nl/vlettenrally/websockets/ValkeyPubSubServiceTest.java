@@ -38,10 +38,11 @@ class ValkeyPubSubServiceTest {
     @Spy
     WebSocketSessionManager sessionManager = new WebSocketSessionManager();
 
+    @Spy
+    ObjectMapper objectMapper = new ObjectMapper();
+
     @InjectMocks
     ValkeyPubSubService service;
-
-    private final ObjectMapper objectMapper = new ObjectMapper();
     private final UUID gameId = UUID.randomUUID();
     private final UUID teamId1 = UUID.randomUUID();
     private final UUID teamId2 = UUID.randomUUID();

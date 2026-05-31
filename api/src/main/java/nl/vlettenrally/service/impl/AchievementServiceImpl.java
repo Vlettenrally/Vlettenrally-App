@@ -9,12 +9,18 @@ import nl.vlettenrally.data.domain.Checkpoint;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.dto.achievement.CheckpointTeamResponse;
 import nl.vlettenrally.data.enums.AchievementStatus;
+import nl.vlettenrally.data.enums.PointEntryType;
 import nl.vlettenrally.data.repository.AchievementRepository;
 import nl.vlettenrally.data.repository.CheckpointRepository;
 import nl.vlettenrally.data.repository.FcmTokenRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.fcm.FcmHttpClient;
 import nl.vlettenrally.service.AchievementService;
+import nl.vlettenrally.service.PointsLedgerService;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.PrecisionModel;
 import nl.vlettenrally.websockets.CheckpointFcmSubscriptionManager;
 import nl.vlettenrally.websockets.CheckpointSubscriptionManager;
 import nl.vlettenrally.websockets.WebSocketMessage;
@@ -64,6 +70,11 @@ public class AchievementServiceImpl implements AchievementService {
 
     @Inject
     FcmHttpClient fcmHttpClient;
+
+    @Inject
+    PointsLedgerService pointsLedgerService;
+
+    private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory(new PrecisionModel(), 4326);
 
     @ConfigProperty(name = "vlettenrally.achievement.rejection-expiry-minutes", defaultValue = "15")
     long rejectionExpiryMinutes;
@@ -229,19 +240,44 @@ public class AchievementServiceImpl implements AchievementService {
         achievement.setNotes(notes);
         achievement.setBonusPoints(bonusPoints);
 
-        // Award (current checkpoint base + bonus) to the team's total
+        // Award (current checkpoint base + bonus) to the team's total via the ledger
         Checkpoint checkpoint = checkpointRepository.findById(achievement.getCheckpointId())
             .orElseThrow(() -> new IllegalStateException("Checkpoint not found: " + achievement.getCheckpointId()));
         int total = checkpoint.getPoints() + bonusPoints;
 
+        // Save the achievement before the ledger entry so totals stay consistent on a rollback
+        Achievement savedAchievement = achievementRepository.save(achievement);
+
         Team team = teamRepository.findById(achievement.getTeamId())
             .orElseThrow(() -> new IllegalStateException("Team not found: " + achievement.getTeamId()));
 
-        team.setTotalPoints(team.getTotalPoints() + total);
-        team.setUpdatedAt(Instant.now());
-        teamRepository.save(team);
+        pointsLedgerService.createEntry(
+            team.getId(),
+            team.getGameId(),
+            PointEntryType.CHECKPOINT_VERIFICATION,
+            total,
+            resolveCheckpointLocation(checkpoint),
+            "Checkpoint " + checkpoint.getName() + " geverifieerd",
+            savedAchievement.getId(),
+            null
+        );
 
-        return Optional.of(achievementRepository.save(achievement));
+        return Optional.of(savedAchievement);
+    }
+
+    /**
+     * Prefer the PostGIS Point on the checkpoint; fall back to lat/lng when not set
+     * (e.g. mock checkpoints don't populate the Point).
+     */
+    private Point resolveCheckpointLocation(Checkpoint checkpoint) {
+        if (checkpoint.getLocation() != null) {
+            return checkpoint.getLocation();
+        }
+        if (checkpoint.getLongitude() != null && checkpoint.getLatitude() != null) {
+            return GEOMETRY_FACTORY.createPoint(
+                new Coordinate(checkpoint.getLongitude(), checkpoint.getLatitude()));
+        }
+        return null;
     }
 
     @Override

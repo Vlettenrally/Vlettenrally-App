@@ -65,6 +65,10 @@ public class TeamEntity {
     @Column(name = "total_points", nullable = false)
     private int totalPoints = 0;
 
+    @Version
+    @Column(name = "version", nullable = false)
+    private long version;
+
     /**
      * Unidirectional ManyToMany self-reference for rivals.
      * Each team manages their own list of rivals independently.

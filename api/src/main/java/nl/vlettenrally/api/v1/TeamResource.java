@@ -24,7 +24,6 @@ import nl.vlettenrally.data.dto.team.TeamCreateRequest;
 import nl.vlettenrally.data.dto.team.TeamUpdateRequest;
 import nl.vlettenrally.service.TeamService;
 import nl.vlettenrally.websockets.WebSocketPublisher;
-import io.quarkus.logging.Log;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -231,18 +230,8 @@ public class TeamResource {
                 team.setNotes(request.notes());
             }
 
-            // Handle totalPoints update with non-negative validation
-            if (request.totalPoints() != null) {
-                if (request.totalPoints() < 0) {
-                    return Response.status(Response.Status.BAD_REQUEST)
-                        .entity(new ErrorResponse("Points cannot be negative"))
-                        .build();
-                }
-                int oldPoints = team.getTotalPoints();
-                team.setTotalPoints(request.totalPoints());
-                Log.infof("Admin updated points for team %s (%s): %d → %d",
-                    teamId, team.getName(), oldPoints, request.totalPoints());
-            }
+            // Points are no longer mutated via this endpoint — use PointEntryResource (/api/v1/admin/point-entries)
+            // so every change is recorded in the ledger.
 
             // Handle check-in status updates with reset logic
             // If checkedIn is explicitly set to false, also reset checkedInDigitally

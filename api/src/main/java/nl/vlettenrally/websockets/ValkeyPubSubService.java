@@ -36,7 +36,8 @@ public class ValkeyPubSubService {
     @Inject
     WebSocketSessionManager sessionManager;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    @Inject
+    ObjectMapper objectMapper;
 
     private ReactivePubSubCommands<String> subscriber;
 
