@@ -413,7 +413,7 @@ class ApiService {
   async registerCheckInDevice(payload: {
     gameId: string;
     teamId: string;
-    deviceId: string;
+    deviceId: string | null;
     nickname: string;
   }): Promise<ApiResponse<RegisterDeviceResponse>> {
     return this.post('/check-in/register-device', payload);

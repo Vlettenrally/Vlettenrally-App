@@ -20,7 +20,6 @@ public interface FcmTokenService {
      * @param isAdmin Whether the user is an admin
      * @param token The FCM token to register
      */
-    /**
     UUID registerToken(UUID userId, boolean isAdmin, String token, UUID deviceIdHint, String nickname);
 
     /**
