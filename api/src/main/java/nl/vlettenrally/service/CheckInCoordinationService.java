@@ -18,8 +18,9 @@ import java.util.UUID;
 public interface CheckInCoordinationService {
 
     /**
-     * Games whose startTime falls on today's calendar day in Europe/Amsterdam and that
-     * are not yet COMPLETED. Sorted by startTime.
+     * Games eligible for self-service check-in: not yet COMPLETED, and either starting
+     * today (Europe/Amsterdam) or with a configured {@code checkInStartTime} that has
+     * already passed. Sorted by startTime.
      */
     List<Game> findCheckInGamesForToday();
 

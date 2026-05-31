@@ -56,10 +56,16 @@ public class CheckInCoordinationServiceImpl implements CheckInCoordinationServic
     @Override
     public List<Game> findCheckInGamesForToday() {
         LocalDate today = LocalDate.now(zoneId);
+        Instant now = Instant.now();
         return gameRepository.findAll().stream()
             .filter(g -> g.getStartTime() != null)
             .filter(g -> g.getStatus() == null || g.getStatus() != Game.GameStatus.COMPLETED)
-            .filter(g -> g.getStartTime().atZone(zoneId).toLocalDate().equals(today))
+            .filter(g -> {
+                boolean isToday = g.getStartTime().atZone(zoneId).toLocalDate().equals(today);
+                boolean checkInOpen = g.getCheckInStartTime() != null
+                    && !now.isBefore(g.getCheckInStartTime());
+                return isToday || checkInOpen;
+            })
             .sorted(Comparator.comparing(Game::getStartTime))
             .toList();
     }

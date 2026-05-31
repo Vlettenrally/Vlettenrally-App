@@ -35,7 +35,7 @@ import java.util.UUID;
  * REST Resource for Check-in operations.
  *
  * Public (no auth) endpoints power the self-service flow:
- * - GET  /api/v1/check-in/games/today         - games starting today (Europe/Amsterdam)
+ * - GET  /api/v1/check-in/games/today         - games eligible for check-in (start today, or checkInStartTime reached)
  * - GET  /api/v1/check-in/games/{gameId}/teams - team list for a game
  * - POST /api/v1/check-in/register-device      - claim a device + issue team tokens
  *
