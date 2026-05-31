@@ -9,6 +9,7 @@ import nl.vlettenrally.data.domain.Admin;
 import nl.vlettenrally.data.enums.Role;
 import nl.vlettenrally.data.enums.TokenType;
 import nl.vlettenrally.data.dto.auth.GameCheckInLinkResponse;
+import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.dto.auth.RegistrationResult;
 import nl.vlettenrally.data.dto.auth.TokenResult;
 
@@ -44,14 +45,49 @@ public interface AuthService {
     Optional<TokenResult> selectTeam(UUID gameId, UUID teamId);
 
     /**
+     * Issue access + refresh tokens for a team without the check-in-token expiry check.
+     * Used by the public multi-device check-in coordinator after a device has self-selected a team.
+     *
+     * When deviceId is non-null, the issued access token carries a `did` claim so that
+     * the device's tokens can be revoked individually (admin "remove device" action).
+     */
+    TokenResult issueTeamTokens(Team team, UUID deviceId);
+
+    /**
+     * Convenience overload: issues tokens with no device binding (legacy WordPress path).
+     */
+    TokenResult issueTeamTokens(Team team);
+
+    /**
      * Validate whether a game-scoped check-in token is still valid
      */
     boolean isCheckInTokenValid(UUID gameId);
 
     /**
-     * Revoke all tokens for a team
+     * Revoke all tokens for a team. Deletes persisted refresh tokens AND records a
+     * revocation cutoff so that any access token whose `iat` predates the cutoff is
+     * rejected at request time (see TeamTokenRevocationFilter).
      */
     void revokeTokens(UUID teamId);
+
+    /**
+     * Returns true if access tokens for the given team subject were revoked AFTER the
+     * supplied issued-at instant — i.e. the access token must be rejected.
+     */
+    boolean isAccessTokenRevoked(String subject, Instant issuedAt);
+
+    /**
+     * Revoke tokens for a single device of a team (used when an admin removes a single
+     * device rather than resetting the whole team). The team's other devices remain
+     * valid. Refresh tokens are not deleted — they are subject-keyed, not device-keyed.
+     */
+    void revokeDeviceTokens(UUID teamId, UUID deviceId);
+
+    /**
+     * Returns true if the (subject, deviceId) pair was revoked AFTER the supplied
+     * issued-at instant.
+     */
+    boolean isDeviceTokenRevoked(String subject, UUID deviceId, Instant issuedAt);
 
     /**
      * Store a refresh token for validation and rotation

@@ -24,6 +24,8 @@ public class DeviceRegistrationMapper {
         domain.setId(entity.getId());
         domain.setTeamId(entity.getTeam() != null ? entity.getTeam().getId() : null);
         domain.setAdminId(entity.getAdmin() != null ? entity.getAdmin().getId() : null);
+        domain.setGameId(entity.getGameId());
+        domain.setNickname(entity.getNickname());
         domain.setLastSeen(entity.getLastSeen());
         domain.setCreatedAt(entity.getCreatedAt());
 
@@ -41,6 +43,8 @@ public class DeviceRegistrationMapper {
 
         DeviceRegistrationEntity entity = new DeviceRegistrationEntity();
         entity.setId(domain.getId());
+        entity.setGameId(domain.getGameId());
+        entity.setNickname(domain.getNickname());
         entity.setLastSeen(domain.getLastSeen());
         entity.setCreatedAt(domain.getCreatedAt());
 
@@ -55,6 +59,8 @@ public class DeviceRegistrationMapper {
             return;
         }
 
+        entity.setGameId(domain.getGameId());
+        entity.setNickname(domain.getNickname());
         entity.setLastSeen(domain.getLastSeen());
     }
 }

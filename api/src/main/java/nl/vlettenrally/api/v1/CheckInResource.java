@@ -1,33 +1,50 @@
 package nl.vlettenrally.api.v1;
 
+import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
+import nl.vlettenrally.data.domain.Game;
+import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.dto.auth.AuthTokenResponse;
+import nl.vlettenrally.data.dto.auth.CheckInStateResponse;
+import nl.vlettenrally.data.dto.auth.RegisterDeviceRequest;
+import nl.vlettenrally.data.dto.auth.RegisterDeviceResponse;
 import nl.vlettenrally.data.dto.auth.TeamOptionResponse;
 import nl.vlettenrally.data.dto.auth.TeamSelectionRequest;
 import nl.vlettenrally.data.dto.auth.TeamSelectionResponse;
+import nl.vlettenrally.data.dto.auth.TodayGameResponse;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
 import nl.vlettenrally.service.AuthService;
+import nl.vlettenrally.service.CheckInCoordinationService;
 import nl.vlettenrally.service.TeamService;
 
 import java.util.List;
 import java.util.UUID;
 
 /**
- * REST Resource for Check-in operations
- * 
- * Endpoints:
- * - GET /api/v1/check-in/teams - Get team options for check-in (requires check-in token)
- * - POST /api/v1/check-in/exchange-token - Exchange check-in token for access tokens (with team selection)
+ * REST Resource for Check-in operations.
+ *
+ * Public (no auth) endpoints power the self-service flow:
+ * - GET  /api/v1/check-in/games/today         - games starting today (Europe/Amsterdam)
+ * - GET  /api/v1/check-in/games/{gameId}/teams - team list for a game
+ * - POST /api/v1/check-in/register-device      - claim a device + issue team tokens
+ *
+ * Team-authenticated endpoints:
+ * - GET  /api/v1/check-in/state                - coordination state (used by waiting devices)
+ *
+ * Legacy registration-token endpoints (preserved for the WordPress check-in link):
+ * - GET  /api/v1/check-in/teams                - team options for a registration-token holder
+ * - POST /api/v1/check-in/exchange-token        - exchange registration token for team tokens
  */
 @Path("/api/v1/check-in")
 @Produces(MediaType.APPLICATION_JSON)
@@ -40,9 +57,83 @@ public class CheckInResource {
     @Inject
     TeamService teamService;
 
+    @Inject
+    CheckInCoordinationService coordinationService;
+
+    // ---------------------------------------------------------------------
+    // Public self-service endpoints
+    // ---------------------------------------------------------------------
+
+    @GET
+    @PermitAll
+    @Path("/games/today")
+    public Response getGamesToday() {
+        List<TodayGameResponse> games = coordinationService.findCheckInGamesForToday().stream()
+            .map(g -> new TodayGameResponse(g.getId(), g.getName(), g.getDescription(), g.getStartTime()))
+            .toList();
+        return Response.ok(games).build();
+    }
+
+    @GET
+    @PermitAll
+    @Path("/games/{gameId}/teams")
+    public Response getTeamsForGame(@PathParam("gameId") UUID gameId) {
+        List<TeamOptionResponse> teams = teamService.findByGameId(gameId).stream()
+            .map(team -> new TeamOptionResponse(
+                team.getId(),
+                team.getName(),
+                team.isCheckedIn(),
+                team.getMainDeviceId() != null))
+            .toList();
+        return Response.ok(teams).build();
+    }
+
+    @POST
+    @PermitAll
+    @Path("/register-device")
+    public Response registerDevice(RegisterDeviceRequest request) {
+        if (request == null || request.gameId() == null || request.teamId() == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("gameId and teamId are required"))
+                .build();
+        }
+        try {
+            RegisterDeviceResponse response = coordinationService.registerDevice(
+                request.gameId(), request.teamId(), request.deviceId(), request.nickname());
+            return Response.ok(response).build();
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse(e.getMessage()))
+                .build();
+        } catch (IllegalStateException e) {
+            // Per-team device cap reached.
+            return Response.status(429)
+                .entity(new ErrorResponse(e.getMessage()))
+                .build();
+        }
+    }
+
+    @GET
+    @RolesAllowed({"team"})
+    @Path("/state")
+    public Response getState(@Context SecurityContext securityContext) {
+        try {
+            UUID teamId = UUID.fromString(securityContext.getUserPrincipal().getName());
+            CheckInStateResponse state = coordinationService.getState(teamId);
+            return Response.ok(state).build();
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.NOT_FOUND)
+                .entity(new ErrorResponse(e.getMessage()))
+                .build();
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // Legacy WordPress registration-token endpoints
+    // ---------------------------------------------------------------------
+
     /**
-     * Get team options for check-in using a game-scoped check-in token
-     * Returns a list of teams that can be selected for check-in
+     * Get team options for check-in using a game-scoped check-in token.
      */
     @GET
     @RolesAllowed({"checkin"})
@@ -58,7 +149,11 @@ public class CheckInResource {
             }
 
             List<TeamOptionResponse> teamOptions = teamService.findByGameId(gameId).stream()
-                .map(team -> new TeamOptionResponse(team.getId(), team.getName()))
+                .map(team -> new TeamOptionResponse(
+                    team.getId(),
+                    team.getName(),
+                    team.isCheckedIn(),
+                    team.getMainDeviceId() != null))
                 .toList();
             return Response.ok(new TeamSelectionResponse(gameId.toString(), teamOptions)).build();
 
@@ -70,8 +165,7 @@ public class CheckInResource {
     }
 
     /**
-     * Exchange a check-in token for access + refresh tokens
-     * Requires selecting a team. Only succeeds if team hasn't already checked in.
+     * Exchange a check-in token for access + refresh tokens.
      */
     @POST
     @RolesAllowed({"checkin"})
@@ -97,7 +191,6 @@ public class CheckInResource {
                     .build());
 
         } catch (IllegalStateException e) {
-            // Team is already checked in (matches validation in TeamServiceImpl.checkIn())
             return Response.status(Response.Status.CONFLICT)
                 .entity(new ErrorResponse(e.getMessage()))
                 .build();

@@ -18,6 +18,8 @@ public class DeviceRegistration {
     private UUID id;
     private UUID teamId;
     private UUID adminId;
+    private UUID gameId;
+    private String nickname;
     private Instant lastSeen;
     private Instant createdAt;
 
@@ -31,6 +33,12 @@ public class DeviceRegistration {
         this();
         this.id = id;
         this.teamId = teamId;
+    }
+
+    public DeviceRegistration(UUID id, UUID teamId, UUID gameId, String nickname) {
+        this(id, teamId);
+        this.gameId = gameId;
+        this.nickname = nickname;
     }
 
     /**

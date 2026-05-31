@@ -5,9 +5,12 @@ import jakarta.inject.Inject;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.service.TeamService;
+import nl.vlettenrally.websockets.WebSocketPublisher;
+import nl.vlettenrally.websockets.dto.WebSocketMessageType;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -19,6 +22,9 @@ public class TeamServiceImpl implements TeamService {
 
     @Inject
     TeamRepository teamRepository;
+
+    @Inject
+    WebSocketPublisher webSocketPublisher;
 
     @Override
     public Optional<Team> findById(UUID id) {
@@ -59,7 +65,7 @@ public class TeamServiceImpl implements TeamService {
 
     @Override
     public Team checkIn(UUID teamId) {
-        return teamRepository.findById(teamId)
+        Team result = teamRepository.findById(teamId)
             .map(team -> {
                 if (team.isCheckedIn()) {
                     if (team.isCheckedInDigitally()) {
@@ -79,6 +85,18 @@ public class TeamServiceImpl implements TeamService {
                 return teamRepository.save(team);
             })
             .orElseThrow(() -> new IllegalArgumentException("Team not found: " + teamId));
+
+        // Notify any waiting devices that the details step is complete.
+        if (result.getGameId() != null) {
+            webSocketPublisher.sendToTeam(
+                result.getGameId(),
+                result.getId(),
+                WebSocketMessageType.CHECKIN_DETAILS_SUBMITTED.getValue(),
+                Map.of("teamId", result.getId().toString())
+            );
+        }
+
+        return result;
     }
 
     @Override

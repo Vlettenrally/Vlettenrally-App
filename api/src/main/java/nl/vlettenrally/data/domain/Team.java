@@ -24,7 +24,9 @@ public class Team {
     private String description;
     private String externalId;  // External ID from pre-registration system (ticket_booking_id)
     private List<String> participants;
+    // Deprecated: kept for FCM/legacy paths. Coordination uses mainDeviceId + DeviceRegistration rows.
     private UUID deviceId;
+    private UUID mainDeviceId;
     private boolean checkedIn;
     private boolean checkedInDigitally;
     private int totalPoints;

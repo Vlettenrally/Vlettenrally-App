@@ -358,6 +358,65 @@ export interface CheckpointTeamStatus {
 export interface TeamOption {
   id: string;
   name: string;
+  checkedIn?: boolean;
+  hasMainDevice?: boolean;
+}
+
+/**
+ * Game taking place today (Europe/Amsterdam) — returned by the public check-in flow.
+ */
+export interface TodayGame {
+  id: string;
+  name: string;
+  description?: string | null;
+  startTime: string;
+}
+
+/**
+ * Single registered check-in device for a team.
+ */
+export interface CheckInDevice {
+  deviceId: string;
+  nickname: string | null;
+  isMain: boolean;
+  createdAt: string;
+  lastSeen: string;
+}
+
+/**
+ * Current multi-device coordination state for a team.
+ */
+export interface CheckInState {
+  mainDeviceId: string | null;
+  mainDeviceNickname: string | null;
+  detailsSubmitted: boolean;
+  devices: CheckInDevice[];
+}
+
+/**
+ * Response from POST /api/v1/check-in/register-device. The server-assigned
+ * {@code deviceId} is the canonical value to persist; the client's request
+ * field is only a HINT for idempotent resumption.
+ */
+export interface RegisterDeviceResponse {
+  deviceId: string;
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+  tokenType?: string;
+  isMainDevice: boolean;
+  detailsSubmitted: boolean;
+  mainDeviceNickname: string | null;
+}
+
+/**
+ * Response from POST /api/v1/fcm-tokens — includes the server-assigned
+ * {@code deviceId} so the caller can persist it for future calls.
+ */
+export interface FcmTokenRegistrationResponse {
+  success: boolean;
+  message: string;
+  deviceId: string | null;
 }
 
 /**

@@ -59,12 +59,12 @@ class FcmTokenResourceTest {
         setupSecurityContext();
         FcmTokenRequest request = new FcmTokenRequest(fcmToken);
         when(securityContext.isUserInRole("admin")).thenReturn(false);
-        doNothing().when(fcmTokenService).registerToken(userId, false, fcmToken);
+        when(fcmTokenService.registerToken(userId, false, fcmToken, null, null)).thenReturn(UUID.randomUUID());
 
         // Act & Assert
         try (Response response = fcmTokenResource.registerFcmToken(request, securityContext)) {
             assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());
-            verify(fcmTokenService).registerToken(userId, false, fcmToken);
+            verify(fcmTokenService).registerToken(userId, false, fcmToken, null, null);
         }
     }
 
@@ -74,12 +74,12 @@ class FcmTokenResourceTest {
         setupSecurityContext();
         FcmTokenRequest request = new FcmTokenRequest(fcmToken);
         when(securityContext.isUserInRole("admin")).thenReturn(true);
-        doNothing().when(fcmTokenService).registerToken(userId, true, fcmToken);
+        when(fcmTokenService.registerToken(userId, true, fcmToken, null, null)).thenReturn(UUID.randomUUID());
 
         // Act & Assert
         try (Response response = fcmTokenResource.registerFcmToken(request, securityContext)) {
             assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());
-            verify(fcmTokenService).registerToken(userId, true, fcmToken);
+            verify(fcmTokenService).registerToken(userId, true, fcmToken, null, null);
         }
     }
 
@@ -134,7 +134,7 @@ class FcmTokenResourceTest {
         setupSecurityContext();
         FcmTokenRequest request = new FcmTokenRequest(fcmToken);
         when(securityContext.isUserInRole("admin")).thenReturn(false);
-        doThrow(new RuntimeException("DB error")).when(fcmTokenService).registerToken(any(), anyBoolean(), anyString());
+        when(fcmTokenService.registerToken(any(), anyBoolean(), anyString(), any(), any())).thenThrow(new RuntimeException("DB error"));
 
         // Act & Assert
         try (Response response = fcmTokenResource.registerFcmToken(request, securityContext)) {

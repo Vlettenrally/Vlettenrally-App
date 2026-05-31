@@ -36,9 +36,16 @@ import type {
   PointEntryListParams,
   CreatePointAdjustmentRequest,
   EditPointEntryRequest,
+  TodayGame,
+  TeamOption,
+  RegisterDeviceResponse,
+  CheckInState,
+  CheckInDevice,
+  FcmTokenRegistrationResponse,
 } from '../types/entities';
 import storage from './storage';
 import { isTokenExpiringSoon } from './auth';
+import { suggestDeviceNickname } from '../utils/deviceNickname';
 
 const API_BASE_URL = config.apiBaseUrl;
 
@@ -394,6 +401,58 @@ class ApiService {
     });
   }
 
+  // Public self-service check-in flow
+  async getCheckInGamesToday(): Promise<ApiResponse<TodayGame[]>> {
+    return this.get('/check-in/games/today');
+  }
+
+  async getCheckInTeams(gameId: string): Promise<ApiResponse<TeamOption[]>> {
+    return this.get(`/check-in/games/${gameId}/teams`);
+  }
+
+  async registerCheckInDevice(payload: {
+    gameId: string;
+    teamId: string;
+    deviceId: string;
+    nickname: string;
+  }): Promise<ApiResponse<RegisterDeviceResponse>> {
+    return this.post('/check-in/register-device', payload);
+  }
+
+  async getCheckInState(): Promise<ApiResponse<CheckInState>> {
+    return this.get('/check-in/state');
+  }
+
+  // Admin: per-team device coordination
+  async getTeamDevices(teamId: string): Promise<ApiResponse<CheckInDevice[]>> {
+    return this.get(`/teams/${teamId}/devices`);
+  }
+
+  async setMainTeamDevice(teamId: string, deviceId: string): Promise<ApiResponse<CheckInState>> {
+    return this.put(`/teams/${teamId}/devices/main`, { deviceId });
+  }
+
+  async resetTeamDevices(teamId: string): Promise<ApiResponse<void>> {
+    return this.delete(`/teams/${teamId}/devices`);
+  }
+
+  async removeTeamDevice(teamId: string, deviceId: string): Promise<ApiResponse<void>> {
+    return this.delete(`/teams/${teamId}/devices/${deviceId}`);
+  }
+
+  // Admin self-service: their own registered FCM devices
+  async getMyAdminDevices(): Promise<ApiResponse<CheckInDevice[]>> {
+    return this.get('/admin/me/devices');
+  }
+
+  async renameMyAdminDevice(deviceId: string, nickname: string): Promise<ApiResponse<CheckInDevice>> {
+    return this.patch(`/admin/me/devices/${deviceId}`, { nickname });
+  }
+
+  async removeMyAdminDevice(deviceId: string): Promise<ApiResponse<void>> {
+    return this.delete(`/admin/me/devices/${deviceId}`);
+  }
+
   async refreshAccessToken(refreshToken: string) {
     return this.post('/auth/refresh', { refreshToken });
   }
@@ -610,8 +669,31 @@ async getGames() : Promise<ApiResponse<Game[]>> {
   }
 
   // FCM Token registration
-  async registerFcmToken(token: string): Promise<ApiResponse<void>> {
-    return this.post('/fcm-tokens', { token });
+  async registerFcmToken(token: string): Promise<ApiResponse<FcmTokenRegistrationResponse>> {
+    // Admins and teams have separate device-row keys (one device_registrations row
+    // cannot belong to both at once); pick the right one based on the active role.
+    // The id we send is a HINT for resuming an existing row — never a directive.
+    const isAdmin = storage.isAdmin();
+    const deviceIdHint = isAdmin
+      ? storage.getAdminDeviceId()
+      : storage.getDeviceId();
+    const payload: Record<string, unknown> = {
+      token,
+      nickname: suggestDeviceNickname(),
+    };
+    if (deviceIdHint) {
+      payload.deviceId = deviceIdHint;
+    }
+    const response = await this.post<FcmTokenRegistrationResponse>('/fcm-tokens', payload);
+    // Persist the server-assigned deviceId so subsequent calls resume the same row.
+    if (response.data?.deviceId) {
+      if (isAdmin) {
+        storage.setAdminDeviceId(response.data.deviceId);
+      } else {
+        storage.setDeviceId(response.data.deviceId);
+      }
+    }
+    return response;
   }
 
   async unregisterFcmToken(token: string): Promise<ApiResponse<void>> {

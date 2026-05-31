@@ -78,6 +78,22 @@ export function useTeamRealtime({ gameId, teamId }: UseRealtimeTeamOptions) {
       console.log('Game status changed:', message.payload);
     });
 
+    // Admin reset of the team's check-in: drop session and bounce back to /check-in.
+    const unsubscribeCheckinReset = subscribe('CHECKIN_RESET', () => {
+      storage.clearSession();
+      window.location.href = '/check-in';
+    });
+
+    // Admin removed a specific device: if that's us, eject. Other devices keep working.
+    const unsubscribeDeviceRemoved = subscribe('CHECKIN_DEVICE_REMOVED', (message) => {
+      const payload = message.payload as { deviceId?: string } | undefined;
+      const localDeviceId = storage.getDeviceId();
+      if (payload?.deviceId && localDeviceId && payload.deviceId === localDeviceId) {
+        storage.clearSession();
+        window.location.href = '/check-in';
+      }
+    });
+
     return () => {
       unsubscribeMessages();
       unsubscribeCountdown();
@@ -85,6 +101,8 @@ export function useTeamRealtime({ gameId, teamId }: UseRealtimeTeamOptions) {
       unsubscribeRival();
       unsubscribeRanking();
       unsubscribeGameStatus();
+      unsubscribeCheckinReset();
+      unsubscribeDeviceRemoved();
     };
   }, [gameId, teamId, subscribe, addMessage, setRivalTeam, addAchievement, updatePoints]);
 

@@ -25,6 +25,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.repository.TeamRepository;
+import nl.vlettenrally.websockets.WebSocketPublisher;
 
 /**
  * Unit tests for TeamServiceImpl.
@@ -35,6 +36,9 @@ class TeamServiceImplTest {
 
     @Mock
     TeamRepository teamRepository;
+
+    @Mock
+    WebSocketPublisher webSocketPublisher;
 
     @InjectMocks
     TeamServiceImpl teamService;

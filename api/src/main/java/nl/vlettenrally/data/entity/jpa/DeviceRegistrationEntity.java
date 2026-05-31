@@ -17,7 +17,8 @@ import java.util.UUID;
 @Table(name = "device_registrations", indexes = {
     @Index(name = "idx_device_registrations_team_id", columnList = "team_id"),
     @Index(name = "idx_device_registrations_admin_id", columnList = "admin_id"),
-    @Index(name = "idx_device_registrations_last_seen", columnList = "last_seen")
+    @Index(name = "idx_device_registrations_last_seen", columnList = "last_seen"),
+    @Index(name = "idx_device_registrations_game_team", columnList = "game_id,team_id")
 })
 public class DeviceRegistrationEntity {
 
@@ -33,6 +34,12 @@ public class DeviceRegistrationEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "admin_id")
     private AdminEntity admin;
+
+    @Column(name = "game_id")
+    private UUID gameId;
+
+    @Column(name = "nickname", length = 120)
+    private String nickname;
 
     @Column(name = "last_seen", nullable = false)
     private Instant lastSeen;

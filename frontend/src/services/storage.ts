@@ -19,6 +19,9 @@ const STORAGE_KEYS = {
   USER_ROLE: 'user_role',
   USER_ROLES: 'user_roles', // For storing multiple admin roles
   SIDEBAR_COLLAPSED: 'sidebar_collapsed',
+  DEVICE_ID: 'device_id',
+  DEVICE_NICKNAME: 'device_nickname',
+  ADMIN_DEVICE_ID: 'admin_device_id',
 } as const;
 
 class StorageService {
@@ -212,6 +215,39 @@ class StorageService {
   // Check if user is a super admin
   isSuperAdmin(): boolean {
     return this.hasRole('super_admin');
+  }
+
+  // Device identity is server-assigned: the participant flow's register-device call
+  // and the admin FCM registration both return a deviceId that we persist here and
+  // send back as an idempotency HINT on subsequent calls. We never invent one
+  // client-side, so a hostile client can't spawn rows under arbitrary ids.
+  // This entry survives clearSession() because it identifies the physical browser
+  // across logouts and re-check-ins.
+  getDeviceId(): string | null {
+    return this.getItem<string>(STORAGE_KEYS.DEVICE_ID);
+  }
+
+  setDeviceId(deviceId: string): void {
+    this.setItem(STORAGE_KEYS.DEVICE_ID, deviceId);
+  }
+
+  getDeviceNickname(): string | null {
+    return this.getItem<string>(STORAGE_KEYS.DEVICE_NICKNAME);
+  }
+
+  setDeviceNickname(nickname: string): void {
+    this.setItem(STORAGE_KEYS.DEVICE_NICKNAME, nickname);
+  }
+
+  // Admin device id is a separate localStorage entry because admin and team
+  // device_registrations rows have distinct primary keys (one entity may not be
+  // simultaneously owned by both an admin and a team).
+  getAdminDeviceId(): string | null {
+    return this.getItem<string>(STORAGE_KEYS.ADMIN_DEVICE_ID);
+  }
+
+  setAdminDeviceId(deviceId: string): void {
+    this.setItem(STORAGE_KEYS.ADMIN_DEVICE_ID, deviceId);
   }
 
   // Sidebar collapsed state (admin UI)

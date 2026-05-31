@@ -15,6 +15,7 @@ import nl.vlettenrally.data.repository.AdminRepository;
 import nl.vlettenrally.data.repository.GameRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.service.AuthService;
+import nl.vlettenrally.service.TokenRevocationStore;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.Instant;
@@ -57,6 +58,9 @@ public class AuthServiceImpl implements AuthService {
 
     @Inject
     AdminRepository adminRepository;
+
+    @Inject
+    TokenRevocationStore tokenRevocationStore;
 
     @ConfigProperty(name = "mp.jwt.verify.issuer", defaultValue = "vlettenrally")
     String issuer;
@@ -364,14 +368,23 @@ public class AuthServiceImpl implements AuthService {
             return Optional.empty();
         }
 
-        // Generate tokens using config-driven durations
+        return Optional.of(issueTeamTokens(team));
+    }
+
+    @Override
+    public TokenResult issueTeamTokens(Team team) {
+        return issueTeamTokens(team, null);
+    }
+
+    @Override
+    public TokenResult issueTeamTokens(Team team, UUID deviceId) {
         long accessTokenExpirySeconds = accessTokenExpiryMinutes * 60L;
         long refreshTokenExpirySeconds = refreshTokenExpiryDays * 86400L;
 
-        String accessToken = generateToken(team.getId().toString(), team.getName(), "team", Instant.now().plusSeconds(accessTokenExpirySeconds), TokenType.ACCESS);
+        Instant accessExpiresAt = Instant.now().plusSeconds(accessTokenExpirySeconds);
+        String accessToken = generateTeamAccessToken(team, deviceId, accessExpiresAt);
         String refreshTokenStr = generateRefreshTokenValue();
 
-        // Store refresh token in database for persistence
         RefreshToken refreshToken = new RefreshToken();
         refreshToken.setToken(refreshTokenStr);
         refreshToken.setSubject(team.getId().toString());
@@ -381,17 +394,37 @@ public class AuthServiceImpl implements AuthService {
         refreshToken.setRevoked(false);
         refreshTokenRepository.save(refreshToken);
 
-        Log.infof("Team check-in tokens issued - teamId: %s, teamName: %s, gameId: %s",
-            team.getId(), team.getName(), gameId);
+        Log.infof("Team check-in tokens issued - teamId: %s, teamName: %s, gameId: %s, deviceId: %s",
+            team.getId(), team.getName(), team.getGameId(), deviceId);
 
-        return Optional.of(new TokenResult(
+        return new TokenResult(
             accessToken,
             refreshTokenStr,
             accessTokenExpirySeconds,
             team.getId().toString(),
             team.getName(),
             "team"
-        ));
+        );
+    }
+
+    /**
+     * Build an access JWT for a team, optionally embedding a `did` claim so the device
+     * can be revoked individually later. Mirrors {@link #generateToken}, but inlined to
+     * keep the public API unchanged for callers that don't need the device claim.
+     */
+    private String generateTeamAccessToken(Team team, UUID deviceId, Instant expiresAt) {
+        var builder = Jwt.issuer(issuer)
+            .subject(team.getId().toString())
+            .claim("name", team.getName())
+            .groups(Set.of("team"))
+            .expiresAt(expiresAt);
+        if (deviceId != null) {
+            builder = builder.claim("did", deviceId.toString());
+        }
+        String token = builder.sign();
+        Log.infof("Token generated - type: ACCESS, subject: %s, name: %s, roles: [team], deviceId: %s, expiresAt: %s",
+            team.getId(), team.getName(), deviceId, expiresAt);
+        return token;
     }
 
     @Override
@@ -408,9 +441,41 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public void revokeTokens(UUID teamId) {
-        // Delete all tokens for the team
+        // Delete persisted refresh tokens AND record the cutoff in Valkey so any
+        // access token already in a participant's browser is rejected on its next
+        // request — on any API pod.
         refreshTokenRepository.deleteBySubject(teamId.toString());
+        tokenRevocationStore.revokeSubject(teamId.toString(), Instant.now());
         Log.infof("Tokens revoked - subject: %s", teamId);
+    }
+
+    @Override
+    public boolean isAccessTokenRevoked(String subject, Instant issuedAt) {
+        if (subject == null || issuedAt == null) {
+            return false;
+        }
+        return tokenRevocationStore.getSubjectCutoff(subject)
+            .map(issuedAt::isBefore)
+            .orElse(false);
+    }
+
+    @Override
+    public void revokeDeviceTokens(UUID teamId, UUID deviceId) {
+        if (teamId == null || deviceId == null) {
+            return;
+        }
+        tokenRevocationStore.revokeDevice(teamId.toString(), deviceId, Instant.now());
+        Log.infof("Device tokens revoked - teamId: %s, deviceId: %s", teamId, deviceId);
+    }
+
+    @Override
+    public boolean isDeviceTokenRevoked(String subject, UUID deviceId, Instant issuedAt) {
+        if (subject == null || deviceId == null || issuedAt == null) {
+            return false;
+        }
+        return tokenRevocationStore.getDeviceCutoff(subject, deviceId)
+            .map(issuedAt::isBefore)
+            .orElse(false);
     }
 
     @Override

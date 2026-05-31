@@ -12,9 +12,10 @@ import {
   Alert,
   FormControlLabel,
   Checkbox,
+  Stack,
 } from '@mui/material';
-import { useState, useEffect } from 'react';
-import type { AdminTeam } from '../types/entities';
+import { useCallback, useState, useEffect } from 'react';
+import type { AdminTeam, CheckInDevice } from '../types/entities';
 import { teamService } from '../services/teamService';
 
 interface TeamDetailDialogProps {
@@ -37,6 +38,11 @@ export default function TeamDetailDialog({
   const [error, setError] = useState<string | null>(null);
   const [rivalTeams, setRivalTeams] = useState<AdminTeam[]>([]);
   const [loadingRivals, setLoadingRivals] = useState(false);
+  const [devices, setDevices] = useState<CheckInDevice[]>([]);
+  const [loadingDevices, setLoadingDevices] = useState(false);
+  const [deviceActionPending, setDeviceActionPending] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [deviceError, setDeviceError] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -85,6 +91,18 @@ export default function TeamDetailDialog({
       } else {
         setRivalTeams([]);
       }
+
+      setLoadingDevices(true);
+      setDeviceError(null);
+      teamService
+        .listDevices(team.id)
+        .then((list) => setDevices(list))
+        .catch((err) => {
+          console.error('Failed to load devices:', err);
+          setDeviceError('Apparaten ophalen mislukt.');
+          setDevices([]);
+        })
+        .finally(() => setLoadingDevices(false));
     } else {
       setFormData({
         name: '',
@@ -98,9 +116,77 @@ export default function TeamDetailDialog({
       });
       setIsEditing(true);
       setRivalTeams([]);
+      setDevices([]);
+      setConfirmReset(false);
+      setDeviceError(null);
     }
     setError(null);
   }, [team, gameId]);
+
+  const refreshDevices = useCallback(async () => {
+    if (!team) return;
+    setLoadingDevices(true);
+    setDeviceError(null);
+    try {
+      const list = await teamService.listDevices(team.id);
+      setDevices(list);
+    } catch (err) {
+      console.error('Failed to refresh devices:', err);
+      setDeviceError('Apparaten verversen mislukt.');
+    } finally {
+      setLoadingDevices(false);
+    }
+  }, [team]);
+
+  const handleMakeMain = async (deviceId: string) => {
+    if (!team) return;
+    setDeviceActionPending(true);
+    setDeviceError(null);
+    try {
+      const ok = await teamService.setMainDevice(team.id, deviceId);
+      if (!ok) {
+        setDeviceError('Wisselen van hoofdtelefoon mislukt.');
+        return;
+      }
+      await refreshDevices();
+    } finally {
+      setDeviceActionPending(false);
+    }
+  };
+
+  const handleRemoveDevice = async (deviceId: string) => {
+    if (!team) return;
+    setDeviceActionPending(true);
+    setDeviceError(null);
+    try {
+      const ok = await teamService.removeDevice(team.id, deviceId);
+      if (!ok) {
+        setDeviceError('Apparaat verwijderen mislukt.');
+        return;
+      }
+      await refreshDevices();
+    } finally {
+      setDeviceActionPending(false);
+    }
+  };
+
+  const handleResetDevices = async () => {
+    if (!team) return;
+    setDeviceActionPending(true);
+    setDeviceError(null);
+    try {
+      const ok = await teamService.resetDevices(team.id);
+      if (!ok) {
+        setDeviceError('Resetten van check-in mislukt.');
+        return;
+      }
+      setConfirmReset(false);
+      await refreshDevices();
+      onSave?.();
+    } finally {
+      setDeviceActionPending(false);
+    }
+  };
 
   const handleEdit = () => {
     setIsEditing(true);
@@ -352,6 +438,111 @@ export default function TeamDetailDialog({
                 ) : (
                   <Typography color="text.secondary">No rival teams</Typography>
                 )}
+              </Box>
+
+              <Box>
+                <Typography variant="subtitle2" gutterBottom>
+                  Apparaten
+                </Typography>
+                {deviceError && (
+                  <Alert severity="error" sx={{ mb: 1 }}>{deviceError}</Alert>
+                )}
+                {loadingDevices ? (
+                  <CircularProgress size={20} />
+                ) : devices.length === 0 ? (
+                  <Typography color="text.secondary">Nog geen apparaten ingecheckt.</Typography>
+                ) : (
+                  <Stack spacing={1}>
+                    {devices.map((device) => (
+                      <Box
+                        key={device.deviceId}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          p: 1,
+                          border: '1px solid',
+                          borderColor: 'divider',
+                          borderRadius: 1,
+                        }}
+                      >
+                        <Box sx={{ flexGrow: 1 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography variant="body2">
+                              {device.nickname && device.nickname.length > 0 ? device.nickname : '(zonder naam)'}
+                            </Typography>
+                            {device.isMain && (
+                              <Chip size="small" color="primary" label="Hoofdtelefoon" />
+                            )}
+                          </Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Laatst gezien: {new Date(device.lastSeen).toLocaleString('nl-NL')}
+                          </Typography>
+                        </Box>
+                        {!device.isMain && (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            disabled={deviceActionPending}
+                            onClick={() => handleMakeMain(device.deviceId)}
+                          >
+                            Maak hoofdtelefoon
+                          </Button>
+                        )}
+                        <Button
+                          size="small"
+                          color="error"
+                          variant="outlined"
+                          disabled={deviceActionPending}
+                          onClick={() => handleRemoveDevice(device.deviceId)}
+                        >
+                          Verwijder
+                        </Button>
+                      </Box>
+                    ))}
+                  </Stack>
+                )}
+
+                <Box sx={{ mt: 2 }}>
+                  {confirmReset ? (
+                    <Alert
+                      severity="warning"
+                      action={
+                        <Stack direction="row" spacing={1}>
+                          <Button
+                            size="small"
+                            color="inherit"
+                            disabled={deviceActionPending}
+                            onClick={() => setConfirmReset(false)}
+                          >
+                            Annuleer
+                          </Button>
+                          <Button
+                            size="small"
+                            color="error"
+                            variant="contained"
+                            disabled={deviceActionPending}
+                            onClick={handleResetDevices}
+                          >
+                            Reset
+                          </Button>
+                        </Stack>
+                      }
+                    >
+                      Alle apparaten loskoppelen, deelnemers en noodnummers wissen, en check-in resetten?
+                    </Alert>
+                  ) : (
+                    <Button
+                      size="small"
+                      color="error"
+                      variant="outlined"
+                      disabled={deviceActionPending}
+                      onClick={() => setConfirmReset(true)}
+                    >
+                      Check-in resetten
+                    </Button>
+                  )}
+                </Box>
               </Box>
             </>
           )}

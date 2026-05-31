@@ -26,9 +26,18 @@ public class FcmTokenServiceImpl implements FcmTokenService {
     DeviceRegistrationRepository deviceRegistrationRepository;
 
     @Override
-    public void registerToken(UUID userId, boolean isAdmin, String token) {
-        // Find or create device registration for this user
-        DeviceRegistration deviceRegistration = findOrCreateDeviceRegistration(userId, isAdmin);
+    public UUID registerToken(UUID userId, boolean isAdmin, String token, UUID deviceIdHint, String nickname) {
+        // Find or create device registration for this user. The hint is only honored
+        // when it matches a row already owned by this user — otherwise the server
+        // allocates a fresh UUID.
+        DeviceRegistration deviceRegistration = findOrCreateDeviceRegistration(userId, isAdmin, deviceIdHint);
+        // Apply a nickname only when the row doesn't already have one — admins can
+        // rename via PATCH /admin/me/devices/{id} and we don't want repeated FCM
+        // registrations to clobber that.
+        if (nickname != null && !nickname.isBlank()
+                && (deviceRegistration.getNickname() == null || deviceRegistration.getNickname().isBlank())) {
+            deviceRegistration.setNickname(nickname.trim());
+        }
 
         // Update last seen
         deviceRegistration.touch();
@@ -71,6 +80,8 @@ public class FcmTokenServiceImpl implements FcmTokenService {
                 Log.infof("Registered new FCM token for %s %s", userType, userId);
             }
         }
+
+        return deviceRegistration.getId();
     }
 
     @Override
@@ -90,24 +101,32 @@ public class FcmTokenServiceImpl implements FcmTokenService {
     }
 
     /**
-     * Find existing device registration or create a new one.
+     * Find existing device registration or create a new one. The client-supplied
+     * hint is only used when it resolves to a row already owned by this user; an
+     * unknown hint is discarded and a fresh server-side UUID is allocated, so the
+     * client cannot dictate the row id.
      */
-    private DeviceRegistration findOrCreateDeviceRegistration(UUID userId, boolean isAdmin) {
+    private DeviceRegistration findOrCreateDeviceRegistration(UUID userId, boolean isAdmin, UUID deviceIdHint) {
         if (isAdmin) {
-            return deviceRegistrationRepository.findByAdminId(userId)
-                    .orElseGet(() -> {
-                        DeviceRegistration newRegistration = new DeviceRegistration();
-                        newRegistration.setAdminId(userId);
-                        return deviceRegistrationRepository.save(newRegistration);
-                    });
-        } else {
-            return deviceRegistrationRepository.findByTeamId(userId)
-                    .orElseGet(() -> {
-                        DeviceRegistration newRegistration = new DeviceRegistration();
-                        newRegistration.setTeamId(userId);
-                        return deviceRegistrationRepository.save(newRegistration);
-                    });
+            if (deviceIdHint != null) {
+                Optional<DeviceRegistration> hinted = deviceRegistrationRepository.findByAdminIdAndId(userId, deviceIdHint);
+                if (hinted.isPresent()) {
+                    return hinted.get();
+                }
+            }
+            DeviceRegistration fresh = new DeviceRegistration();
+            fresh.setAdminId(userId);
+            return deviceRegistrationRepository.save(fresh);
         }
+        if (deviceIdHint != null) {
+            Optional<DeviceRegistration> hinted = deviceRegistrationRepository.findByTeamIdAndId(userId, deviceIdHint);
+            if (hinted.isPresent()) {
+                return hinted.get();
+            }
+        }
+        DeviceRegistration fresh = new DeviceRegistration();
+        fresh.setTeamId(userId);
+        return deviceRegistrationRepository.save(fresh);
     }
 }
 

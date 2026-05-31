@@ -1,7 +1,7 @@
 /**
- * Admin Settings Page - Change password and manage admin account
+ * Admin Settings Page - Change password, manage admin account, manage own devices
  */
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Box,
   Card,
@@ -11,9 +11,21 @@ import {
   Typography,
   Alert,
   CircularProgress,
+  Chip,
+  Stack,
+  IconButton,
 } from '@mui/material';
-import { LockReset as LockIcon } from '@mui/icons-material';
+import {
+  LockReset as LockIcon,
+  PhoneAndroid as DeviceIcon,
+  Edit as EditIcon,
+  Save as SaveIcon,
+  Close as CloseIcon,
+  Delete as DeleteIcon,
+} from '@mui/icons-material';
 import api from '../../services/api';
+import storage from '../../services/storage';
+import type { CheckInDevice } from '../../types/entities';
 
 interface PasswordForm {
   currentPassword: string;
@@ -30,6 +42,75 @@ export function Settings() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const [devices, setDevices] = useState<CheckInDevice[]>([]);
+  const [devicesLoading, setDevicesLoading] = useState(false);
+  const [devicesError, setDevicesError] = useState<string | null>(null);
+  const [editingDeviceId, setEditingDeviceId] = useState<string | null>(null);
+  const [editingNickname, setEditingNickname] = useState('');
+  const [deviceActionPending, setDeviceActionPending] = useState(false);
+
+  const currentDeviceId = storage.getAdminDeviceId();
+
+  const loadDevices = useCallback(async () => {
+    setDevicesLoading(true);
+    setDevicesError(null);
+    try {
+      const response = await api.getMyAdminDevices();
+      if (response.error) {
+        setDevicesError(response.error);
+        return;
+      }
+      setDevices(response.data ?? []);
+    } finally {
+      setDevicesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadDevices();
+  }, [loadDevices]);
+
+  const startRename = (device: CheckInDevice) => {
+    setEditingDeviceId(device.deviceId);
+    setEditingNickname(device.nickname ?? '');
+  };
+
+  const cancelRename = () => {
+    setEditingDeviceId(null);
+    setEditingNickname('');
+  };
+
+  const saveRename = async (deviceId: string) => {
+    setDeviceActionPending(true);
+    setDevicesError(null);
+    try {
+      const response = await api.renameMyAdminDevice(deviceId, editingNickname.trim());
+      if (response.error) {
+        setDevicesError(response.error);
+        return;
+      }
+      cancelRename();
+      await loadDevices();
+    } finally {
+      setDeviceActionPending(false);
+    }
+  };
+
+  const removeDevice = async (deviceId: string) => {
+    setDeviceActionPending(true);
+    setDevicesError(null);
+    try {
+      const response = await api.removeMyAdminDevice(deviceId);
+      if (response.error) {
+        setDevicesError(response.error);
+        return;
+      }
+      await loadDevices();
+    } finally {
+      setDeviceActionPending(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -158,6 +239,114 @@ export function Settings() {
               )}
             </Button>
           </form>
+        </CardContent>
+      </Card>
+
+      <Card sx={{ mt: 3 }}>
+        <CardContent sx={{ p: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+            <DeviceIcon sx={{ fontSize: 32, color: '#1a237e', mr: 2 }} />
+            <Typography variant="h6">Mijn apparaten</Typography>
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Browsers waarop je meldingen hebt ingeschakeld. Verwijder een apparaat om daar geen pushberichten
+            meer naar te sturen.
+          </Typography>
+
+          {devicesError && <Alert severity="error" sx={{ mb: 2 }}>{devicesError}</Alert>}
+
+          {devicesLoading ? (
+            <CircularProgress size={24} />
+          ) : devices.length === 0 ? (
+            <Typography color="text.secondary">
+              Geen apparaten geregistreerd. Sta meldingen toe om dit apparaat toe te voegen.
+            </Typography>
+          ) : (
+            <Stack spacing={1}>
+              {devices.map((device) => {
+                const isCurrent = currentDeviceId === device.deviceId;
+                const isEditing = editingDeviceId === device.deviceId;
+                return (
+                  <Box
+                    key={device.deviceId}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      p: 1.5,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      borderRadius: 1,
+                    }}
+                  >
+                    <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                      {isEditing ? (
+                        <TextField
+                          size="small"
+                          fullWidth
+                          value={editingNickname}
+                          onChange={(e) => setEditingNickname(e.target.value)}
+                          placeholder="Naam van apparaat"
+                          autoFocus
+                        />
+                      ) : (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                          <Typography variant="body2">
+                            {device.nickname && device.nickname.length > 0 ? device.nickname : '(Onbenoemd)'}
+                          </Typography>
+                          {isCurrent && <Chip size="small" color="primary" label="Dit apparaat" />}
+                        </Box>
+                      )}
+                      <Typography variant="caption" color="text.secondary">
+                        Laatst gezien: {new Date(device.lastSeen).toLocaleString('nl-NL')}
+                      </Typography>
+                    </Box>
+                    {isEditing ? (
+                      <>
+                        <IconButton
+                          size="small"
+                          color="primary"
+                          disabled={deviceActionPending}
+                          onClick={() => saveRename(device.deviceId)}
+                          aria-label="Opslaan"
+                        >
+                          <SaveIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          disabled={deviceActionPending}
+                          onClick={cancelRename}
+                          aria-label="Annuleren"
+                        >
+                          <CloseIcon fontSize="small" />
+                        </IconButton>
+                      </>
+                    ) : (
+                      <>
+                        <IconButton
+                          size="small"
+                          disabled={deviceActionPending}
+                          onClick={() => startRename(device)}
+                          aria-label="Hernoem"
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          disabled={deviceActionPending}
+                          onClick={() => removeDevice(device.deviceId)}
+                          aria-label="Verwijder"
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </>
+                    )}
+                  </Box>
+                );
+              })}
+            </Stack>
+          )}
         </CardContent>
       </Card>
     </Box>

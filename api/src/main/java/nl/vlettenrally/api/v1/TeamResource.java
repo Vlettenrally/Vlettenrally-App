@@ -4,6 +4,7 @@ import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.websocket.server.PathParam;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
@@ -16,12 +17,18 @@ import jakarta.ws.rs.core.SecurityContext;
 import nl.vlettenrally.api.security.TeamScoped;
 import nl.vlettenrally.api.security.TeamScopedOrAdmin;
 import nl.vlettenrally.data.converter.TeamConverter;
+import nl.vlettenrally.data.domain.DeviceRegistration;
 import nl.vlettenrally.data.domain.Team;
+import nl.vlettenrally.data.dto.auth.CheckInStateResponse;
+import nl.vlettenrally.data.dto.auth.DeviceResponse;
+import nl.vlettenrally.data.dto.auth.SetMainDeviceRequest;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
 import nl.vlettenrally.data.dto.team.EmergencyPhoneUpdateRequest;
 import nl.vlettenrally.data.dto.team.ParticipantsUpdateRequest;
 import nl.vlettenrally.data.dto.team.TeamCreateRequest;
 import nl.vlettenrally.data.dto.team.TeamUpdateRequest;
+import nl.vlettenrally.data.repository.DeviceRegistrationRepository;
+import nl.vlettenrally.service.CheckInCoordinationService;
 import nl.vlettenrally.service.TeamService;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 
@@ -55,6 +62,12 @@ public class TeamResource {
 
     @Inject
     private WebSocketPublisher webSocketPublisher;
+
+    @Inject
+    private CheckInCoordinationService coordinationService;
+
+    @Inject
+    private DeviceRegistrationRepository deviceRegistrationRepository;
 
     /**
      * Get all teams
@@ -308,6 +321,87 @@ public class TeamResource {
                 .build();
         } catch (IllegalArgumentException e) {
             return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse(e.getMessage()))
+                .build();
+        }
+    }
+
+    /**
+     * Admin: list every registered check-in device for a team.
+     */
+    @GET
+    @Path("/teams/{teamId}/devices")
+    public Response listTeamDevices(@PathParam("teamId") UUID teamId) {
+        Optional<Team> teamOpt = teamService.findById(teamId);
+        if (teamOpt.isEmpty()) {
+            return Response.status(Response.Status.NOT_FOUND)
+                .entity(new ErrorResponse("Team not found"))
+                .build();
+        }
+        UUID mainDeviceId = teamOpt.get().getMainDeviceId();
+        List<DeviceResponse> devices = deviceRegistrationRepository.findAllByTeamId(teamId).stream()
+            .map((DeviceRegistration d) -> new DeviceResponse(
+                d.getId(),
+                d.getNickname(),
+                d.getId().equals(mainDeviceId),
+                d.getCreatedAt(),
+                d.getLastSeen()
+            ))
+            .toList();
+        return Response.ok(devices).build();
+    }
+
+    /**
+     * Admin: hand main-device status to a different registered device.
+     */
+    @PUT
+    @Path("/teams/{teamId}/devices/main")
+    public Response setMainDevice(@PathParam("teamId") UUID teamId, SetMainDeviceRequest request) {
+        if (request == null || request.deviceId() == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("deviceId is required"))
+                .build();
+        }
+        try {
+            coordinationService.setMainDevice(teamId, request.deviceId());
+            CheckInStateResponse state = coordinationService.getState(teamId);
+            return Response.ok(state).build();
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.NOT_FOUND)
+                .entity(new ErrorResponse(e.getMessage()))
+                .build();
+        }
+    }
+
+    /**
+     * Admin: reset check-in for a team (deletes every device, clears participants +
+     * emergency phone numbers + checked-in flags, revokes refresh tokens).
+     */
+    @DELETE
+    @Path("/teams/{teamId}/devices")
+    public Response resetTeamDevices(@PathParam("teamId") UUID teamId) {
+        try {
+            coordinationService.resetTeam(teamId);
+            return Response.noContent().build();
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.NOT_FOUND)
+                .entity(new ErrorResponse(e.getMessage()))
+                .build();
+        }
+    }
+
+    /**
+     * Admin: remove a single device from a team. Revokes that device's access tokens
+     * and demotes main-device status to the next-oldest device when needed.
+     */
+    @DELETE
+    @Path("/teams/{teamId}/devices/{deviceId}")
+    public Response removeTeamDevice(@PathParam("teamId") UUID teamId, @PathParam("deviceId") UUID deviceId) {
+        try {
+            coordinationService.removeDevice(teamId, deviceId);
+            return Response.noContent().build();
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.NOT_FOUND)
                 .entity(new ErrorResponse(e.getMessage()))
                 .build();
         }

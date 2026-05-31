@@ -1,6 +1,6 @@
 import api from "./api";
 import { storage } from './storage';
-import type { AdminTeam, PlayerTeam, PublicTeam } from '../types/entities';
+import type { AdminTeam, CheckInDevice, PlayerTeam, PublicTeam } from '../types/entities';
 
 // Request deduplication - prevents duplicate in-flight requests
 // Service worker handles caching for offline support
@@ -88,6 +88,26 @@ export const teamService = {
   createTeam: async (data: Partial<AdminTeam> & { gameId: string }): Promise<AdminTeam | null> => {
     const response = await api.createTeam(data);
     return response.data ?? null;
+  },
+
+  listDevices: async (teamId: string): Promise<CheckInDevice[]> => {
+    const response = await api.getTeamDevices(teamId);
+    return response.data ?? [];
+  },
+
+  setMainDevice: async (teamId: string, deviceId: string): Promise<boolean> => {
+    const response = await api.setMainTeamDevice(teamId, deviceId);
+    return !response.error;
+  },
+
+  resetDevices: async (teamId: string): Promise<boolean> => {
+    const response = await api.resetTeamDevices(teamId);
+    return !response.error;
+  },
+
+  removeDevice: async (teamId: string, deviceId: string): Promise<boolean> => {
+    const response = await api.removeTeamDevice(teamId, deviceId);
+    return !response.error;
   },
 };
 

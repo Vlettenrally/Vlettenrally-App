@@ -56,9 +56,9 @@ public class FcmTokenResource {
             UUID userId = UUID.fromString(securityContext.getUserPrincipal().getName());
             boolean isAdmin = securityContext.isUserInRole("admin");
             
-            fcmTokenService.registerToken(userId, isAdmin, request.token());
+            UUID deviceId = fcmTokenService.registerToken(userId, isAdmin, request.token(), request.deviceId(), request.nickname());
 
-            return Response.ok(FcmTokenResponse.ok()).build();
+            return Response.ok(FcmTokenResponse.ok(deviceId)).build();
             
         } catch (IllegalArgumentException e) {
             Log.error("Invalid user ID in security context", e);

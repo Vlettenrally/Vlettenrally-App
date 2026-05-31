@@ -64,16 +64,56 @@ public class MockDeviceRegistrationRepository implements DeviceRegistrationRepos
 
     @Override
     public Optional<DeviceRegistration> findByTeamId(UUID teamId) {
+        return findAllByTeamId(teamId).stream().findFirst();
+    }
+
+    @Override
+    public List<DeviceRegistration> findAllByTeamId(UUID teamId) {
         return deviceRegistrations.values().stream()
                 .filter(d -> d.getTeamId() != null && d.getTeamId().equals(teamId))
-                .findFirst();
+                .sorted(java.util.Comparator.comparing(
+                        DeviceRegistration::getCreatedAt,
+                        java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())))
+                .toList();
+    }
+
+    @Override
+    public Optional<DeviceRegistration> findByTeamIdAndId(UUID teamId, UUID deviceId) {
+        DeviceRegistration device = deviceRegistrations.get(deviceId);
+        if (device == null || device.getTeamId() == null || !device.getTeamId().equals(teamId)) {
+            return Optional.empty();
+        }
+        return Optional.of(device);
+    }
+
+    @Override
+    public void deleteByTeamId(UUID teamId) {
+        deviceRegistrations.values().removeIf(
+                d -> d.getTeamId() != null && d.getTeamId().equals(teamId));
     }
 
     @Override
     public Optional<DeviceRegistration> findByAdminId(UUID adminId) {
+        return findAllByAdminId(adminId).stream().findFirst();
+    }
+
+    @Override
+    public List<DeviceRegistration> findAllByAdminId(UUID adminId) {
         return deviceRegistrations.values().stream()
                 .filter(d -> d.getAdminId() != null && d.getAdminId().equals(adminId))
-                .findFirst();
+                .sorted(java.util.Comparator.comparing(
+                        DeviceRegistration::getCreatedAt,
+                        java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())))
+                .toList();
+    }
+
+    @Override
+    public Optional<DeviceRegistration> findByAdminIdAndId(UUID adminId, UUID deviceId) {
+        DeviceRegistration device = deviceRegistrations.get(deviceId);
+        if (device == null || device.getAdminId() == null || !device.getAdminId().equals(adminId)) {
+            return Optional.empty();
+        }
+        return Optional.of(device);
     }
 
     @Override

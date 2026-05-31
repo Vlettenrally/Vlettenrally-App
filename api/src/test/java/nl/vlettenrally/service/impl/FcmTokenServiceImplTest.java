@@ -52,8 +52,7 @@ class FcmTokenServiceImplTest {
 
     @Test
     void registerToken_newTeamToken_createsDeviceRegistrationAndToken() {
-        // Arrange
-        when(deviceRegistrationRepository.findByTeamId(teamId)).thenReturn(Optional.empty());
+        // Arrange — no hint, no existing row: service goes straight to save() with a fresh row.
         when(deviceRegistrationRepository.save(any(DeviceRegistration.class)))
                 .thenAnswer(invocation -> {
                     DeviceRegistration dr = invocation.getArgument(0);
@@ -65,7 +64,7 @@ class FcmTokenServiceImplTest {
         when(fcmTokenRepository.save(any(FcmToken.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // Act
-        fcmTokenService.registerToken(teamId, false, fcmToken);
+        fcmTokenService.registerToken(teamId, false, fcmToken, null, null);
 
         // Assert
         ArgumentCaptor<DeviceRegistration> drCaptor = ArgumentCaptor.forClass(DeviceRegistration.class);
@@ -80,8 +79,7 @@ class FcmTokenServiceImplTest {
 
     @Test
     void registerToken_newAdminToken_createsDeviceRegistrationAndToken() {
-        // Arrange
-        when(deviceRegistrationRepository.findByAdminId(adminId)).thenReturn(Optional.empty());
+        // Arrange — no hint, no existing row: service goes straight to save() with a fresh row.
         when(deviceRegistrationRepository.save(any(DeviceRegistration.class)))
                 .thenAnswer(invocation -> {
                     DeviceRegistration dr = invocation.getArgument(0);
@@ -93,7 +91,7 @@ class FcmTokenServiceImplTest {
         when(fcmTokenRepository.save(any(FcmToken.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // Act
-        fcmTokenService.registerToken(adminId, true, fcmToken);
+        fcmTokenService.registerToken(adminId, true, fcmToken, null, null);
 
         // Assert
         ArgumentCaptor<DeviceRegistration> drCaptor = ArgumentCaptor.forClass(DeviceRegistration.class);
@@ -111,14 +109,14 @@ class FcmTokenServiceImplTest {
         DeviceRegistration existingDevice = createDeviceRegistration(teamId, null);
         FcmToken existingFcmToken = createFcmToken("old-token", deviceRegistrationId);
 
-        when(deviceRegistrationRepository.findByTeamId(teamId)).thenReturn(Optional.of(existingDevice));
+        when(deviceRegistrationRepository.findByTeamIdAndId(teamId, deviceRegistrationId)).thenReturn(Optional.of(existingDevice));
         when(deviceRegistrationRepository.save(any(DeviceRegistration.class))).thenReturn(existingDevice);
         when(fcmTokenRepository.findByToken(fcmToken)).thenReturn(Optional.empty());
         when(fcmTokenRepository.findByDeviceRegistrationId(deviceRegistrationId)).thenReturn(Optional.of(existingFcmToken));
         when(fcmTokenRepository.save(any(FcmToken.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // Act
-        fcmTokenService.registerToken(teamId, false, fcmToken);
+        fcmTokenService.registerToken(teamId, false, fcmToken, deviceRegistrationId, null);
 
         // Assert
         ArgumentCaptor<FcmToken> tokenCaptor = ArgumentCaptor.forClass(FcmToken.class);
@@ -134,13 +132,13 @@ class FcmTokenServiceImplTest {
         DeviceRegistration existingDevice = createDeviceRegistration(teamId, null);
         FcmToken existingFcmToken = createFcmToken(fcmToken, otherDeviceId);
 
-        when(deviceRegistrationRepository.findByTeamId(teamId)).thenReturn(Optional.of(existingDevice));
+        when(deviceRegistrationRepository.findByTeamIdAndId(teamId, deviceRegistrationId)).thenReturn(Optional.of(existingDevice));
         when(deviceRegistrationRepository.save(any(DeviceRegistration.class))).thenReturn(existingDevice);
         when(fcmTokenRepository.findByToken(fcmToken)).thenReturn(Optional.of(existingFcmToken));
         when(fcmTokenRepository.save(any(FcmToken.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // Act
-        fcmTokenService.registerToken(teamId, false, fcmToken);
+        fcmTokenService.registerToken(teamId, false, fcmToken, deviceRegistrationId, null);
 
         // Assert
         ArgumentCaptor<FcmToken> tokenCaptor = ArgumentCaptor.forClass(FcmToken.class);
@@ -155,13 +153,13 @@ class FcmTokenServiceImplTest {
         DeviceRegistration existingDevice = createDeviceRegistration(teamId, null);
         FcmToken existingFcmToken = createFcmToken(fcmToken, deviceRegistrationId);
 
-        when(deviceRegistrationRepository.findByTeamId(teamId)).thenReturn(Optional.of(existingDevice));
+        when(deviceRegistrationRepository.findByTeamIdAndId(teamId, deviceRegistrationId)).thenReturn(Optional.of(existingDevice));
         when(deviceRegistrationRepository.save(any(DeviceRegistration.class))).thenReturn(existingDevice);
         when(fcmTokenRepository.findByToken(fcmToken)).thenReturn(Optional.of(existingFcmToken));
         when(fcmTokenRepository.save(any(FcmToken.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // Act
-        fcmTokenService.registerToken(teamId, false, fcmToken);
+        fcmTokenService.registerToken(teamId, false, fcmToken, deviceRegistrationId, null);
 
         // Assert
         verify(fcmTokenRepository).save(existingFcmToken);
@@ -174,14 +172,14 @@ class FcmTokenServiceImplTest {
         // Arrange
         DeviceRegistration existingDevice = createDeviceRegistration(teamId, null);
 
-        when(deviceRegistrationRepository.findByTeamId(teamId)).thenReturn(Optional.of(existingDevice));
+        when(deviceRegistrationRepository.findByTeamIdAndId(teamId, deviceRegistrationId)).thenReturn(Optional.of(existingDevice));
         when(deviceRegistrationRepository.save(any(DeviceRegistration.class))).thenReturn(existingDevice);
         when(fcmTokenRepository.findByToken(fcmToken)).thenReturn(Optional.empty());
         when(fcmTokenRepository.findByDeviceRegistrationId(deviceRegistrationId)).thenReturn(Optional.empty());
         when(fcmTokenRepository.save(any(FcmToken.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // Act
-        fcmTokenService.registerToken(teamId, false, fcmToken);
+        fcmTokenService.registerToken(teamId, false, fcmToken, deviceRegistrationId, null);
 
         // Assert
         verify(deviceRegistrationRepository).save(existingDevice);

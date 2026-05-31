@@ -230,10 +230,12 @@ public class MessageServiceImpl implements MessageService {
      * Check if a team's device has been inactive for longer than the threshold.
      */
     private boolean isTeamInactive(Team team) {
-        Optional<DeviceRegistration> deviceOpt = deviceRegistrationRepository.findByTeamId(team.getId());
-        // No device registered = considered inactive
-        return deviceOpt.map(deviceRegistration -> deviceRegistration.isInactive(inactiveThresholdMinutes)).orElse(true);
-
+        java.util.List<DeviceRegistration> devices = deviceRegistrationRepository.findAllByTeamId(team.getId());
+        if (devices.isEmpty()) {
+            return true;
+        }
+        // Team is active if any of its devices has been seen recently.
+        return devices.stream().allMatch(d -> d.isInactive(inactiveThresholdMinutes));
     }
 
     @Override

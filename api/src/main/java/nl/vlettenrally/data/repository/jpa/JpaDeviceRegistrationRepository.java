@@ -44,10 +44,35 @@ public class JpaDeviceRegistrationRepository extends ReadReplicaAwareRepository 
 
     @Override
     public Optional<DeviceRegistration> findByTeamId(UUID teamId) {
+        List<DeviceRegistrationEntity> entities = getReadEntityManager()
+                .createQuery("SELECT d FROM DeviceRegistrationEntity d WHERE d.team.id = :teamId ORDER BY d.createdAt ASC", DeviceRegistrationEntity.class)
+                .setParameter("teamId", teamId)
+                .setMaxResults(1)
+                .getResultList();
+        if (entities.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(DeviceRegistrationMapper.toDomain(entities.get(0)));
+    }
+
+    @Override
+    public List<DeviceRegistration> findAllByTeamId(UUID teamId) {
+        List<DeviceRegistrationEntity> entities = getReadEntityManager()
+                .createQuery("SELECT d FROM DeviceRegistrationEntity d WHERE d.team.id = :teamId ORDER BY d.createdAt ASC", DeviceRegistrationEntity.class)
+                .setParameter("teamId", teamId)
+                .getResultList();
+        return entities.stream()
+                .map(DeviceRegistrationMapper::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public Optional<DeviceRegistration> findByTeamIdAndId(UUID teamId, UUID deviceId) {
         try {
             DeviceRegistrationEntity entity = getReadEntityManager()
-                    .createQuery("SELECT d FROM DeviceRegistrationEntity d WHERE d.team.id = :teamId", DeviceRegistrationEntity.class)
+                    .createQuery("SELECT d FROM DeviceRegistrationEntity d WHERE d.team.id = :teamId AND d.id = :deviceId", DeviceRegistrationEntity.class)
                     .setParameter("teamId", teamId)
+                    .setParameter("deviceId", deviceId)
                     .getSingleResult();
             return Optional.ofNullable(DeviceRegistrationMapper.toDomain(entity));
         } catch (NoResultException e) {
@@ -56,11 +81,45 @@ public class JpaDeviceRegistrationRepository extends ReadReplicaAwareRepository 
     }
 
     @Override
+    @Transactional
+    public void deleteByTeamId(UUID teamId) {
+        getWriteEntityManager()
+                .createQuery("DELETE FROM DeviceRegistrationEntity d WHERE d.team.id = :teamId")
+                .setParameter("teamId", teamId)
+                .executeUpdate();
+    }
+
+    @Override
     public Optional<DeviceRegistration> findByAdminId(UUID adminId) {
+        List<DeviceRegistrationEntity> entities = getReadEntityManager()
+                .createQuery("SELECT d FROM DeviceRegistrationEntity d WHERE d.admin.id = :adminId ORDER BY d.createdAt ASC", DeviceRegistrationEntity.class)
+                .setParameter("adminId", adminId)
+                .setMaxResults(1)
+                .getResultList();
+        if (entities.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(DeviceRegistrationMapper.toDomain(entities.get(0)));
+    }
+
+    @Override
+    public List<DeviceRegistration> findAllByAdminId(UUID adminId) {
+        List<DeviceRegistrationEntity> entities = getReadEntityManager()
+                .createQuery("SELECT d FROM DeviceRegistrationEntity d WHERE d.admin.id = :adminId ORDER BY d.createdAt ASC", DeviceRegistrationEntity.class)
+                .setParameter("adminId", adminId)
+                .getResultList();
+        return entities.stream()
+                .map(DeviceRegistrationMapper::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public Optional<DeviceRegistration> findByAdminIdAndId(UUID adminId, UUID deviceId) {
         try {
             DeviceRegistrationEntity entity = getReadEntityManager()
-                    .createQuery("SELECT d FROM DeviceRegistrationEntity d WHERE d.admin.id = :adminId", DeviceRegistrationEntity.class)
+                    .createQuery("SELECT d FROM DeviceRegistrationEntity d WHERE d.admin.id = :adminId AND d.id = :deviceId", DeviceRegistrationEntity.class)
                     .setParameter("adminId", adminId)
+                    .setParameter("deviceId", deviceId)
                     .getSingleResult();
             return Optional.ofNullable(DeviceRegistrationMapper.toDomain(entity));
         } catch (NoResultException e) {

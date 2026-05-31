@@ -56,6 +56,9 @@ public class TeamEntity {
     @JoinColumn(name = "device_id")
     private DeviceRegistrationEntity device;
 
+    @Column(name = "main_device_id")
+    private UUID mainDeviceId;
+
     @Column(name = "checked_in", nullable = false)
     private boolean checkedIn = false;
 

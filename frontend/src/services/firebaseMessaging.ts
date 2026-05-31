@@ -180,6 +180,13 @@ export async function onForegroundMessage(
   });
 }
 
+export type PushInitFailureReason = 'permission-denied' | 'no-token' | 'backend-failed';
+
+export interface PushInitResult {
+  ok: boolean;
+  reason?: PushInitFailureReason;
+}
+
 /**
  * Initialize push notifications
  * Requests permission, gets token, and registers with backend
@@ -187,10 +194,15 @@ export async function onForegroundMessage(
  * @returns true if successfully initialized
  */
 export async function initializePushNotifications(): Promise<boolean> {
+  const result = await initializePushNotificationsWithReason();
+  return result.ok;
+}
+
+export async function initializePushNotificationsWithReason(): Promise<PushInitResult> {
   // Check if already denied
   if (Notification.permission === 'denied') {
     console.warn('[FCM] Notification permission was denied');
-    return false;
+    return { ok: false, reason: 'permission-denied' };
   }
 
   // Request permission if not granted (must be from user gesture)
@@ -198,7 +210,7 @@ export async function initializePushNotifications(): Promise<boolean> {
     const permission = await requestNotificationPermission();
     if (permission !== 'granted') {
       console.warn('[FCM] Notification permission not granted');
-      return false;
+      return { ok: false, reason: 'permission-denied' };
     }
   }
 
@@ -206,20 +218,20 @@ export async function initializePushNotifications(): Promise<boolean> {
   const token = await getFcmToken();
   if (!token) {
     console.error('[FCM] Failed to get FCM token');
-    return false;
+    return { ok: false, reason: 'no-token' };
   }
 
   // Register with backend
   const registered = await registerTokenWithBackend(token);
   if (!registered) {
     console.error('[FCM] Failed to register token with backend');
-    return false;
+    return { ok: false, reason: 'backend-failed' };
   }
 
   if (config.debug) {
     console.log('[FCM] Push notifications initialized successfully');
   }
-  return true;
+  return { ok: true };
 }
 
 /**
