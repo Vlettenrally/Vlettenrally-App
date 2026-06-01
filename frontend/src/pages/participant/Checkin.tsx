@@ -2,7 +2,7 @@
  * Public self-service check-in flow with multi-device coordination.
  *
  * Steps: loading → select-game → select-team → nickname → register →
- *        (details if main / wait if not) → permissions → /dashboard
+ *        (details + rivals if main / wait if not) → permissions → /dashboard
  *
  * Legacy `?token=` URLs (WordPress) skip the public game/team pickers and jump
  * straight to the nickname step for the pre-resolved team.
@@ -46,10 +46,12 @@ type Step =
   | 'select-team'
   | 'nickname'
   | 'details'
+  | 'rivals'
   | 'wait'
   | 'permissions';
 
 const POLL_STATE_INTERVAL_MS = 5000;
+const MAX_RIVALS = 5;
 
 export function CheckInPage() {
   const navigate = useNavigate();
@@ -73,6 +75,10 @@ export function CheckInPage() {
 
   const [participantsText, setParticipantsText] = useState('');
   const [emergencyPhonesText, setEmergencyPhonesText] = useState('');
+
+  const [rivalOptions, setRivalOptions] = useState<TeamOption[]>([]);
+  const [rivalSelection, setRivalSelection] = useState<TeamOption[]>([]);
+  const [loadingRivals, setLoadingRivals] = useState(false);
 
   const [notificationError, setNotificationError] = useState<string | null>(null);
   const [notificationsDone, setNotificationsDone] = useState(false);
@@ -314,13 +320,60 @@ export function CheckInPage() {
       if (teamResponse.data) {
         persistTeamData(teamResponse.data as PlayerTeam);
       }
-      setStep('permissions');
+      setStep('rivals');
     } catch (err) {
       console.error('details submit error:', err);
       setFormError('Er is een fout opgetreden tijdens het inchecken.');
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // --- RIVALS step (main device only, after check-in) ---
+  useEffect(() => {
+    if (step !== 'rivals' || !resolvedTeam) return;
+
+    let cancelled = false;
+    setLoadingRivals(true);
+    teamService
+      .getEligibleRivalTeams(resolvedTeam.gameId, resolvedTeam.id)
+      .then((teams) => {
+        if (cancelled) return;
+        teams.sort((a, b) => a.name.localeCompare(b.name, 'nl'));
+        setRivalOptions(teams);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.warn('Failed to load eligible rivals', err);
+        setFormError('Kon de teamlijst niet laden.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingRivals(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [step, resolvedTeam]);
+
+  const handleRivalsSubmit = async () => {
+    if (!resolvedTeam) return;
+    if (rivalSelection.length === 0) {
+      setStep('permissions');
+      return;
+    }
+    setSubmitting(true);
+    setFormError(null);
+    const result = await teamService.setRivalTeams(
+      resolvedTeam.id,
+      rivalSelection.map((s) => s.id)
+    );
+    setSubmitting(false);
+    if (result.error) {
+      setFormError('Kan rivalen niet opslaan: ' + result.error);
+      return;
+    }
+    setStep('permissions');
   };
 
   // --- WAIT step: subscribe to coordination events + poll as a fallback ---
@@ -433,9 +486,11 @@ export function CheckInPage() {
               <Typography variant="body2" color="text.secondary">
                 {step === 'permissions'
                   ? 'Sta meldingen toe om updates te ontvangen tijdens de rally.'
-                  : step === 'wait'
-                    ? 'Een andere telefoon van jullie team vult op dit moment de gegevens in.'
-                    : 'Check je team in voor de rally.'}
+                  : step === 'rivals'
+                    ? 'Kies welke teams jullie in de gaten willen houden.'
+                    : step === 'wait'
+                      ? 'Een andere telefoon van jullie team vult op dit moment de gegevens in.'
+                      : 'Check je team in voor de rally.'}
               </Typography>
             </Box>
 
@@ -558,6 +613,61 @@ export function CheckInPage() {
                   onClick={handleDetailsSubmit}
                 >
                   {submitting ? 'Bezig met inchecken...' : 'Inchecken'}
+                </Button>
+              </Stack>
+            )}
+
+            {step === 'rivals' && (
+              <Stack spacing={2}>
+                <Typography variant="h6">Kies jullie rivalen</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Kies maximaal {MAX_RIVALS} teams om hun stand bij te houden. Dit kan later ook nog
+                  via het dashboard.
+                </Typography>
+                <Autocomplete
+                  multiple
+                  options={rivalOptions}
+                  value={rivalSelection}
+                  loading={loadingRivals}
+                  onChange={(_, value) => {
+                    if (value.length > MAX_RIVALS) {
+                      setFormError(`Je kunt maximaal ${MAX_RIVALS} rivalen kiezen.`);
+                      return;
+                    }
+                    setFormError(null);
+                    setRivalSelection(value);
+                  }}
+                  isOptionEqualToValue={(option, val) => option.id === val.id}
+                  getOptionLabel={(option) => option.name}
+                  openOnFocus
+                  filterSelectedOptions
+                  renderValue={(value, getTagProps) =>
+                    value.map((option, index) => (
+                      <Chip label={option.name} {...getTagProps({ index })} key={option.id} />
+                    ))
+                  }
+                  renderInput={(params) => (
+                    <TextField {...params} label="Zoek een team" placeholder="Begin te typen…" />
+                  )}
+                />
+                {formError && <Alert severity="error">{formError}</Alert>}
+                <Button
+                  variant="contained"
+                  size="large"
+                  fullWidth
+                  disabled={submitting || loadingRivals || rivalSelection.length > MAX_RIVALS}
+                  onClick={handleRivalsSubmit}
+                >
+                  {submitting ? 'Bezig...' : 'Verder'}
+                </Button>
+                <Button
+                  variant="text"
+                  size="small"
+                  fullWidth
+                  disabled={submitting}
+                  onClick={() => setStep('permissions')}
+                >
+                  Overslaan
                 </Button>
               </Stack>
             )}
