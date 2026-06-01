@@ -19,6 +19,18 @@ export function formatDateTime(date: string | Date, formatStr = 'dd-MM-yyyy HH:m
   return format(dateObj, formatStr, { locale: nl });
 }
 
+export function formatForDateTimeLocalInput(date: string | Date): string {
+  try {
+    const d = typeof date === 'string' ? parseISO(date) : date;
+    if (isNaN(d.getTime())) return '';
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+         + `T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  } catch {
+    return '';
+  }
+}
+
 export function formatRelativeTime(date: string | Date): string {
   const dateObj = typeof date === 'string' ? parseISO(date) : date;
   return formatDistanceToNow(dateObj, { addSuffix: true, locale: nl });

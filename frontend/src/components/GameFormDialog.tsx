@@ -24,6 +24,7 @@ import {
 } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
 import { gameService } from '../services/gameService';
+import { formatForDateTimeLocalInput } from '../utils/dateTime';
 import type { Game, GameRequest, ExternalEvent, LocationTestResult } from '../types/entities';
 
 interface GameFormDialogProps {
@@ -89,10 +90,10 @@ export default function GameFormDialog({
       setFormData({
         name: game.name,
         description: game.description || '',
-        startTime: game.startTime ? formatDateTimeLocal(game.startTime) : '',
-        endTime: game.endTime ? formatDateTimeLocal(game.endTime) : '',
-        checkInStartTime: game.checkInStartTime ? formatDateTimeLocal(game.checkInStartTime) : '',
-        startSignalTime: game.startSignalTime ? formatDateTimeLocal(game.startSignalTime) : '',
+        startTime: game.startTime ? formatForDateTimeLocalInput(game.startTime) : '',
+        endTime: game.endTime ? formatForDateTimeLocalInput(game.endTime) : '',
+        checkInStartTime: game.checkInStartTime ? formatForDateTimeLocalInput(game.checkInStartTime) : '',
+        startSignalTime: game.startSignalTime ? formatForDateTimeLocalInput(game.startSignalTime) : '',
         status: game.status || 'planned',
         externalEventId: game.externalEventId,
         externalEventName: game.externalEventName || '',
@@ -119,17 +120,6 @@ export default function GameFormDialog({
     setError(null);
     setLocationTestResult(null);
   }, [game, open]);
-
-  const formatDateTimeLocal = (date: Date | string): string => {
-    try {
-      if (typeof date === 'string') {
-        return new Date(date).toISOString().slice(0, 16);
-      }
-      return date.toISOString().slice(0, 16);
-    } catch {
-      return '';
-    }
-  };
 
   const formatToISOString = (localDateTime: string): string | undefined => {
     if (!localDateTime) return undefined;

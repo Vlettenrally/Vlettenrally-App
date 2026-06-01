@@ -23,6 +23,7 @@ import {
 } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
 import api from '../services/api';
+import { formatForDateTimeLocalInput } from '../utils/dateTime';
 import type { Checkpoint, CheckpointRequest } from '../types/entities';
 import LocationPickerMap from './LocationPickerMap';
 
@@ -87,8 +88,8 @@ export default function ZoneFormDialog({
     if (checkpoint) {
       setFormData({
         name: checkpoint.name,
-        openingTime: checkpoint.openingTime ? formatDateTimeLocal(checkpoint.openingTime) : '',
-        closingTime: checkpoint.closingTime ? formatDateTimeLocal(checkpoint.closingTime) : '',
+        openingTime: checkpoint.openingTime ? formatForDateTimeLocalInput(checkpoint.openingTime) : '',
+        closingTime: checkpoint.closingTime ? formatForDateTimeLocalInput(checkpoint.closingTime) : '',
         points: checkpoint.points,
         latitude: checkpoint.latitude,
         longitude: checkpoint.longitude,
@@ -111,14 +112,6 @@ export default function ZoneFormDialog({
     }
     setError(null);
   }, [checkpoint, open]);
-
-  const formatDateTimeLocal = (dateStr: string): string => {
-    try {
-      return new Date(dateStr).toISOString().slice(0, 16);
-    } catch {
-      return '';
-    }
-  };
 
   const formatToISOString = (localDateTime: string): string | undefined => {
     if (!localDateTime) return undefined;
