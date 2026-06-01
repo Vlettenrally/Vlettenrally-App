@@ -20,7 +20,7 @@ jobs:
     if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
     runs-on: arc-runner-set-vlettenrally
     container:
-      image: eclipse-temurin:21.0.10_7-jdk
+      image: eclipse-temurin:21.0.11_10-jdk
       options: --pull always
     defaults:
       run:
@@ -51,7 +51,7 @@ jobs:
     name: Test API
     runs-on: arc-runner-set-vlettenrally
     container:
-      image: eclipse-temurin:21.0.10_7-jdk
+      image: eclipse-temurin:21.0.11_10-jdk
     if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
     defaults:
       run:
