@@ -25,6 +25,7 @@ import nl.vlettenrally.data.dto.auth.SetMainDeviceRequest;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
 import nl.vlettenrally.data.dto.team.EmergencyPhoneUpdateRequest;
 import nl.vlettenrally.data.dto.team.ParticipantsUpdateRequest;
+import nl.vlettenrally.data.dto.team.RivalsUpdateRequest;
 import nl.vlettenrally.data.dto.team.TeamCreateRequest;
 import nl.vlettenrally.data.dto.team.TeamUpdateRequest;
 import nl.vlettenrally.data.repository.DeviceRegistrationRepository;
@@ -102,6 +103,34 @@ public class TeamResource {
     public Response getRivalTeams(@PathParam("teamId") UUID teamId) {
         List<Team> rivals = teamService.findRivalTeams(teamId);
         return Response.ok(rivals.stream().map(teamConverter::toPublicResponse).toList()).build();
+    }
+
+    /**
+     * Replace the team's rival list. Up to 5 rivals from the same game; never self.
+     * Locked once the game is COMPLETED.
+     */
+    @PUT
+    @RolesAllowed({"team"})
+    @TeamScoped
+    @Path("/teams/{teamId}/rivals")
+    public Response setRivals(@PathParam("teamId") UUID teamId, RivalsUpdateRequest request) {
+        if (request == null || request.rivalTeamIds() == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("rivalTeamIds is required"))
+                .build();
+        }
+        try {
+            List<Team> rivals = teamService.setRivals(teamId, request.rivalTeamIds());
+            return Response.ok(rivals.stream().map(teamConverter::toPublicResponse).toList()).build();
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse(e.getMessage()))
+                .build();
+        } catch (IllegalStateException e) {
+            return Response.status(Response.Status.CONFLICT)
+                .entity(new ErrorResponse(e.getMessage()))
+                .build();
+        }
     }
 
     /**

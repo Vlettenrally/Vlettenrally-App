@@ -23,8 +23,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.repository.TeamRepository;
+import nl.vlettenrally.service.GameService;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 
 /**
@@ -36,6 +38,9 @@ class TeamServiceImplTest {
 
     @Mock
     TeamRepository teamRepository;
+
+    @Mock
+    GameService gameService;
 
     @Mock
     WebSocketPublisher webSocketPublisher;
@@ -50,6 +55,8 @@ class TeamServiceImplTest {
     void setUp() {
         teamId = UUID.randomUUID();
         gameId = UUID.randomUUID();
+        // maxRivals is @ConfigProperty so Mockito leaves it at 0; restore the default for tests.
+        teamService.maxRivals = 5;
     }
 
     @Test
@@ -256,6 +263,98 @@ class TeamServiceImplTest {
 
         // Assert
         verify(teamRepository).delete(teamId);
+    }
+
+    // ---- setRivals -------------------------------------------------------
+
+    @Test
+    void setRivals_validIds_persistsAndReturnsRivals() {
+        Team self = createTeam(true);
+        UUID rivalAId = UUID.randomUUID();
+        UUID rivalBId = UUID.randomUUID();
+        Team rivalA = makeTeamInGame(rivalAId, gameId, "Rival A");
+        Team rivalB = makeTeamInGame(rivalBId, gameId, "Rival B");
+
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(self));
+        when(gameService.findById(gameId)).thenReturn(Optional.of(makeGame(Game.GameStatus.ACTIVE)));
+        when(teamRepository.findById(rivalAId)).thenReturn(Optional.of(rivalA));
+        when(teamRepository.findById(rivalBId)).thenReturn(Optional.of(rivalB));
+        when(teamRepository.save(any(Team.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        List<Team> result = teamService.setRivals(teamId, List.of(rivalAId, rivalBId));
+
+        assertEquals(2, result.size());
+        ArgumentCaptor<Team> captor = ArgumentCaptor.forClass(Team.class);
+        verify(teamRepository).save(captor.capture());
+        assertEquals(List.of(rivalAId, rivalBId), captor.getValue().getRivals());
+    }
+
+    @Test
+    void setRivals_moreThanMax_throws() {
+        Team self = createTeam(true);
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(self));
+        when(gameService.findById(gameId)).thenReturn(Optional.of(makeGame(Game.GameStatus.ACTIVE)));
+
+        List<UUID> sixIds = List.of(
+            UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+            UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
+        assertThrows(IllegalArgumentException.class, () -> teamService.setRivals(teamId, sixIds));
+        verify(teamRepository, never()).save(any(Team.class));
+    }
+
+    @Test
+    void setRivals_selfRival_throws() {
+        Team self = createTeam(true);
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(self));
+        when(gameService.findById(gameId)).thenReturn(Optional.of(makeGame(Game.GameStatus.ACTIVE)));
+
+        assertThrows(IllegalArgumentException.class,
+            () -> teamService.setRivals(teamId, List.of(teamId)));
+        verify(teamRepository, never()).save(any(Team.class));
+    }
+
+    @Test
+    void setRivals_rivalFromOtherGame_throws() {
+        Team self = createTeam(true);
+        UUID otherGameRivalId = UUID.randomUUID();
+        Team otherGameRival = makeTeamInGame(otherGameRivalId, UUID.randomUUID(), "Other");
+
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(self));
+        when(gameService.findById(gameId)).thenReturn(Optional.of(makeGame(Game.GameStatus.ACTIVE)));
+        when(teamRepository.findById(otherGameRivalId)).thenReturn(Optional.of(otherGameRival));
+
+        assertThrows(IllegalArgumentException.class,
+            () -> teamService.setRivals(teamId, List.of(otherGameRivalId)));
+        verify(teamRepository, never()).save(any(Team.class));
+    }
+
+    @Test
+    void setRivals_completedGame_throws() {
+        Team self = createTeam(true);
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(self));
+        when(gameService.findById(gameId)).thenReturn(Optional.of(makeGame(Game.GameStatus.COMPLETED)));
+
+        assertThrows(IllegalStateException.class,
+            () -> teamService.setRivals(teamId, List.of(UUID.randomUUID())));
+        verify(teamRepository, never()).save(any(Team.class));
+    }
+
+    private Team makeTeamInGame(UUID id, UUID gId, String name) {
+        Team team = new Team();
+        team.setId(id);
+        team.setGameId(gId);
+        team.setName(name);
+        team.setRivals(new ArrayList<>());
+        team.setCreatedAt(Instant.now());
+        team.setUpdatedAt(Instant.now());
+        return team;
+    }
+
+    private Game makeGame(Game.GameStatus status) {
+        Game g = new Game();
+        g.setId(gameId);
+        g.setStatus(status);
+        return g;
     }
 
     private Team createTeam(boolean checkedIn) {

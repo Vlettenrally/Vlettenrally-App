@@ -1,6 +1,6 @@
 import api from "./api";
 import { storage } from './storage';
-import type { AdminTeam, CheckInDevice, PlayerTeam, PublicTeam } from '../types/entities';
+import type { AdminTeam, CheckInDevice, PlayerTeam, PublicTeam, TeamOption } from '../types/entities';
 
 // Request deduplication - prevents duplicate in-flight requests
 // Service worker handles caching for offline support
@@ -63,6 +63,19 @@ export const teamService = {
   getRivalTeams: async (teamId: string): Promise<PublicTeam[]> => {
     const response = await api.getRivalTeams(teamId);
     return response.data ?? [];
+  },
+
+  setRivalTeams: async (teamId: string, rivalTeamIds: string[]): Promise<{ rivals: PublicTeam[]; error: string | null }> => {
+    const response = await api.setRivalTeams(teamId, rivalTeamIds);
+    return { rivals: response.data ?? [], error: response.error ?? null };
+  },
+
+  // Candidate list for the rival picker. Reuses the public /check-in/games/{id}/teams
+  // endpoint which only returns id, name, checkedIn, hasMainDevice — no sensitive fields.
+  getEligibleRivalTeams: async (gameId: string, excludeTeamId?: string): Promise<TeamOption[]> => {
+    const response = await api.getCheckInTeams(gameId);
+    const teams = response.data ?? [];
+    return excludeTeamId ? teams.filter((t) => t.id !== excludeTeamId) : teams;
   },
 
   updateTeam: async (teamId: string, data: Partial<AdminTeam>): Promise<AdminTeam | null> => {

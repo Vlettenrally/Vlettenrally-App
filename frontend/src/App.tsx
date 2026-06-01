@@ -9,6 +9,7 @@ import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import {TeamLayout} from './components/TeamLayout';
 import {AdminLayout} from './components/AdminLayout';
 import {storage} from './services/storage';
+import {useGameStore} from './store/useGameStore';
 import {getRolesFromToken, getUserRoleFromRoles} from './services/auth';
 import {
   getNotificationPermission,
@@ -31,6 +32,8 @@ const CheckInPage = lazy(() => import('./pages/participant/Checkin'));
 const DashboardPage = lazy(() => import('./pages/participant/Dashboard'));
 const MessagesPage = lazy(() => import('./pages/MessagesPage'));
 const ParticipantMap = lazy(() => import('./pages/participant/Map'));
+const RivalsPage = lazy(() => import('./pages/participant/Rivals'));
+const RankingsPage = lazy(() => import('./pages/participant/Rankings'));
 
 // Lazy-loaded admin pages
 const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'));
@@ -80,6 +83,19 @@ function TeamRoute({ children }: { children: ReactNode }) {
     return <Navigate to="/check-in" replace />;
   }
 
+  return <>{children}</>;
+}
+
+/**
+ * Rankings is reachable only after the game has ended. The menu item in
+ * TeamLayout is hidden in the same condition, but this guard prevents direct
+ * URL access while the game is still PLANNED or ACTIVE.
+ */
+function RankingsRoute({ children }: { children: ReactNode }) {
+  const game = useGameStore((s) => s.game);
+  if (game && game.status !== 'completed') {
+    return <Navigate to="/dashboard" replace />;
+  }
   return <>{children}</>;
 }
 
@@ -355,7 +371,33 @@ function App() {
               </TeamRoute>
             }
           />
-          
+          <Route
+            path="/rival"
+            element={
+              <TeamRoute>
+                <TeamLayout>
+                  <Suspense fallback={<PageLoader />}>
+                    <RivalsPage />
+                  </Suspense>
+                </TeamLayout>
+              </TeamRoute>
+            }
+          />
+          <Route
+            path="/rankings"
+            element={
+              <TeamRoute>
+                <RankingsRoute>
+                  <TeamLayout>
+                    <Suspense fallback={<PageLoader />}>
+                      <RankingsPage />
+                    </Suspense>
+                  </TeamLayout>
+                </RankingsRoute>
+              </TeamRoute>
+            }
+          />
+
           {/* Admin routes */}
           <Route path="/admin/login" element={<Suspense fallback={<PageLoader />}><AdminLogin /></Suspense>} />
           <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />

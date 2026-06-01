@@ -4,17 +4,24 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import jakarta.transaction.Status;
+import jakarta.transaction.Synchronization;
 import jakarta.transaction.TransactionSynchronizationRegistry;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.NotFoundException;
@@ -28,12 +35,15 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import nl.vlettenrally.data.converter.PointEntryConverter;
+import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.PointEntry;
 import nl.vlettenrally.data.domain.Team;
+import nl.vlettenrally.data.dto.game.RankingResponse;
 import nl.vlettenrally.data.enums.PointEntryType;
 import nl.vlettenrally.data.repository.PointEntryRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.websockets.WebSocketPublisher;
+import nl.vlettenrally.websockets.dto.WebSocketMessageType;
 
 /**
  * Unit tests for PointsLedgerService.
@@ -47,6 +57,8 @@ class PointsLedgerServiceTest {
     @Mock TeamRepository teamRepository;
     @Mock WebSocketPublisher webSocketPublisher;
     @Mock PointEntryConverter pointEntryConverter;
+    @Mock GameService gameService;
+    @Mock RankingService rankingService;
     @Mock TransactionSynchronizationRegistry txRegistry;
 
     @InjectMocks PointsLedgerService ledger;
@@ -253,5 +265,91 @@ class PointsLedgerServiceTest {
 
         assertEquals(100, team.getTotalPoints());
         verify(teamRepository, never()).save(any());
+    }
+
+    // ---- standings broadcast (gated on game status) ----------------------
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void createEntry_duringGame_sendsPerTeamRivalUpdates_andNoFullRankingBroadcast() {
+        team.setCheckedIn(true); // X — the team whose points change
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+
+        // A picked X as a rival -> must be notified; B did not -> not notified;
+        // C picked X but is not checked in -> not notified.
+        Team a = teamInGame("A", List.of(teamId), true);
+        Team b = teamInGame("B", List.of(UUID.randomUUID()), true);
+        Team c = teamInGame("C", List.of(teamId), false);
+
+        when(gameService.findById(gameId)).thenReturn(Optional.of(game(Game.GameStatus.ACTIVE)));
+        when(teamRepository.findByGameId(gameId)).thenReturn(List.of(team, a, b, c));
+
+        ledger.createEntry(teamId, gameId, PointEntryType.CHECKPOINT_VERIFICATION,
+            50, null, "Checkpoint X", null, null);
+        fireAfterCommit();
+
+        // The full ranking is never broadcast while the game is running.
+        verify(webSocketPublisher, never())
+            .broadcastToGame(eq(gameId), eq(WebSocketMessageType.RANKING_UPDATE.getValue()), any());
+
+        // X (own total moved) and A (picked X) each get a RIVAL_UPDATE; B and C do not.
+        verify(webSocketPublisher).sendToTeam(eq(gameId), eq(teamId),
+            eq(WebSocketMessageType.RIVAL_UPDATE.getValue()), any());
+        verify(webSocketPublisher, never()).sendToTeam(eq(gameId), eq(b.getId()),
+            eq(WebSocketMessageType.RIVAL_UPDATE.getValue()), any());
+        verify(webSocketPublisher, never()).sendToTeam(eq(gameId), eq(c.getId()),
+            eq(WebSocketMessageType.RIVAL_UPDATE.getValue()), any());
+
+        // A's payload carries only X, with X's fresh total (100 + 50) — no other scores.
+        ArgumentCaptor<Object> payload = ArgumentCaptor.forClass(Object.class);
+        verify(webSocketPublisher).sendToTeam(eq(gameId), eq(a.getId()),
+            eq(WebSocketMessageType.RIVAL_UPDATE.getValue()), payload.capture());
+        List<Map<String, Object>> rivals = (List<Map<String, Object>>) payload.getValue();
+        assertEquals(1, rivals.size());
+        assertEquals(teamId, rivals.get(0).get("id"));
+        assertEquals(150, rivals.get(0).get("totalPoints"));
+    }
+
+    @Test
+    void createEntry_afterCompletion_broadcastsFullRanking_andNoPerTeamSends() {
+        team.setCheckedIn(true);
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+        when(gameService.findById(gameId)).thenReturn(Optional.of(game(Game.GameStatus.COMPLETED)));
+        List<RankingResponse> full = List.of(new RankingResponse(1, teamId, "Test team", 150));
+        when(rankingService.buildRanking(gameId)).thenReturn(full);
+
+        ledger.createEntry(teamId, gameId, PointEntryType.CHECKPOINT_VERIFICATION,
+            50, null, "Checkpoint X", null, null);
+        fireAfterCommit();
+
+        verify(webSocketPublisher).broadcastToGame(eq(gameId),
+            eq(WebSocketMessageType.RANKING_UPDATE.getValue()), eq(full));
+        verify(webSocketPublisher, never()).sendToTeam(any(), any(),
+            eq(WebSocketMessageType.RIVAL_UPDATE.getValue()), any());
+    }
+
+    /** Run every post-commit synchronization the call registered, as a real commit would. */
+    private void fireAfterCommit() {
+        ArgumentCaptor<Synchronization> captor = ArgumentCaptor.forClass(Synchronization.class);
+        verify(txRegistry, atLeastOnce()).registerInterposedSynchronization(captor.capture());
+        for (Synchronization sync : captor.getAllValues()) {
+            sync.afterCompletion(Status.STATUS_COMMITTED);
+        }
+    }
+
+    private Team teamInGame(String name, List<UUID> rivals, boolean checkedIn) {
+        Team t = new Team();
+        t.setGameId(gameId);
+        t.setName(name);
+        t.setCheckedIn(checkedIn);
+        t.setRivals(new ArrayList<>(rivals));
+        return t;
+    }
+
+    private Game game(Game.GameStatus status) {
+        Game g = new Game();
+        g.setId(gameId);
+        g.setStatus(status);
+        return g;
     }
 }

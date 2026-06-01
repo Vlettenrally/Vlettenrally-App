@@ -8,7 +8,8 @@ import { useTeamWebSocket, useAdminWebSocket } from './useWebSocket';
 import teamService from '../services/teamService';
 import { storage } from '../services/storage';
 import { useMessageStore, type Message } from '../store/useMessageStore';
-import { useTeamStore, type Achievement } from '../store/useTeamStore';
+import { useTeamStore, type Achievement, type RankingEntry } from '../store/useTeamStore';
+import { useGameStore } from '../store/useGameStore';
 import { usePointEntryStore } from '../store/usePointEntryStore';
 import type { PublicTeam, PointEntry } from '../types/entities';
 
@@ -27,7 +28,8 @@ interface UseRealtimeAdminOptions {
 export function useTeamRealtime({ gameId, teamId }: UseRealtimeTeamOptions) {
   const { subscribe, connected } = useTeamWebSocket(gameId, teamId);
   const { addMessage } = useMessageStore();
-  const { setRivalTeam, addAchievement, updatePoints } = useTeamStore();
+  const { setRivalTeams, setRankings, addAchievement, updatePoints } = useTeamStore();
+  const { setGameStatus } = useGameStore();
 
   useEffect(() => {
     if (!gameId || !teamId) return;
@@ -49,33 +51,29 @@ export function useTeamRealtime({ gameId, teamId }: UseRealtimeTeamOptions) {
       updatePoints(achievement.totalPoints);
     });
 
-    // Subscribe to rival updates
+    // Subscribe to rival updates — payload is the team's full rival list.
     const unsubscribeRival = subscribe('RIVAL_UPDATE', (message) => {
-      // update rival immediately
-      setRivalTeam(message.payload as PublicTeam);
-      // fetch authoritative team data in background to refresh store
+      setRivalTeams(message.payload as PublicTeam[]);
+      // Refresh own team so PlayerTeam.rivals (the id list) stays in sync.
       (async () => {
         try {
           const team = await teamService.getMyTeam();
-          if (team) {
-            // ensure zustand store is up to date
-            // updatePoints may already have been called; set full team if available
-            useTeamStore.getState().setTeam(team);
-          }
+          if (team) useTeamStore.getState().setTeam(team);
         } catch (e) {
           console.warn('Failed to refresh team after rival update', e);
         }
       })();
     });
 
-    // Subscribe to ranking updates
+    // Subscribe to ranking updates — payload is the full game ranking.
     const unsubscribeRanking = subscribe('RANKING_UPDATE', (message) => {
-      console.log('Ranking update:', message.payload);
+      setRankings(message.payload as RankingEntry[]);
     });
 
-    // Subscribe to game status changes
+    // Subscribe to game status changes. Used to gate the Rankings page.
     const unsubscribeGameStatus = subscribe('GAME_STATUS', (message) => {
-      console.log('Game status changed:', message.payload);
+      const payload = message.payload as { status?: 'planned' | 'active' | 'completed' } | undefined;
+      if (payload?.status) setGameStatus(payload.status);
     });
 
     // Admin reset of the team's check-in: drop session and bounce back to /check-in.
@@ -104,7 +102,7 @@ export function useTeamRealtime({ gameId, teamId }: UseRealtimeTeamOptions) {
       unsubscribeCheckinReset();
       unsubscribeDeviceRemoved();
     };
-  }, [gameId, teamId, subscribe, addMessage, setRivalTeam, addAchievement, updatePoints]);
+  }, [gameId, teamId, subscribe, addMessage, setRivalTeams, setRankings, setGameStatus, addAchievement, updatePoints]);
 
   return { connected };
 }

@@ -49,7 +49,7 @@ export function TeamLayout({ children }: TeamLayoutProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { unreadCount } = useMessageStore();
   const { reset: resetTeam, team, setTeam } = useTeamStore();
-  const { reset: resetGame } = useGameStore();
+  const { reset: resetGame, game, fetchGameById } = useGameStore();
   const { showDisconnected } = useConnectionStatus();
   const gameId = storage.getGameId();
   const teamId = storage.getTeamId();
@@ -78,11 +78,21 @@ export function TeamLayout({ children }: TeamLayoutProps) {
   // Use teamId from storage as fallback when store is not yet populated
   useTeamRealtime({ gameId, teamId: team?.id || teamId || null });
 
+  // Load the game so we can gate the Rankings menu/route on its status.
+  useEffect(() => {
+    if (!game && gameId) {
+      fetchGameById(gameId).catch(() => undefined);
+    }
+  }, [game, gameId, fetchGameById]);
+
+  const gameCompleted = game?.status === 'completed';
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
     { text: 'Kaart', icon: <MapIcon />, path: '/map' },
     { text: 'Berichten', icon: <MessageIcon />, path: '/messages', badge: unreadCount },
-    { text: 'Rankings', icon: <LeaderboardIcon />, path: '/rankings' },
+    ...(gameCompleted
+      ? [{ text: 'Eindstand', icon: <LeaderboardIcon />, path: '/rankings' }]
+      : []),
     { text: 'Rivaal', icon: <RivalIcon />, path: '/rival' },
     { text: 'Prestaties', icon: <TrophyIcon />, path: '/achievements' },
   ];

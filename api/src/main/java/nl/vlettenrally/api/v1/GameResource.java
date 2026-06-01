@@ -10,8 +10,10 @@ import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.SecurityContext;
 import nl.vlettenrally.client.LocationApiClient;
 import nl.vlettenrally.client.dto.LocationResponse;
 import nl.vlettenrally.client.dto.SocialrunDetail;
@@ -25,7 +27,6 @@ import nl.vlettenrally.data.dto.game.CheckpointResponse;
 import nl.vlettenrally.data.dto.game.GameRequest;
 import nl.vlettenrally.data.dto.game.GameResponse;
 import nl.vlettenrally.data.dto.game.LocationTestResponse;
-import nl.vlettenrally.data.dto.game.RankingResponse;
 import nl.vlettenrally.data.dto.game.TeamImportResponse;
 import nl.vlettenrally.data.converter.TeamConverter;
 import nl.vlettenrally.data.domain.Checkpoint;
@@ -36,6 +37,7 @@ import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.dto.achievement.CheckpointTeamResponse;
 import nl.vlettenrally.service.AchievementService;
 import nl.vlettenrally.service.GameService;
+import nl.vlettenrally.service.RankingService;
 import nl.vlettenrally.service.CheckpointService;
 import nl.vlettenrally.service.ImportResult;
 import nl.vlettenrally.service.AuthService;
@@ -44,7 +46,6 @@ import nl.vlettenrally.service.TeamImportService;
 
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -103,6 +104,9 @@ public class GameResource {
 
     @Inject
     AchievementService achievementService;
+
+    @Inject
+    RankingService rankingService;
 
     /**
      * Get all games
@@ -210,39 +214,28 @@ public class GameResource {
     }
 
     /**
-     * Get team rankings for a game
+     * Get team rankings for a game.
+     *
+     * The full ranking exposes every team's score, so non-admin (team) callers
+     * may only read it once the game has COMPLETED. Admins can always read it
+     * (needed for points management during the game).
      */
     @GET
     @Path("/{gameId}/rankings")
-    public Response getRankings(@PathParam("gameId") UUID gameId) {
+    public Response getRankings(@PathParam("gameId") UUID gameId, @Context SecurityContext ctx) {
         // Verify game exists
-        if (gameService.findById(gameId).isEmpty()) {
+        Optional<Game> game = gameService.findById(gameId);
+        if (game.isEmpty()) {
             return gameNotFoundResponse();
         }
 
-        List<Team> teams = teamService.findByGameId(gameId);
-        
-        // Sort by points descending
-        List<RankingResponse> rankings = teams.stream()
-            .filter(Team::isCheckedIn) // Only include checked-in teams
-            .sorted(Comparator.comparingInt(Team::getTotalPoints).reversed())
-            .map(team -> {
-                int position = 1;
-                for (Team t : teams) {
-                    if (t.isCheckedIn() && t.getTotalPoints() > team.getTotalPoints()) {
-                        position++;
-                    }
-                }
-                return new RankingResponse(
-                    position,
-                    team.getId(),
-                    team.getName(),
-                    team.getTotalPoints()
-                );
-            })
-            .toList();
+        if (!ctx.isUserInRole("admin") && game.get().getStatus() != Game.GameStatus.COMPLETED) {
+            return Response.status(Response.Status.FORBIDDEN)
+                .entity(new ErrorResponse("Rankings are available after the game has completed"))
+                .build();
+        }
 
-        return Response.ok(rankings).build();
+        return Response.ok(rankingService.buildRanking(gameId)).build();
     }
 
     /**

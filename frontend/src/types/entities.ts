@@ -167,6 +167,16 @@ export interface PlayerTeam extends TeamBase {
 export type PublicTeam = TeamBase;
 
 /**
+ * One row in the live game ranking. Mirrors backend RankingResponse.
+ */
+export interface RankingEntry {
+  position: number;
+  teamId: string;
+  teamName: string;
+  points: number;
+}
+
+/**
  * @deprecated Use AdminTeam, PlayerTeam, or PublicTeam instead.
  * Kept for backward compatibility during migration.
  */

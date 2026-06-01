@@ -2,16 +2,23 @@ package nl.vlettenrally.service.impl;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.repository.TeamRepository;
+import nl.vlettenrally.service.GameService;
 import nl.vlettenrally.service.TeamService;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 import nl.vlettenrally.websockets.dto.WebSocketMessageType;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -24,7 +31,13 @@ public class TeamServiceImpl implements TeamService {
     TeamRepository teamRepository;
 
     @Inject
+    GameService gameService;
+
+    @Inject
     WebSocketPublisher webSocketPublisher;
+
+    @ConfigProperty(name = "vlettenrally.rivals.max-per-team", defaultValue = "5")
+    int maxRivals;
 
     @Override
     public Optional<Team> findById(UUID id) {
@@ -50,12 +63,6 @@ public class TeamServiceImpl implements TeamService {
     @Override
     public List<Team> findRivals(UUID teamId) {
         return teamRepository.findRivals(teamId);
-    }
-
-    @Override
-    public Optional<Team> findRivalTeam(UUID teamId) {
-        List<Team> rivals = teamRepository.findRivals(teamId);
-        return rivals.isEmpty() ? Optional.empty() : Optional.of(rivals.getFirst());
     }
 
     @Override
@@ -113,5 +120,67 @@ public class TeamServiceImpl implements TeamService {
                 .map(Optional::get)
                 .toList())
             .orElse(List.of());
+    }
+
+    @Override
+    public List<Team> setRivals(UUID teamId, List<UUID> rivalIds) {
+        if (rivalIds == null) {
+            throw new IllegalArgumentException("rivalTeamIds is required");
+        }
+
+        Team team = teamRepository.findById(teamId)
+            .orElseThrow(() -> new IllegalArgumentException("Team not found: " + teamId));
+
+        if (team.getGameId() != null) {
+            Game game = gameService.findById(team.getGameId())
+                .orElseThrow(() -> new IllegalArgumentException("Game not found for team"));
+            if (game.getStatus() == Game.GameStatus.COMPLETED) {
+                throw new IllegalStateException("Rival selection is closed for this game");
+            }
+        }
+
+        if (rivalIds.size() > maxRivals) {
+            throw new IllegalArgumentException("A team can have at most " + maxRivals + " rivals");
+        }
+
+        Set<UUID> deduped = new HashSet<>(rivalIds);
+        if (deduped.size() != rivalIds.size()) {
+            throw new IllegalArgumentException("Duplicate rival ids");
+        }
+        if (deduped.contains(teamId)) {
+            throw new IllegalArgumentException("A team cannot be its own rival");
+        }
+
+        // Every rival must belong to the same game.
+        List<Team> validated = new ArrayList<>(rivalIds.size());
+        for (UUID rivalId : rivalIds) {
+            Team rival = teamRepository.findById(rivalId)
+                .orElseThrow(() -> new IllegalArgumentException("Rival team not found: " + rivalId));
+            if (!Objects.equals(rival.getGameId(), team.getGameId())) {
+                throw new IllegalArgumentException("Rival must belong to the same game: " + rivalId);
+            }
+            validated.add(rival);
+        }
+
+        team.setRivals(new ArrayList<>(rivalIds));
+        team.setUpdatedAt(Instant.now());
+        teamRepository.save(team);
+
+        if (team.getGameId() != null) {
+            webSocketPublisher.sendToTeam(
+                team.getGameId(),
+                team.getId(),
+                WebSocketMessageType.RIVAL_UPDATE.getValue(),
+                validated.stream()
+                    .map(r -> Map.of(
+                        "id", r.getId(),
+                        "name", r.getName(),
+                        "totalPoints", r.getTotalPoints()
+                    ))
+                    .toList()
+            );
+        }
+
+        return validated;
     }
 }

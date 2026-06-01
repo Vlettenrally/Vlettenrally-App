@@ -2,7 +2,9 @@
  * Team Store - Global state for team data
  */
 import { create } from 'zustand';
-import { type PlayerTeam, type PublicTeam } from '../types/entities';
+import { type PlayerTeam, type PublicTeam, type RankingEntry } from '../types/entities';
+
+export type { RankingEntry };
 
 export interface Achievement {
   id: string;
@@ -14,13 +16,15 @@ export interface Achievement {
 
 interface TeamState {
   team: PlayerTeam | null;
-  rivalTeam: PublicTeam | null;
+  rivalTeams: PublicTeam[];
+  rankings: RankingEntry[];
   achievements: Achievement[];
   isLoading: boolean;
   error: string | null;
-  
+
   setTeam: (team: PlayerTeam | null) => void;
-  setRivalTeam: (rivalTeam: PublicTeam | null) => void;
+  setRivalTeams: (rivalTeams: PublicTeam[]) => void;
+  setRankings: (rankings: RankingEntry[]) => void;
   setAchievements: (achievements: Achievement[]) => void;
   addAchievement: (achievement: Achievement) => void;
   updatePoints: (points: number) => void;
@@ -31,13 +35,15 @@ interface TeamState {
 
 export const useTeamStore = create<TeamState>((set) => ({
   team: null,
-  rivalTeam: null,
+  rivalTeams: [],
+  rankings: [],
   achievements: [],
   isLoading: false,
   error: null,
 
   setTeam: (team) => set({ team }),
-  setRivalTeam: (rivalTeam) => set({ rivalTeam }),
+  setRivalTeams: (rivalTeams) => set({ rivalTeams }),
+  setRankings: (rankings) => set({ rankings }),
   setAchievements: (achievements) => set({ achievements }),
   addAchievement: (achievement) =>
     set((state) => ({
@@ -52,7 +58,8 @@ export const useTeamStore = create<TeamState>((set) => ({
   reset: () =>
     set({
       team: null,
-      rivalTeam: null,
+      rivalTeams: [],
+      rankings: [],
       achievements: [],
       isLoading: false,
       error: null,

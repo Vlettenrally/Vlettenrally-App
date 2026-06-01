@@ -32,6 +32,7 @@ import type {
   Achievement,
   CheckpointTeamStatus,
   PointEntry,
+  RankingEntry,
   PointEntryListResponse,
   PointEntryListParams,
   CreatePointAdjustmentRequest,
@@ -493,6 +494,10 @@ class ApiService {
     return this.get(`/teams/${teamId}/rivals`);
   }
 
+  async setRivalTeams(teamId: string, rivalTeamIds: string[]) : Promise<ApiResponse<PublicTeam[]>> {
+    return this.put(`/teams/${teamId}/rivals`, { rivalTeamIds });
+  }
+
   async updateTeam(teamId: string, data: Partial<AdminTeam>) : Promise<ApiResponse<AdminTeam>> {
     return this.put(`/teams/${teamId}`, data);
   }
@@ -643,7 +648,7 @@ async getGames() : Promise<ApiResponse<Game[]>> {
   }
 
   // Rankings endpoints
-  async getRankings(gameId: string) {
+  async getRankings(gameId: string): Promise<ApiResponse<RankingEntry[]>> {
     return this.get(`/games/${gameId}/rankings`);
   }
 
