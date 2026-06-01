@@ -245,7 +245,7 @@ export default function GameFormDialog({
               type="datetime-local"
               value={formData.startTime}
               onChange={handleChange('startTime')}
-              InputLabelProps={{ shrink: true }}
+              slotProps={{ inputLabel: { shrink: true } }}
               fullWidth
             />
             <TextField
@@ -253,7 +253,7 @@ export default function GameFormDialog({
               type="datetime-local"
               value={formData.endTime}
               onChange={handleChange('endTime')}
-              InputLabelProps={{ shrink: true }}
+              slotProps={{ inputLabel: { shrink: true } }}
               fullWidth
             />
             <TextField
@@ -261,7 +261,7 @@ export default function GameFormDialog({
               type="datetime-local"
               value={formData.checkInStartTime}
               onChange={handleChange('checkInStartTime')}
-              InputLabelProps={{ shrink: true }}
+              slotProps={{ inputLabel: { shrink: true } }}
               helperText="When the check-in area opens"
               fullWidth
             />
@@ -270,7 +270,7 @@ export default function GameFormDialog({
               type="datetime-local"
               value={formData.startSignalTime}
               onChange={handleChange('startSignalTime')}
-              InputLabelProps={{ shrink: true }}
+              slotProps={{ inputLabel: { shrink: true } }}
               helperText="When the race starts (auto-activates game)"
               fullWidth
             />

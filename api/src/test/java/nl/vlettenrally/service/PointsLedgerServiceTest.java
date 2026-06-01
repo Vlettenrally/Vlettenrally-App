@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
@@ -306,8 +305,8 @@ class PointsLedgerServiceTest {
             eq(WebSocketMessageType.RIVAL_UPDATE.getValue()), payload.capture());
         List<Map<String, Object>> rivals = (List<Map<String, Object>>) payload.getValue();
         assertEquals(1, rivals.size());
-        assertEquals(teamId, rivals.get(0).get("id"));
-        assertEquals(150, rivals.get(0).get("totalPoints"));
+        assertEquals(teamId, rivals.getFirst().get("id"));
+        assertEquals(150, rivals.getFirst().get("totalPoints"));
     }
 
     @Test

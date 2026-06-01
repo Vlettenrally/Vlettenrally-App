@@ -196,7 +196,7 @@ export default function Rivals() {
               getOptionLabel={(option) => option.name}
               openOnFocus
               filterSelectedOptions
-              renderTags={(value, getTagProps) =>
+              renderValue={(value, getTagProps) =>
                 value.map((option, index) => (
                   <Chip
                     label={option.name}
