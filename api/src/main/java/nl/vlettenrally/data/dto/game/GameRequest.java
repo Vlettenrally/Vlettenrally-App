@@ -8,6 +8,7 @@ import java.time.Instant;
 public record GameRequest(
     String name,
     String description,
+    String participantInfo,
     Instant startTime,
     Instant endTime,
     Instant checkInStartTime,

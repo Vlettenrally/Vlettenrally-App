@@ -30,6 +30,9 @@ public class GameEntity {
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
+    @Column(name = "participant_info", columnDefinition = "TEXT")
+    private String participantInfo;
+
     @Column(name = "start_time")
     private Instant startTime;
 

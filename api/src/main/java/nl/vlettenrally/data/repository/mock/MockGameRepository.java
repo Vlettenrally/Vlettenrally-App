@@ -46,6 +46,7 @@ public class MockGameRepository implements GameRepository {
         game1.setId(GAME_2026_ID);
         game1.setName("Vlettenrally 2026");
         game1.setDescription("De jaarlijkse Vlettenrally");
+        game1.setParticipantInfo("Welkom bij de Vlettenrally 2026!\n\n- Draag altijd een reddingsvest.\n- Volg de aanwijzingen van de organisatie.\n- Meld bijzonderheden direct via de app.");
         game1.setStartTime(now.minus(2, ChronoUnit.HOURS));
         game1.setEndTime(now.plus(4, ChronoUnit.HOURS));
         game1.setCheckInStartTime(now.minus(3, ChronoUnit.HOURS));
@@ -58,6 +59,7 @@ public class MockGameRepository implements GameRepository {
         game2.setId(GAME_SUMMER_ID);
         game2.setName("Vlettenrally Zomer Editie");
         game2.setDescription("Speciale zomereditie van de Vlettenrally");
+        game2.setParticipantInfo("Praktische informatie:\n\n- Check-in opent 1 uur voor de start.\n- Neem voldoende water mee.\n- Lees de route-instructies voor vertrek.");
         game2.setStartTime(now.plus(48, ChronoUnit.HOURS));
         game2.setEndTime(now.plus(54, ChronoUnit.HOURS));
         game2.setCheckInStartTime(now.plus(47, ChronoUnit.HOURS));

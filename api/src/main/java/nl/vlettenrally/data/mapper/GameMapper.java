@@ -24,6 +24,7 @@ public class GameMapper {
         domain.setId(entity.getId());
         domain.setName(entity.getName());
         domain.setDescription(entity.getDescription());
+        domain.setParticipantInfo(entity.getParticipantInfo());
         domain.setStartTime(entity.getStartTime());
         domain.setEndTime(entity.getEndTime());
         domain.setCheckInStartTime(entity.getCheckInStartTime());
@@ -56,6 +57,7 @@ public class GameMapper {
         entity.setId(domain.getId());
         entity.setName(domain.getName());
         entity.setDescription(domain.getDescription());
+        entity.setParticipantInfo(domain.getParticipantInfo());
         entity.setStartTime(domain.getStartTime());
         entity.setEndTime(domain.getEndTime());
         entity.setCheckInStartTime(domain.getCheckInStartTime());
@@ -86,6 +88,7 @@ public class GameMapper {
 
         entity.setName(domain.getName());
         entity.setDescription(domain.getDescription());
+        entity.setParticipantInfo(domain.getParticipantInfo());
         entity.setStartTime(domain.getStartTime());
         entity.setEndTime(domain.getEndTime());
         entity.setCheckInStartTime(domain.getCheckInStartTime());

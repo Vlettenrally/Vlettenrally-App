@@ -6,6 +6,7 @@ export interface Game {
   checkInStartTime?: Date;
   startSignalTime?: Date;
   description?: string;
+  participantInfo?: string;
   status?: 'planned' | 'active' | 'completed';
   // External event integration
   externalEventId?: number;
@@ -24,6 +25,7 @@ export interface Game {
 export interface GameRequest {
   name: string;
   description?: string;
+  participantInfo?: string;
   startTime?: string;
   endTime?: string;
   checkInStartTime?: string;

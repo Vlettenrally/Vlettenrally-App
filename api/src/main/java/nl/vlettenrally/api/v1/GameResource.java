@@ -253,6 +253,7 @@ public class GameResource {
         Game game = new Game();
         game.setName(request.name());
         game.setDescription(request.description());
+        game.setParticipantInfo(request.participantInfo());
         game.setStartTime(request.startTime());
         game.setEndTime(request.endTime());
         game.setCheckInStartTime(request.checkInStartTime());
@@ -289,6 +290,7 @@ public class GameResource {
             .map(game -> {
                 if (request.name() != null) game.setName(request.name());
                 if (request.description() != null) game.setDescription(request.description());
+                if (request.participantInfo() != null) game.setParticipantInfo(request.participantInfo());
                 if (request.startTime() != null) game.setStartTime(request.startTime());
                 if (request.endTime() != null) game.setEndTime(request.endTime());
                 if (request.checkInStartTime() != null) game.setCheckInStartTime(request.checkInStartTime());
@@ -625,6 +627,7 @@ public class GameResource {
             game.getId(),
             game.getName(),
             game.getDescription(),
+            game.getParticipantInfo(),
             game.getStartTime() != null ? game.getStartTime().toString() : null,
             game.getEndTime() != null ? game.getEndTime().toString() : null,
             game.getCheckInStartTime() != null ? game.getCheckInStartTime().toString() : null,

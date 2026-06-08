@@ -109,6 +109,19 @@ export function DashboardPage() {
           </Card>
         )}
 
+        {game?.participantInfo && (
+          <Card sx={{ mb: 3 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Spelinformatie en regels
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap' }}>
+                {game.participantInfo}
+              </Typography>
+            </CardContent>
+          </Card>
+        )}
+
         <Grid container spacing={3}>
           <Grid size={{ xs: 12, md: 6 }}>
             <Card>
@@ -169,4 +182,3 @@ export function DashboardPage() {
 }
 
 export default DashboardPage;
-
