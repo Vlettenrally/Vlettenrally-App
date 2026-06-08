@@ -249,7 +249,7 @@ export default function GameFormDialog({
             multiline
             rows={6}
             fullWidth
-            helperText="Shown in the participant app for this game."
+            helperText="Shown in the participant app for this game. Markdown is supported."
           />
 
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>

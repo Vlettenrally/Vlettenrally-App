@@ -18,6 +18,7 @@ import {
   Timer as TimerIcon,
   Flag as FlagIcon,
 } from '@mui/icons-material';
+import MarkdownContent from '../../components/MarkdownContent';
 import { useTeamStore } from '../../store/useTeamStore';
 import { useGameStore } from '../../store/useGameStore';
 import { useMessageStore } from '../../store/useMessageStore';
@@ -115,9 +116,9 @@ export function DashboardPage() {
               <Typography variant="h6" gutterBottom>
                 Spelinformatie en regels
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap' }}>
-                {game.participantInfo}
-              </Typography>
+              <Box sx={{ color: 'text.secondary' }}>
+                <MarkdownContent>{game.participantInfo}</MarkdownContent>
+              </Box>
             </CardContent>
           </Card>
         )}
