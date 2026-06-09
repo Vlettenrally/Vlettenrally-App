@@ -30,6 +30,7 @@ import {
   Logout as LogoutIcon,
   WifiOff as WifiOffIcon,
   Map as MapIcon,
+  Description as DescriptionIcon,
 } from '@mui/icons-material';
 import { useMessageStore } from '../store/useMessageStore';
 import { storage } from '../services/storage';
@@ -88,6 +89,9 @@ export function TeamLayout({ children }: TeamLayoutProps) {
   const gameCompleted = game?.status === 'completed';
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
+    ...(game?.participantInfo
+      ? [{ text: 'Spelinformatie', icon: <DescriptionIcon />, path: '/info' }]
+      : []),
     { text: 'Kaart', icon: <MapIcon />, path: '/map' },
     { text: 'Berichten', icon: <MessageIcon />, path: '/messages', badge: unreadCount },
     ...(gameCompleted

@@ -18,7 +18,6 @@ import {
   Timer as TimerIcon,
   Flag as FlagIcon,
 } from '@mui/icons-material';
-import MarkdownContent from '../../components/MarkdownContent';
 import { useTeamStore } from '../../store/useTeamStore';
 import { useGameStore } from '../../store/useGameStore';
 import { useMessageStore } from '../../store/useMessageStore';
@@ -106,19 +105,6 @@ export function DashboardPage() {
             <CardContent>
               <Typography variant="h6">Rally is bezig!</Typography>
               <Typography variant="body2">Veel succes en vaar voorzichtig!</Typography>
-            </CardContent>
-          </Card>
-        )}
-
-        {game?.participantInfo && (
-          <Card sx={{ mb: 3 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Spelinformatie en regels
-              </Typography>
-              <Box sx={{ color: 'text.secondary' }}>
-                <MarkdownContent>{game.participantInfo}</MarkdownContent>
-              </Box>
             </CardContent>
           </Card>
         )}
