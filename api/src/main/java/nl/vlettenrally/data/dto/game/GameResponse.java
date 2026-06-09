@@ -9,6 +9,7 @@ public record GameResponse(
     UUID id,
     String name,
     String description,
+    String participantInfo,
     String startTime,
     String endTime,
     String checkInStartTime,

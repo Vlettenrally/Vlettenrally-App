@@ -16,6 +16,7 @@ public class Game {
     private UUID id;
     private String name;
     private String description;
+    private String participantInfo;
     private Instant startTime;
     private Instant endTime;
     private Instant checkInStartTime;

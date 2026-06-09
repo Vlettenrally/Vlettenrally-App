@@ -30,6 +30,7 @@ import api from './services/api';
 // Lazy-loaded participant pages
 const CheckInPage = lazy(() => import('./pages/participant/Checkin'));
 const DashboardPage = lazy(() => import('./pages/participant/Dashboard'));
+const ParticipantInfoPage = lazy(() => import('./pages/participant/Info'));
 const MessagesPage = lazy(() => import('./pages/MessagesPage'));
 const ParticipantMap = lazy(() => import('./pages/participant/Map'));
 const RivalsPage = lazy(() => import('./pages/participant/Rivals'));
@@ -342,6 +343,18 @@ function App() {
                 <TeamLayout>
                   <Suspense fallback={<PageLoader />}>
                     <DashboardPage />
+                  </Suspense>
+                </TeamLayout>
+              </TeamRoute>
+            }
+          />
+          <Route
+            path="/info"
+            element={
+              <TeamRoute>
+                <TeamLayout>
+                  <Suspense fallback={<PageLoader />}>
+                    <ParticipantInfoPage />
                   </Suspense>
                 </TeamLayout>
               </TeamRoute>

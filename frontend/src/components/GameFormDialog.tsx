@@ -59,6 +59,7 @@ export default function GameFormDialog({
   const [formData, setFormData] = useState<GameRequest>({
     name: '',
     description: '',
+    participantInfo: '',
     startTime: '',
     endTime: '',
     checkInStartTime: '',
@@ -90,6 +91,7 @@ export default function GameFormDialog({
       setFormData({
         name: game.name,
         description: game.description || '',
+        participantInfo: game.participantInfo || '',
         startTime: game.startTime ? formatForDateTimeLocalInput(game.startTime) : '',
         endTime: game.endTime ? formatForDateTimeLocalInput(game.endTime) : '',
         checkInStartTime: game.checkInStartTime ? formatForDateTimeLocalInput(game.checkInStartTime) : '',
@@ -105,6 +107,7 @@ export default function GameFormDialog({
       setFormData({
         name: '',
         description: '',
+        participantInfo: '',
         startTime: '',
         endTime: '',
         checkInStartTime: '',
@@ -237,6 +240,16 @@ export default function GameFormDialog({
             multiline
             rows={2}
             fullWidth
+          />
+
+          <TextField
+            label="Participant Information & Rules"
+            value={formData.participantInfo}
+            onChange={handleChange('participantInfo')}
+            multiline
+            rows={6}
+            fullWidth
+            helperText="Shown in the participant app for this game. Markdown is supported."
           />
 
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
