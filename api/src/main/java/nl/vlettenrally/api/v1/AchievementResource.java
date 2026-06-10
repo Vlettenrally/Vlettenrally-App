@@ -15,6 +15,7 @@ import jakarta.ws.rs.core.SecurityContext;
 import nl.vlettenrally.api.security.TeamScopedOrAdmin;
 import nl.vlettenrally.data.domain.Achievement;
 import nl.vlettenrally.data.dto.achievement.AchievementResponse;
+import nl.vlettenrally.data.dto.achievement.BonusPointsAdjustmentRequest;
 import nl.vlettenrally.data.dto.achievement.ProximityDetectionRequest;
 import nl.vlettenrally.data.dto.achievement.VerificationRequest;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
@@ -141,6 +142,34 @@ public class AchievementResource {
             .map(achievement -> Response.ok(toDto(achievement)).build())
             .orElse(Response.status(Response.Status.NOT_FOUND)
                 .entity(new ErrorResponse("Achievement not found or already processed"))
+                .build());
+    }
+
+    /**
+     * Adjust bonus points on an already-VERIFIED achievement. Used after the
+     * tracker has auto-verified a checkpoint pass and personnel want to add
+     * (or correct) bonus points on the spot. The delta is recorded in the
+     * points ledger as a MANUAL_ADJUSTMENT.
+     */
+    @POST
+    @RolesAllowed({"admin", "checkpoint_manager"})
+    @Path("/achievements/{achievementId}/bonus-points")
+    public Response adjustBonusPoints(
+            @PathParam("achievementId") UUID achievementId,
+            BonusPointsAdjustmentRequest request,
+            @Context SecurityContext securityContext) {
+        if (request == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("Request body is required"))
+                .build();
+        }
+        UUID gameMasterId = securityContext.getUserPrincipal() != null
+            ? UUID.fromString(securityContext.getUserPrincipal().getName()) : null;
+
+        return achievementService.addBonusPoints(achievementId, request.bonusDelta(), gameMasterId)
+            .map(achievement -> Response.ok(toDto(achievement)).build())
+            .orElse(Response.status(Response.Status.NOT_FOUND)
+                .entity(new ErrorResponse("Achievement not found or not VERIFIED"))
                 .build());
     }
 

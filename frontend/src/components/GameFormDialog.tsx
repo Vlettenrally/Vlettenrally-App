@@ -68,7 +68,7 @@ export default function GameFormDialog({
     externalEventId: undefined,
     externalEventName: '',
     locationEndpointUrl: '',
-    locationPollingFrequency: 15,
+    locationPollingFrequency: 30,
     locationEndpointActive: false,
   });
 
@@ -100,7 +100,7 @@ export default function GameFormDialog({
         externalEventId: game.externalEventId,
         externalEventName: game.externalEventName || '',
         locationEndpointUrl: game.locationEndpointUrl || '',
-        locationPollingFrequency: game.locationPollingFrequency || 15,
+        locationPollingFrequency: game.locationPollingFrequency || 30,
         locationEndpointActive: game.locationEndpointActive || false,
       });
     } else {
@@ -116,7 +116,7 @@ export default function GameFormDialog({
         externalEventId: undefined,
         externalEventName: '',
         locationEndpointUrl: '',
-        locationPollingFrequency: 15,
+        locationPollingFrequency: 30,
         locationEndpointActive: false,
       });
     }
@@ -333,10 +333,11 @@ export default function GameFormDialog({
           <Typography variant="h6" color="primary">Location Tracking</Typography>
           
           <TextField
-            label="Location Endpoint URL"
+            label="Tracker Base URL"
             value={formData.locationEndpointUrl}
             onChange={handleChange('locationEndpointUrl')}
-            placeholder="https://api.example.com/locations"
+            placeholder="https://host/api/event/3265"
+            helperText="Base URL van het Legendstracking event — zonder trailing slash en zonder /details, /participants_locations of /participants_checkpoints"
             fullWidth
           />
 

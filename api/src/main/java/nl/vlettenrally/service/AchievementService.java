@@ -1,5 +1,6 @@
 package nl.vlettenrally.service;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -71,6 +72,32 @@ public interface AchievementService {
      * teams with an existing PENDING achievement for this checkpoint.
      */
     List<CheckpointTeamResponse> getTeamsNearCheckpoint(UUID gameId, UUID checkpointId);
+
+    /**
+     * Add (or subtract) bonus points on an already-VERIFIED achievement.
+     * Checkpoint personnel use this to award bonus on the spot after the tracker
+     * has already auto-verified the pass-through.
+     *
+     * @param achievementId The VERIFIED achievement to adjust
+     * @param bonusDelta    Points to add to the existing bonusPoints (may be negative)
+     * @param gameMasterId  Operator credit
+     * @return Updated achievement, or empty if not found / not VERIFIED
+     */
+    Optional<Achievement> addBonusPoints(UUID achievementId, int bonusDelta, UUID gameMasterId);
+
+    /**
+     * Idempotently record an authoritative checkpoint pass from the external tracker.
+     * If no achievement exists for (teamId, checkpointId), creates one VERIFIED with the
+     * given time and awards points. If one exists in PENDING, promotes it to VERIFIED
+     * preserving any bonus points already added. If already VERIFIED or REJECTED,
+     * no-ops (preserving operator edits).
+     *
+     * @param teamId       Team that passed the checkpoint
+     * @param checkpointId Checkpoint that was passed
+     * @param passTime     First-pass time as reported by the tracker
+     * @return The created or promoted achievement, or empty if no state change
+     */
+    Optional<Achievement> recordVerifiedPass(UUID teamId, UUID checkpointId, Instant passTime);
 
     Achievement save(Achievement achievement);
 

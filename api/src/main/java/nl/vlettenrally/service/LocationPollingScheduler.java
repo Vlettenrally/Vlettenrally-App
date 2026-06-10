@@ -6,13 +6,17 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import nl.vlettenrally.client.LocationApiClient;
-import nl.vlettenrally.client.dto.LocationResponse;
-import nl.vlettenrally.client.dto.ParticipantLocation;
+import nl.vlettenrally.client.dto.legendstracking.EventParticipantCheckpoint;
+import nl.vlettenrally.client.dto.legendstracking.EventParticipantLocation;
+import nl.vlettenrally.client.dto.legendstracking.EventParticipantsCheckpointsResponse;
+import nl.vlettenrally.client.dto.legendstracking.EventParticipantsLocationsResponse;
 import nl.vlettenrally.client.exception.LocationApiException;
+import nl.vlettenrally.data.domain.Checkpoint;
 import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.LocationData;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.dto.game.TeamLocationResponse;
+import nl.vlettenrally.data.repository.CheckpointRepository;
 import nl.vlettenrally.data.repository.LocationDataRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.websockets.MapSubscriptionManager;
@@ -26,15 +30,26 @@ import org.locationtech.jts.geom.PrecisionModel;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Scheduler that periodically polls external location APIs for active games
- * and broadcasts location updates via WebSocket.
+ * Polls Legendstracking endpoints for every active game with a base URL configured
+ * and broadcasts location updates plus auto-verified checkpoint passes.
  *
- * For each team: sends their own location via sendToTeam (team receives only their own data).
- * For admin map subscribers: sends full game locations via session-targeted messages.
+ * Runs at the configured interval on a single instance at a time — leader election
+ * via {@link PollingLeader} (Valkey-backed lease).
+ *
+ * Teams are matched to participants by Team.externalParticipantId, which is
+ * populated during admin-triggered sync-event-details by joining bib == name.
+ * Participant ids without a matching team are silently skipped.
+ *
+ * NOTE: status_id, tracker_id, battery_percentage and is_sos_report from the
+ * locations endpoint are not persisted yet — see plan "Out of scope" section.
  */
 @ApplicationScoped
 public class LocationPollingScheduler {
@@ -48,10 +63,16 @@ public class LocationPollingScheduler {
     TeamRepository teamRepository;
 
     @Inject
+    CheckpointRepository checkpointRepository;
+
+    @Inject
     LocationApiClient locationApiClient;
 
     @Inject
     LocationDataRepository locationDataRepository;
+
+    @Inject
+    AchievementService achievementService;
 
     @Inject
     WebSocketPublisher webSocketPublisher;
@@ -59,12 +80,16 @@ public class LocationPollingScheduler {
     @Inject
     MapSubscriptionManager mapSubscriptionManager;
 
-    /**
-     * Poll location APIs every 15 seconds for active games with location tracking enabled.
-     */
-    @Scheduled(every = "15s")
+    @Inject
+    PollingLeader pollingLeader;
+
+    @Scheduled(every = "{vlettenrally.location.polling-interval}")
     @Transactional
     void pollLocations() {
+        if (!pollingLeader.tryAcquireOrRenew()) {
+            return;
+        }
+
         List<Game> activeGames = gameService.findByStatus(Game.GameStatus.ACTIVE);
 
         for (Game game : activeGames) {
@@ -75,107 +100,134 @@ public class LocationPollingScheduler {
             }
 
             try {
-                pollGameLocations(game);
+                pollGame(game);
             } catch (Exception e) {
-                Log.errorf("Failed to poll locations for game %s: %s", game.getId(), e.getMessage());
+                Log.errorf("Failed to poll Legendstracking for game %s: %s", game.getId(), e.getMessage());
             }
         }
     }
 
-    private void pollGameLocations(Game game) {
-        LocationResponse response;
+    private void pollGame(Game game) {
+        Map<Integer, Team> teamsByParticipantId = teamRepository.findByGameId(game.getId()).stream()
+            .filter(t -> t.getExternalParticipantId() != null)
+            .collect(Collectors.toMap(Team::getExternalParticipantId, t -> t, (a, b) -> a));
+
+        if (teamsByParticipantId.isEmpty()) {
+            Log.debugf("Game %s has no teams with externalParticipantId — run sync-event-details first", game.getId());
+            return;
+        }
+
+        pollParticipantLocations(game, teamsByParticipantId);
+        pollParticipantCheckpoints(game, teamsByParticipantId);
+    }
+
+    private void pollParticipantLocations(Game game, Map<Integer, Team> teamsByParticipantId) {
+        EventParticipantsLocationsResponse response;
         try {
-            response = locationApiClient.fetchLocations(game.getLocationEndpointUrl());
+            response = locationApiClient.fetchParticipantLocations(game.getLocationEndpointUrl());
         } catch (LocationApiException e) {
-            Log.warnf("Location API error for game %s: %s", game.getId(), e.getMessage());
+            Log.warnf("Legendstracking /participants_locations error for game %s: %s", game.getId(), e.getMessage());
             return;
         }
 
-        if (response.getSocialrunParticipantsLocations() == null
-                || response.getSocialrunParticipantsLocations().getParticipantLocations() == null) {
+        if (response == null || response.getEvent() == null
+                || response.getEvent().getEventParticipantLocations() == null) {
             return;
         }
 
-        List<ParticipantLocation> participantLocations = response.getSocialrunParticipantsLocations().getParticipantLocations();
-
-        // Map teams by externalId for matching
-        List<Team> teams = teamRepository.findByGameId(game.getId());
-        Map<String, Team> teamsByExternalId = teams.stream()
-                .filter(t -> t.getExternalId() != null)
-                .collect(Collectors.toMap(Team::getExternalId, t -> t, (a, b) -> a));
-
-        // Also map by bib label for fallback matching
-        Map<String, Team> teamsByName = teams.stream()
-                .collect(Collectors.toMap(t -> t.getName().toLowerCase().trim(), t -> t, (a, b) -> a));
-
-        List<TeamLocationResponse> allLocations = new ArrayList<>();
-
-        for (ParticipantLocation pl : participantLocations) {
+        List<TeamLocationResponse> broadcasts = new ArrayList<>();
+        for (EventParticipantLocation pl : response.getEvent().getEventParticipantLocations()) {
             if (pl.getLocation() == null) continue;
 
-            // Match participant to team
-            Team team = teamsByExternalId.get(String.valueOf(pl.getEventParticipantsId()));
-            if (team == null && pl.getBibLabel() != null) {
-                team = teamsByName.get(pl.getBibLabel().toLowerCase().trim());
-            }
+            Team team = teamsByParticipantId.get(pl.getEventParticipantsId());
             if (team == null) continue;
 
-            // Create PostGIS Point (longitude = x, latitude = y)
             Point point = GEOMETRY_FACTORY.createPoint(
-                    new Coordinate(pl.getLocation().getLongitude(), pl.getLocation().getLatitude()));
+                new Coordinate(pl.getLocation().getLongitude(), pl.getLocation().getLatitude()));
+            Instant locationTime = parseInstant(pl.getLocationTime());
 
-            // Parse location time
-            Instant locationTime;
-            try {
-                locationTime = pl.getLocationTime() != null ? Instant.parse(pl.getLocationTime()) : Instant.now();
-            } catch (Exception e) {
-                locationTime = Instant.now();
-            }
-
-            // Save location data
             LocationData locationData = new LocationData();
             locationData.setTeamId(team.getId());
             locationData.setGameId(game.getId());
             locationData.setLocation(point);
             locationData.setLocationTime(locationTime);
-            locationData.setAccuracy(pl.getGpsAccuracy() > 0 ? BigDecimal.valueOf(pl.getGpsAccuracy()) : null);
-            locationData.setSpeed(pl.getLocation().getLatitude() != 0 ? null : null); // Speed not in external API
+            locationData.setAccuracy(pl.getGpsAccuracy() != null && pl.getGpsAccuracy() > 0
+                ? BigDecimal.valueOf(pl.getGpsAccuracy()) : null);
+            locationData.setSpeed(pl.getSpeed() != null ? BigDecimal.valueOf(pl.getSpeed()) : null);
             locationData.setHeading(null);
-
             locationDataRepository.save(locationData);
 
-            // Build DTO for WebSocket broadcast
             TeamLocationResponse teamLocation = new TeamLocationResponse(
-                    team.getId(),
-                    team.getName(),
-                    pl.getLocation().getLatitude(),
-                    pl.getLocation().getLongitude(),
-                    null, // speed
-                    null, // heading
-                    locationTime.toString()
+                team.getId(),
+                team.getName(),
+                pl.getLocation().getLatitude(),
+                pl.getLocation().getLongitude(),
+                pl.getSpeed(),
+                null,
+                locationTime.toString()
             );
-            allLocations.add(teamLocation);
+            broadcasts.add(teamLocation);
 
-            // Send to the team itself (they only receive their own location)
             webSocketPublisher.sendToTeam(
-                    game.getId(),
-                    team.getId(),
-                    WebSocketEventTypes.LOCATION_UPDATE,
-                    teamLocation
+                game.getId(),
+                team.getId(),
+                WebSocketEventTypes.LOCATION_UPDATE,
+                teamLocation
             );
         }
 
-        // Send all locations to admin map subscribers via session-targeted messages
-        if (!allLocations.isEmpty()) {
+        if (!broadcasts.isEmpty()) {
             Set<String> subscribedSessionIds = mapSubscriptionManager.getActiveSubscribers(game.getId());
             for (String sessionId : subscribedSessionIds) {
-                WebSocketMessage message = new WebSocketMessage(WebSocketEventTypes.LOCATION_UPDATE, allLocations)
-                        .withTargetGame(game.getId())
-                        .forAdminOnly()
-                        .withTargetSession(sessionId);
+                WebSocketMessage message = new WebSocketMessage(WebSocketEventTypes.LOCATION_UPDATE, broadcasts)
+                    .withTargetGame(game.getId())
+                    .forAdminOnly()
+                    .withTargetSession(sessionId);
                 webSocketPublisher.publish(message);
             }
         }
     }
-}
 
+    private void pollParticipantCheckpoints(Game game, Map<Integer, Team> teamsByParticipantId) {
+        EventParticipantsCheckpointsResponse response;
+        try {
+            response = locationApiClient.fetchParticipantCheckpoints(game.getLocationEndpointUrl());
+        } catch (LocationApiException e) {
+            Log.warnf("Legendstracking /participants_checkpoints error for game %s: %s", game.getId(), e.getMessage());
+            return;
+        }
+
+        if (response == null || response.getEvent() == null
+                || response.getEvent().getEventParticipantCheckpoints() == null) {
+            return;
+        }
+
+        Map<Integer, Checkpoint> checkpointsByExternalId = new HashMap<>();
+
+        for (EventParticipantCheckpoint epc : response.getEvent().getEventParticipantCheckpoints()) {
+            Team team = teamsByParticipantId.get(epc.getEventParticipantsId());
+            if (team == null) continue;
+
+            Checkpoint checkpoint = checkpointsByExternalId.computeIfAbsent(epc.getCheckpointId(), id ->
+                checkpointRepository.findByGameIdAndExternalId(game.getId(), String.valueOf(id)).orElse(null));
+            if (checkpoint == null) continue;
+
+            Instant passTime = parseInstant(epc.getLocationTime());
+            try {
+                achievementService.recordVerifiedPass(team.getId(), checkpoint.getId(), passTime);
+            } catch (Exception e) {
+                Log.warnf("Failed to record verified pass team=%s checkpoint=%s: %s",
+                    team.getId(), checkpoint.getId(), e.getMessage());
+            }
+        }
+    }
+
+    private static Instant parseInstant(String raw) {
+        if (raw == null) return Instant.now();
+        try {
+            return Instant.parse(raw);
+        } catch (Exception e) {
+            return Instant.now();
+        }
+    }
+}

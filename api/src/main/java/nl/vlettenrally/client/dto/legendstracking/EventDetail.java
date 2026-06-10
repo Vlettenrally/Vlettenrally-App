@@ -1,4 +1,4 @@
-package nl.vlettenrally.client.dto;
+package nl.vlettenrally.client.dto.legendstracking;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.quarkus.runtime.annotations.RegisterForReflection;
@@ -6,14 +6,11 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/**
- * Details about a Socialrun event.
- */
 @RegisterForReflection
 @NoArgsConstructor
 @Getter
 @Setter
-public class SocialrunDetail {
+public class EventDetail {
     @JsonProperty("id")
     private int id;
 
@@ -28,13 +25,4 @@ public class SocialrunDetail {
 
     @JsonProperty("end_date")
     private String endDate;
-
-    @JsonProperty("center")
-    private Coordinates center;
-
-    @JsonProperty("zoom")
-    private int zoom;
-
-    @JsonProperty("event_distance_category_id")
-    private int eventDistanceCategoryId;
 }

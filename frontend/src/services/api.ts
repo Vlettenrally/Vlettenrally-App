@@ -15,7 +15,7 @@ import type {
   TeamLocation,
   Checkpoint,
   CheckpointRequest,
-  CheckpointImportResult,
+  EventSyncResult,
   AdminTeam,
   PlayerTeam,
   PublicTeam,
@@ -583,8 +583,8 @@ async getGames() : Promise<ApiResponse<Game[]>> {
     return this.delete(`/games/${gameId}/checkpoints/${checkpointId}`);
   }
 
-  async importCheckpoints(gameId: string): Promise<ApiResponse<CheckpointImportResult>> {
-    return this.post(`/games/${gameId}/import-checkpoints`);
+  async syncEventDetails(gameId: string): Promise<ApiResponse<EventSyncResult>> {
+    return this.post(`/games/${gameId}/sync-event-details`);
   }
 
   // External API endpoints
@@ -667,6 +667,10 @@ async getGames() : Promise<ApiResponse<Game[]>> {
 
   async rejectAchievement(achievementId: string, notes: string): Promise<ApiResponse<Achievement>> {
     return this.post(`/achievements/${achievementId}/reject`, { notes });
+  }
+
+  async adjustBonusPoints(achievementId: string, bonusDelta: number): Promise<ApiResponse<Achievement>> {
+    return this.post(`/achievements/${achievementId}/bonus-points`, { bonusDelta });
   }
 
   async detectProximity(teamId: string, checkpointId: string): Promise<ApiResponse<Achievement>> {

@@ -31,7 +31,7 @@ public class Game {
     private String externalEventName;
 
     // Location tracking configuration
-    // Location tracking configuration
+    /** Legendstracking event base URL (e.g. https://host/api/event/3265). No trailing slash, no suffix. */
     private String locationEndpointUrl;
     private Integer locationPollingFrequency;
     private Boolean locationEndpointActive;
@@ -45,7 +45,7 @@ public class Game {
     public Game() {
         this.id = UUID.randomUUID();
         this.status = GameStatus.PLANNED;
-        this.locationPollingFrequency = 15; // Default to 15 seconds
+        this.locationPollingFrequency = 30; // Matches Legendstracking 30 s cache
         this.locationEndpointActive = false;
         this.createdAt = Instant.now();
         this.updatedAt = Instant.now();

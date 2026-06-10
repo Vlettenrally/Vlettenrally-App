@@ -28,7 +28,6 @@ import nl.vlettenrally.websockets.WebSocketPublisher;
 import nl.vlettenrally.websockets.dto.CheckpointDetectionPayload;
 
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,7 +37,7 @@ import java.util.UUID;
 
 /**
  * Implementation of AchievementService.
- * 
+ *
  * Handles the achievement verification workflow:
  * 1. detectProximity() - System creates PENDING achievement when team is near checkpoint
  * 2. verifyAchievement() - Game master confirms, points awarded
@@ -281,6 +280,106 @@ public class AchievementServiceImpl implements AchievementService {
     }
 
     @Override
+    public Optional<Achievement> addBonusPoints(UUID achievementId, int bonusDelta, UUID gameMasterId) {
+        if (bonusDelta == 0) {
+            return achievementRepository.findById(achievementId);
+        }
+        Optional<Achievement> optAchievement = achievementRepository.findById(achievementId);
+        if (optAchievement.isEmpty()) {
+            return Optional.empty();
+        }
+        Achievement achievement = optAchievement.get();
+        if (achievement.getStatus() != AchievementStatus.VERIFIED) {
+            return Optional.empty();
+        }
+
+        achievement.setBonusPoints(achievement.getBonusPoints() + bonusDelta);
+        Achievement saved = achievementRepository.save(achievement);
+
+        Checkpoint checkpoint = checkpointRepository.findById(achievement.getCheckpointId())
+            .orElseThrow(() -> new IllegalStateException("Checkpoint not found: " + achievement.getCheckpointId()));
+        Team team = teamRepository.findById(achievement.getTeamId())
+            .orElseThrow(() -> new IllegalStateException("Team not found: " + achievement.getTeamId()));
+
+        pointsLedgerService.createEntry(
+            team.getId(),
+            team.getGameId(),
+            PointEntryType.MANUAL_ADJUSTMENT,
+            bonusDelta,
+            resolveCheckpointLocation(checkpoint),
+            "Bonuspunten " + checkpoint.getName(),
+            saved.getId(),
+            gameMasterId
+        );
+        return Optional.of(saved);
+    }
+
+    @Override
+    public Optional<Achievement> recordVerifiedPass(UUID teamId, UUID checkpointId, Instant passTime) {
+        Optional<Achievement> existing = achievementRepository.findByTeamIdAndCheckpointId(teamId, checkpointId);
+        if (existing.isPresent()) {
+            Achievement achievement = existing.get();
+            if (achievement.getStatus() != AchievementStatus.PENDING) {
+                // Already VERIFIED or REJECTED — preserve operator state (notes, bonus points).
+                return Optional.empty();
+            }
+            achievement.setStatus(AchievementStatus.VERIFIED);
+            achievement.setVerifiedAt(passTime);
+            // Leave verifiedBy null and preserve existing bonusPoints/notes set during proximity detection.
+
+            Checkpoint checkpoint = checkpointRepository.findById(checkpointId)
+                .orElseThrow(() -> new IllegalStateException("Checkpoint not found: " + checkpointId));
+            int total = checkpoint.getPoints() + achievement.getBonusPoints();
+
+            Achievement saved = achievementRepository.save(achievement);
+
+            Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new IllegalStateException("Team not found: " + teamId));
+
+            pointsLedgerService.createEntry(
+                team.getId(),
+                team.getGameId(),
+                PointEntryType.CHECKPOINT_VERIFICATION,
+                total,
+                resolveCheckpointLocation(checkpoint),
+                "Checkpoint " + checkpoint.getName() + " geverifieerd (automatisch)",
+                saved.getId(),
+                null
+            );
+            return Optional.of(saved);
+        }
+
+        // No prior record — create a VERIFIED achievement directly.
+        Checkpoint checkpoint = checkpointRepository.findById(checkpointId)
+            .orElseThrow(() -> new IllegalArgumentException("Checkpoint not found: " + checkpointId));
+        Team team = teamRepository.findById(teamId)
+            .orElseThrow(() -> new IllegalArgumentException("Team not found: " + teamId));
+
+        Achievement achievement = new Achievement();
+        achievement.setTeamId(teamId);
+        achievement.setCheckpointId(checkpointId);
+        achievement.setStatus(AchievementStatus.VERIFIED);
+        achievement.setDetectedAt(passTime);
+        achievement.setVerifiedAt(passTime);
+        achievement.setBonusPoints(0);
+
+        Achievement saved = achievementRepository.save(achievement);
+
+        pointsLedgerService.createEntry(
+            team.getId(),
+            team.getGameId(),
+            PointEntryType.CHECKPOINT_VERIFICATION,
+            checkpoint.getPoints(),
+            resolveCheckpointLocation(checkpoint),
+            "Checkpoint " + checkpoint.getName() + " geverifieerd (automatisch)",
+            saved.getId(),
+            null
+        );
+
+        return Optional.of(saved);
+    }
+
+    @Override
     public Optional<Achievement> rejectAchievement(UUID achievementId, UUID gameMasterId, String notes) {
         Optional<Achievement> optAchievement = achievementRepository.findById(achievementId);
         if (optAchievement.isEmpty()) {
@@ -288,7 +387,7 @@ public class AchievementServiceImpl implements AchievementService {
         }
 
         Achievement achievement = optAchievement.get();
-        
+
         // Can only reject PENDING achievements
         if (achievement.getStatus() != AchievementStatus.PENDING) {
             return Optional.empty();

@@ -114,12 +114,14 @@ export interface CheckpointRequest {
 }
 
 /**
- * Result of checkpoint import operation
+ * Result of a sync-event-details run against the Legendstracking /details endpoint.
  */
-export interface CheckpointImportResult {
-  created: number;
-  updated: number;
-  errors: number;
+export interface EventSyncResult {
+  checkpointsCreated: number;
+  checkpointsUpdated: number;
+  checkpointErrors: number;
+  participantsLinked: number;
+  participantsUnmatched: number;
 }
 
 /**

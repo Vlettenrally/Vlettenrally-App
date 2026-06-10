@@ -75,6 +75,10 @@ export default function CheckpointStation() {
   const [rejectNotes, setRejectNotes] = useState('');
   const [rejecting, setRejecting] = useState(false);
 
+  const [bonusTarget, setBonusTarget] = useState<CheckpointTeamStatus | null>(null);
+  const [bonusDelta, setBonusDelta] = useState<number | ''>('');
+  const [adjustingBonus, setAdjustingBonus] = useState(false);
+
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [addTeam, setAddTeam] = useState<AdminTeam | null>(null);
   const [detecting, setDetecting] = useState(false);
@@ -235,6 +239,28 @@ export default function CheckpointStation() {
       fetchTeams();
     } else {
       setSnackbar({ message: res.error ?? 'Afwijzing mislukt', severity: 'error' });
+    }
+  };
+
+  const openAdjustBonus = (team: CheckpointTeamStatus) => {
+    setBonusTarget(team);
+    setBonusDelta('');
+  };
+
+  const handleAdjustBonus = async () => {
+    if (!bonusTarget || !bonusTarget.achievementId || bonusDelta === '' || bonusDelta === 0) return;
+    setAdjustingBonus(true);
+    const res = await api.adjustBonusPoints(bonusTarget.achievementId, bonusDelta);
+    setAdjustingBonus(false);
+    if (res.data) {
+      setSnackbar({
+        message: `${bonusTarget.teamName}: bonus aangepast met ${bonusDelta > 0 ? '+' : ''}${bonusDelta} punten`,
+        severity: 'success',
+      });
+      setBonusTarget(null);
+      fetchTeams();
+    } else {
+      setSnackbar({ message: res.error ?? 'Bonuspunten aanpassen mislukt', severity: 'error' });
     }
   };
 
@@ -404,6 +430,18 @@ export default function CheckpointStation() {
                           </Button>
                         </Box>
                       )}
+                      {team.achievementStatus === 'VERIFIED' && team.achievementId && (
+                        <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={() => openAdjustBonus(team)}
+                            sx={{ flex: 1 }}
+                          >
+                            Bonuspunten ±
+                          </Button>
+                        </Box>
+                      )}
                     </Box>
                   ))}
                 </Stack>
@@ -451,6 +489,17 @@ export default function CheckpointStation() {
                                   onClick={() => openReject(team)}
                                 >
                                   Afwijzen
+                                </Button>
+                              </Box>
+                            )}
+                            {team.achievementStatus === 'VERIFIED' && team.achievementId && (
+                              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: actionable(team.achievementStatus) ? 1 : 0 }}>
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  onClick={() => openAdjustBonus(team)}
+                                >
+                                  Bonuspunten ±
                                 </Button>
                               </Box>
                             )}
@@ -531,6 +580,40 @@ export default function CheckpointStation() {
           <Button onClick={() => setRejectTarget(null)} disabled={rejecting}>Annuleren</Button>
           <Button variant="contained" color="error" onClick={handleReject} disabled={rejecting || !rejectNotes.trim()}>
             {rejecting ? <CircularProgress size={18} /> : 'Afwijzen'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Bonus adjustment dialog (VERIFIED achievements only) */}
+      <Dialog open={!!bonusTarget} onClose={() => setBonusTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Bonuspunten — {bonusTarget?.teamName}</DialogTitle>
+        <DialogContent sx={{ pt: '16px !important', display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <TextField
+            label="Aanpassing (+ of −)"
+            type="number"
+            value={bonusDelta}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val === '' || val === '-') {
+                setBonusDelta(val === '-' ? '' : '');
+                return;
+              }
+              const n = parseInt(val);
+              if (!isNaN(n)) setBonusDelta(n);
+            }}
+            size="small"
+            fullWidth
+            helperText="Positief om bij te schrijven, negatief om af te trekken."
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBonusTarget(null)} disabled={adjustingBonus}>Annuleren</Button>
+          <Button
+            variant="contained"
+            onClick={handleAdjustBonus}
+            disabled={adjustingBonus || bonusDelta === '' || bonusDelta === 0}
+          >
+            {adjustingBonus ? <CircularProgress size={18} /> : 'Toepassen'}
           </Button>
         </DialogActions>
       </Dialog>
