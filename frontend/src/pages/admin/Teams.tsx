@@ -1,12 +1,12 @@
 import { Box, Typography, Button, Card, CardContent, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, CircularProgress, Tooltip } from '@mui/material';
-import { Upload as ImportIcon, Add as AddIcon, CheckCircle as SuccessIcon, Error as ErrorIcon } from '@mui/icons-material';
+import { Upload as ImportIcon, Link as LinkIcon, Add as AddIcon, CheckCircle as SuccessIcon, Error as ErrorIcon } from '@mui/icons-material';
 import { useEffect, useState } from 'react';
 import { useGameStore } from '../../store/useGameStore';
 import { teamService } from '../../services/teamService';
 import { gameService } from '../../services/gameService';
 import { websocket } from '../../services/websocket';
 import TeamDetailDialog from '../../components/TeamDetailDialog';
-import type { AdminTeam, Game, TeamImportResult } from '../../types/entities';
+import type { AdminTeam, Game, TeamImportResult, ParticipantLinkResult } from '../../types/entities';
 
 /**
  * Check if check-in has started based on checkInStartTime
@@ -27,6 +27,11 @@ export default function Teams() {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<TeamImportResult | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+
+  // Participant linking state
+  const [linking, setLinking] = useState(false);
+  const [linkResult, setLinkResult] = useState<ParticipantLinkResult | null>(null);
+  const [linkError, setLinkError] = useState<string | null>(null);
 
   // Load game and teams when game changes
   useEffect(() => {
@@ -116,6 +121,25 @@ export default function Teams() {
     }
   };
 
+  const handleLinkParticipants = async () => {
+    if (!selectedGameId) return;
+
+    setLinking(true);
+    setLinkResult(null);
+    setLinkError(null);
+
+    try {
+      const result = await gameService.linkParticipants(selectedGameId);
+      setLinkResult(result);
+      // Refresh teams list to reflect newly linked participants
+      teamService.getTeamsByGame(selectedGameId).then(setTeams);
+    } catch (err) {
+      setLinkError(err instanceof Error ? err.message : 'Koppelen mislukt');
+    } finally {
+      setLinking(false);
+    }
+  };
+
   const checkInStarted = hasCheckInStarted(game);
   const canImport = game?.externalEventId && !checkInStarted;
 
@@ -150,21 +174,46 @@ export default function Teams() {
             </Box>
           )}
           {importError && (
-            <Chip 
-              label={importError} 
-              color="error" 
-              size="small" 
+            <Chip
+              label={importError}
+              color="error"
+              size="small"
+              icon={<ErrorIcon />}
+            />
+          )}
+          {linkResult && (
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Chip
+                label={`${linkResult.linked} gekoppeld`}
+                color="success"
+                size="small"
+                icon={<SuccessIcon />}
+              />
+              {linkResult.unmatched > 0 && (
+                <Chip
+                  label={`${linkResult.unmatched} zonder team`}
+                  color="warning"
+                  size="small"
+                />
+              )}
+            </Box>
+          )}
+          {linkError && (
+            <Chip
+              label={linkError}
+              color="error"
+              size="small"
               icon={<ErrorIcon />}
             />
           )}
           {game?.externalEventId && (
-            <Tooltip 
+            <Tooltip
               title={checkInStarted ? "Teams importeren is niet mogelijk nadat de check-in is gestart" : ""}
               arrow
             >
               <span>
-                <Button 
-                  variant="outlined" 
+                <Button
+                  variant="outlined"
                   startIcon={importing ? <CircularProgress size={20} /> : <ImportIcon />}
                   onClick={handleImportTeams}
                   disabled={!canImport || importing}
@@ -173,6 +222,16 @@ export default function Teams() {
                 </Button>
               </span>
             </Tooltip>
+          )}
+          {game?.locationEndpointUrl && (
+            <Button
+              variant="outlined"
+              startIcon={linking ? <CircularProgress size={20} /> : <LinkIcon />}
+              onClick={handleLinkParticipants}
+              disabled={linking}
+            >
+              {linking ? 'Koppelen...' : 'Koppel deelnemers'}
+            </Button>
           )}
           <Button variant="contained" startIcon={<AddIcon />} onClick={handleNewTeam}>
             New Team

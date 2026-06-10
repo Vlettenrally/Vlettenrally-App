@@ -45,7 +45,7 @@ import java.util.stream.Collectors;
  * via {@link PollingLeader} (Valkey-backed lease).
  * <p>
  * Teams are matched to participants by Team.externalParticipantId, which is
- * populated during admin-triggered sync-event-details by joining bib == name.
+ * populated during admin-triggered link-participants by joining bib == name.
  * Participant ids without a matching team are silently skipped.
  * <p>
  * NOTE: status_id, tracker_id, battery_percentage and is_sos_report from the
@@ -113,7 +113,7 @@ public class LocationPollingScheduler {
             .collect(Collectors.toMap(Team::getExternalParticipantId, t -> t, (a, b) -> a));
 
         if (teamsByParticipantId.isEmpty()) {
-            Log.debugf("Game %s has no teams with externalParticipantId — run sync-event-details first", game.getId());
+            Log.debugf("Game %s has no teams with externalParticipantId — run link-participants first", game.getId());
             return;
         }
 

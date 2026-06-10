@@ -145,32 +145,24 @@ const Zones = () => {
     setError(null);
     setSuccess(null);
     try {
-      const response = await api.syncEventDetails(selectedGameId);
+      const response = await api.importCheckpoints(selectedGameId);
       if (response.error) {
         setError(response.error);
       } else if (response.data) {
-        const {
-          checkpointsCreated,
-          checkpointsUpdated,
-          checkpointErrors,
-          participantsLinked,
-          participantsUnmatched,
-        } = response.data;
+        const { created, updated, errors } = response.data;
         const parts: string[] = [];
-        if (checkpointsCreated > 0) parts.push(`${checkpointsCreated} zone(s) aangemaakt`);
-        if (checkpointsUpdated > 0) parts.push(`${checkpointsUpdated} zone(s) bijgewerkt`);
-        if (checkpointErrors > 0) parts.push(`${checkpointErrors} fouten`);
-        if (participantsLinked > 0) parts.push(`${participantsLinked} team(s) gekoppeld aan bib`);
-        if (participantsUnmatched > 0) parts.push(`${participantsUnmatched} bib(s) zonder team`);
+        if (created > 0) parts.push(`${created} zone(s) aangemaakt`);
+        if (updated > 0) parts.push(`${updated} zone(s) bijgewerkt`);
+        if (errors > 0) parts.push(`${errors} fouten`);
         setSuccess(
           parts.length > 0
-            ? `Sync voltooid: ${parts.join(', ')}`
-            : 'Sync voltooid: geen wijzigingen'
+            ? `Import voltooid: ${parts.join(', ')}`
+            : 'Import voltooid: geen wijzigingen'
         );
         await fetchCheckpoints();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Sync mislukt');
+      setError(err instanceof Error ? err.message : 'Import mislukt');
     } finally {
       setImporting(false);
     }
@@ -207,7 +199,7 @@ const Zones = () => {
               onClick={handleImport}
               disabled={importing}
             >
-              Event synchroniseren met tracker
+              Zones importeren uit tracker
             </Button>
           )}
           <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
