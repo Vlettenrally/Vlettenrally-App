@@ -23,7 +23,7 @@ public class Team {
     private String name;
     private String description;
     private String externalId;  // External ID from pre-registration system (ticket_booking_id)
-    private Integer externalParticipantId; // Legendstracking event_participants_id, matched on bib == name during sync-event-details
+    private Integer externalParticipantId; // Legendstracking event_participants_id, matched on bib == name during link-participants
     private List<String> participants;
     // Deprecated: kept for FCM/legacy paths. Coordination uses mainDeviceId + DeviceRegistration rows.
     private UUID deviceId;

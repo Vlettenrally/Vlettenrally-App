@@ -16,14 +16,11 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 import nl.vlettenrally.client.LocationApiClient;
 import nl.vlettenrally.client.dto.TestConnectionResult;
-import nl.vlettenrally.client.dto.legendstracking.EventCheckpoint;
-import nl.vlettenrally.client.dto.legendstracking.EventDetailsBody;
-import nl.vlettenrally.client.dto.legendstracking.EventDetailsResponse;
-import nl.vlettenrally.client.dto.legendstracking.EventParticipant;
 import nl.vlettenrally.client.exception.LocationApiException;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
 import nl.vlettenrally.data.dto.auth.GameCheckInLinkResponse;
-import nl.vlettenrally.data.dto.game.EventSyncResponse;
+import nl.vlettenrally.data.dto.game.CheckpointImportResponse;
+import nl.vlettenrally.data.dto.game.ParticipantLinkResponse;
 import nl.vlettenrally.data.dto.game.CheckpointRequest;
 import nl.vlettenrally.data.dto.game.CheckpointResponse;
 import nl.vlettenrally.data.dto.game.GameRequest;
@@ -41,20 +38,19 @@ import nl.vlettenrally.service.AchievementService;
 import nl.vlettenrally.service.GameService;
 import nl.vlettenrally.service.RankingService;
 import nl.vlettenrally.service.CheckpointService;
+import nl.vlettenrally.service.EventDetailsService;
 import nl.vlettenrally.service.ImportResult;
+import nl.vlettenrally.service.ParticipantLinkResult;
 import nl.vlettenrally.service.AuthService;
 import nl.vlettenrally.service.TeamService;
 import nl.vlettenrally.service.TeamImportService;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import org.locationtech.jts.geom.Coordinate;
-import org.locationtech.jts.geom.GeometryFactory;
-import org.locationtech.jts.geom.PrecisionModel;
 import org.locationtech.jts.geom.Polygon;
 
 /**
@@ -73,15 +69,14 @@ import org.locationtech.jts.geom.Polygon;
  * - POST /api/v1/games/{gameId}/checkpoints - Create a checkpoint
  * - PUT /api/v1/games/{gameId}/checkpoints/{checkpointId} - Update a checkpoint
  * - DELETE /api/v1/games/{gameId}/checkpoints/{checkpointId} - Delete a checkpoint
- * - POST /api/v1/games/{gameId}/import-checkpoints - Import checkpoints from location tracker
+ * - POST /api/v1/games/{gameId}/import-checkpoints - Import checkpoints (zones) from location tracker
+ * - POST /api/v1/games/{gameId}/link-participants - Link teams to tracker participants
  */
 @Path("/api/v1/games")
 @RolesAllowed({"admin", "team"})
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class GameResource {
-
-    private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory(new PrecisionModel(), 4326);
 
     @Inject
     GameService gameService;
@@ -97,6 +92,9 @@ public class GameResource {
 
     @Inject
     TeamImportService teamImportService;
+
+    @Inject
+    EventDetailsService eventDetailsService;
 
     @Inject
     LocationApiClient locationApiClient;
@@ -417,33 +415,7 @@ public class GameResource {
                 .build();
         }
 
-        Checkpoint checkpoint;
-        if ("polygon".equals(request.zoneType()) && request.polygonPoints() != null && request.polygonPoints().size() >= 3) {
-            PolygonCheckpoint poly = new PolygonCheckpoint();
-            poly.setZonePolygon(toPolygon(request.polygonPoints()));
-            checkpoint = poly;
-        } else {
-            CircleCheckpoint circle = new CircleCheckpoint();
-            if (request.radiusMeters() != null) {
-                circle.setRadiusMeters(request.radiusMeters());
-            }
-            checkpoint = circle;
-        }
-        checkpoint.setGameId(gameId);
-        checkpoint.setName(request.name());
-        checkpoint.setPoints(request.points());
-        checkpoint.setLatitude(request.latitude());
-        checkpoint.setLongitude(request.longitude());
-
-        if (request.openingTime() != null) {
-            checkpoint.setOpeningTime(Instant.parse(request.openingTime()));
-        }
-
-        if (request.closingTime() != null) {
-            checkpoint.setClosingTime(Instant.parse(request.closingTime()));
-        }
-
-        Checkpoint saved = checkpointService.save(checkpoint);
+        Checkpoint saved = checkpointService.create(gameId, request);
         return Response.status(Response.Status.CREATED).entity(toCheckpointDto(saved)).build();
     }
 
@@ -458,57 +430,11 @@ public class GameResource {
             @PathParam("checkpointId") UUID checkpointId,
             CheckpointRequest request) {
 
-        Checkpoint existing = checkpointService.findById(checkpointId).orElse(null);
-        if (existing == null) {
-            return Response.status(Response.Status.NOT_FOUND)
+        return checkpointService.update(checkpointId, request)
+            .map(saved -> Response.ok(toCheckpointDto(saved)).build())
+            .orElse(Response.status(Response.Status.NOT_FOUND)
                 .entity(new ErrorResponse("Checkpoint not found"))
-                .build();
-        }
-
-        // Determine if the zone type is changing
-        boolean switchingToPolygon = "polygon".equals(request.zoneType())
-            && request.polygonPoints() != null && request.polygonPoints().size() >= 3;
-        boolean switchingToCircle = "circle".equals(request.zoneType()) || request.zoneType() == null;
-
-        Checkpoint checkpoint;
-        if (switchingToPolygon && !(existing instanceof PolygonCheckpoint)) {
-            // Type changed from circle → polygon: create a new PolygonCheckpoint preserving common fields
-            PolygonCheckpoint poly = new PolygonCheckpoint();
-            copyCommonFields(existing, poly);
-            poly.setZonePolygon(toPolygon(request.polygonPoints()));
-            checkpoint = poly;
-        } else if (switchingToCircle && !(existing instanceof CircleCheckpoint)) {
-            // Type changed from polygon → circle: create a new CircleCheckpoint preserving common fields
-            CircleCheckpoint circle = new CircleCheckpoint();
-            copyCommonFields(existing, circle);
-            if (request.radiusMeters() != null) {
-                circle.setRadiusMeters(request.radiusMeters());
-            }
-            checkpoint = circle;
-        } else {
-            // Same type — update in place
-            checkpoint = existing;
-            if (checkpoint instanceof PolygonCheckpoint poly && request.polygonPoints() != null && request.polygonPoints().size() >= 3) {
-                poly.setZonePolygon(toPolygon(request.polygonPoints()));
-            } else if (checkpoint instanceof CircleCheckpoint circle && request.radiusMeters() != null) {
-                circle.setRadiusMeters(request.radiusMeters());
-            }
-        }
-
-        if (request.name() != null) checkpoint.setName(request.name());
-        checkpoint.setPoints(request.points());
-        checkpoint.setLatitude(request.latitude());
-        checkpoint.setLongitude(request.longitude());
-        if (request.openingTime() != null) {
-            checkpoint.setOpeningTime(Instant.parse(request.openingTime()));
-        }
-        if (request.closingTime() != null) {
-            checkpoint.setClosingTime(Instant.parse(request.closingTime()));
-        }
-        checkpoint.setUpdatedAt(Instant.now());
-
-        Checkpoint saved = checkpointService.save(checkpoint);
-        return Response.ok(toCheckpointDto(saved)).build();
+                .build());
     }
 
     /**
@@ -533,15 +459,13 @@ public class GameResource {
     }
 
     /**
-     * Sync master data from the Legendstracking /details endpoint.
-     * Upserts checkpoints by externalId ↔ EventCheckpoint.id, and links each
-     * team's externalParticipantId by matching the participant bib to team.name
-     * (case-insensitive trimmed; falls back to bib_label).
+     * Import checkpoints (zones) from the Legendstracking /details endpoint.
+     * Upserts checkpoints by externalId ↔ EventCheckpoint.id.
      */
     @POST
-    @Path("/{gameId}/sync-event-details")
+    @Path("/{gameId}/import-checkpoints")
     @RolesAllowed("admin")
-    public Response syncEventDetails(@PathParam("gameId") UUID gameId) {
+    public Response importCheckpoints(@PathParam("gameId") UUID gameId) {
         return gameService.findById(gameId)
             .map(game -> {
                 if (game.getLocationEndpointUrl() == null || game.getLocationEndpointUrl().isBlank()) {
@@ -551,99 +475,12 @@ public class GameResource {
                 }
 
                 try {
-                    EventDetailsResponse details = locationApiClient.fetchDetails(game.getLocationEndpointUrl());
-                    EventDetailsBody body = details != null ? details.getEvent() : null;
-                    if (body == null) {
-                        return Response.status(Response.Status.BAD_GATEWAY)
-                            .entity(new ErrorResponse("Malformed /details response: missing 'event'"))
-                            .build();
-                    }
-
-                    int checkpointsCreated = 0;
-                    int checkpointsUpdated = 0;
-                    int checkpointErrors = 0;
-
-                    List<EventCheckpoint> checkpoints = body.getEventCheckpoints();
-                    if (checkpoints != null) {
-                        for (EventCheckpoint detail : checkpoints) {
-                            try {
-                                String externalId = String.valueOf(detail.getId());
-                                Optional<Checkpoint> existing = checkpointService.findByGameIdAndExternalId(gameId, externalId);
-
-                                if (existing.isPresent()) {
-                                    Checkpoint cp = existing.get();
-                                    boolean changed = false;
-
-                                    if (detail.getLocation() != null) {
-                                        Double newLat = detail.getLocation().getLatitude();
-                                        Double newLng = detail.getLocation().getLongitude();
-                                        if (!java.util.Objects.equals(cp.getLatitude(), newLat)
-                                                || !java.util.Objects.equals(cp.getLongitude(), newLng)) {
-                                            cp.setLatitude(newLat);
-                                            cp.setLongitude(newLng);
-                                            changed = true;
-                                        }
-                                    }
-
-                                    if (detail.getName() != null && !detail.getName().equals(cp.getName())) {
-                                        cp.setName(detail.getName());
-                                        changed = true;
-                                    }
-
-                                    if (changed) {
-                                        cp.setUpdatedAt(Instant.now());
-                                        checkpointService.save(cp);
-                                        checkpointsUpdated++;
-                                    }
-                                } else {
-                                    CircleCheckpoint cp = new CircleCheckpoint();
-                                    cp.setGameId(gameId);
-                                    cp.setExternalId(externalId);
-                                    cp.setName(detail.getName() != null ? detail.getName() : "Zone " + externalId);
-                                    cp.setPoints(0);
-                                    if (detail.getLocation() != null) {
-                                        cp.setLatitude(detail.getLocation().getLatitude());
-                                        cp.setLongitude(detail.getLocation().getLongitude());
-                                    }
-                                    checkpointService.save(cp);
-                                    checkpointsCreated++;
-                                }
-                            } catch (Exception e) {
-                                checkpointErrors++;
-                            }
-                        }
-                    }
-
-                    int participantsLinked = 0;
-                    int participantsUnmatched = 0;
-                    List<EventParticipant> participants = body.getEventParticipants();
-                    if (participants != null && !participants.isEmpty()) {
-                        List<Team> teams = teamService.findByGameId(gameId);
-                        java.util.Map<String, Team> teamsByName = new java.util.HashMap<>();
-                        for (Team t : teams) {
-                            if (t.getName() != null && !t.getName().isBlank()) {
-                                teamsByName.put(t.getName().toLowerCase().trim(), t);
-                            }
-                        }
-
-                        for (EventParticipant p : participants) {
-                            Team match = lookupTeamForParticipant(teamsByName, p);
-                            if (match == null) {
-                                participantsUnmatched++;
-                                continue;
-                            }
-                            if (!Integer.valueOf(p.getEventParticipantsId()).equals(match.getExternalParticipantId())) {
-                                match.setExternalParticipantId(p.getEventParticipantsId());
-                                match.setUpdatedAt(Instant.now());
-                                teamService.save(match);
-                            }
-                            participantsLinked++;
-                        }
-                    }
-
-                    return Response.ok(new EventSyncResponse(
-                        checkpointsCreated, checkpointsUpdated, checkpointErrors,
-                        participantsLinked, participantsUnmatched)).build();
+                    ImportResult result = eventDetailsService.importCheckpoints(gameId, game.getLocationEndpointUrl());
+                    return Response.ok(new CheckpointImportResponse(
+                        result.created(),
+                        result.updated(),
+                        result.errors()
+                    )).build();
                 } catch (LocationApiException e) {
                     return Response.status(Response.Status.BAD_GATEWAY)
                         .entity(new ErrorResponse("Failed to fetch from location tracker: " + e.getMessage()))
@@ -653,16 +490,36 @@ public class GameResource {
             .orElse(gameNotFoundResponse());
     }
 
-    private static Team lookupTeamForParticipant(java.util.Map<String, Team> teamsByName, EventParticipant p) {
-        if (p.getBib() != null) {
-            Team t = teamsByName.get(String.valueOf(p.getBib()).toLowerCase().trim());
-            if (t != null) return t;
-        }
-        if (p.getBibLabel() != null && !p.getBibLabel().isBlank()) {
-            Team t = teamsByName.get(p.getBibLabel().toLowerCase().trim());
-	        return t;
-        }
-        return null;
+    /**
+     * Link teams to tracker participants from the Legendstracking /details endpoint.
+     * Sets each team's externalParticipantId by matching the participant bib to
+     * team.name (case-insensitive trimmed; falls back to bib_label).
+     */
+    @POST
+    @Path("/{gameId}/link-participants")
+    @RolesAllowed("admin")
+    public Response linkParticipants(@PathParam("gameId") UUID gameId) {
+        return gameService.findById(gameId)
+            .map(game -> {
+                if (game.getLocationEndpointUrl() == null || game.getLocationEndpointUrl().isBlank()) {
+                    return Response.status(Response.Status.BAD_REQUEST)
+                        .entity(new ErrorResponse("Game has no location endpoint configured"))
+                        .build();
+                }
+
+                try {
+                    ParticipantLinkResult result = eventDetailsService.linkParticipants(gameId, game.getLocationEndpointUrl());
+                    return Response.ok(new ParticipantLinkResponse(
+                        result.linked(),
+                        result.unmatched()
+                    )).build();
+                } catch (LocationApiException e) {
+                    return Response.status(Response.Status.BAD_GATEWAY)
+                        .entity(new ErrorResponse("Failed to fetch from location tracker: " + e.getMessage()))
+                        .build();
+                }
+            })
+            .orElse(gameNotFoundResponse());
     }
 
     private GameResponse toDto(Game game) {
@@ -716,38 +573,6 @@ public class GameResource {
         return Response.status(Response.Status.NOT_FOUND)
             .entity(new ErrorResponse("Game not found"))
             .build();
-    }
-
-    /**
-     * Copy common Checkpoint fields from one instance to another (used when zone type changes).
-     */
-    private void copyCommonFields(Checkpoint source, Checkpoint target) {
-        target.setId(source.getId());
-        target.setGameId(source.getGameId());
-        target.setName(source.getName());
-        target.setOpeningTime(source.getOpeningTime());
-        target.setClosingTime(source.getClosingTime());
-        target.setPoints(source.getPoints());
-        target.setLatitude(source.getLatitude());
-        target.setLongitude(source.getLongitude());
-        target.setLocation(source.getLocation());
-        target.setExternalId(source.getExternalId());
-        target.setCreatedAt(source.getCreatedAt());
-        target.setUpdatedAt(source.getUpdatedAt());
-    }
-
-    /**
-     * Convert a list of [lat, lng] pairs to a JTS Polygon.
-     */
-    private Polygon toPolygon(List<List<Double>> points) {
-        // Build coordinate array: close the ring by repeating the first point
-        Coordinate[] coords = new Coordinate[points.size() + 1];
-        for (int i = 0; i < points.size(); i++) {
-            List<Double> p = points.get(i);
-            coords[i] = new Coordinate(p.get(1), p.get(0)); // JTS uses (x=lng, y=lat)
-        }
-        coords[points.size()] = coords[0]; // close the ring
-        return GEOMETRY_FACTORY.createPolygon(coords);
     }
 
     /**
