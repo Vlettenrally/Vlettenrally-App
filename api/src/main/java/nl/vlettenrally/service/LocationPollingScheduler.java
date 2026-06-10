@@ -40,14 +40,14 @@ import java.util.stream.Collectors;
 /**
  * Polls Legendstracking endpoints for every active game with a base URL configured
  * and broadcasts location updates plus auto-verified checkpoint passes.
- *
+ * <p>
  * Runs at the configured interval on a single instance at a time — leader election
  * via {@link PollingLeader} (Valkey-backed lease).
- *
+ * <p>
  * Teams are matched to participants by Team.externalParticipantId, which is
  * populated during admin-triggered sync-event-details by joining bib == name.
  * Participant ids without a matching team are silently skipped.
- *
+ * <p>
  * NOTE: status_id, tracker_id, battery_percentage and is_sos_report from the
  * locations endpoint are not persisted yet — see plan "Out of scope" section.
  */

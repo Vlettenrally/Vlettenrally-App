@@ -86,7 +86,7 @@ export default function CheckpointStation() {
   const [snackbar, setSnackbar] = useState<{ message: string; severity: 'success' | 'error' | 'info' } | null>(null);
 
   const lastEventAt = useRef<number>(0);
-  
+
   const [prevGameId, setPrevGameId] = useState(selectedGameId);
   if (prevGameId !== selectedGameId) {
     setPrevGameId(selectedGameId);
@@ -541,7 +541,7 @@ export default function CheckpointStation() {
                 if (!isNaN(n) && n >= 0) setBonusPoints(n);
               }
             }}
-            inputProps={{ min: 0 }}
+            slotProps={{ htmlInput: { min: 0 }}}
             size="small"
             fullWidth
             helperText={

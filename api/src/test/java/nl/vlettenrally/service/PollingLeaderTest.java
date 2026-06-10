@@ -25,7 +25,7 @@ import static org.mockito.Mockito.when;
 
 /**
  * Behavioural tests for the Valkey-backed leader lease.
- *
+ * <p>
  * Acquire path: SET key ownerId NX EX 90 — true means we won the election.
  * Renew path: when NX fails but the key holds OUR id, refresh with XX EX.
  * Skip path: another instance holds the lock — we stand down.

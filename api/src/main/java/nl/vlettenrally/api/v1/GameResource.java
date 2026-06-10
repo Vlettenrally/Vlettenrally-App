@@ -217,7 +217,7 @@ public class GameResource {
 
     /**
      * Get team rankings for a game.
-     *
+     * <p>
      * The full ranking exposes every team's score, so non-admin (team) callers
      * may only read it once the game has COMPLETED. Admins can always read it
      * (needed for points management during the game).
@@ -260,7 +260,7 @@ public class GameResource {
         game.setEndTime(request.endTime());
         game.setCheckInStartTime(request.checkInStartTime());
         game.setStartSignalTime(request.startSignalTime());
-        
+
         if (request.status() != null) {
             try {
                 game.setStatus(Game.GameStatus.valueOf(request.status().toUpperCase()));
@@ -270,7 +270,7 @@ public class GameResource {
                     .build();
             }
         }
-        
+
         game.setExternalEventId(request.externalEventId());
         game.setExternalEventName(request.externalEventName());
         game.setLocationEndpointUrl(request.locationEndpointUrl());
@@ -297,7 +297,7 @@ public class GameResource {
                 if (request.endTime() != null) game.setEndTime(request.endTime());
                 if (request.checkInStartTime() != null) game.setCheckInStartTime(request.checkInStartTime());
                 if (request.startSignalTime() != null) game.setStartSignalTime(request.startSignalTime());
-                
+
                 if (request.status() != null) {
                     try {
                         game.setStatus(Game.GameStatus.valueOf(request.status().toUpperCase()));
@@ -305,7 +305,7 @@ public class GameResource {
                         // Ignore invalid status in update
                     }
                 }
-                
+
                 if (request.externalEventId() != null) game.setExternalEventId(request.externalEventId());
                 if (request.externalEventName() != null) game.setExternalEventName(request.externalEventName());
                 if (request.locationEndpointUrl() != null) game.setLocationEndpointUrl(request.locationEndpointUrl());
@@ -380,7 +380,7 @@ public class GameResource {
                 }
 
                 try {
-                    TestConnectionResult result = 
+                    TestConnectionResult result =
                         locationApiClient.testConnection(game.getLocationEndpointUrl());
                     return Response.ok(new LocationTestResponse(
                         result.isSuccess(),
@@ -660,7 +660,7 @@ public class GameResource {
         }
         if (p.getBibLabel() != null && !p.getBibLabel().isBlank()) {
             Team t = teamsByName.get(p.getBibLabel().toLowerCase().trim());
-            if (t != null) return t;
+	        return t;
         }
         return null;
     }

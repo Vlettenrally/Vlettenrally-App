@@ -27,13 +27,14 @@ import java.util.UUID;
 
 /**
  * REST Resource for Achievement operations.
- * 
+ * <p>
  * Achievement Flow:
- * 1. System detects team proximity to checkpoint → POST /api/v1/achievements/detect (internal/system)
+ * 1. Location polling auto-creates VERIFIED achievements via AchievementService.recordVerifiedPass();
+ *    POST /api/v1/achievements/detect is the manual fallback used from the checkpoint station UI.
  * 2. Game master sees pending achievements → GET /api/v1/checkpoints/{id}/achievements/pending
  * 3. Game master verifies → POST /api/v1/achievements/{id}/verify
  * 4. Game master rejects → POST /api/v1/achievements/{id}/reject
- * 
+ * <p>
  * Teams can only view their own achievements (read-only).
  */
 @Path("/api/v1")
@@ -173,21 +174,17 @@ public class AchievementResource {
                 .build());
     }
 
-    // ==================== System/Internal Endpoints ====================
+    // ==================== Checkpoint Station Endpoints ====================
 
     /**
-     * System endpoint: Detect team proximity to checkpoint.
-     * Called by the location tracking system when a team is detected near a checkpoint.
-     * Creates a PENDING achievement and should trigger notification to game masters.
-     * 
-     * NOTE: This should be secured for internal system use only.
+     * Create a PENDING achievement for a team at a checkpoint.
+     * Used from the checkpoint station UI when a team did not auto-detect via location
+     * polling, so verify/reject can proceed. Notifies game masters.
      */
     @POST
-    @RolesAllowed("admin")
+    @RolesAllowed({"admin", "checkpoint_manager"})
     @Path("/achievements/detect")
     public Response detectProximity(ProximityDetectionRequest request) {
-        // TODO: Add internal API key or system authentication
-        
         if (request.teamId() == null || request.checkpointId() == null) {
             return Response.status(Response.Status.BAD_REQUEST)
                 .entity(new ErrorResponse("teamId and checkpointId are required"))

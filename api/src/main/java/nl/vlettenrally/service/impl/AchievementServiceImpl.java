@@ -37,7 +37,7 @@ import java.util.UUID;
 
 /**
  * Implementation of AchievementService.
- *
+ * <p>
  * Handles the achievement verification workflow:
  * 1. detectProximity() - System creates PENDING achievement when team is near checkpoint
  * 2. verifyAchievement() - Game master confirms, points awarded

@@ -14,12 +14,12 @@ import java.util.UUID;
 
 /**
  * Renewable Valkey-backed lease that elects a single API instance to run polling work.
- *
+ * <p>
  * Each replica generates a random owner id at startup. {@link #tryAcquireOrRenew()}
  * is called once per scheduler tick: a successful return means this instance is the
  * leader for the next {@code TTL} seconds and should perform the work. If the leader
  * crashes the lock expires within {@code TTL} seconds and another instance takes over.
- *
+ * <p>
  * TTL is set to 3× the polling interval (90s for the default 30s cadence) so a single
  * missed tick does not trigger failover.
  */
