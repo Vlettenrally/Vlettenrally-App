@@ -25,6 +25,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import nl.vlettenrally.data.domain.AutomationRule;
+import nl.vlettenrally.data.domain.AdminNotification;
 import nl.vlettenrally.data.domain.MessageTemplate;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.domain.automation.AutomationAction;
@@ -47,6 +48,7 @@ class AutomationActionExecutorTest {
     @Mock PointsLedgerService pointsLedgerService;
     @Mock WebSocketPublisher webSocketPublisher;
     @Mock MessageTemplateService messageTemplateService;
+    @Mock AdminInboxService adminInboxService;
 
     @InjectMocks AutomationActionExecutor executor;
 
@@ -70,6 +72,7 @@ class AutomationActionExecutorTest {
         team.setId(UUID.randomUUID());
         team.setGameId(gameId);
         team.setName("De Watervlooien");
+
     }
 
     private static AutomationAction message(String content, MessageType type, String icon) {
@@ -157,6 +160,11 @@ class AutomationActionExecutorTest {
     @Test
     void notifyAdmins_resolvesTeamAndRival() {
         rule.setActions(List.of(notify("{team} ging {rival} voorbij")));
+        AdminNotification notification = new AdminNotification();
+        notification.setId(UUID.randomUUID());
+        notification.setGameId(gameId);
+        when(adminInboxService.createNotification(any(), any(), anyString(), anyString(), anyString()))
+            .thenReturn(notification);
 
         AutomationActionExecutor.Result result = executor.execute(
             rule, List.of(team), new AutomationActionExecutor.ActionContext(null, "Windkracht Tien"));
@@ -167,6 +175,8 @@ class AutomationActionExecutorTest {
         verify(webSocketPublisher).sendToAdmins(eq(gameId), eq("AUTOMATION_NOTIFICATION"), captor.capture());
         assertEquals("De Watervlooien ging Windkracht Tien voorbij", captor.getValue().get("text"));
         assertEquals("Testregel", captor.getValue().get("ruleName"));
+        verify(adminInboxService).createNotification(eq(gameId), eq(team.getId()), eq("AUTOMATION_NOTIFICATION"),
+            eq("De Watervlooien ging Windkracht Tien voorbij"), anyString());
     }
 
     @Test

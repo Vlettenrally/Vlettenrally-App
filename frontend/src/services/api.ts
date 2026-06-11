@@ -22,6 +22,7 @@ import type {
   PublicTeam,
   AdminMessage,
   AdminMessageListResponse,
+  AdminInboxNotificationListResponse,
   MessageTemplate,
   SendAdminMessageRequest,
   MessageTemplateRequest,
@@ -677,6 +678,22 @@ async getGames() : Promise<ApiResponse<Game[]>> {
 
   async retryAllFailedDeliveries(gameId: string): Promise<ApiResponse<RetryMessageResponse>> {
     return this.post(`/messages/admin/games/${gameId}/retry-all-failed`);
+  }
+
+  async getAdminInboxByGame(
+    gameId: string,
+    page: number = 0,
+    pageSize: number = 20
+  ): Promise<ApiResponse<AdminInboxNotificationListResponse>> {
+    return this.get(`/messages/admin/inbox/games/${gameId}?page=${page}&pageSize=${pageSize}`);
+  }
+
+  async markAdminInboxNotificationAsRead(notificationId: string): Promise<ApiResponse<{ success: boolean }>> {
+    return this.put(`/messages/admin/inbox/${notificationId}/read`, {});
+  }
+
+  async markAllAdminInboxNotificationsAsRead(gameId: string): Promise<ApiResponse<{ success: boolean }>> {
+    return this.put(`/messages/admin/inbox/games/${gameId}/read-all`, {});
   }
 
   // Message Template endpoints

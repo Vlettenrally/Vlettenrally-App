@@ -300,6 +300,34 @@ export interface RetryMessageResponse {
 }
 
 /**
+ * Incoming notification for the admin inbox.
+ */
+export interface AdminInboxNotification {
+  id: string;
+  gameId: string;
+  teamId?: string;
+  teamName?: string;
+  source: string;
+  content: string;
+  metadataJson?: string;
+  createdAt: string;
+  read: boolean;
+  readAt?: string;
+  readByAdminId?: string;
+}
+
+/**
+ * Paginated response for admin inbox notifications.
+ */
+export interface AdminInboxNotificationListResponse {
+  notifications: AdminInboxNotification[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+}
+
+/**
  * Admin role enum
  */
 export const AdminRole = {

@@ -17,11 +17,15 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 import nl.vlettenrally.api.security.TeamScoped;
+import nl.vlettenrally.data.domain.AdminNotification;
 import nl.vlettenrally.data.domain.Message;
 import nl.vlettenrally.data.domain.MessageTemplate;
+import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.dto.common.SuccessResponse;
 import nl.vlettenrally.data.dto.message.*;
 import nl.vlettenrally.data.enums.MessageType;
+import nl.vlettenrally.data.repository.TeamRepository;
+import nl.vlettenrally.service.AdminInboxService;
 import nl.vlettenrally.service.MessageService;
 import nl.vlettenrally.service.MessageTemplateService;
 
@@ -60,6 +64,12 @@ public class MessageResource {
 
     @Inject
     MessageTemplateService messageTemplateService;
+
+    @Inject
+    AdminInboxService adminInboxService;
+
+    @Inject
+    TeamRepository teamRepository;
 
 
     /**
@@ -352,6 +362,48 @@ public class MessageResource {
         return Response.ok(new SuccessResponse(true)).build();
     }
 
+    // ==================== Admin Inbox Endpoints ====================
+
+    @GET
+    @RolesAllowed("admin")
+    @Path("/admin/inbox/games/{gameId}")
+    public Response getAdminInboxByGame(
+        @PathParam("gameId") UUID gameId,
+        @QueryParam("page") @DefaultValue("0") int page,
+        @QueryParam("pageSize") @DefaultValue("20") int pageSize
+    ) {
+        if (page < 0) page = 0;
+        if (pageSize < 1 || pageSize > 200) pageSize = 20;
+
+        List<AdminNotification> notifications = adminInboxService.findByGame(gameId, page, pageSize);
+        long totalCount = adminInboxService.countByGame(gameId);
+        int totalPages = (int) Math.ceil((double) totalCount / pageSize);
+        List<AdminInboxNotificationResponse> dtos = notifications.stream().map(this::toInboxDto).toList();
+        return Response.ok(new AdminInboxNotificationListResponse(dtos, page, pageSize, totalCount, totalPages)).build();
+    }
+
+    @PUT
+    @RolesAllowed("admin")
+    @Path("/admin/inbox/{notificationId}/read")
+    public Response markAdminInboxNotificationAsRead(
+        @PathParam("notificationId") UUID notificationId,
+        @Context SecurityContext securityContext
+    ) {
+        adminInboxService.markAsRead(notificationId, adminIdFromContext(securityContext));
+        return Response.ok(new SuccessResponse(true)).build();
+    }
+
+    @PUT
+    @RolesAllowed("admin")
+    @Path("/admin/inbox/games/{gameId}/read-all")
+    public Response markAllAdminInboxNotificationsAsRead(
+        @PathParam("gameId") UUID gameId,
+        @Context SecurityContext securityContext
+    ) {
+        adminInboxService.markAllAsRead(gameId, adminIdFromContext(securityContext));
+        return Response.ok(new SuccessResponse(true)).build();
+    }
+
     // ==================== Helper Methods ====================
 
 
@@ -365,5 +417,35 @@ public class MessageResource {
                 template.getCreatedAt() != null ? template.getCreatedAt().toString() : null,
                 template.getUpdatedAt() != null ? template.getUpdatedAt().toString() : null
         );
+    }
+
+    private AdminInboxNotificationResponse toInboxDto(AdminNotification notification) {
+        String teamName = notification.getTeamId() != null
+            ? teamRepository.findById(notification.getTeamId()).map(Team::getName).orElse(null)
+            : null;
+        return new AdminInboxNotificationResponse(
+            notification.getId(),
+            notification.getGameId(),
+            notification.getTeamId(),
+            teamName,
+            notification.getSource(),
+            notification.getContent(),
+            notification.getMetadataJson(),
+            notification.getCreatedAt() != null ? notification.getCreatedAt().toString() : null,
+            notification.isRead(),
+            notification.getReadAt() != null ? notification.getReadAt().toString() : null,
+            notification.getReadByAdminId()
+        );
+    }
+
+    private UUID adminIdFromContext(SecurityContext context) {
+        if (context == null || context.getUserPrincipal() == null) {
+            return null;
+        }
+        try {
+            return UUID.fromString(context.getUserPrincipal().getName());
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
     }
 }

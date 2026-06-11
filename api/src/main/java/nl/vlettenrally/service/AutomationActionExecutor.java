@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import nl.vlettenrally.data.domain.AdminNotification;
 import nl.vlettenrally.data.domain.AutomationRule;
 import nl.vlettenrally.data.domain.MessageTemplate;
 import nl.vlettenrally.data.domain.Team;
@@ -44,6 +45,9 @@ public class AutomationActionExecutor {
 
     @Inject
     MessageTemplateService messageTemplateService;
+
+    @Inject
+    AdminInboxService adminInboxService;
 
     /** Outcome of one rule firing: overall status plus per-action detail as JSON. */
     public record Result(AutomationExecutionStatus status, String detail) {}
@@ -149,15 +153,34 @@ public class AutomationActionExecutor {
         if (single != null) {
             values.put("team", single.getName());
         }
+        String text = String.valueOf(MessagePlaceholders.resolve(action.adminNotification(), values));
+        String metadataJson = toSingleObjectJson(Map.of(
+            "ruleId", rule.getId(),
+            "ruleName", rule.getName(),
+            "teamId", single != null ? single.getId().toString() : "",
+            "teamName", single != null ? single.getName() : ""
+        ));
+        AdminNotification notification = adminInboxService.createNotification(
+            rule.getGameId(),
+            single != null ? single.getId() : null,
+            WebSocketMessageType.AUTOMATION_NOTIFICATION.getValue(),
+            text,
+            metadataJson
+        );
+
         webSocketPublisher.sendToAdmins(
             rule.getGameId(),
             WebSocketMessageType.AUTOMATION_NOTIFICATION.getValue(),
             Map.of(
+                "notificationId", notification.getId(),
                 "ruleId", rule.getId(),
                 "ruleName", rule.getName(),
                 "teamId", single != null ? single.getId().toString() : "",
                 "teamName", single != null ? single.getName() : "",
-                "text", String.valueOf(MessagePlaceholders.resolve(action.adminNotification(), values))
+                "text", text,
+                "source", WebSocketMessageType.AUTOMATION_NOTIFICATION.getValue(),
+                "createdAt", notification.getCreatedAt().toString(),
+                "read", notification.isRead()
             ));
     }
 
@@ -176,6 +199,14 @@ public class AutomationActionExecutor {
             return JSON.writeValueAsString(details);
         } catch (JsonProcessingException e) {
             return "[]";
+        }
+    }
+
+    private static String toSingleObjectJson(Map<String, Object> payload) {
+        try {
+            return JSON.writeValueAsString(payload);
+        } catch (JsonProcessingException e) {
+            return "{}";
         }
     }
 }
