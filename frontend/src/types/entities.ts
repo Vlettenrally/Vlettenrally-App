@@ -157,6 +157,8 @@ export interface AdminTeam extends TeamBase {
   externalId?: string;
   checkedIn: boolean;
   checkedInDigitally: boolean;
+  traccarEnabled: boolean;
+  traccarIdentifier?: string | null;
   rivals: string[];
   notes?: string;
   emergencyPhoneNumbers?: string[];
@@ -461,6 +463,10 @@ export interface RegisterDeviceResponse {
   isMainDevice: boolean;
   detailsSubmitted: boolean;
   mainDeviceNickname: string | null;
+  // Traccar setup data — populated only for the main device of a Traccar-enabled team.
+  traccarEnabled: boolean;
+  traccarIdentifier: string | null;
+  traccarServerUrl: string | null;
 }
 
 /**

@@ -68,6 +68,12 @@ public class TeamEntity {
     @Column(name = "checked_in_digitally", nullable = false)
     private boolean checkedInDigitally = false;
 
+    @Column(name = "traccar_enabled", nullable = false)
+    private boolean traccarEnabled = false;
+
+    @Column(name = "traccar_identifier", length = 64)
+    private String traccarIdentifier;
+
     @Column(name = "total_points", nullable = false)
     private int totalPoints = 0;
 

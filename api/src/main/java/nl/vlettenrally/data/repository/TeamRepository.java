@@ -22,7 +22,9 @@ public interface TeamRepository {
     List<Team> findRivals(UUID teamId);
     
     Optional<Team> findByGameIdAndExternalId(UUID gameId, String externalId);
-    
+
+    Optional<Team> findByTraccarIdentifier(String traccarIdentifier);
+
     Team save(Team team);
     
     void delete(UUID id);

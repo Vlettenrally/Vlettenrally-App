@@ -22,6 +22,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import QRCode from 'qrcode';
 import api from '../../services/api';
 import { storage } from '../../services/storage';
 import teamService from '../../services/teamService';
@@ -46,12 +47,56 @@ type Step =
   | 'select-team'
   | 'nickname'
   | 'details'
+  | 'traccar-setup'
   | 'rivals'
   | 'wait'
   | 'permissions';
 
+interface TraccarSetup {
+  identifier: string;
+  serverUrl: string;
+}
+
 const POLL_STATE_INTERVAL_MS = 5000;
 const MAX_RIVALS = 5;
+
+// Shared Traccar Client settings, emitted in two formats below. `interval` is
+// seconds and stays above the backend's min-interval guard so fixes aren't
+// dropped as too-frequent; `highest` keeps GPS continuously on.
+const TRACCAR_SETTINGS = {
+  interval: '30',
+  distance: '0',
+  angle: '0',
+  accuracy: 'highest',
+  buffer: 'true',
+  wakelock: 'true',
+} as const;
+
+/**
+ * Deep link that opens the installed Traccar Client app pre-configured — one tap
+ * on the same phone. Here the ingestion endpoint is passed as the `url` param.
+ */
+function buildTraccarDeepLink(serverUrl: string, identifier: string): string {
+  const params = new URLSearchParams({
+    url: serverUrl,
+    id: identifier,
+    ...TRACCAR_SETTINGS,
+  });
+  return `org.traccar.client://config?${params.toString()}`;
+}
+
+/**
+ * The string the Traccar Client's QR scanner expects (for setup from a second
+ * phone): the ingestion URL as the base, with settings as query params. The app
+ * stores the base as its server url and the params as device settings.
+ */
+function buildTraccarQrConfig(serverUrl: string, identifier: string): string {
+  const params = new URLSearchParams({
+    id: identifier,
+    ...TRACCAR_SETTINGS,
+  });
+  return `${serverUrl}?${params.toString()}`;
+}
 
 export function CheckInPage() {
   const navigate = useNavigate();
@@ -72,6 +117,9 @@ export function CheckInPage() {
 
   const [nicknameInput, setNicknameInput] = useState(storedNickname);
   const [mainDeviceNickname, setMainDeviceNickname] = useState<string | null>(null);
+  // Traccar app setup data, present only for the main device of a Traccar-enabled team.
+  const [traccarSetup, setTraccarSetup] = useState<TraccarSetup | null>(null);
+  const [traccarQr, setTraccarQr] = useState<string | null>(null);
 
   const [participantsText, setParticipantsText] = useState('');
   const [emergencyPhonesText, setEmergencyPhonesText] = useState('');
@@ -209,6 +257,11 @@ export function CheckInPage() {
     // Server assigns the canonical deviceId; persist it for future visits.
     setDeviceId(response.deviceId);
     setMainDeviceNickname(response.mainDeviceNickname ?? null);
+    setTraccarSetup(
+      response.traccarEnabled && response.traccarIdentifier && response.traccarServerUrl
+        ? { identifier: response.traccarIdentifier, serverUrl: response.traccarServerUrl }
+        : null
+    );
 
     const teamResponse = await api.getMyTeam();
     if (teamResponse.data) {
@@ -227,6 +280,20 @@ export function CheckInPage() {
       setStep('wait');
     }
   }, [persistTeamData, setDeviceId]);
+
+  // Pre-render the Traccar config as a QR the app can scan to configure itself.
+  useEffect(() => {
+    if (!traccarSetup) {
+      setTraccarQr(null);
+      return;
+    }
+    let cancelled = false;
+    const configUrl = buildTraccarQrConfig(traccarSetup.serverUrl, traccarSetup.identifier);
+    QRCode.toDataURL(configUrl, { width: 256, margin: 2, errorCorrectionLevel: 'Q' })
+      .then((url) => { if (!cancelled) setTraccarQr(url); })
+      .catch(() => { if (!cancelled) setTraccarQr(null); });
+    return () => { cancelled = true; };
+  }, [traccarSetup]);
 
   const handleNicknameSubmit = async () => {
     if (!resolvedTeam || !selectedGameId) {
@@ -320,7 +387,7 @@ export function CheckInPage() {
       if (teamResponse.data) {
         persistTeamData(teamResponse.data as PlayerTeam);
       }
-      setStep('rivals');
+      setStep(traccarSetup ? 'traccar-setup' : 'rivals');
     } catch (err) {
       console.error('details submit error:', err);
       setFormError('Er is een fout opgetreden tijdens het inchecken.');
@@ -488,9 +555,11 @@ export function CheckInPage() {
                   ? 'Sta meldingen toe om updates te ontvangen tijdens de rally.'
                   : step === 'rivals'
                     ? 'Kies welke teams jullie in de gaten willen houden.'
-                    : step === 'wait'
-                      ? 'Een andere telefoon van jullie team vult op dit moment de gegevens in.'
-                      : 'Check je team in voor de rally.'}
+                    : step === 'traccar-setup'
+                      ? 'Stel de tracking-app in zodat jullie locatie zichtbaar is.'
+                      : step === 'wait'
+                        ? 'Een andere telefoon van jullie team vult op dit moment de gegevens in.'
+                        : 'Check je team in voor de rally.'}
               </Typography>
             </Box>
 
@@ -613,6 +682,121 @@ export function CheckInPage() {
                   onClick={handleDetailsSubmit}
                 >
                   {submitting ? 'Bezig met inchecken...' : 'Inchecken'}
+                </Button>
+              </Stack>
+            )}
+
+            {step === 'traccar-setup' && traccarSetup && (
+              <Stack spacing={2}>
+                <Typography variant="h6">Tracking-app instellen</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Jullie team wordt gevolgd via de gratis <strong>Traccar Client</strong>-app.
+                  Installeer de app eerst en tik daarna op de knop om hem in te stellen.
+                </Typography>
+                <Stack direction="row" spacing={1}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    component="a"
+                    href="https://apps.apple.com/app/traccar-client/id843156974"
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    iPhone
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    component="a"
+                    href="https://play.google.com/store/apps/details?id=org.traccar.client"
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    Android
+                  </Button>
+                </Stack>
+
+                <Button
+                  variant="contained"
+                  size="large"
+                  fullWidth
+                  component="a"
+                  href={buildTraccarDeepLink(traccarSetup.serverUrl, traccarSetup.identifier)}
+                >
+                  ⚡ Open en configureer de Traccar-app
+                </Button>
+                <Typography variant="caption" color="text.secondary" sx={{ mt: -1 }}>
+                  De app opent met alles ingevuld — daarna hoef je alleen nog de tracking aan te zetten.
+                </Typography>
+
+                <Box
+                  sx={{
+                    p: 2,
+                    borderRadius: 2,
+                    bgcolor: 'background.default',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    textAlign: 'center',
+                  }}
+                >
+                  <Typography variant="subtitle2" gutterBottom>
+                    Trackt een andere telefoon? Scan deze code
+                  </Typography>
+                  {traccarQr ? (
+                    <Box
+                      component="img"
+                      src={traccarQr}
+                      alt="Traccar configuratie QR-code"
+                      sx={{ width: 240, height: 240, maxWidth: '100%' }}
+                    />
+                  ) : (
+                    <CircularProgress />
+                  )}
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                    Open op de andere telefoon de Traccar Client-app, tik op het QR-icoon rechtsboven en scan deze code.
+                  </Typography>
+                </Box>
+
+                <Box>
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    Lukt het niet? Vul dan handmatig in:
+                  </Typography>
+                  <Stack spacing={1.5} sx={{ mt: 1 }}>
+                    <TextField
+                      label="Server-URL"
+                      value={traccarSetup.serverUrl}
+                      fullWidth
+                      size="small"
+                      slotProps={{ input: { readOnly: true } }}
+                      onFocus={(e) => e.target.select()}
+                    />
+                    <TextField
+                      label="Apparaat-ID"
+                      value={traccarSetup.identifier}
+                      fullWidth
+                      size="small"
+                      slotProps={{ input: { readOnly: true } }}
+                      onFocus={(e) => e.target.select()}
+                    />
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => {
+                        navigator.clipboard?.writeText(traccarSetup.identifier).catch(() => {});
+                      }}
+                    >
+                      Apparaat-ID kopiëren
+                    </Button>
+                  </Stack>
+                </Box>
+
+                <Button
+                  variant="contained"
+                  size="large"
+                  fullWidth
+                  onClick={() => setStep('rivals')}
+                >
+                  Klaar, ga verder
                 </Button>
               </Stack>
             )}

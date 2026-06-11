@@ -104,6 +104,8 @@ public class MockTeamRepository implements TeamRepository {
         team4.setParticipants(List.of("Peter Pan", "Wendy Darling", "Tinkerbell"));
         team4.setCheckedIn(false);
         team4.setCheckedInDigitally(false);
+        team4.setTraccarEnabled(true);
+        team4.setTraccarIdentifier("mock-traccar-kapitein-haak");
         team4.setTotalPoints(0);
         team4.setRivals(Collections.emptyList());
         team4.setEmergencyPhoneNumbers(List.of("+31612345678", "+31687654321"));
@@ -138,6 +140,16 @@ public class MockTeamRepository implements TeamRepository {
                 .findFirst();
     }
 
+
+    @Override
+    public Optional<Team> findByTraccarIdentifier(String traccarIdentifier) {
+        if (traccarIdentifier == null) {
+            return Optional.empty();
+        }
+        return teams.values().stream()
+                .filter(t -> traccarIdentifier.equals(t.getTraccarIdentifier()))
+                .findFirst();
+    }
 
     @Override
     public List<Team> findRivals(UUID teamId) {

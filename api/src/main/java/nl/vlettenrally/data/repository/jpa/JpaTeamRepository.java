@@ -65,6 +65,19 @@ public class JpaTeamRepository extends ReadReplicaAwareRepository implements Tea
 
 
     @Override
+    public Optional<Team> findByTraccarIdentifier(String traccarIdentifier) {
+        try {
+            TeamEntity entity = getReadEntityManager()
+                    .createQuery("SELECT t FROM TeamEntity t WHERE t.traccarIdentifier = :traccarIdentifier", TeamEntity.class)
+                    .setParameter("traccarIdentifier", traccarIdentifier)
+                    .getSingleResult();
+            return Optional.ofNullable(TeamMapper.toDomain(entity));
+        } catch (NoResultException e) {
+            return Optional.empty();
+        }
+    }
+
+    @Override
     public List<Team> findRivals(UUID teamId) {
         // First, get the team with its rivals eagerly fetched
         try {

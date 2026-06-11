@@ -11,10 +11,17 @@ public record RegisterDeviceResponse(
     String tokenType,
     boolean isMainDevice,
     boolean detailsSubmitted,
-    String mainDeviceNickname
+    String mainDeviceNickname,
+    // Traccar setup data — only populated for the main device of a Traccar-enabled
+    // team, so the check-in flow can show the app configuration step.
+    boolean traccarEnabled,
+    String traccarIdentifier,
+    String traccarServerUrl
 ) {
     public RegisterDeviceResponse(java.util.UUID deviceId, String accessToken, String refreshToken, long expiresIn,
-                                  boolean isMainDevice, boolean detailsSubmitted, String mainDeviceNickname) {
-        this(deviceId, accessToken, refreshToken, expiresIn, "Bearer", isMainDevice, detailsSubmitted, mainDeviceNickname);
+                                  boolean isMainDevice, boolean detailsSubmitted, String mainDeviceNickname,
+                                  boolean traccarEnabled, String traccarIdentifier, String traccarServerUrl) {
+        this(deviceId, accessToken, refreshToken, expiresIn, "Bearer", isMainDevice, detailsSubmitted,
+            mainDeviceNickname, traccarEnabled, traccarIdentifier, traccarServerUrl);
     }
 }

@@ -40,7 +40,7 @@ import java.util.UUID;
 
 /**
  * REST Resource for Team operations
- * 
+ * <p>
  * Endpoints:
  * - GET /api/v1/teams - Get all teams
  * - GET /api/v1/teams/{teamId} - Get team by ID
@@ -290,6 +290,12 @@ public class TeamResource {
             if (request.checkedInDigitally() != null &&
                 (request.checkedIn() == null || request.checkedIn())) {
                 team.setCheckedInDigitally(request.checkedInDigitally());
+            }
+
+            // Toggle Traccar tracking. The identifier itself is generated lazily
+            // by TeamService.save() when enabling, and kept when disabling.
+            if (request.traccarEnabled() != null) {
+                team.setTraccarEnabled(request.traccarEnabled());
             }
 
             Team updatedTeam = teamService.save(team);

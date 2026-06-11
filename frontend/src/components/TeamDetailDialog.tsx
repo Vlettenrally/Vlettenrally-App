@@ -52,6 +52,7 @@ export default function TeamDetailDialog({
     notes: '',
     checkedIn: false,
     checkedInDigitally: false,
+    traccarEnabled: false,
     totalPoints: 0,
   });
 
@@ -67,6 +68,7 @@ export default function TeamDetailDialog({
         notes: team.notes || '',
         checkedIn: team.checkedIn,
         checkedInDigitally: team.checkedInDigitally,
+        traccarEnabled: team.traccarEnabled,
         totalPoints: team.totalPoints,
       });
       setIsEditing(false);
@@ -112,6 +114,7 @@ export default function TeamDetailDialog({
         notes: '',
         checkedIn: false,
         checkedInDigitally: false,
+        traccarEnabled: false,
         totalPoints: 0,
       });
       setIsEditing(true);
@@ -207,6 +210,7 @@ export default function TeamDetailDialog({
           notes: team.notes || '',
           checkedIn: team.checkedIn,
           checkedInDigitally: team.checkedInDigitally,
+          traccarEnabled: team.traccarEnabled,
           totalPoints: team.totalPoints,
         });
       }
@@ -237,6 +241,7 @@ export default function TeamDetailDialog({
         notes: formData.notes || undefined,
         checkedIn: formData.checkedIn,
         checkedInDigitally: formData.checkedInDigitally,
+        traccarEnabled: formData.traccarEnabled,
         totalPoints: formData.totalPoints,
       };
 
@@ -268,7 +273,7 @@ export default function TeamDetailDialog({
     }));
   };
 
-  const handleCheckboxChange = (field: 'checkedIn' | 'checkedInDigitally') => (
+  const handleCheckboxChange = (field: 'checkedIn' | 'checkedInDigitally' | 'traccarEnabled') => (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     const newValue = event.target.checked;
@@ -401,6 +406,34 @@ export default function TeamDetailDialog({
                   </Box>
                 </Box>
               )}
+
+              <Box>
+                <Typography variant="subtitle2" gutterBottom>
+                  Traccar-tracking
+                </Typography>
+                {isEditing ? (
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={formData.traccarEnabled}
+                        onChange={handleCheckboxChange('traccarEnabled')}
+                      />
+                    }
+                    label="Traccar-app gebruiken voor locatie"
+                  />
+                ) : (
+                  <Chip
+                    label={team.traccarEnabled ? 'Ingeschakeld' : 'Uit'}
+                    color={team.traccarEnabled ? 'success' : 'default'}
+                    size="small"
+                  />
+                )}
+                {team.traccarEnabled && team.traccarIdentifier && (
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1, wordBreak: 'break-all' }}>
+                    Apparaat-ID: {team.traccarIdentifier}
+                  </Typography>
+                )}
+              </Box>
 
               <Box>
                 <Typography variant="subtitle2" gutterBottom>

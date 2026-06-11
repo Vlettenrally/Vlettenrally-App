@@ -53,6 +53,9 @@ public class CheckInCoordinationServiceImpl implements CheckInCoordinationServic
     @Inject
     WebSocketPublisher webSocketPublisher;
 
+    @Inject
+    nl.vlettenrally.config.TraccarConfig traccarConfig;
+
     @Override
     public List<Game> findCheckInGamesForToday() {
         LocalDate today = LocalDate.now(zoneId);
@@ -136,8 +139,15 @@ public class CheckInCoordinationServiceImpl implements CheckInCoordinationServic
 
         TokenResult tokens = authService.issueTeamTokens(team, assignedDeviceId);
 
-        Log.infof("Device registered for check-in - teamId: %s, deviceId: %s, isMain: %s, nickname: %s, mainAssigned: %s, hinted: %s",
-            teamId, assignedDeviceId, isMainDevice, normalizedNickname, wasMainAssignment, existing.isPresent());
+        // Only the main device sets up the team's single Traccar tracker.
+        boolean traccarEnabled = isMainDevice
+            && team.isTraccarEnabled()
+            && team.getTraccarIdentifier() != null;
+        String traccarIdentifier = traccarEnabled ? team.getTraccarIdentifier() : null;
+        String traccarServerUrl = traccarEnabled ? traccarConfig.publicUrl() : null;
+
+        Log.infof("Device registered for check-in - teamId: %s, deviceId: %s, isMain: %s, nickname: %s, mainAssigned: %s, hinted: %s, traccar: %s",
+            teamId, assignedDeviceId, isMainDevice, normalizedNickname, wasMainAssignment, existing.isPresent(), traccarEnabled);
 
         return new RegisterDeviceResponse(
             assignedDeviceId,
@@ -146,7 +156,10 @@ public class CheckInCoordinationServiceImpl implements CheckInCoordinationServic
             tokens.expiresIn(),
             isMainDevice,
             detailsSubmitted,
-            mainDeviceNickname
+            mainDeviceNickname,
+            traccarEnabled,
+            traccarIdentifier,
+            traccarServerUrl
         );
     }
 

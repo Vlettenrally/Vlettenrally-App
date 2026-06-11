@@ -59,6 +59,11 @@ public class TeamServiceImpl implements TeamService {
         return teamRepository.findByDeviceId(deviceId);
     }
 
+    @Override
+    public Optional<Team> findByTraccarIdentifier(String traccarIdentifier) {
+        return teamRepository.findByTraccarIdentifier(traccarIdentifier);
+    }
+
 
     @Override
     public List<Team> findRivals(UUID teamId) {
@@ -67,7 +72,19 @@ public class TeamServiceImpl implements TeamService {
 
     @Override
     public Team save(Team team) {
+        // Generate the long-lived Traccar secret the first time tracking is enabled.
+        // Kept across disable/re-enable so an already-configured app stays valid.
+        if (team.isTraccarEnabled() && team.getTraccarIdentifier() == null) {
+            team.setTraccarIdentifier(generateTraccarIdentifier());
+        }
         return teamRepository.save(team);
+    }
+
+    /** 32 random bytes, URL-safe base64 (no padding) — safe to drop into a query string. */
+    private static String generateTraccarIdentifier() {
+        byte[] bytes = new byte[32];
+        new java.security.SecureRandom().nextBytes(bytes);
+        return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
     @Override

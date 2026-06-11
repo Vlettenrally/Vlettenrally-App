@@ -18,7 +18,10 @@ public interface TeamService {
     List<Team> findByGameId(UUID gameId);
     
     Optional<Team> findByDeviceId(UUID deviceId);
-    
+
+    /** Look up the team that owns a Traccar tracking identifier (the app's device id). */
+    Optional<Team> findByTraccarIdentifier(String traccarIdentifier);
+
     List<Team> findRivals(UUID teamId);
 
     Team save(Team team);

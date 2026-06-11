@@ -32,6 +32,8 @@ public class TeamConverter {
                 domain.getDeviceId(),
                 domain.isCheckedIn(),
                 domain.isCheckedInDigitally(),
+                domain.isTraccarEnabled(),
+                domain.getTraccarIdentifier(),
                 domain.getTotalPoints(),
                 domain.getRivals(),
                 domain.getNotes(),

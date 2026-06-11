@@ -12,5 +12,6 @@ public record TeamUpdateRequest(
     List<String> emergencyPhoneNumbers,
     Boolean checkedIn,
     Boolean checkedInDigitally,
+    Boolean traccarEnabled,
     String notes
 ) {}

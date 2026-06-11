@@ -17,12 +17,7 @@ import nl.vlettenrally.data.domain.LocationData;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.dto.game.TeamLocationResponse;
 import nl.vlettenrally.data.repository.CheckpointRepository;
-import nl.vlettenrally.data.repository.LocationDataRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
-import nl.vlettenrally.websockets.MapSubscriptionManager;
-import nl.vlettenrally.websockets.WebSocketEventTypes;
-import nl.vlettenrally.websockets.WebSocketMessage;
-import nl.vlettenrally.websockets.WebSocketPublisher;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Point;
@@ -32,11 +27,8 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -71,25 +63,13 @@ public class LocationPollingScheduler {
     LocationApiClient locationApiClient;
 
     @Inject
-    LocationDataRepository locationDataRepository;
+    LocationIngestService locationIngestService;
 
     @Inject
     AchievementService achievementService;
 
     @Inject
-    WebSocketPublisher webSocketPublisher;
-
-    @Inject
-    MapSubscriptionManager mapSubscriptionManager;
-
-    @Inject
     PollingLeader pollingLeader;
-
-    @Inject
-    AutomationEngine automationEngine;
-
-    @Inject
-    TeamDistanceCalculator teamDistanceCalculator;
 
     @Scheduled(every = "{vlettenrally.location.polling-interval}")
     @Transactional
@@ -143,8 +123,9 @@ public class LocationPollingScheduler {
             return;
         }
 
+        // Persist + notify each fix through the shared ingest path (guards, distance,
+        // per-team WS), collecting the accepted ones for a single admin-map broadcast.
         List<TeamLocationResponse> broadcasts = new ArrayList<>();
-        Set<UUID> updatedTeamIds = new HashSet<>();
         for (EventParticipantLocation pl : response.getEvent().getEventParticipantLocations()) {
             if (pl.getLocation() == null) continue;
 
@@ -153,64 +134,21 @@ public class LocationPollingScheduler {
 
             Point point = GEOMETRY_FACTORY.createPoint(
                 new Coordinate(pl.getLocation().getLongitude(), pl.getLocation().getLatitude()));
-            Instant locationTime = parseInstant(pl.getLocationTime());
 
             LocationData locationData = new LocationData();
             locationData.setTeamId(team.getId());
             locationData.setGameId(game.getId());
             locationData.setLocation(point);
-            locationData.setLocationTime(locationTime);
+            locationData.setLocationTime(parseInstant(pl.getLocationTime()));
             locationData.setAccuracy(pl.getGpsAccuracy() != null && pl.getGpsAccuracy() > 0
                 ? BigDecimal.valueOf(pl.getGpsAccuracy()) : null);
             locationData.setSpeed(pl.getSpeed() != null ? BigDecimal.valueOf(pl.getSpeed()) : null);
             locationData.setHeading(null);
-            locationDataRepository.save(locationData);
-            updatedTeamIds.add(team.getId());
 
-            TeamLocationResponse teamLocation = new TeamLocationResponse(
-                team.getId(),
-                team.getName(),
-                pl.getLocation().getLatitude(),
-                pl.getLocation().getLongitude(),
-                pl.getSpeed(),
-                null,
-                locationTime.toString()
-            );
-            broadcasts.add(teamLocation);
-
-            webSocketPublisher.sendToTeam(
-                game.getId(),
-                team.getId(),
-                WebSocketEventTypes.LOCATION_UPDATE,
-                teamLocation
-            );
+            locationIngestService.ingest(locationData, team.getName()).ifPresent(broadcasts::add);
         }
 
-        if (!broadcasts.isEmpty()) {
-            Set<String> subscribedSessionIds = mapSubscriptionManager.getActiveSubscribers(game.getId());
-            for (String sessionId : subscribedSessionIds) {
-                WebSocketMessage message = new WebSocketMessage(WebSocketEventTypes.LOCATION_UPDATE, broadcasts)
-                    .withTargetGame(game.getId())
-                    .forAdminOnly()
-                    .withTargetSession(sessionId);
-                webSocketPublisher.publish(message);
-            }
-        }
-
-        recomputeTeamDistances(game, updatedTeamIds);
-    }
-
-    /**
-     * Recompute travelled distance from the stored location fixes for every team
-     * that received a new fix this poll, and feed the cumulative metres into the
-     * automation engine, which credits distance points through the game's
-     * DISTANCE_TRAVELED rule.
-     */
-    private void recomputeTeamDistances(Game game, Set<UUID> updatedTeamIds) {
-        for (UUID teamId : updatedTeamIds) {
-            double cumulativeMeters = teamDistanceCalculator.computeTraveledMeters(teamId);
-            automationEngine.onDistanceUpdate(game.getId(), teamId, cumulativeMeters);
-        }
+        locationIngestService.broadcastToMap(game.getId(), broadcasts);
     }
 
     private void pollParticipantCheckpoints(Game game, Map<Integer, Team> teamsByParticipantId) {

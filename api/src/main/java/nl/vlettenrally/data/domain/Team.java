@@ -33,6 +33,11 @@ public class Team {
     private int totalPoints;
     private List<UUID> rivals;
     private String notes;
+    // Traccar GPS tracking: opt-in per team. traccarIdentifier is a long-lived
+    // secret the Traccar Client app sends to the ingestion endpoint; generated
+    // when tracking is first enabled and kept across enable/disable toggles.
+    private boolean traccarEnabled;
+    private String traccarIdentifier;
     
     @Setter(AccessLevel.NONE)
     private List<String> emergencyPhoneNumbers;
@@ -48,6 +53,7 @@ public class Team {
         this.checkedIn = false;
         this.checkedInDigitally = false;
         this.totalPoints = 0;
+        this.traccarEnabled = false;
         this.createdAt = Instant.now();
         this.updatedAt = Instant.now();
     }

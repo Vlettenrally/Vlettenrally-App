@@ -39,6 +39,8 @@ public class TeamMapper {
         domain.setMainDeviceId(entity.getMainDeviceId());
         domain.setCheckedIn(entity.isCheckedIn());
         domain.setCheckedInDigitally(entity.isCheckedInDigitally());
+        domain.setTraccarEnabled(entity.isTraccarEnabled());
+        domain.setTraccarIdentifier(entity.getTraccarIdentifier());
         domain.setTotalPoints(entity.getTotalPoints());
         domain.setNotes(entity.getNotes());
         // Set emergency phone numbers without validation (already validated on input)
@@ -75,6 +77,8 @@ public class TeamMapper {
         entity.setMainDeviceId(domain.getMainDeviceId());
         entity.setCheckedIn(domain.isCheckedIn());
         entity.setCheckedInDigitally(domain.isCheckedInDigitally());
+        entity.setTraccarEnabled(domain.isTraccarEnabled());
+        entity.setTraccarIdentifier(domain.getTraccarIdentifier());
         entity.setTotalPoints(domain.getTotalPoints());
         entity.setNotes(domain.getNotes());
         entity.setEmergencyPhoneNumbers(new ArrayList<>(domain.getEmergencyPhoneNumbers()));
@@ -101,6 +105,8 @@ public class TeamMapper {
         entity.setMainDeviceId(domain.getMainDeviceId());
         entity.setCheckedIn(domain.isCheckedIn());
         entity.setCheckedInDigitally(domain.isCheckedInDigitally());
+        entity.setTraccarEnabled(domain.isTraccarEnabled());
+        entity.setTraccarIdentifier(domain.getTraccarIdentifier());
         entity.setTotalPoints(domain.getTotalPoints());
         entity.setNotes(domain.getNotes());
         entity.setEmergencyPhoneNumbers(new ArrayList<>(domain.getEmergencyPhoneNumbers()));
