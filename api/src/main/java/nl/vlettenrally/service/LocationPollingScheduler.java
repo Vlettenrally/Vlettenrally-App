@@ -7,7 +7,6 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import nl.vlettenrally.client.LocationApiClient;
 import nl.vlettenrally.client.dto.legendstracking.EventParticipantCheckpoint;
-import nl.vlettenrally.client.dto.legendstracking.EventParticipantDistance;
 import nl.vlettenrally.client.dto.legendstracking.EventParticipantLocation;
 import nl.vlettenrally.client.dto.legendstracking.EventParticipantsCheckpointsResponse;
 import nl.vlettenrally.client.dto.legendstracking.EventParticipantsLocationsResponse;
@@ -33,9 +32,11 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -86,6 +87,9 @@ public class LocationPollingScheduler {
 
     @Inject
     AutomationEngine automationEngine;
+
+    @Inject
+    TeamDistanceCalculator teamDistanceCalculator;
 
     @Scheduled(every = "{vlettenrally.location.polling-interval}")
     @Transactional
@@ -140,6 +144,7 @@ public class LocationPollingScheduler {
         }
 
         List<TeamLocationResponse> broadcasts = new ArrayList<>();
+        Set<UUID> updatedTeamIds = new HashSet<>();
         for (EventParticipantLocation pl : response.getEvent().getEventParticipantLocations()) {
             if (pl.getLocation() == null) continue;
 
@@ -160,6 +165,7 @@ public class LocationPollingScheduler {
             locationData.setSpeed(pl.getSpeed() != null ? BigDecimal.valueOf(pl.getSpeed()) : null);
             locationData.setHeading(null);
             locationDataRepository.save(locationData);
+            updatedTeamIds.add(team.getId());
 
             TeamLocationResponse teamLocation = new TeamLocationResponse(
                 team.getId(),
@@ -191,27 +197,19 @@ public class LocationPollingScheduler {
             }
         }
 
-        processParticipantDistances(game, teamsByParticipantId, response);
+        recomputeTeamDistances(game, updatedTeamIds);
     }
 
     /**
-     * Feed the provider's cumulative per-participant distances (on-course +
-     * off-course) into the automation engine, which credits distance points
-     * through the game's DISTANCE_TRAVELED rule.
+     * Recompute travelled distance from the stored location fixes for every team
+     * that received a new fix this poll, and feed the cumulative metres into the
+     * automation engine, which credits distance points through the game's
+     * DISTANCE_TRAVELED rule.
      */
-    private void processParticipantDistances(Game game, Map<Integer, Team> teamsByParticipantId,
-                                             EventParticipantsLocationsResponse response) {
-        List<EventParticipantDistance> distances = response.getEvent().getEventParticipantDistances();
-        if (distances == null) {
-            return;
-        }
-        for (EventParticipantDistance pd : distances) {
-            Team team = teamsByParticipantId.get(pd.getEventParticipantId());
-            if (team == null) continue;
-
-            double totalMeters = (pd.getDistanceOnGpx() != null ? pd.getDistanceOnGpx() : 0)
-                + (pd.getDistanceOffCourse() != null ? pd.getDistanceOffCourse() : 0);
-            automationEngine.onDistanceUpdate(game.getId(), team.getId(), totalMeters);
+    private void recomputeTeamDistances(Game game, Set<UUID> updatedTeamIds) {
+        for (UUID teamId : updatedTeamIds) {
+            double cumulativeMeters = teamDistanceCalculator.computeTraveledMeters(teamId);
+            automationEngine.onDistanceUpdate(game.getId(), teamId, cumulativeMeters);
         }
     }
 

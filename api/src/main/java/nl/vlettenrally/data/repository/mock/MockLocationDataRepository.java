@@ -6,6 +6,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import nl.vlettenrally.data.domain.LocationData;
 import nl.vlettenrally.data.repository.LocationDataRepository;
+import nl.vlettenrally.service.util.GeoDistance;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Point;
@@ -25,7 +26,7 @@ import java.util.stream.Collectors;
 /**
  * Mock implementation of LocationDataRepository with prefilled data.
  * Only active in dev and test profiles - replaced by JpaLocationDataRepository in prod.
- *
+ * <p>
  * Spatial distance calculations use the Haversine formula to approximate meter-based
  * distances, matching the PostGIS geography-cast behaviour in the JPA implementation.
  */
@@ -34,11 +35,6 @@ import java.util.stream.Collectors;
 public class MockLocationDataRepository implements LocationDataRepository {
 
     private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory(new PrecisionModel(), 4326);
-
-    /**
-     * Mean Earth radius in meters (WGS-84).
-     */
-    private static final double EARTH_RADIUS_METERS = 6_371_008.8;
 
     private final Map<UUID, LocationData> locations = new ConcurrentHashMap<>();
 
@@ -156,6 +152,15 @@ public class MockLocationDataRepository implements LocationDataRepository {
     }
 
     @Override
+    public List<LocationData> findByTeamIdAfter(UUID teamId, Instant afterExclusive) {
+        return locations.values().stream()
+                .filter(l -> teamId.equals(l.getTeamId()))
+                .filter(l -> l.getLocationTime().isAfter(afterExclusive))
+                .sorted(Comparator.comparing(LocationData::getLocationTime))
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public Optional<LocationData> findLatestByTeamId(UUID teamId) {
         return locations.values().stream()
                 .filter(l -> teamId.equals(l.getTeamId()))
@@ -232,20 +237,11 @@ public class MockLocationDataRepository implements LocationDataRepository {
     }
 
     /**
-     * Haversine distance in meters between two JTS Points (longitude, latitude in degrees).
-     * Approximates PostGIS ST_Distance(geography, geography) for short distances.
+     * Haversine distance in meters between two JTS Points, matching the PostGIS
+     * geography-cast behaviour in the JPA implementation.
      */
     private static double haversineMeters(Point a, Point b) {
-        double lat1 = Math.toRadians(a.getY());
-        double lat2 = Math.toRadians(b.getY());
-        double dLat = lat2 - lat1;
-        double dLon = Math.toRadians(b.getX() - a.getX());
-
-        double h = Math.sin(dLat / 2) * Math.sin(dLat / 2)
-                 + Math.cos(lat1) * Math.cos(lat2)
-                 * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-
-        return 2 * EARTH_RADIUS_METERS * Math.asin(Math.sqrt(h));
+        return GeoDistance.haversineMeters(a, b);
     }
 }
 

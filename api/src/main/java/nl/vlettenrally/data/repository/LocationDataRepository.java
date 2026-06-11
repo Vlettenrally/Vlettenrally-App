@@ -30,6 +30,13 @@ public interface LocationDataRepository {
     List<LocationData> findByTeamIdAndTimeRange(UUID teamId, Instant startTime, Instant endTime);
 
     /**
+     * Find a team's locations recorded strictly after the given time, ordered by
+     * location_time ascending. Used to incrementally accumulate travelled distance
+     * by reading only fixes newer than the last processed one.
+     */
+    List<LocationData> findByTeamIdAfter(UUID teamId, Instant afterExclusive);
+
+    /**
      * Find the most recent location for a team
      */
     Optional<LocationData> findLatestByTeamId(UUID teamId);

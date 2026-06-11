@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 /**
  * JPA implementation of LocationDataRepository with read replica support.
  * Only active in prod profile - replaced by MockLocationDataRepository in dev/test.
- *
+ * <p>
  * Provides spatial queries using PostGIS for geofencing and route tracking.
  * All spatial distance queries cast to ::geography so distances are in meters.
  */
@@ -59,6 +59,19 @@ public class JpaLocationDataRepository extends ReadReplicaAwareRepository implem
                 .setParameter("teamId", teamId)
                 .setParameter("startTime", startTime)
                 .setParameter("endTime", endTime)
+                .getResultList();
+        return entities.stream().map(LocationDataMapper::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<LocationData> findByTeamIdAfter(UUID teamId, Instant afterExclusive) {
+        List<LocationDataEntity> entities = getReadEntityManager(true).createQuery(
+                "SELECT l FROM LocationDataEntity l WHERE l.team.id = :teamId " +
+                "AND l.locationTime > :after " +
+                "ORDER BY l.locationTime ASC",
+                LocationDataEntity.class)
+                .setParameter("teamId", teamId)
+                .setParameter("after", afterExclusive)
                 .getResultList();
         return entities.stream().map(LocationDataMapper::toDomain).collect(Collectors.toList());
     }
