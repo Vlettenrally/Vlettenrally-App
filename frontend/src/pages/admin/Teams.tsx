@@ -8,14 +8,6 @@ import { websocket } from '../../services/websocket';
 import TeamDetailDialog from '../../components/TeamDetailDialog';
 import type { AdminTeam, Game, TeamImportResult, ParticipantLinkResult } from '../../types/entities';
 
-/**
- * Check if check-in has started based on checkInStartTime
- */
-const hasCheckInStarted = (game: Game | null): boolean => {
-  if (!game?.checkInStartTime) return false;
-  return new Date() >= new Date(game.checkInStartTime);
-};
-
 type LinkResultStatus = 'linked' | 'unmatched';
 
 export default function Teams() {
@@ -157,8 +149,8 @@ export default function Teams() {
     setLinkDetailsOpen(false);
   };
 
-  const checkInStarted = hasCheckInStarted(game);
-  const canImport = game?.externalEventId && !checkInStarted;
+  const isCompleted = game?.status === 'completed';
+  const canImport = game?.externalEventId && !isCompleted;
   const linkedTeams = linkResult?.linkedTeams ?? [];
   const unmatchedParticipants = linkResult?.unmatchedParticipants ?? [];
   const detailItems = linkDetailsStatus === 'linked' ? linkedTeams : unmatchedParticipants;
@@ -233,7 +225,7 @@ export default function Teams() {
           )}
           {game?.externalEventId && (
             <Tooltip
-              title={checkInStarted ? "Teams importeren is niet mogelijk nadat de check-in is gestart" : ""}
+              title={isCompleted ? "Teams importeren is niet mogelijk nadat de wedstrijd is afgelopen" : ""}
               arrow
             >
               <span>

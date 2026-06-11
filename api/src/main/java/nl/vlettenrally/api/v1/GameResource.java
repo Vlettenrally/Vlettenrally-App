@@ -368,6 +368,12 @@ public class GameResource {
                         .build();
                 }
 
+                if (game.getStatus() == Game.GameStatus.COMPLETED) {
+                    return Response.status(Response.Status.CONFLICT)
+                        .entity(new ErrorResponse("Cannot import teams for a completed game"))
+                        .build();
+                }
+
                 try {
                     ImportResult result = teamImportService.importTeams(gameId, game.getExternalEventId());
                     return Response.ok(new TeamImportResponse(
