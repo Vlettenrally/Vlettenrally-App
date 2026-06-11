@@ -162,6 +162,10 @@ export default function AdminInbox() {
                     sx={{ bgcolor: notification.read ? 'inherit' : 'action.hover' }}
                   >
                     <ListItemText
+                      slotProps={{
+                        primary: { component: 'div' },
+                        secondary: { component: 'div' },
+                      }}
                       primary={
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pr: 10 }}>
                           <Typography variant="body1">{notification.content}</Typography>
