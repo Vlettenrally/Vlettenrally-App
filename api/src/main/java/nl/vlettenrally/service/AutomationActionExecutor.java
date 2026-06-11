@@ -144,7 +144,7 @@ public class AutomationActionExecutor {
 
     private void notifyAdmins(AutomationRule rule, AutomationAction action, List<Team> targets, ActionContext ctx) {
         // One notification per firing; {team} only resolves for single-team firings.
-        Team single = targets.size() == 1 ? targets.get(0) : null;
+        Team single = targets.size() == 1 ? targets.getFirst() : null;
         Map<String, String> values = firingValues(ctx);
         if (single != null) {
             values.put("team", single.getName());

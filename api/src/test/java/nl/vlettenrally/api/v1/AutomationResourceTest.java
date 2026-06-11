@@ -88,14 +88,15 @@ class AutomationResourceTest {
         when(automationService.listRules(gameId)).thenReturn(List.of(rule));
         when(automationService.executionCount(ruleId)).thenReturn(3L);
 
+
         Response response = resource.listRules(gameId);
 
         assertEquals(200, response.getStatus());
         @SuppressWarnings("unchecked")
         List<AutomationRuleResponse> body = (List<AutomationRuleResponse>) response.getEntity();
         assertEquals(1, body.size());
-        assertEquals(3L, body.get(0).executionCount());
-        assertEquals("CHECKPOINT_ENTRY", body.get(0).triggerType());
+        assertEquals(3L, body.getFirst().executionCount());
+        assertEquals("CHECKPOINT_ENTRY", body.getFirst().triggerType());
     }
 
     @Test
@@ -203,7 +204,7 @@ class AutomationResourceTest {
         assertEquals(200, response.getStatus());
         AutomationExecutionListResponse body = (AutomationExecutionListResponse) response.getEntity();
         assertEquals(1, body.executions().size());
-        assertEquals("De Watervlooien", body.executions().get(0).teamName());
+        assertEquals("De Watervlooien", body.executions().getFirst().teamName());
         assertEquals(1L, body.totalCount());
     }
 }

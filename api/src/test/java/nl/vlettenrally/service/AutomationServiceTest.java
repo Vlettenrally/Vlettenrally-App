@@ -1,9 +1,6 @@
 package nl.vlettenrally.service;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -205,7 +202,7 @@ class AutomationServiceTest {
 
         AutomationRule created = service.createRule(gameId, draft, adminId);
 
-        assertEquals(templateId, created.getActions().get(0).messageTemplateId());
+        assertEquals(templateId, created.getActions().getFirst().messageTemplateId());
     }
 
     @Test
@@ -402,7 +399,7 @@ class AutomationServiceTest {
         CopyAutomationsResult result = service.copyRules(gameId, sourceGameId, adminId);
 
         assertEquals(1, result.copied());
-        AutomationRule created = capturedCreatedRules().get(0);
+        AutomationRule created = capturedCreatedRules().getFirst();
         assertEquals(gameId, created.getGameId());
         assertEquals("Felicitatie", created.getName());
         assertTrue(created.getTargetTeamIds().isEmpty(), "team ids are game-specific and must be dropped");
@@ -426,7 +423,7 @@ class AutomationServiceTest {
         CopyAutomationsResult result = service.copyRules(gameId, sourceGameId, adminId);
 
         assertEquals(1, result.copied());
-        assertEquals(targetCp.getId(), capturedCreatedRules().get(0).getTriggerConfig().checkpointId());
+        assertEquals(targetCp.getId(), capturedCreatedRules().getFirst().getTriggerConfig().checkpointId());
     }
 
     @Test
@@ -447,7 +444,7 @@ class AutomationServiceTest {
         CopyAutomationsResult result = service.copyRules(gameId, sourceGameId, adminId);
 
         assertEquals(1, result.copied());
-        assertEquals(nearTarget.getId(), capturedCreatedRules().get(0).getTriggerConfig().checkpointId());
+        assertEquals(nearTarget.getId(), capturedCreatedRules().getFirst().getTriggerConfig().checkpointId());
     }
 
     @Test
@@ -539,7 +536,7 @@ class AutomationServiceTest {
 
         service.copyRules(gameId, sourceGameId, adminId);
 
-        Instant shifted = capturedCreatedRules().get(0).getTriggerConfig().absoluteTime();
+        Instant shifted = capturedCreatedRules().getFirst().getTriggerConfig().absoluteTime();
         Instant expected = deadline.plus(Duration.between(srcEnd, tgtEnd));
         assertEquals(expected, shifted);
     }
@@ -554,10 +551,10 @@ class AutomationServiceTest {
 
         service.copyRules(gameId, sourceGameId, adminId);
 
-        AutomationTriggerConfig config = capturedCreatedRules().get(0).getTriggerConfig();
+        AutomationTriggerConfig config = capturedCreatedRules().getFirst().getTriggerConfig();
         assertEquals(AutomationTriggerConfig.RelativeAnchor.GAME_END, config.relativeTo());
         assertEquals(-30, config.offsetMinutes());
-        assertEquals(null, config.absoluteTime());
+        assertNull(config.absoluteTime());
     }
 
     @Test

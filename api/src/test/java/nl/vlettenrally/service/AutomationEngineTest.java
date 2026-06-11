@@ -4,13 +4,11 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -646,9 +644,9 @@ class AutomationEngineTest {
 
     // ==================== Inactivity trigger ====================
 
-    private AutomationRule inactivityRule(int minutes, Integer cooldownMinutes) {
+    private AutomationRule inactivityRule(Integer cooldownMinutes) {
         AutomationRule rule = rule(AutomationTriggerType.TEAM_INACTIVITY,
-            new AutomationTriggerConfig(null, null, null, null, null, null, minutes, null, null));
+            new AutomationTriggerConfig(null, null, null, null, null, null, 30, null, null));
         rule.setFireOnce(false);
         rule.setCooldownMinutes(cooldownMinutes);
         when(ruleRepository.findEnabledByTriggerType(AutomationTriggerType.TEAM_INACTIVITY))
@@ -668,7 +666,7 @@ class AutomationEngineTest {
     void inactivity_fires_whenLatestLocationIsStale() {
         Instant now = Instant.now();
         activeGame(now.minus(Duration.ofHours(2)), null);
-        AutomationRule rule = inactivityRule(30, 60);
+        AutomationRule rule = inactivityRule(60);
         when(teamRepository.findByGameId(gameId)).thenReturn(List.of(team));
         lastLocationAt(now.minus(Duration.ofMinutes(45)));
         when(executionRepository.findLatestFiredAt(rule.getId(), teamId, null))
@@ -683,7 +681,7 @@ class AutomationEngineTest {
     void inactivity_respectsCooldown() {
         Instant now = Instant.now();
         activeGame(now.minus(Duration.ofHours(2)), null);
-        AutomationRule rule = inactivityRule(30, 60);
+        AutomationRule rule = inactivityRule(60);
         when(teamRepository.findByGameId(gameId)).thenReturn(List.of(team));
         lastLocationAt(now.minus(Duration.ofMinutes(45)));
         when(executionRepository.findLatestFiredAt(rule.getId(), teamId, null))
@@ -698,7 +696,7 @@ class AutomationEngineTest {
     void inactivity_doesNotFire_whenRecentLocationExists() {
         Instant now = Instant.now();
         activeGame(now.minus(Duration.ofHours(2)), null);
-        inactivityRule(30, null);
+        inactivityRule(null);
         when(teamRepository.findByGameId(gameId)).thenReturn(List.of(team));
         lastLocationAt(now.minus(Duration.ofMinutes(5)));
 
@@ -712,7 +710,7 @@ class AutomationEngineTest {
         Instant now = Instant.now();
         // Game just started — a team with no data yet is not "inactive".
         activeGame(now.minus(Duration.ofMinutes(10)), null);
-        inactivityRule(30, null);
+        inactivityRule(null);
         when(teamRepository.findByGameId(gameId)).thenReturn(List.of(team));
         when(locationDataRepository.findLatestByTeamId(teamId)).thenReturn(Optional.empty());
 
@@ -728,7 +726,7 @@ class AutomationEngineTest {
         game.setId(gameId);
         game.setStatus(Game.GameStatus.PLANNED);
         when(gameService.findById(gameId)).thenReturn(Optional.of(game));
-        inactivityRule(30, null);
+        inactivityRule(null);
 
         engine.evaluateTimeAndInactivity(now);
 

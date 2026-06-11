@@ -4,10 +4,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.NotFoundException;
-import nl.vlettenrally.data.domain.AutomationExecution;
-import nl.vlettenrally.data.domain.AutomationRule;
-import nl.vlettenrally.data.domain.Checkpoint;
-import nl.vlettenrally.data.domain.Game;
+import nl.vlettenrally.data.domain.*;
 import nl.vlettenrally.data.domain.automation.AutomationAction;
 import nl.vlettenrally.data.domain.automation.AutomationTriggerConfig;
 import nl.vlettenrally.data.dto.automation.CopyAutomationsResult;
@@ -30,7 +27,7 @@ import java.util.stream.Collectors;
 
 /**
  * CRUD and validation for automation rules.
- *
+ * <p>
  * System rules (the per-game "Afstandspunten" distance rule) cannot be deleted
  * and their trigger type is fixed; DISTANCE_TRAVELED rules cannot be created
  * by hand (one per game, created with the game — prevents double-crediting).
@@ -160,7 +157,7 @@ public class AutomationService {
      * Copy all eligible (non-system) automation rules from {@code sourceGameId}
      * into {@code targetGameId}, and copy the source distance-points rate onto
      * the target's system rule.
-     *
+     * <p>
      * Game-specific references are remapped: {@code targetTeamIds} are dropped
      * (the copy applies to all teams), CHECKPOINT_ENTRY checkpoints are matched
      * to the target game by external id / location / name (unmatched rules are
@@ -453,7 +450,7 @@ public class AutomationService {
             return;
         }
         Set<UUID> gameTeamIds = teamRepository.findByGameId(rule.getGameId()).stream()
-            .map(team -> team.getId())
+            .map(Team::getId)
             .collect(Collectors.toSet());
         for (UUID teamId : rule.getTargetTeamIds()) {
             if (!gameTeamIds.contains(teamId)) {

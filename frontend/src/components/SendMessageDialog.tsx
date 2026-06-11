@@ -240,7 +240,7 @@ export default function SendMessageDialog({
                     placeholder="Zoek op teamnaam..."
                   />
                 )}
-                renderTags={(value, getTagProps) =>
+                renderValue={(value, getTagProps) =>
                   value.map((option, index) => {
                     const { key, ...tagProps } = getTagProps({ index });
                     return (

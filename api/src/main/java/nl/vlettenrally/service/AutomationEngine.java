@@ -141,9 +141,7 @@ public class AutomationEngine {
         if (boundary == null) {
             return false;
         }
-        return config.comparison() == AutomationTriggerConfig.PassComparison.BEFORE
-            ? passTime.isBefore(boundary)
-            : !passTime.isBefore(boundary);
+        return (config.comparison() == AutomationTriggerConfig.PassComparison.BEFORE) == passTime.isBefore(boundary);
     }
 
     /** A game's status changed (scheduler transition or manual admin update). */
@@ -196,7 +194,7 @@ public class AutomationEngine {
      * The location poller reported a team's cumulative traveled distance
      * (meters, on-course + off-course). Credits distance points through the
      * game's DISTANCE_TRAVELED rule(s).
-     *
+     * <p>
      * Disabled rules still get their baseline advanced so meters traveled
      * while disabled are never credited retroactively on re-enable.
      */

@@ -234,7 +234,7 @@ export default function AutomationFormDialog({
           label="Tijdstip"
           value={config.absoluteTime ? formatForDateTimeLocalInput(config.absoluteTime) : ''}
           onChange={(e) => setConfig({ ...config, mode: 'ABSOLUTE', absoluteTime: e.target.value })}
-          InputLabelProps={{ shrink: true }}
+          slotProps={{ inputLabel: { shrink: true } }}
         />
       ) : (
         <Box sx={{ display: 'flex', gap: 2 }}>
@@ -402,7 +402,7 @@ export default function AutomationFormDialog({
                 minRows={2}
                 label="Templatetekst"
                 value={selectedTemplate.content}
-                InputProps={{ readOnly: true }}
+                slotProps={{ input: {readOnly: true } }}
                 helperText={placeholderHint}
               />
             ) : (

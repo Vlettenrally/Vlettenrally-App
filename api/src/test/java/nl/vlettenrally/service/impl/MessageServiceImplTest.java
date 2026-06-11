@@ -425,7 +425,7 @@ class MessageServiceImplTest {
         assertEquals(1, result.totalTeams());
         ArgumentCaptor<Message> captor = ArgumentCaptor.forClass(Message.class);
         verify(messageRepository, atLeastOnce()).save(captor.capture());
-        Message saved = captor.getAllValues().get(0);
+        Message saved = captor.getAllValues().getFirst();
         assertEquals(MessageSource.AUTOMATION, saved.getSource());
         assertNull(saved.getSentByAdminId());
         assertEquals("Goed bezig!", saved.getContent());
