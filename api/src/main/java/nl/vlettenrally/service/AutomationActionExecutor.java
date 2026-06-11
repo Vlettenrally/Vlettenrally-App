@@ -6,6 +6,7 @@ import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import nl.vlettenrally.data.domain.AutomationRule;
+import nl.vlettenrally.data.domain.MessageTemplate;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.domain.automation.AutomationAction;
 import nl.vlettenrally.data.enums.AutomationExecutionStatus;
@@ -16,8 +17,10 @@ import nl.vlettenrally.websockets.dto.WebSocketMessageType;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Executes the action list of a fired automation rule against the resolved
@@ -39,10 +42,23 @@ public class AutomationActionExecutor {
     @Inject
     WebSocketPublisher webSocketPublisher;
 
+    @Inject
+    MessageTemplateService messageTemplateService;
+
     /** Outcome of one rule firing: overall status plus per-action detail as JSON. */
     public record Result(AutomationExecutionStatus status, String detail) {}
 
-    public Result execute(AutomationRule rule, List<Team> targets) {
+    /**
+     * Firing-context names available to placeholders. {@code checkpointName} is
+     * set for CHECKPOINT_ENTRY firings, {@code rivalName} for RIVAL_OVERTAKE;
+     * {@code team} is resolved per recipient downstream (or for single-team
+     * admin notifications here).
+     */
+    public record ActionContext(String checkpointName, String rivalName) {
+        public static final ActionContext EMPTY = new ActionContext(null, null);
+    }
+
+    public Result execute(AutomationRule rule, List<Team> targets, ActionContext ctx) {
         List<Map<String, Object>> details = new ArrayList<>();
         int failed = 0;
 
@@ -51,9 +67,9 @@ public class AutomationActionExecutor {
             detail.put("action", action.type().name());
             try {
                 switch (action.type()) {
-                    case SEND_MESSAGE -> sendMessage(rule, action, targets);
+                    case SEND_MESSAGE -> sendMessage(rule, action, targets, ctx);
                     case AWARD_POINTS -> awardPoints(rule, action, targets, detail);
-                    case NOTIFY_ADMINS -> notifyAdmins(rule, action, targets);
+                    case NOTIFY_ADMINS -> notifyAdmins(rule, action, targets, ctx);
                 }
                 detail.put("ok", !Boolean.FALSE.equals(detail.get("ok")));
             } catch (Exception e) {
@@ -73,18 +89,37 @@ public class AutomationActionExecutor {
         return new Result(status, toJson(details));
     }
 
-    private void sendMessage(AutomationRule rule, AutomationAction action, List<Team> targets) {
-        MessageType type = action.messageType() != null ? action.messageType() : MessageType.GENERAL;
-        // Per-team sends so the {team} placeholder can be substituted per recipient.
-        for (Team team : targets) {
-            messageService.sendAutomationMessage(
-                rule.getGameId(),
-                List.of(team.getId()),
-                type,
-                substitute(action.messageContent(), team),
-                action.messageIcon(),
-                rule.getId());
+    private void sendMessage(AutomationRule rule, AutomationAction action, List<Team> targets, ActionContext ctx) {
+        String content = action.messageContent();
+        MessageType type = action.messageType();
+        String icon = action.messageIcon();
+
+        // A template id is a live reference: use the template's content/type/icon,
+        // falling back to the action's own fields if it has been deleted.
+        if (action.messageTemplateId() != null) {
+            Optional<MessageTemplate> template = messageTemplateService.findById(action.messageTemplateId());
+            if (template.isPresent()) {
+                content = template.get().getContent();
+                type = template.get().getMessageType();
+                icon = template.get().getIcon();
+            }
         }
+
+        if (content == null || content.isBlank()) {
+            throw new IllegalStateException("No message content (template "
+                + action.messageTemplateId() + " missing and no fallback text)");
+        }
+
+        // Resolve firing-context placeholders now; {team} is resolved per
+        // recipient by MessageService, so one batch covers all targets.
+        String resolved = MessagePlaceholders.resolve(content, firingValues(ctx));
+        messageService.sendAutomationMessage(
+            rule.getGameId(),
+            targets.stream().map(Team::getId).toList(),
+            type != null ? type : MessageType.GENERAL,
+            resolved,
+            icon,
+            rule.getId());
     }
 
     private void awardPoints(AutomationRule rule, AutomationAction action, List<Team> targets,
@@ -107,9 +142,13 @@ public class AutomationActionExecutor {
         }
     }
 
-    private void notifyAdmins(AutomationRule rule, AutomationAction action, List<Team> targets) {
+    private void notifyAdmins(AutomationRule rule, AutomationAction action, List<Team> targets, ActionContext ctx) {
         // One notification per firing; {team} only resolves for single-team firings.
         Team single = targets.size() == 1 ? targets.get(0) : null;
+        Map<String, String> values = firingValues(ctx);
+        if (single != null) {
+            values.put("team", single.getName());
+        }
         webSocketPublisher.sendToAdmins(
             rule.getGameId(),
             WebSocketMessageType.AUTOMATION_NOTIFICATION.getValue(),
@@ -118,13 +157,18 @@ public class AutomationActionExecutor {
                 "ruleName", rule.getName(),
                 "teamId", single != null ? single.getId().toString() : "",
                 "teamName", single != null ? single.getName() : "",
-                "text", single != null ? substitute(action.adminNotification(), single)
-                                       : String.valueOf(action.adminNotification())
+                "text", String.valueOf(MessagePlaceholders.resolve(action.adminNotification(), values))
             ));
     }
 
-    private static String substitute(String text, Team team) {
-        return text == null ? null : text.replace("{team}", team.getName());
+    /** Mutable map of the firing-context placeholder values ({checkpoint}, {rival}). */
+    private static Map<String, String> firingValues(ActionContext ctx) {
+        Map<String, String> values = new LinkedHashMap<>();
+        if (ctx != null) {
+            values.put("checkpoint", ctx.checkpointName());
+            values.put("rival", ctx.rivalName());
+        }
+        return values;
     }
 
     private static String toJson(List<Map<String, Object>> details) {

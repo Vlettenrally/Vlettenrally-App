@@ -314,6 +314,9 @@ export default function SendMessageDialog({
                 ) : undefined
               }
             />
+            <Typography variant="caption" color="text.secondary">
+              {'{team}'} wordt vervangen door de naam van het ontvangende team.
+            </Typography>
 
             {/* Icon */}
             <TextField

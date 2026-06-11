@@ -431,6 +431,27 @@ class MessageServiceImplTest {
         assertEquals("Goed bezig!", saved.getContent());
     }
 
+    @Test
+    void sendAdminMessage_resolvesTeamPlaceholderPerRecipient() {
+        Team team1 = createTeam("De Watervlooien");
+        Team team2 = createTeam("Windkracht Tien");
+        when(teamRepository.findByGameId(gameId)).thenReturn(List.of(team1, team2));
+        when(teamRepository.findById(team1.getId())).thenReturn(Optional.of(team1));
+        when(teamRepository.findById(team2.getId())).thenReturn(Optional.of(team2));
+        when(messageRepository.save(any(Message.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(webSocketSessionManager.getSessionByTeam(any())).thenReturn(null);
+        when(deviceRegistrationRepository.findAllByTeamId(any())).thenReturn(List.of());
+        when(transmitters.iterator()).thenReturn(Collections.emptyIterator());
+
+        messageService.sendAdminMessage(gameId, null, MessageType.GENERAL, "Hoi {team}!", null, adminId);
+
+        ArgumentCaptor<Message> captor = ArgumentCaptor.forClass(Message.class);
+        verify(messageRepository, atLeastOnce()).save(captor.capture());
+        // Each recipient's stored content shows its own name.
+        assertTrue(captor.getAllValues().stream().anyMatch(m -> "Hoi De Watervlooien!".equals(m.getContent())));
+        assertTrue(captor.getAllValues().stream().anyMatch(m -> "Hoi Windkracht Tien!".equals(m.getContent())));
+    }
+
     private Message createMessage() {
         Message message = new Message();
         message.setId(UUID.randomUUID());

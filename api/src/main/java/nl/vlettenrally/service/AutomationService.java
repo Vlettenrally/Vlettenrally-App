@@ -60,6 +60,9 @@ public class AutomationService {
     @Inject
     GameService gameService;
 
+    @Inject
+    MessageTemplateService messageTemplateService;
+
     public List<AutomationRule> listRules(UUID gameId) {
         return ruleRepository.findByGameId(gameId);
     }
@@ -421,8 +424,14 @@ public class AutomationService {
             }
             switch (action.type()) {
                 case SEND_MESSAGE -> {
-                    if (action.messageContent() == null || action.messageContent().isBlank()) {
-                        throw new BadRequestException("Message actions need content");
+                    boolean hasContent = action.messageContent() != null && !action.messageContent().isBlank();
+                    if (action.messageTemplateId() != null) {
+                        if (messageTemplateService.findById(action.messageTemplateId()).isEmpty()) {
+                            throw new BadRequestException(
+                                "Message template not found: " + action.messageTemplateId());
+                        }
+                    } else if (!hasContent) {
+                        throw new BadRequestException("Message actions need content or a template");
                     }
                 }
                 case AWARD_POINTS -> {

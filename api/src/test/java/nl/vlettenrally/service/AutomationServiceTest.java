@@ -54,6 +54,7 @@ class AutomationServiceTest {
     @Mock TeamRepository teamRepository;
     @Mock CheckpointRepository checkpointRepository;
     @Mock GameService gameService;
+    @Mock MessageTemplateService messageTemplateService;
 
     @InjectMocks AutomationService service;
 
@@ -74,7 +75,7 @@ class AutomationServiceTest {
         draft.setTriggerType(AutomationTriggerType.CHECKPOINT_ENTRY);
         draft.setTriggerConfig(new AutomationTriggerConfig(null, null, null, null, null, null, null, null, null));
         draft.setActions(List.of(new AutomationAction(
-            AutomationActionType.SEND_MESSAGE, "Goed bezig!", null, null, null, null, null)));
+            AutomationActionType.SEND_MESSAGE, "Goed bezig!", null, null, null, null, null, null)));
         return draft;
     }
 
@@ -193,10 +194,45 @@ class AutomationServiceTest {
     }
 
     @Test
+    void createRule_acceptsSendMessageWithValidTemplate() {
+        UUID templateId = UUID.randomUUID();
+        when(messageTemplateService.findById(templateId)).thenReturn(Optional.of(
+            new nl.vlettenrally.data.domain.MessageTemplate(templateId, "T",
+                nl.vlettenrally.data.enums.MessageType.GENERAL, "Hoi {team}", null)));
+        AutomationRule draft = validDraft();
+        draft.setActions(List.of(new AutomationAction(
+            AutomationActionType.SEND_MESSAGE, null, null, null, templateId, null, null, null)));
+
+        AutomationRule created = service.createRule(gameId, draft, adminId);
+
+        assertEquals(templateId, created.getActions().get(0).messageTemplateId());
+    }
+
+    @Test
+    void createRule_rejectsSendMessageWithUnknownTemplate() {
+        UUID templateId = UUID.randomUUID();
+        when(messageTemplateService.findById(templateId)).thenReturn(Optional.empty());
+        AutomationRule draft = validDraft();
+        draft.setActions(List.of(new AutomationAction(
+            AutomationActionType.SEND_MESSAGE, null, null, null, templateId, null, null, null)));
+
+        assertThrows(BadRequestException.class, () -> service.createRule(gameId, draft, adminId));
+    }
+
+    @Test
+    void createRule_rejectsSendMessageWithNeitherTemplateNorContent() {
+        AutomationRule draft = validDraft();
+        draft.setActions(List.of(new AutomationAction(
+            AutomationActionType.SEND_MESSAGE, "  ", null, null, null, null, null, null)));
+
+        assertThrows(BadRequestException.class, () -> service.createRule(gameId, draft, adminId));
+    }
+
+    @Test
     void createRule_rejectsZeroPointsAction() {
         AutomationRule draft = validDraft();
         draft.setActions(List.of(new AutomationAction(
-            AutomationActionType.AWARD_POINTS, null, null, null, 0, null, null)));
+            AutomationActionType.AWARD_POINTS, null, null, null, null, 0, null, null)));
 
         assertThrows(BadRequestException.class, () -> service.createRule(gameId, draft, adminId));
     }
@@ -332,7 +368,7 @@ class AutomationServiceTest {
         rule.setTriggerType(type);
         rule.setTriggerConfig(config);
         rule.setActions(List.of(new AutomationAction(
-            AutomationActionType.SEND_MESSAGE, "Hoi {team}", null, null, null, null, null)));
+            AutomationActionType.SEND_MESSAGE, "Hoi {team}", null, null, null, null, null, null)));
         return rule;
     }
 

@@ -542,12 +542,17 @@ export interface AutomationTriggerConfig {
   comparison?: 'BEFORE' | 'AFTER' | null;
 }
 
-/** Flat action; which fields apply depends on `type`. Text supports a {team} placeholder. */
+/**
+ * Flat action; which fields apply depends on `type`. Text supports {team},
+ * {checkpoint} and {rival} placeholders (which apply depends on the trigger).
+ * A SEND_MESSAGE action may reference a reusable template via messageTemplateId.
+ */
 export interface AutomationAction {
   type: AutomationActionType;
   messageContent?: string | null;
   messageType?: string | null;
   messageIcon?: string | null;
+  messageTemplateId?: string | null;
   points?: number | null;
   pointsDescription?: string | null;
   adminNotification?: string | null;

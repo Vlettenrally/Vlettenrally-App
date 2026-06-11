@@ -6,6 +6,7 @@ import jakarta.inject.Inject;
 import nl.vlettenrally.data.domain.AutomationDistanceProgress;
 import nl.vlettenrally.data.domain.AutomationExecution;
 import nl.vlettenrally.data.domain.AutomationRule;
+import nl.vlettenrally.data.domain.Checkpoint;
 import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.LocationData;
 import nl.vlettenrally.data.domain.PointEntry;
@@ -16,6 +17,7 @@ import nl.vlettenrally.data.enums.PointEntryType;
 import nl.vlettenrally.data.repository.AutomationDistanceProgressRepository;
 import nl.vlettenrally.data.repository.AutomationExecutionRepository;
 import nl.vlettenrally.data.repository.AutomationRuleRepository;
+import nl.vlettenrally.data.repository.CheckpointRepository;
 import nl.vlettenrally.data.repository.LocationDataRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.websockets.WebSocketPublisher;
@@ -73,6 +75,9 @@ public class AutomationEngine {
 
     @Inject
     TeamRepository teamRepository;
+
+    @Inject
+    CheckpointRepository checkpointRepository;
 
     @Inject
     GameService gameService;
@@ -361,7 +366,7 @@ public class AutomationEngine {
         AutomationActionExecutor.Result result;
         EXECUTING.set(true);
         try {
-            result = actionExecutor.execute(rule, targets);
+            result = actionExecutor.execute(rule, targets, buildActionContext(rule, contextKey));
         } finally {
             EXECUTING.remove();
         }
@@ -388,5 +393,35 @@ public class AutomationEngine {
         payload.put("firedAt", execution.getFiredAt().toString());
         webSocketPublisher.sendToAdmins(rule.getGameId(),
             WebSocketMessageType.AUTOMATION_TRIGGERED.getValue(), payload);
+    }
+
+    /**
+     * Resolve the firing-context names a rule's message/notification
+     * placeholders may use, from the {@code contextKey}: the checkpoint name for
+     * CHECKPOINT_ENTRY, the overtaken rival's name for RIVAL_OVERTAKE.
+     */
+    private AutomationActionExecutor.ActionContext buildActionContext(AutomationRule rule, String contextKey) {
+        UUID id = parseUuid(contextKey);
+        if (id == null) {
+            return AutomationActionExecutor.ActionContext.EMPTY;
+        }
+        return switch (rule.getTriggerType()) {
+            case CHECKPOINT_ENTRY -> new AutomationActionExecutor.ActionContext(
+                checkpointRepository.findById(id).map(Checkpoint::getName).orElse(null), null);
+            case RIVAL_OVERTAKE -> new AutomationActionExecutor.ActionContext(
+                null, teamRepository.findById(id).map(Team::getName).orElse(null));
+            default -> AutomationActionExecutor.ActionContext.EMPTY;
+        };
+    }
+
+    private static UUID parseUuid(String value) {
+        if (value == null) {
+            return null;
+        }
+        try {
+            return UUID.fromString(value);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 }

@@ -46,6 +46,7 @@ import nl.vlettenrally.data.enums.PointEntryType;
 import nl.vlettenrally.data.repository.AutomationDistanceProgressRepository;
 import nl.vlettenrally.data.repository.AutomationExecutionRepository;
 import nl.vlettenrally.data.repository.AutomationRuleRepository;
+import nl.vlettenrally.data.repository.CheckpointRepository;
 import nl.vlettenrally.data.repository.LocationDataRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.websockets.WebSocketPublisher;
@@ -62,6 +63,7 @@ class AutomationEngineTest {
     @Mock AutomationExecutionRepository executionRepository;
     @Mock AutomationDistanceProgressRepository distanceProgressRepository;
     @Mock TeamRepository teamRepository;
+    @Mock CheckpointRepository checkpointRepository;
     @Mock GameService gameService;
     @Mock LocationDataRepository locationDataRepository;
     @Mock PointsLedgerService pointsLedgerService;
@@ -91,7 +93,7 @@ class AutomationEngineTest {
         team.setCheckedIn(true);
 
         lenient().when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
-        lenient().when(actionExecutor.execute(any(), anyList())).thenReturn(OK);
+        lenient().when(actionExecutor.execute(any(), anyList(), any())).thenReturn(OK);
     }
 
     private AutomationRule rule(AutomationTriggerType type, AutomationTriggerConfig config) {
@@ -119,7 +121,7 @@ class AutomationEngineTest {
 
         engine.onCheckpointPass(gameId, teamId, checkpointId, Instant.now());
 
-        verify(actionExecutor).execute(eq(rule), eq(List.of(team)));
+        verify(actionExecutor).execute(eq(rule), eq(List.of(team)), any());
         ArgumentCaptor<AutomationExecution> captor = ArgumentCaptor.forClass(AutomationExecution.class);
         verify(executionRepository).save(captor.capture());
         assertEquals(rule.getId(), captor.getValue().getRuleId());
@@ -180,7 +182,7 @@ class AutomationEngineTest {
         engine.onCheckpointPass(gameId, teamId, checkpointId, Instant.now());
         engine.onCheckpointPass(gameId, teamId, otherCheckpoint, Instant.now());
 
-        verify(actionExecutor, times(1)).execute(eq(rule), anyList());
+        verify(actionExecutor, times(1)).execute(eq(rule), anyList(), any());
         ArgumentCaptor<AutomationExecution> captor = ArgumentCaptor.forClass(AutomationExecution.class);
         verify(executionRepository).save(captor.capture());
         assertEquals(otherCheckpoint.toString(), captor.getValue().getContextKey());
@@ -226,7 +228,7 @@ class AutomationEngineTest {
 
         // In time: bonus fires.
         engine.onCheckpointPass(gameId, teamId, checkpointId, deadline.minus(Duration.ofMinutes(5)));
-        verify(actionExecutor).execute(eq(rule), eq(List.of(team)));
+        verify(actionExecutor).execute(eq(rule), eq(List.of(team)), any());
     }
 
     @Test
@@ -248,7 +250,7 @@ class AutomationEngineTest {
 
         // Finished after the end time: penalty fires.
         engine.onCheckpointPass(gameId, teamId, checkpointId, gameEnd.plus(Duration.ofMinutes(1)));
-        verify(actionExecutor).execute(eq(rule), eq(List.of(team)));
+        verify(actionExecutor).execute(eq(rule), eq(List.of(team)), any());
     }
 
     @Test
@@ -277,7 +279,7 @@ class AutomationEngineTest {
 
         // The action calls back into the engine (e.g. AWARD_POINTS → ledger →
         // onTeamPointsChanged). The nested hook must be a no-op.
-        when(actionExecutor.execute(any(), anyList())).thenAnswer(invocation -> {
+        when(actionExecutor.execute(any(), anyList(), any())).thenAnswer(invocation -> {
             engine.onCheckpointPass(gameId, teamId, UUID.randomUUID(), Instant.now());
             engine.onTeamPointsChanged(gameId, teamId, 0, 100);
             return OK;
@@ -285,7 +287,7 @@ class AutomationEngineTest {
 
         engine.onCheckpointPass(gameId, teamId, checkpointId, Instant.now());
 
-        verify(actionExecutor, times(1)).execute(any(), anyList());
+        verify(actionExecutor, times(1)).execute(any(), anyList(), any());
         verify(executionRepository, times(1)).save(any());
     }
 
@@ -305,7 +307,7 @@ class AutomationEngineTest {
 
         engine.onGameStatusChange(game, Game.GameStatus.PLANNED, Game.GameStatus.ACTIVE);
 
-        verify(actionExecutor).execute(eq(rule), eq(List.of(team)));
+        verify(actionExecutor).execute(eq(rule), eq(List.of(team)), any());
         ArgumentCaptor<AutomationExecution> captor = ArgumentCaptor.forClass(AutomationExecution.class);
         verify(executionRepository).save(captor.capture());
         assertNull(captor.getValue().getTeamId());
@@ -351,7 +353,7 @@ class AutomationEngineTest {
 
         engine.onTeamPointsChanged(gameId, teamId, 140, 160);
 
-        verify(actionExecutor).execute(eq(rule), eq(List.of(team)));
+        verify(actionExecutor).execute(eq(rule), eq(List.of(team)), any());
         ArgumentCaptor<AutomationExecution> captor = ArgumentCaptor.forClass(AutomationExecution.class);
         verify(executionRepository).save(captor.capture());
         assertEquals(rival.getId().toString(), captor.getValue().getContextKey());
@@ -390,7 +392,7 @@ class AutomationEngineTest {
 
         engine.onTeamPointsChanged(gameId, teamId, 100, 101);
 
-        verify(actionExecutor).execute(eq(rule), anyList());
+        verify(actionExecutor).execute(eq(rule), anyList(), any());
     }
 
     // ==================== Distance accrual ====================
@@ -567,7 +569,7 @@ class AutomationEngineTest {
 
         engine.evaluateTimeAndInactivity(now);
 
-        verify(actionExecutor).execute(eq(rule), eq(List.of(team)));
+        verify(actionExecutor).execute(eq(rule), eq(List.of(team)), any());
     }
 
     @Test
@@ -604,7 +606,7 @@ class AutomationEngineTest {
 
         engine.evaluateTimeAndInactivity(now);
 
-        verify(actionExecutor).execute(eq(rule), anyList());
+        verify(actionExecutor).execute(eq(rule), anyList(), any());
     }
 
     @Test
@@ -674,7 +676,7 @@ class AutomationEngineTest {
 
         engine.evaluateTimeAndInactivity(now);
 
-        verify(actionExecutor).execute(eq(rule), eq(List.of(team)));
+        verify(actionExecutor).execute(eq(rule), eq(List.of(team)), any());
     }
 
     @Test

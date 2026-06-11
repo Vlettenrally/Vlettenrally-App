@@ -20,6 +20,7 @@ import nl.vlettenrally.data.enums.MessageType;
 import nl.vlettenrally.data.enums.TransmissionChannel;
 import nl.vlettenrally.provider.MessageTransmitter;
 import nl.vlettenrally.provider.TransmissionResult;
+import nl.vlettenrally.service.MessagePlaceholders;
 import nl.vlettenrally.service.MessageService;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 import nl.vlettenrally.websockets.WebSocketSessionManager;
@@ -29,6 +30,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.Set;
@@ -355,7 +357,8 @@ public class MessageServiceImpl implements MessageService {
             message.setTeamId(team.getId());
             message.setBatchId(batchId);
             message.setMessageType(type);
-            message.setContent(content);
+            // Resolve per-recipient placeholders (e.g. {team}) at delivery time.
+            message.setContent(MessagePlaceholders.resolve(content, Map.of("team", team.getName())));
             message.setIcon(icon);
             message.setSource(source);
             message.setSentByAdminId(adminId);

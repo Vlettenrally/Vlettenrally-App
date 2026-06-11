@@ -34,6 +34,7 @@ import type {
   AutomationTriggerConfig,
   AutomationTriggerType,
   Checkpoint,
+  MessageTemplate,
 } from '../types/entities';
 
 interface AutomationFormDialogProps {
@@ -107,14 +108,17 @@ export default function AutomationFormDialog({
 
   const [teams, setTeams] = useState<AdminTeam[]>([]);
   const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([]);
+  const [templates, setTemplates] = useState<MessageTemplate[]>([]);
 
   const loadOptions = useCallback(async () => {
-    const [teamsResponse, checkpointsResponse] = await Promise.all([
+    const [teamsResponse, checkpointsResponse, templatesResponse] = await Promise.all([
       api.getTeamsByGame(gameId),
       api.getCheckpoints(gameId),
+      api.getMessageTemplates(),
     ]);
     if (teamsResponse.data) setTeams(teamsResponse.data);
     if (checkpointsResponse.data) setCheckpoints(checkpointsResponse.data);
+    if (templatesResponse.data) setTemplates(templatesResponse.data);
   }, [gameId]);
 
   useEffect(() => {
@@ -143,6 +147,12 @@ export default function AutomationFormDialog({
   }, [open, rule, loadOptions]);
 
   const isDistance = triggerType === 'DISTANCE_TRAVELED';
+
+  // Placeholders usable in message/notification text for the selected trigger.
+  const placeholderHint =
+    'Voorbeeld: {team}' +
+    (triggerType === 'CHECKPOINT_ENTRY' ? ', {checkpoint}' : '') +
+    (triggerType === 'RIVAL_OVERTAKE' ? ', {rival}' : '');
 
   const handleTriggerTypeChange = (value: AutomationTriggerType) => {
     setTriggerType(value);
@@ -360,42 +370,79 @@ export default function AutomationFormDialog({
 
   const renderActionFields = (action: AutomationAction, index: number) => {
     switch (action.type) {
-      case 'SEND_MESSAGE':
+      case 'SEND_MESSAGE': {
+        const selectedTemplate = templates.find((t) => t.id === action.messageTemplateId) ?? null;
         return (
           <>
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <FormControl sx={{ minWidth: 220 }}>
-                <InputLabel>Berichttype</InputLabel>
-                <Select
-                  label="Berichttype"
-                  value={action.messageType ?? 'GENERAL'}
-                  onChange={(e) => updateAction(index, { messageType: e.target.value })}
-                >
-                  {MESSAGE_TYPE_OPTIONS.map((option) => (
-                    <MenuItem key={option.value} value={option.value}>
-                      {option.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+            <FormControl fullWidth>
+              <InputLabel>Template (optioneel)</InputLabel>
+              <Select
+                label="Template (optioneel)"
+                value={action.messageTemplateId ?? ''}
+                onChange={(e) =>
+                  updateAction(index, { messageTemplateId: e.target.value || undefined })
+                }
+              >
+                <MenuItem value="">Geen — eigen tekst</MenuItem>
+                {templates.map((template) => (
+                  <MenuItem key={template.id} value={template.id}>
+                    {template.name}
+                  </MenuItem>
+                ))}
+              </Select>
+              <FormHelperText>
+                Een template wordt live gebruikt: latere wijzigingen aan de template gelden ook hier.
+              </FormHelperText>
+            </FormControl>
+
+            {selectedTemplate ? (
               <TextField
-                label="Icoon (optioneel)"
-                value={action.messageIcon ?? ''}
-                onChange={(e) => updateAction(index, { messageIcon: e.target.value || undefined })}
-                sx={{ width: 140 }}
+                fullWidth
+                multiline
+                minRows={2}
+                label="Templatetekst"
+                value={selectedTemplate.content}
+                InputProps={{ readOnly: true }}
+                helperText={placeholderHint}
               />
-            </Box>
-            <TextField
-              fullWidth
-              multiline
-              minRows={2}
-              label="Bericht"
-              value={action.messageContent ?? ''}
-              onChange={(e) => updateAction(index, { messageContent: e.target.value })}
-              helperText="{team} wordt vervangen door de teamnaam"
-            />
+            ) : (
+              <>
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                  <FormControl sx={{ minWidth: 220 }}>
+                    <InputLabel>Berichttype</InputLabel>
+                    <Select
+                      label="Berichttype"
+                      value={action.messageType ?? 'GENERAL'}
+                      onChange={(e) => updateAction(index, { messageType: e.target.value })}
+                    >
+                      {MESSAGE_TYPE_OPTIONS.map((option) => (
+                        <MenuItem key={option.value} value={option.value}>
+                          {option.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <TextField
+                    label="Icoon (optioneel)"
+                    value={action.messageIcon ?? ''}
+                    onChange={(e) => updateAction(index, { messageIcon: e.target.value || undefined })}
+                    sx={{ width: 140 }}
+                  />
+                </Box>
+                <TextField
+                  fullWidth
+                  multiline
+                  minRows={2}
+                  label="Bericht"
+                  value={action.messageContent ?? ''}
+                  onChange={(e) => updateAction(index, { messageContent: e.target.value })}
+                  helperText={placeholderHint}
+                />
+              </>
+            )}
           </>
         );
+      }
       case 'AWARD_POINTS':
         return (
           <Box sx={{ display: 'flex', gap: 2 }}>
@@ -423,7 +470,7 @@ export default function AutomationFormDialog({
             label="Meldingstekst"
             value={action.adminNotification ?? ''}
             onChange={(e) => updateAction(index, { adminNotification: e.target.value })}
-            helperText="{team} wordt vervangen door de teamnaam"
+            helperText={placeholderHint}
           />
         );
     }
