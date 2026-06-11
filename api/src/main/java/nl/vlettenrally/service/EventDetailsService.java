@@ -13,6 +13,7 @@ import nl.vlettenrally.data.domain.CircleCheckpoint;
 import nl.vlettenrally.data.domain.Team;
 
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +40,9 @@ import java.util.UUID;
 @ApplicationScoped
 public class EventDetailsService {
 
+    private static final double CHECKPOINT_MATCH_TOLERANCE_METERS = 50.0;
+    private static final double EARTH_RADIUS_METERS = 6_371_000.0;
+
     @Inject
     LocationApiClient locationApiClient;
 
@@ -58,6 +62,8 @@ public class EventDetailsService {
     public ImportResult importCheckpoints(UUID gameId, String locationEndpointUrl)
             throws LocationApiException {
         EventDetailsBody body = fetchDetailsBody(locationEndpointUrl);
+        List<Checkpoint> existingCheckpoints = checkpointService.findByGameId(gameId);
+        Map<String, Checkpoint> checkpointsByExternalId = indexByExternalId(existingCheckpoints);
 
         int created = 0;
         int updated = 0;
@@ -68,11 +74,19 @@ public class EventDetailsService {
             for (EventCheckpoint detail : checkpoints) {
                 try {
                     String externalId = String.valueOf(detail.getId());
-                    Optional<Checkpoint> existing = checkpointService.findByGameIdAndExternalId(gameId, externalId);
+                    Checkpoint existing = checkpointsByExternalId.get(externalId);
+                    if (existing == null) {
+                        existing = matchCheckpointByLocation(detail, existingCheckpoints).orElse(null);
+                    }
 
-                    if (existing.isPresent()) {
-                        Checkpoint cp = existing.get();
+                    if (existing != null) {
+                        Checkpoint cp = existing;
                         boolean changed = false;
+
+                        if (!Objects.equals(cp.getExternalId(), externalId)) {
+                            cp.setExternalId(externalId);
+                            changed = true;
+                        }
 
                         if (detail.getLocation() != null) {
                             Double newLat = detail.getLocation().getLatitude();
@@ -93,6 +107,7 @@ public class EventDetailsService {
                         if (changed) {
                             cp.setUpdatedAt(Instant.now());
                             checkpointService.save(cp);
+                            checkpointsByExternalId.put(externalId, cp);
                             updated++;
                         }
                     } else {
@@ -106,6 +121,8 @@ public class EventDetailsService {
                             cp.setLongitude(detail.getLocation().getLongitude());
                         }
                         checkpointService.save(cp);
+                        existingCheckpoints.add(cp);
+                        checkpointsByExternalId.put(externalId, cp);
                         created++;
                     }
                 } catch (Exception e) {
@@ -178,5 +195,44 @@ public class EventDetailsService {
             return teamsByName.get(p.getBibLabel().toLowerCase().trim());
         }
         return null;
+    }
+
+    private static Map<String, Checkpoint> indexByExternalId(List<Checkpoint> checkpoints) {
+        Map<String, Checkpoint> byExternalId = new HashMap<>();
+        for (Checkpoint cp : checkpoints) {
+            if (cp.getExternalId() != null && !cp.getExternalId().isBlank()) {
+                byExternalId.put(cp.getExternalId(), cp);
+            }
+        }
+        return byExternalId;
+    }
+
+    private static Optional<Checkpoint> matchCheckpointByLocation(EventCheckpoint detail, List<Checkpoint> existingCheckpoints) {
+        if (detail.getLocation() == null) {
+            return Optional.empty();
+        }
+        double lat = detail.getLocation().getLatitude();
+        double lng = detail.getLocation().getLongitude();
+
+        return existingCheckpoints.stream()
+            .filter(cp -> cp.getLatitude() != null && cp.getLongitude() != null)
+            .map(cp -> new CheckpointDistance(cp, haversineMeters(lat, lng, cp.getLatitude(), cp.getLongitude())))
+            .filter(candidate -> candidate.distanceMeters() <= CHECKPOINT_MATCH_TOLERANCE_METERS)
+            .min(Comparator
+                .comparingDouble(CheckpointDistance::distanceMeters)
+                .thenComparing(candidate -> candidate.checkpoint().getId().toString()))
+            .map(CheckpointDistance::checkpoint);
+    }
+
+    private static double haversineMeters(double lat1, double lon1, double lat2, double lon2) {
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+            + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+            * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        return EARTH_RADIUS_METERS * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    private record CheckpointDistance(Checkpoint checkpoint, double distanceMeters) {
     }
 }
