@@ -7,9 +7,16 @@ import nl.vlettenrally.data.dto.message.AdminMessageResponse;
 import nl.vlettenrally.data.enums.MessageSource;
 import nl.vlettenrally.data.enums.MessageType;
 import nl.vlettenrally.data.enums.TransmissionChannel;
+import nl.vlettenrally.data.repository.DeviceRegistrationRepository;
 import nl.vlettenrally.data.repository.MessageRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
+import nl.vlettenrally.provider.MessageTransmitter;
 import nl.vlettenrally.websockets.WebSocketPublisher;
+import nl.vlettenrally.websockets.WebSocketSessionManager;
+
+import jakarta.enterprise.inject.Instance;
+import java.util.Collections;
+import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -41,6 +48,15 @@ class MessageServiceImplTest {
 
     @Mock
     WebSocketPublisher webSocketPublisher;
+
+    @Mock
+    WebSocketSessionManager webSocketSessionManager;
+
+    @Mock
+    DeviceRegistrationRepository deviceRegistrationRepository;
+
+    @Mock
+    Instance<MessageTransmitter> transmitters;
 
     @InjectMocks
     MessageServiceImpl messageService;
@@ -391,6 +407,29 @@ class MessageServiceImplTest {
     }
 
     // ==================== Helper Methods ====================
+
+    // ==================== sendAutomationMessage Tests ====================
+
+    @Test
+    void sendAutomationMessage_tagsMessagesWithAutomationSource_andNoAdmin() {
+        Team team = createTeam("De Watervlooien");
+        when(teamRepository.findById(team.getId())).thenReturn(Optional.of(team));
+        when(messageRepository.save(any(Message.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(webSocketSessionManager.getSessionByTeam(team.getId())).thenReturn(null);
+        when(deviceRegistrationRepository.findAllByTeamId(team.getId())).thenReturn(List.of());
+        when(transmitters.iterator()).thenReturn(Collections.emptyIterator());
+
+        AdminMessageBatchResult result = messageService.sendAutomationMessage(
+            gameId, List.of(team.getId()), MessageType.GENERAL, "Goed bezig!", "🎉", UUID.randomUUID());
+
+        assertEquals(1, result.totalTeams());
+        ArgumentCaptor<Message> captor = ArgumentCaptor.forClass(Message.class);
+        verify(messageRepository, atLeastOnce()).save(captor.capture());
+        Message saved = captor.getAllValues().get(0);
+        assertEquals(MessageSource.AUTOMATION, saved.getSource());
+        assertNull(saved.getSentByAdminId());
+        assertEquals("Goed bezig!", saved.getContent());
+    }
 
     private Message createMessage() {
         Message message = new Message();

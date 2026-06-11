@@ -30,6 +30,10 @@ public final class WebSocketEventTypes {
     // Admin events
     public static final String ADMIN_ALERT = "ADMIN_ALERT";
 
+    // Automation events (admin-only)
+    public static final String AUTOMATION_TRIGGERED = "AUTOMATION_TRIGGERED";
+    public static final String AUTOMATION_NOTIFICATION = "AUTOMATION_NOTIFICATION";
+
     // Location events
     public static final String LOCATION_UPDATE = "LOCATION_UPDATE";
 }

@@ -39,7 +39,18 @@ public interface MessageService {
      * @return Batch result with aggregated delivery statistics
      */
     AdminMessageBatchResult sendAdminMessage(UUID gameId, List<UUID> teamIds, MessageType type, String content, String icon, UUID adminId);
-    
+
+    /**
+     * Send a message on behalf of an automation rule. Same batch semantics and
+     * delivery pipeline as {@link #sendAdminMessage}, but tagged with source
+     * AUTOMATION (and therefore not listed among admin message batches).
+     *
+     * @param teamIds Teams to send to (null or empty for all teams in game)
+     * @param automationRuleId The rule that fired (for logging/tracing)
+     */
+    AdminMessageBatchResult sendAutomationMessage(UUID gameId, List<UUID> teamIds, MessageType type, String content, String icon, UUID automationRuleId);
+
+
     /**
      * Get admin message batches for a game with pagination.
      * Returns one representative message per batch.

@@ -11,6 +11,7 @@ import nl.vlettenrally.data.repository.CheckpointRepository;
 import nl.vlettenrally.data.repository.FcmTokenRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.fcm.FcmHttpClient;
+import nl.vlettenrally.service.AutomationEngine;
 import nl.vlettenrally.service.PointsLedgerService;
 import nl.vlettenrally.websockets.CheckpointFcmSubscriptionManager;
 import nl.vlettenrally.websockets.CheckpointSubscriptionManager;
@@ -52,6 +53,7 @@ class AchievementServiceImplTest {
     @Mock FcmTokenRepository fcmTokenRepository;
     @Mock FcmHttpClient fcmHttpClient;
     @Mock PointsLedgerService pointsLedgerService;
+    @Mock AutomationEngine automationEngine;
 
     @InjectMocks AchievementServiceImpl service;
 
@@ -103,6 +105,7 @@ class AchievementServiceImplTest {
         verify(pointsLedgerService).createEntry(
             eq(teamId), eq(gameId), eq(PointEntryType.CHECKPOINT_VERIFICATION),
             eq(10), any(), any(), any(), eq(null));
+        verify(automationEngine).onCheckpointPass(eq(gameId), eq(teamId), eq(checkpointId), eq(passTime));
     }
 
     @Test
@@ -154,6 +157,7 @@ class AchievementServiceImplTest {
         assertTrue(result.isEmpty(), "VERIFIED record must not be modified by repeat polls");
         verify(achievementRepository, never()).save(any());
         verify(pointsLedgerService, never()).createEntry(any(), any(), any(), anyInt(), any(), any(), any(), any());
+        verify(automationEngine, never()).onCheckpointPass(any(), any(), any(), any());
     }
 
     @Test

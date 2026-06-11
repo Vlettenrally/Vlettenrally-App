@@ -7,6 +7,7 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import nl.vlettenrally.client.LocationApiClient;
 import nl.vlettenrally.client.dto.legendstracking.EventParticipantCheckpoint;
+import nl.vlettenrally.client.dto.legendstracking.EventParticipantDistance;
 import nl.vlettenrally.client.dto.legendstracking.EventParticipantLocation;
 import nl.vlettenrally.client.dto.legendstracking.EventParticipantsCheckpointsResponse;
 import nl.vlettenrally.client.dto.legendstracking.EventParticipantsLocationsResponse;
@@ -82,6 +83,9 @@ public class LocationPollingScheduler {
 
     @Inject
     PollingLeader pollingLeader;
+
+    @Inject
+    AutomationEngine automationEngine;
 
     @Scheduled(every = "{vlettenrally.location.polling-interval}")
     @Transactional
@@ -185,6 +189,29 @@ public class LocationPollingScheduler {
                     .withTargetSession(sessionId);
                 webSocketPublisher.publish(message);
             }
+        }
+
+        processParticipantDistances(game, teamsByParticipantId, response);
+    }
+
+    /**
+     * Feed the provider's cumulative per-participant distances (on-course +
+     * off-course) into the automation engine, which credits distance points
+     * through the game's DISTANCE_TRAVELED rule.
+     */
+    private void processParticipantDistances(Game game, Map<Integer, Team> teamsByParticipantId,
+                                             EventParticipantsLocationsResponse response) {
+        List<EventParticipantDistance> distances = response.getEvent().getEventParticipantDistances();
+        if (distances == null) {
+            return;
+        }
+        for (EventParticipantDistance pd : distances) {
+            Team team = teamsByParticipantId.get(pd.getEventParticipantId());
+            if (team == null) continue;
+
+            double totalMeters = (pd.getDistanceOnGpx() != null ? pd.getDistanceOnGpx() : 0)
+                + (pd.getDistanceOffCourse() != null ? pd.getDistanceOffCourse() : 0);
+            automationEngine.onDistanceUpdate(game.getId(), team.getId(), totalMeters);
         }
     }
 

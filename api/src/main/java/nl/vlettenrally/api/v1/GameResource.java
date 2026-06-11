@@ -35,6 +35,8 @@ import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.dto.achievement.CheckpointTeamResponse;
 import nl.vlettenrally.service.AchievementService;
+import nl.vlettenrally.service.AutomationEngine;
+import nl.vlettenrally.service.AutomationService;
 import nl.vlettenrally.service.GameService;
 import nl.vlettenrally.service.RankingService;
 import nl.vlettenrally.service.CheckpointService;
@@ -107,6 +109,12 @@ public class GameResource {
 
     @Inject
     RankingService rankingService;
+
+    @Inject
+    AutomationService automationService;
+
+    @Inject
+    AutomationEngine automationEngine;
 
     /**
      * Get all games
@@ -276,6 +284,8 @@ public class GameResource {
         game.setLocationEndpointActive(request.locationEndpointActive() != null ? request.locationEndpointActive() : false);
 
         Game saved = gameService.save(game);
+        // Every game carries the built-in distance-points automation.
+        automationService.createSystemDistanceRule(saved.getId());
         return Response.status(Response.Status.CREATED).entity(toDto(saved)).build();
     }
 
@@ -288,6 +298,7 @@ public class GameResource {
     public Response updateGame(@PathParam("gameId") UUID gameId, GameRequest request) {
         return gameService.findById(gameId)
             .map(game -> {
+                Game.GameStatus oldStatus = game.getStatus();
                 if (request.name() != null) game.setName(request.name());
                 if (request.description() != null) game.setDescription(request.description());
                 if (request.participantInfo() != null) game.setParticipantInfo(request.participantInfo());
@@ -311,6 +322,10 @@ public class GameResource {
                 if (request.locationEndpointActive() != null) game.setLocationEndpointActive(request.locationEndpointActive());
 
                 Game updated = gameService.save(game);
+                if (updated.getStatus() != oldStatus) {
+                    // Manual admin transition — the scheduler hook won't see it.
+                    automationEngine.onGameStatusChange(updated, oldStatus, updated.getStatus());
+                }
                 return Response.ok(toDto(updated)).build();
             })
             .orElse(gameNotFoundResponse());

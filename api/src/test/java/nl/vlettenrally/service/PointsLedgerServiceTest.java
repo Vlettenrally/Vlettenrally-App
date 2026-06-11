@@ -59,6 +59,7 @@ class PointsLedgerServiceTest {
     @Mock GameService gameService;
     @Mock RankingService rankingService;
     @Mock TransactionSynchronizationRegistry txRegistry;
+    @Mock AutomationEngine automationEngine;
 
     @InjectMocks PointsLedgerService ledger;
 
@@ -96,6 +97,43 @@ class PointsLedgerServiceTest {
         assertEquals(teamId, result.getTeamId());
         assertEquals(PointEntryType.CHECKPOINT_VERIFICATION, result.getEntryType());
         verify(teamRepository).save(team);
+        verify(automationEngine).onTeamPointsChanged(gameId, teamId, 100, 150);
+    }
+
+    @Test
+    void accrueEntry_appliesDelta_withoutTouchingEditAuditFields() {
+        PointEntry entry = new PointEntry();
+        entry.setTeamId(teamId);
+        entry.setGameId(gameId);
+        entry.setEntryType(PointEntryType.DISTANCE_BONUS);
+        entry.setOriginalAmount(10);
+        entry.setCurrentAmount(10);
+        when(pointEntryRepository.findById(entry.getId())).thenReturn(Optional.of(entry));
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+
+        PointEntry result = ledger.accrueEntry(entry.getId(), 25);
+
+        assertEquals(115, team.getTotalPoints());
+        assertEquals(25, result.getCurrentAmount());
+        assertEquals(10, result.getOriginalAmount());
+        assertNull(result.getEditedAt());
+        assertNull(result.getEditedBy());
+        assertNull(result.getEditReason());
+        verify(automationEngine).onTeamPointsChanged(gameId, teamId, 100, 115);
+    }
+
+    @Test
+    void accrueEntry_noOp_whenAmountUnchanged() {
+        PointEntry entry = new PointEntry();
+        entry.setTeamId(teamId);
+        entry.setGameId(gameId);
+        entry.setCurrentAmount(10);
+        when(pointEntryRepository.findById(entry.getId())).thenReturn(Optional.of(entry));
+
+        ledger.accrueEntry(entry.getId(), 10);
+
+        verify(teamRepository, never()).save(any());
+        verify(pointEntryRepository, never()).save(any());
     }
 
     @Test

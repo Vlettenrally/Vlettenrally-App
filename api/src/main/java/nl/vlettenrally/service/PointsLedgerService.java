@@ -65,6 +65,9 @@ public class PointsLedgerService {
     @Inject
     TransactionSynchronizationRegistry txRegistry;
 
+    @Inject
+    AutomationEngine automationEngine;
+
     /**
      * Record a new ledger entry and adjust the team's totalPoints by {@code amount}.
      */
@@ -75,7 +78,8 @@ public class PointsLedgerService {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new NotFoundException("Team not found: " + teamId));
 
-        int newTotal = team.getTotalPoints() + amount;
+        int oldTotal = team.getTotalPoints();
+        int newTotal = oldTotal + amount;
         if (newTotal < 0) {
             throw new BadRequestException(
                 "Resulting total points would be negative (" + newTotal + ")");
@@ -99,6 +103,7 @@ public class PointsLedgerService {
 
         broadcastAfterCommit(gameId, EVENT_POINT_ENTRY_CREATED, pointEntryConverter.toResponse(saved));
         broadcastRankingAfterCommit(gameId, teamId);
+        automationEngine.onTeamPointsChanged(gameId, teamId, oldTotal, newTotal);
         return saved;
     }
 
@@ -126,7 +131,8 @@ public class PointsLedgerService {
         Team team = teamRepository.findById(entry.getTeamId())
                 .orElseThrow(() -> new NotFoundException("Team not found: " + entry.getTeamId()));
 
-        int newTotal = team.getTotalPoints() + delta;
+        int oldTotal = team.getTotalPoints();
+        int newTotal = oldTotal + delta;
         if (newTotal < 0) {
             throw new BadRequestException(
                 "Resulting total points would be negative (" + newTotal + ")");
@@ -144,6 +150,47 @@ public class PointsLedgerService {
 
         broadcastAfterCommit(entry.getGameId(), EVENT_POINT_ENTRY_UPDATED, pointEntryConverter.toResponse(saved));
         broadcastRankingAfterCommit(entry.getGameId(), entry.getTeamId());
+        automationEngine.onTeamPointsChanged(entry.getGameId(), entry.getTeamId(), oldTotal, newTotal);
+        return saved;
+    }
+
+    /**
+     * Grow (or shrink) an automation-managed entry to {@code newAmount} without
+     * touching the editedAt/editedBy/editReason audit fields — those mark admin
+     * edits, while this is continuous system accrual (distance points). The
+     * team's totalPoints changes by the delta, with the same negative-total
+     * check and post-commit broadcasts as {@link #editEntry}.
+     */
+    @Transactional
+    public PointEntry accrueEntry(UUID entryId, int newAmount) {
+        PointEntry entry = pointEntryRepository.findById(entryId)
+                .orElseThrow(() -> new NotFoundException("Point entry not found: " + entryId));
+
+        int delta = newAmount - entry.getCurrentAmount();
+        if (delta == 0) {
+            return entry;
+        }
+
+        Team team = teamRepository.findById(entry.getTeamId())
+                .orElseThrow(() -> new NotFoundException("Team not found: " + entry.getTeamId()));
+
+        int oldTotal = team.getTotalPoints();
+        int newTotal = oldTotal + delta;
+        if (newTotal < 0) {
+            throw new BadRequestException(
+                "Resulting total points would be negative (" + newTotal + ")");
+        }
+
+        entry.setCurrentAmount(newAmount);
+        PointEntry saved = pointEntryRepository.save(entry);
+
+        team.setTotalPoints(newTotal);
+        team.setUpdatedAt(Instant.now());
+        teamRepository.save(team);
+
+        broadcastAfterCommit(entry.getGameId(), EVENT_POINT_ENTRY_UPDATED, pointEntryConverter.toResponse(saved));
+        broadcastRankingAfterCommit(entry.getGameId(), entry.getTeamId());
+        automationEngine.onTeamPointsChanged(entry.getGameId(), entry.getTeamId(), oldTotal, newTotal);
         return saved;
     }
 

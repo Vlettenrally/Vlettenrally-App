@@ -314,6 +314,16 @@ public class MessageServiceImpl implements MessageService {
 
     @Override
     public AdminMessageBatchResult sendAdminMessage(UUID gameId, List<UUID> teamIds, MessageType type, String content, String icon, UUID adminId) {
+        return sendBatch(gameId, teamIds, type, content, icon, MessageSource.ADMIN, adminId);
+    }
+
+    @Override
+    public AdminMessageBatchResult sendAutomationMessage(UUID gameId, List<UUID> teamIds, MessageType type, String content, String icon, UUID automationRuleId) {
+        Log.infof("Automation rule %s sending message to game %s", automationRuleId, gameId);
+        return sendBatch(gameId, teamIds, type, content, icon, MessageSource.AUTOMATION, null);
+    }
+
+    private AdminMessageBatchResult sendBatch(UUID gameId, List<UUID> teamIds, MessageType type, String content, String icon, MessageSource source, UUID adminId) {
         // Determine target teams
         List<Team> targetTeams;
         if (teamIds == null || teamIds.isEmpty()) {
@@ -329,7 +339,7 @@ public class MessageServiceImpl implements MessageService {
         }
 
         if (targetTeams.isEmpty()) {
-            Log.warnf("No teams found for admin message to game %s", gameId);
+            Log.warnf("No teams found for %s message to game %s", source, gameId);
             throw new IllegalArgumentException("No teams found to send message to");
         }
 
@@ -347,7 +357,7 @@ public class MessageServiceImpl implements MessageService {
             message.setMessageType(type);
             message.setContent(content);
             message.setIcon(icon);
-            message.setSource(MessageSource.ADMIN);
+            message.setSource(source);
             message.setSentByAdminId(adminId);
             message.setSentAt(sentAt);
             message.setDelivered(false);
@@ -372,7 +382,7 @@ public class MessageServiceImpl implements MessageService {
             }
         }
 
-        Log.infof("Admin message batch %s sent to %d/%d teams", batchId, successCount, targetTeams.size());
+        Log.infof("%s message batch %s sent to %d/%d teams", source, batchId, successCount, targetTeams.size());
         return new AdminMessageBatchResult(
                 batchId,
                 targetTeams.size(),

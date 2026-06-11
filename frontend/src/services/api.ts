@@ -44,6 +44,10 @@ import type {
   CheckInState,
   CheckInDevice,
   FcmTokenRegistrationResponse,
+  AutomationRule,
+  AutomationRuleRequest,
+  AutomationExecutionListResponse,
+  CopyAutomationsResult,
 } from '../types/entities';
 import storage from './storage';
 import { isTokenExpiringSoon } from './auth';
@@ -586,6 +590,41 @@ async getGames() : Promise<ApiResponse<Game[]>> {
 
   async importCheckpoints(gameId: string): Promise<ApiResponse<CheckpointImportResult>> {
     return this.post(`/games/${gameId}/import-checkpoints`);
+  }
+
+  // Automation endpoints (admin)
+
+  async getAutomations(gameId: string): Promise<ApiResponse<AutomationRule[]>> {
+    return this.get(`/games/${gameId}/automations`);
+  }
+
+  async createAutomation(gameId: string, data: AutomationRuleRequest): Promise<ApiResponse<AutomationRule>> {
+    return this.post(`/games/${gameId}/automations`, data);
+  }
+
+  async updateAutomation(gameId: string, ruleId: string, data: AutomationRuleRequest): Promise<ApiResponse<AutomationRule>> {
+    return this.put(`/games/${gameId}/automations/${ruleId}`, data);
+  }
+
+  async deleteAutomation(gameId: string, ruleId: string): Promise<ApiResponse<void>> {
+    return this.delete(`/games/${gameId}/automations/${ruleId}`);
+  }
+
+  async setAutomationEnabled(gameId: string, ruleId: string, enabled: boolean): Promise<ApiResponse<AutomationRule>> {
+    return this.patch(`/games/${gameId}/automations/${ruleId}/enabled`, { enabled });
+  }
+
+  async getAutomationExecutions(
+    gameId: string,
+    ruleId: string,
+    page = 0,
+    pageSize = 25,
+  ): Promise<ApiResponse<AutomationExecutionListResponse>> {
+    return this.get(`/games/${gameId}/automations/${ruleId}/executions?page=${page}&pageSize=${pageSize}`);
+  }
+
+  async copyAutomations(gameId: string, sourceGameId: string): Promise<ApiResponse<CopyAutomationsResult>> {
+    return this.post(`/games/${gameId}/automations/copy`, { sourceGameId });
   }
 
   async linkParticipants(gameId: string): Promise<ApiResponse<ParticipantLinkResult>> {

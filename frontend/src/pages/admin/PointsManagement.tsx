@@ -41,6 +41,8 @@ import type { AdminTeam, Checkpoint, PointEntry, PointEntryType } from '../../ty
 const ENTRY_TYPE_LABELS: Record<PointEntryType, string> = {
   CHECKPOINT_VERIFICATION: 'Checkpoint',
   MANUAL_ADJUSTMENT: 'Handmatig',
+  AUTOMATION_BONUS: 'Automatisering',
+  DISTANCE_BONUS: 'Afstand',
 };
 
 function formatTimestamp(iso: string): string {

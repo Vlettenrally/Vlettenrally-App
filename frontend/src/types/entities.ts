@@ -459,7 +459,11 @@ export type TokenExchangeResponse =
  * Points ledger entry — one row per change to a team's totalPoints.
  * originalAmount is immutable; currentAmount may be edited (admin "Aftrek" / correction).
  */
-export type PointEntryType = 'CHECKPOINT_VERIFICATION' | 'MANUAL_ADJUSTMENT';
+export type PointEntryType =
+  | 'CHECKPOINT_VERIFICATION'
+  | 'MANUAL_ADJUSTMENT'
+  | 'AUTOMATION_BONUS'
+  | 'DISTANCE_BONUS';
 
 export interface PointEntry {
   id: string;
@@ -504,4 +508,102 @@ export interface CreatePointAdjustmentRequest {
 export interface EditPointEntryRequest {
   amount: number;
   reason: string;
+}
+
+/**
+ * Automation rules — admin-configured trigger → actions per game.
+ * System rules (the built-in "Afstandspunten" distance rule) cannot be
+ * deleted and their trigger type is fixed; rate and enabled are editable.
+ */
+export type AutomationTriggerType =
+  | 'CHECKPOINT_ENTRY'
+  | 'SCHEDULED_TIME'
+  | 'GAME_STATUS_CHANGE'
+  | 'TEAM_INACTIVITY'
+  | 'RIVAL_OVERTAKE'
+  | 'DISTANCE_TRAVELED';
+
+export type AutomationActionType = 'SEND_MESSAGE' | 'AWARD_POINTS' | 'NOTIFY_ADMINS';
+
+/**
+ * Flat config; which fields apply depends on the rule's trigger type.
+ * For CHECKPOINT_ENTRY, `comparison` plus the mode/time fields restrict firing
+ * to passes before/after a boundary time (finish bonus/penalty).
+ */
+export interface AutomationTriggerConfig {
+  checkpointId?: string | null;
+  mode?: 'ABSOLUTE' | 'RELATIVE' | null;
+  absoluteTime?: string | null;
+  relativeTo?: 'GAME_START' | 'GAME_END' | null;
+  offsetMinutes?: number | null;
+  toStatus?: 'ACTIVE' | 'COMPLETED' | null;
+  inactiveMinutes?: number | null;
+  pointsPer100m?: number | null;
+  comparison?: 'BEFORE' | 'AFTER' | null;
+}
+
+/** Flat action; which fields apply depends on `type`. Text supports a {team} placeholder. */
+export interface AutomationAction {
+  type: AutomationActionType;
+  messageContent?: string | null;
+  messageType?: string | null;
+  messageIcon?: string | null;
+  points?: number | null;
+  pointsDescription?: string | null;
+  adminNotification?: string | null;
+}
+
+export interface AutomationRule {
+  id: string;
+  gameId: string;
+  name: string;
+  enabled: boolean;
+  system: boolean;
+  triggerType: AutomationTriggerType;
+  triggerConfig: AutomationTriggerConfig;
+  actions: AutomationAction[];
+  targetTeamIds: string[] | null;
+  fireOnce: boolean;
+  cooldownMinutes?: number | null;
+  createdAt: string;
+  updatedAt: string;
+  lastFiredAt?: string | null;
+  executionCount: number;
+}
+
+export interface AutomationRuleRequest {
+  name: string;
+  enabled: boolean;
+  triggerType: AutomationTriggerType;
+  triggerConfig: AutomationTriggerConfig;
+  actions: AutomationAction[];
+  targetTeamIds?: string[] | null;
+  fireOnce: boolean;
+  cooldownMinutes?: number | null;
+}
+
+export interface AutomationExecution {
+  id: string;
+  ruleId: string;
+  teamId?: string | null;
+  teamName?: string | null;
+  contextKey?: string | null;
+  status: 'SUCCESS' | 'PARTIAL' | 'FAILED';
+  detail?: string | null;
+  firedAt: string;
+}
+
+export interface AutomationExecutionListResponse {
+  executions: AutomationExecution[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+}
+
+export interface CopyAutomationsResult {
+  copied: number;
+  skippedDuplicate: string[];
+  skippedUnmatchedCheckpoint: string[];
+  distanceRateCopied: boolean;
 }

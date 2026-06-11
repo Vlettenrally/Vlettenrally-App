@@ -16,10 +16,14 @@ import java.util.Map;
 
 /**
  * Scheduler for automatic game status transitions.
- * 
+ *
  * Transitions:
  * - PLANNED → ACTIVE: When startSignalTime is reached
  * - ACTIVE → COMPLETED: When endTime is reached
+ *
+ * Runs on a single instance at a time — leader election via
+ * {@link PollingLeader} (Valkey-backed lease, shared with the other
+ * background schedulers).
  */
 @ApplicationScoped
 public class GameStatusScheduler {
@@ -33,12 +37,22 @@ public class GameStatusScheduler {
     @Inject
     RankingService rankingService;
 
+    @Inject
+    AutomationEngine automationEngine;
+
+    @Inject
+    PollingLeader pollingLeader;
+
     /**
      * Check for game status transitions every 30 seconds
      */
     @Scheduled(every = "30s")
     @Transactional
     void checkGameStatusTransitions() {
+        if (!pollingLeader.tryAcquireOrRenew()) {
+            return;
+        }
+
         Instant now = Instant.now();
         
         // Check PLANNED games for transition to ACTIVE
@@ -74,6 +88,8 @@ public class GameStatusScheduler {
         );
         
         Log.info("Game '" + game.getName() + "' transitioned to ACTIVE");
+
+        automationEngine.onGameStatusChange(game, Game.GameStatus.PLANNED, Game.GameStatus.ACTIVE);
     }
     
     private void transitionToCompleted(Game game) {
@@ -100,5 +116,7 @@ public class GameStatusScheduler {
         );
 
         Log.info("Game '" + game.getName() + "' transitioned to COMPLETED");
+
+        automationEngine.onGameStatusChange(game, Game.GameStatus.ACTIVE, Game.GameStatus.COMPLETED);
     }
 }

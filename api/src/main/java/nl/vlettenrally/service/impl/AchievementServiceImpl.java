@@ -16,6 +16,7 @@ import nl.vlettenrally.data.repository.FcmTokenRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.fcm.FcmHttpClient;
 import nl.vlettenrally.service.AchievementService;
+import nl.vlettenrally.service.AutomationEngine;
 import nl.vlettenrally.service.PointsLedgerService;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
@@ -72,6 +73,9 @@ public class AchievementServiceImpl implements AchievementService {
 
     @Inject
     PointsLedgerService pointsLedgerService;
+
+    @Inject
+    AutomationEngine automationEngine;
 
     private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory(new PrecisionModel(), 4326);
 
@@ -261,6 +265,12 @@ public class AchievementServiceImpl implements AchievementService {
             null
         );
 
+        // Manual verification: detectedAt is when the team was actually in the
+        // zone; verifiedAt is merely when the game master confirmed it.
+        automationEngine.onCheckpointPass(team.getGameId(), team.getId(), checkpoint.getId(),
+            savedAchievement.getDetectedAt() != null
+                ? savedAchievement.getDetectedAt() : savedAchievement.getVerifiedAt());
+
         return Optional.of(savedAchievement);
     }
 
@@ -346,6 +356,7 @@ public class AchievementServiceImpl implements AchievementService {
                 saved.getId(),
                 null
             );
+            automationEngine.onCheckpointPass(team.getGameId(), team.getId(), checkpointId, passTime);
             return Optional.of(saved);
         }
 
@@ -375,6 +386,8 @@ public class AchievementServiceImpl implements AchievementService {
             saved.getId(),
             null
         );
+
+        automationEngine.onCheckpointPass(team.getGameId(), team.getId(), checkpointId, passTime);
 
         return Optional.of(saved);
     }
