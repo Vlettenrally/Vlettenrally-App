@@ -18,5 +18,6 @@ public record CheckpointRequest(
     Double longitude,
     String zoneType,
     Double radiusMeters,
-    List<List<Double>> polygonPoints
+    List<List<Double>> polygonPoints,
+    boolean hidden
 ) {}

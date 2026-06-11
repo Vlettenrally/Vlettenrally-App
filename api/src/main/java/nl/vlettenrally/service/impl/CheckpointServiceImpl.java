@@ -2,21 +2,32 @@ package nl.vlettenrally.service.impl;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.NotFoundException;
 import nl.vlettenrally.data.domain.Checkpoint;
 import nl.vlettenrally.data.domain.CircleCheckpoint;
+import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.PolygonCheckpoint;
 import nl.vlettenrally.data.dto.game.CheckpointRequest;
+import nl.vlettenrally.data.dto.game.CopyCheckpointsResult;
 import nl.vlettenrally.data.repository.CheckpointRepository;
 import nl.vlettenrally.service.CheckpointService;
+import nl.vlettenrally.service.GameService;
+import nl.vlettenrally.service.util.GameTimeShifter;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.geom.PrecisionModel;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Implementation of CheckpointService
@@ -28,6 +39,9 @@ public class CheckpointServiceImpl implements CheckpointService {
 
     @Inject
     CheckpointRepository checkpointRepository;
+
+    @Inject
+    GameService gameService;
 
     @Override
     public Optional<Checkpoint> findById(UUID id) {
@@ -78,6 +92,7 @@ public class CheckpointServiceImpl implements CheckpointService {
         checkpoint.setPoints(request.points());
         checkpoint.setLatitude(request.latitude());
         checkpoint.setLongitude(request.longitude());
+        checkpoint.setHidden(request.hidden());
 
         if (request.openingTime() != null) {
             checkpoint.setOpeningTime(Instant.parse(request.openingTime()));
@@ -131,6 +146,7 @@ public class CheckpointServiceImpl implements CheckpointService {
         checkpoint.setPoints(request.points());
         checkpoint.setLatitude(request.latitude());
         checkpoint.setLongitude(request.longitude());
+        checkpoint.setHidden(request.hidden());
         if (request.openingTime() != null) {
             checkpoint.setOpeningTime(Instant.parse(request.openingTime()));
         }
@@ -140,6 +156,59 @@ public class CheckpointServiceImpl implements CheckpointService {
         checkpoint.setUpdatedAt(Instant.now());
 
         return Optional.of(checkpointRepository.save(checkpoint));
+    }
+
+    @Override
+    public CopyCheckpointsResult copyCheckpoints(UUID targetGameId, UUID sourceGameId) {
+        if (targetGameId.equals(sourceGameId)) {
+            throw new BadRequestException("Cannot copy zones from a game into itself");
+        }
+
+        Game sourceGame = gameService.findById(sourceGameId)
+            .orElseThrow(() -> new NotFoundException("Source game not found: " + sourceGameId));
+        Game targetGame = gameService.findById(targetGameId)
+            .orElseThrow(() -> new NotFoundException("Target game not found: " + targetGameId));
+
+        Set<String> existingNames = checkpointRepository.findByGameId(targetGameId).stream()
+            .map(cp -> cp.getName().toLowerCase(Locale.ROOT))
+            .collect(Collectors.toCollection(HashSet::new));
+
+        int copied = 0;
+        List<String> skippedDuplicate = new ArrayList<>();
+
+        for (Checkpoint source : checkpointRepository.findByGameId(sourceGameId)) {
+            if (!existingNames.add(source.getName().toLowerCase(Locale.ROOT))) {
+                skippedDuplicate.add(source.getName());
+                continue;
+            }
+
+            Checkpoint copy;
+            if (source instanceof PolygonCheckpoint poly) {
+                PolygonCheckpoint p = new PolygonCheckpoint();
+                p.setZonePolygon(poly.getZonePolygon());
+                copy = p;
+            } else {
+                CircleCheckpoint c = new CircleCheckpoint();
+                c.setRadiusMeters(((CircleCheckpoint) source).getRadiusMeters());
+                copy = c;
+            }
+
+            copy.setGameId(targetGameId);
+            copy.setName(source.getName());
+            copy.setPoints(source.getPoints());
+            copy.setLatitude(source.getLatitude());
+            copy.setLongitude(source.getLongitude());
+            copy.setLocation(source.getLocation());
+            copy.setHidden(source.isHidden());
+            // externalId intentionally left null: it is a tracker-sync key unique per game.
+            copy.setOpeningTime(GameTimeShifter.adjust(source.getOpeningTime(), sourceGame, targetGame));
+            copy.setClosingTime(GameTimeShifter.adjust(source.getClosingTime(), sourceGame, targetGame));
+
+            checkpointRepository.save(copy);
+            copied++;
+        }
+
+        return new CopyCheckpointsResult(copied, skippedDuplicate);
     }
 
     /**
@@ -156,6 +225,7 @@ public class CheckpointServiceImpl implements CheckpointService {
         target.setLongitude(source.getLongitude());
         target.setLocation(source.getLocation());
         target.setExternalId(source.getExternalId());
+        target.setHidden(source.isHidden());
         target.setCreatedAt(source.getCreatedAt());
         target.setUpdatedAt(source.getUpdatedAt());
     }

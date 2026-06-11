@@ -172,6 +172,7 @@ export default function AdminMap() {
         zoneType: cp.zoneType,
         radiusMeters: cp.radiusMeters,
         polygonPoints: cp.polygonPoints,
+        hidden: cp.hidden,
       })),
   ];
 

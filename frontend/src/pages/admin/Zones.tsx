@@ -20,17 +20,21 @@ import {
   DialogActions,
   CircularProgress,
   Alert,
+  Chip,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   CloudDownload as ImportIcon,
+  ContentCopy as CopyIcon,
+  VisibilityOff as HiddenIcon,
 } from '@mui/icons-material';
 import api from '../../services/api';
 import { useGameStore } from '../../store/useGameStore';
 import type { Checkpoint } from '../../types/entities';
 import ZoneFormDialog from '../../components/ZoneFormDialog';
+import CopyZonesDialog from '../../components/CopyZonesDialog';
 
 const formatDateTime = (dateStr?: string): string => {
   if (!dateStr) return '–';
@@ -69,6 +73,9 @@ const Zones = () => {
 
   // Import state
   const [importing, setImporting] = useState(false);
+
+  // Copy-zones dialog state
+  const [copyDialogOpen, setCopyDialogOpen] = useState(false);
 
   const fetchCheckpoints = useCallback(async () => {
     if (!selectedGameId) return;
@@ -202,6 +209,13 @@ const Zones = () => {
               Zones importeren uit tracker
             </Button>
           )}
+          <Button
+            variant="outlined"
+            startIcon={<CopyIcon />}
+            onClick={() => setCopyDialogOpen(true)}
+          >
+            Zones kopiëren
+          </Button>
           <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
             Zone toevoegen
           </Button>
@@ -249,9 +263,21 @@ const Zones = () => {
               {checkpoints.map((cp) => (
                 <TableRow key={cp.id} hover>
                   <TableCell>
-                    <Typography variant="body1" fontWeight="medium">
-                      {cp.name}
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <Typography variant="body1" fontWeight="medium">
+                        {cp.name}
+                      </Typography>
+                      {cp.hidden && (
+                        <Chip
+                          size="small"
+                          icon={<HiddenIcon sx={{ fontSize: 14 }} />}
+                          label="Verborgen"
+                          variant="outlined"
+                          color="default"
+                          title="Verborgen voor teams, triggert nog wel automatiseringen"
+                        />
+                      )}
+                    </Box>
                     {cp.externalId && (
                       <Typography variant="caption" color="text.secondary">
                         Extern: {cp.externalId}
@@ -288,6 +314,14 @@ const Zones = () => {
           </Table>
         </TableContainer>
       )}
+
+      {/* Copy Zones Dialog */}
+      <CopyZonesDialog
+        open={copyDialogOpen}
+        onClose={() => setCopyDialogOpen(false)}
+        gameId={selectedGameId}
+        onCopied={fetchCheckpoints}
+      />
 
       {/* Zone Form Dialog */}
       <ZoneFormDialog

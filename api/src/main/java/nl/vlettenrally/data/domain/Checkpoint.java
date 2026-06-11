@@ -30,6 +30,7 @@ public abstract sealed class Checkpoint permits CircleCheckpoint, PolygonCheckpo
     private Double longitude;
     private Point location;       // PostGIS Point for geofencing
     private String externalId;    // External ID from location tracker
+    private boolean hidden;       // Hidden from teams' map, but still triggers automations
     private Instant createdAt;
     private Instant updatedAt;
 

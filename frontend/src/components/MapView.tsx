@@ -22,6 +22,8 @@ export interface MapMarker {
   radiusMeters?: number;
   /** Polygon vertices as [[lat, lng], ...] */
   polygonPoints?: number[][];
+  /** Hidden from teams — admin maps render these in a muted style */
+  hidden?: boolean;
 }
 
 export interface MapTrack {
@@ -89,6 +91,7 @@ export function MapView({ markers, center, zoom, className, teamLocation, tracks
           id: m.id,
           label: m.label,
           color: m.color,
+          hidden: m.hidden ?? false,
         },
       }));
 
@@ -121,7 +124,7 @@ export function MapView({ markers, center, zoom, className, teamLocation, tracks
               type: 'Polygon' as const,
               coordinates: [coords],
             },
-            properties: { id: m.id, label: m.label },
+            properties: { id: m.id, label: m.label, hidden: m.hidden ?? false },
           };
         }
         // Default: circle
@@ -130,7 +133,7 @@ export function MapView({ markers, center, zoom, className, teamLocation, tracks
         return {
           type: 'Feature' as const,
           geometry: circle.geometry,
-          properties: { id: m.id, label: m.label },
+          properties: { id: m.id, label: m.label, hidden: m.hidden ?? false },
         };
       });
 
@@ -347,7 +350,7 @@ export function MapView({ markers, center, zoom, className, teamLocation, tracks
             type: 'fill',
             source: 'checkpoint-zones',
             paint: {
-              'fill-color': '#ff9800',
+              'fill-color': ['case', ['get', 'hidden'], '#9e9e9e', '#ff9800'],
               'fill-opacity': 0.15,
             },
           });
@@ -357,7 +360,7 @@ export function MapView({ markers, center, zoom, className, teamLocation, tracks
             type: 'line',
             source: 'checkpoint-zones',
             paint: {
-              'line-color': '#ff9800',
+              'line-color': ['case', ['get', 'hidden'], '#9e9e9e', '#ff9800'],
               'line-width': 2,
               'line-opacity': 0.6,
               'line-dasharray': [3, 2],
@@ -376,7 +379,7 @@ export function MapView({ markers, center, zoom, className, teamLocation, tracks
             source: 'checkpoint-markers',
             paint: {
               'circle-radius': 10,
-              'circle-color': '#ff9800',
+              'circle-color': ['case', ['get', 'hidden'], '#9e9e9e', '#ff9800'],
               'circle-stroke-width': 3,
               'circle-stroke-color': '#ffffff',
               'circle-opacity': 0.9,

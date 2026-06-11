@@ -13,6 +13,7 @@ import nl.vlettenrally.data.repository.AutomationExecutionRepository;
 import nl.vlettenrally.data.repository.AutomationRuleRepository;
 import nl.vlettenrally.data.repository.CheckpointRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
+import nl.vlettenrally.service.util.GameTimeShifter;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -212,7 +213,7 @@ public class AutomationService {
             Instant newAbsolute = config != null ? config.absoluteTime() : null;
             if (config != null && config.mode() == AutomationTriggerConfig.ScheduleMode.ABSOLUTE
                     && newAbsolute != null) {
-                newAbsolute = adjustAbsoluteTime(newAbsolute, sourceGame, targetGame);
+                newAbsolute = GameTimeShifter.adjust(newAbsolute, sourceGame, targetGame);
             }
 
             AutomationRule draft = new AutomationRule();
@@ -278,34 +279,6 @@ public class AutomationService {
         return targetCheckpoints.stream()
             .filter(cp -> cp.getName() != null && cp.getName().equalsIgnoreCase(source.getName()))
             .findFirst();
-    }
-
-    /**
-     * Shift an absolute timestamp by the gap between source and target for
-     * whichever game anchor (start signal or end time) it sits closest to in
-     * the source game. Leaves it unchanged when no usable anchor pair exists.
-     */
-    private static Instant adjustAbsoluteTime(Instant time, Game source, Game target) {
-        Instant best = null;
-        long bestDistance = Long.MAX_VALUE;
-
-        Instant[][] anchorPairs = {
-            {source.getStartSignalTime(), target.getStartSignalTime()},
-            {source.getEndTime(), target.getEndTime()},
-        };
-        for (Instant[] pair : anchorPairs) {
-            Instant sourceAnchor = pair[0];
-            Instant targetAnchor = pair[1];
-            if (sourceAnchor == null || targetAnchor == null) {
-                continue;
-            }
-            long distance = Math.abs(java.time.Duration.between(time, sourceAnchor).toMillis());
-            if (distance < bestDistance) {
-                bestDistance = distance;
-                best = time.plus(java.time.Duration.between(sourceAnchor, targetAnchor));
-            }
-        }
-        return best != null ? best : time;
     }
 
     /** Apply the source game's distance-points rate and enabled flag to the target's system rule. */

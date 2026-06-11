@@ -55,6 +55,9 @@ public class CheckpointEntity {
     @Column(name = "external_id")
     private String externalId;
 
+    @Column(name = "hidden", nullable = false)
+    private boolean hidden = false;
+
     @Column(name = "zone_type", nullable = false)
     private String zoneType = "circle";
 

@@ -14,6 +14,8 @@ import {
   ToggleButtonGroup,
   ToggleButton,
   IconButton,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import {
   CircleOutlined as CircleIcon,
@@ -80,6 +82,7 @@ export default function ZoneFormDialog({
     zoneType: 'circle',
     radiusMeters: 50,
     polygonPoints: undefined,
+    hidden: false,
   });
 
   const isCreateMode = !checkpoint;
@@ -96,6 +99,7 @@ export default function ZoneFormDialog({
         zoneType: checkpoint.zoneType || 'circle',
         radiusMeters: checkpoint.radiusMeters ?? 50,
         polygonPoints: checkpoint.polygonPoints,
+        hidden: checkpoint.hidden ?? false,
       });
     } else {
       setFormData({
@@ -108,6 +112,7 @@ export default function ZoneFormDialog({
         zoneType: 'circle',
         radiusMeters: 50,
         polygonPoints: undefined,
+        hidden: false,
       });
     }
     setError(null);
@@ -147,6 +152,7 @@ export default function ZoneFormDialog({
         zoneType: formData.zoneType,
         radiusMeters: formData.zoneType === 'circle' ? (formData.radiusMeters ?? 50) : undefined,
         polygonPoints: formData.zoneType === 'polygon' ? formData.polygonPoints : undefined,
+        hidden: formData.hidden ?? false,
       };
 
       let response;
@@ -425,6 +431,17 @@ export default function ZoneFormDialog({
             slotProps={{ inputLabel: { shrink: true } }}
           />
         </Box>
+
+        <FormControlLabel
+          sx={{ mt: 1 }}
+          control={
+            <Checkbox
+              checked={formData.hidden ?? false}
+              onChange={(e) => setFormData(prev => ({ ...prev, hidden: e.target.checked }))}
+            />
+          }
+          label="Verborgen voor teams (triggert nog wel automatiseringen)"
+        />
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} disabled={loading}>

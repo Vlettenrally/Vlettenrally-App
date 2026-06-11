@@ -23,6 +23,8 @@ import nl.vlettenrally.data.dto.game.CheckpointImportResponse;
 import nl.vlettenrally.data.dto.game.ParticipantLinkResponse;
 import nl.vlettenrally.data.dto.game.CheckpointRequest;
 import nl.vlettenrally.data.dto.game.CheckpointResponse;
+import nl.vlettenrally.data.dto.game.CopyCheckpointsRequest;
+import nl.vlettenrally.data.dto.game.CopyCheckpointsResult;
 import nl.vlettenrally.data.dto.game.GameRequest;
 import nl.vlettenrally.data.dto.game.GameResponse;
 import nl.vlettenrally.data.dto.game.LocationTestResponse;
@@ -161,14 +163,19 @@ public class GameResource {
      */
     @GET
     @Path("/{gameId}/checkpoints")
-    public Response getCheckpoints(@PathParam("gameId") UUID gameId) {
+    public Response getCheckpoints(@PathParam("gameId") UUID gameId, @Context SecurityContext ctx) {
         // Verify game exists
         if (gameService.findById(gameId).isEmpty()) {
             return gameNotFoundResponse();
         }
 
+        // Hidden zones drive automations but must not appear on teams' map.
+        boolean isAdmin = ctx.isUserInRole("admin");
         List<Checkpoint> checkpoints = checkpointService.findByGameId(gameId);
-        return Response.ok(checkpoints.stream().map(this::toCheckpointDto).toList()).build();
+        return Response.ok(checkpoints.stream()
+            .filter(cp -> isAdmin || !cp.isHidden())
+            .map(this::toCheckpointDto)
+            .toList()).build();
     }
 
     /** Teams near a checkpoint: GPS within zone + any existing achievement */
@@ -474,6 +481,23 @@ public class GameResource {
     }
 
     /**
+     * Copy all zones from another game into this game, shifting opening/closing
+     * times into this game's timeframe and preserving the hidden flag.
+     */
+    @POST
+    @Path("/{gameId}/copy-checkpoints")
+    @RolesAllowed("admin")
+    public Response copyCheckpoints(@PathParam("gameId") UUID gameId, CopyCheckpointsRequest request) {
+        if (request == null || request.sourceGameId() == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("sourceGameId is required"))
+                .build();
+        }
+        CopyCheckpointsResult result = checkpointService.copyCheckpoints(gameId, request.sourceGameId());
+        return Response.ok(result).build();
+    }
+
+    /**
      * Import checkpoints (zones) from the Legendstracking /details endpoint.
      * Upserts checkpoints by externalId ↔ EventCheckpoint.id.
      */
@@ -580,7 +604,8 @@ public class GameResource {
             checkpoint.getExternalId(),
             checkpoint.getZoneType(),
             radiusMeters,
-            polygonPoints
+            polygonPoints,
+            checkpoint.isHidden()
         );
     }
 

@@ -95,6 +95,8 @@ export interface Checkpoint {
   radiusMeters: number;
   /** Polygon vertices as [[lat, lng], ...] — only for polygon zones */
   polygonPoints?: number[][];
+  /** Hidden from teams' map, but still triggers automations */
+  hidden: boolean;
 }
 
 /**
@@ -111,6 +113,8 @@ export interface CheckpointRequest {
   radiusMeters?: number;
   /** Polygon vertices as [[lat, lng], ...] — only for polygon zones */
   polygonPoints?: number[][];
+  /** Hidden from teams' map, but still triggers automations */
+  hidden?: boolean;
 }
 
 /**
@@ -611,4 +615,12 @@ export interface CopyAutomationsResult {
   skippedDuplicate: string[];
   skippedUnmatchedCheckpoint: string[];
   distanceRateCopied: boolean;
+}
+
+/**
+ * Result of copying zones (checkpoints) from another game.
+ */
+export interface CopyCheckpointsResult {
+  copied: number;
+  skippedDuplicate: string[];
 }

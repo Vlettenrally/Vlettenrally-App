@@ -48,6 +48,7 @@ import type {
   AutomationRuleRequest,
   AutomationExecutionListResponse,
   CopyAutomationsResult,
+  CopyCheckpointsResult,
 } from '../types/entities';
 import storage from './storage';
 import { isTokenExpiringSoon } from './auth';
@@ -590,6 +591,10 @@ async getGames() : Promise<ApiResponse<Game[]>> {
 
   async importCheckpoints(gameId: string): Promise<ApiResponse<CheckpointImportResult>> {
     return this.post(`/games/${gameId}/import-checkpoints`);
+  }
+
+  async copyCheckpoints(gameId: string, sourceGameId: string): Promise<ApiResponse<CopyCheckpointsResult>> {
+    return this.post(`/games/${gameId}/copy-checkpoints`, { sourceGameId });
   }
 
   // Automation endpoints (admin)

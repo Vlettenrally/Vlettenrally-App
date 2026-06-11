@@ -2,28 +2,36 @@ package nl.vlettenrally.service.impl;
 
 import nl.vlettenrally.data.domain.Checkpoint;
 import nl.vlettenrally.data.domain.CircleCheckpoint;
+import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.PolygonCheckpoint;
 import nl.vlettenrally.data.dto.game.CheckpointRequest;
+import nl.vlettenrally.data.dto.game.CopyCheckpointsResult;
 import nl.vlettenrally.data.repository.CheckpointRepository;
+import nl.vlettenrally.service.GameService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.locationtech.jts.geom.Coordinate;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -41,6 +49,7 @@ class CheckpointServiceImplTest {
     );
 
     @Mock CheckpointRepository checkpointRepository;
+    @Mock GameService gameService;
 
     @InjectMocks CheckpointServiceImpl service;
 
@@ -55,7 +64,7 @@ class CheckpointServiceImplTest {
 
     private CheckpointRequest request(String name, String zoneType, Double radiusMeters, List<List<Double>> polygonPoints) {
         return new CheckpointRequest(name, "2026-06-10T08:00:00Z", "2026-06-10T18:00:00Z",
-            25, 52.05, 4.05, zoneType, radiusMeters, polygonPoints);
+            25, 52.05, 4.05, zoneType, radiusMeters, polygonPoints, false);
     }
 
     private CircleCheckpoint circleCheckpoint() {
@@ -156,5 +165,69 @@ class CheckpointServiceImplTest {
         assertEquals(gameId, circle.getGameId());
         assertEquals(200.0, circle.getRadiusMeters());
         assertEquals(Instant.parse("2026-06-10T18:00:00Z"), circle.getClosingTime());
+    }
+
+    private Game gameWithStartSignal(UUID id, Instant startSignal) {
+        Game game = new Game();
+        game.setId(id);
+        game.setStartSignalTime(startSignal);
+        return game;
+    }
+
+    private CircleCheckpoint sourceZone(String name, Instant opening, boolean hidden, String externalId) {
+        CircleCheckpoint cp = new CircleCheckpoint(80);
+        cp.setId(UUID.randomUUID());
+        cp.setGameId(gameId);
+        cp.setName(name);
+        cp.setPoints(15);
+        cp.setLatitude(52.05);
+        cp.setLongitude(4.05);
+        cp.setOpeningTime(opening);
+        cp.setHidden(hidden);
+        cp.setExternalId(externalId);
+        return cp;
+    }
+
+    @Test
+    void copyCheckpointsShiftsTimesPreservesHiddenAndSkipsDuplicates() {
+        UUID targetGameId = UUID.randomUUID();
+        Instant sourceStart = Instant.parse("2025-06-01T10:00:00Z");
+        Instant targetStart = Instant.parse("2026-06-01T10:00:00Z");
+        Duration shift = Duration.between(sourceStart, targetStart);
+
+        when(gameService.findById(gameId)).thenReturn(Optional.of(gameWithStartSignal(gameId, sourceStart)));
+        when(gameService.findById(targetGameId)).thenReturn(Optional.of(gameWithStartSignal(targetGameId, targetStart)));
+
+        // Target already has a "Brug" zone, so the source "Brug" must be skipped.
+        CircleCheckpoint targetExisting = new CircleCheckpoint(50);
+        targetExisting.setName("Brug");
+        when(checkpointRepository.findByGameId(targetGameId)).thenReturn(List.of(targetExisting));
+
+        Instant hiddenOpening = sourceStart.plus(Duration.ofMinutes(30));
+        when(checkpointRepository.findByGameId(gameId)).thenReturn(List.of(
+            sourceZone("Verboden zone", hiddenOpening, true, "ext-9"),
+            sourceZone("Sluis", sourceStart.plus(Duration.ofHours(1)), false, null),
+            sourceZone("Brug", sourceStart, false, null)
+        ));
+        when(checkpointRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        CopyCheckpointsResult result = service.copyCheckpoints(targetGameId, gameId);
+
+        assertEquals(2, result.copied());
+        assertEquals(List.of("Brug"), result.skippedDuplicate());
+
+        ArgumentCaptor<Checkpoint> saved = ArgumentCaptor.forClass(Checkpoint.class);
+        verify(checkpointRepository, times(2)).save(saved.capture());
+
+        Checkpoint hiddenCopy = saved.getAllValues().stream()
+            .filter(cp -> cp.getName().equals("Verboden zone")).findFirst().orElseThrow();
+        assertEquals(targetGameId, hiddenCopy.getGameId());
+        assertTrue(hiddenCopy.isHidden());
+        assertNull(hiddenCopy.getExternalId(), "externalId is a per-game tracker key and must not be copied");
+        assertEquals(hiddenOpening.plus(shift), hiddenCopy.getOpeningTime());
+
+        Checkpoint normalCopy = saved.getAllValues().stream()
+            .filter(cp -> cp.getName().equals("Sluis")).findFirst().orElseThrow();
+        assertFalse(normalCopy.isHidden());
     }
 }
