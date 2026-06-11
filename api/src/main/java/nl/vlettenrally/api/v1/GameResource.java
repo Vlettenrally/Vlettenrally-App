@@ -550,7 +550,9 @@ public class GameResource {
                     ParticipantLinkResult result = eventDetailsService.linkParticipants(gameId, game.getLocationEndpointUrl());
                     return Response.ok(new ParticipantLinkResponse(
                         result.linked(),
-                        result.unmatched()
+                        result.unmatched(),
+                        result.linkedTeams(),
+                        result.unmatchedParticipants()
                     )).build();
                 } catch (LocationApiException e) {
                     return Response.status(Response.Status.BAD_GATEWAY)

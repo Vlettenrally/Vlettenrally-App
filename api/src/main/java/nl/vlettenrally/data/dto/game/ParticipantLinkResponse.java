@@ -2,6 +2,8 @@ package nl.vlettenrally.data.dto.game;
 
 import io.quarkus.runtime.annotations.RegisterForReflection;
 
+import java.util.List;
+
 /**
  * Response DTO for linking teams to tracker participants:
  * how many teams got their externalParticipantId linked and how many
@@ -10,5 +12,7 @@ import io.quarkus.runtime.annotations.RegisterForReflection;
 @RegisterForReflection
 public record ParticipantLinkResponse(
         int linked,
-        int unmatched
+        int unmatched,
+        List<String> linkedTeams,
+        List<String> unmatchedParticipants
 ) {}

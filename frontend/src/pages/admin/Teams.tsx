@@ -1,4 +1,4 @@
-import { Box, Typography, Button, Card, CardContent, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, CircularProgress, Tooltip } from '@mui/material';
+import { Box, Typography, Button, Card, CardContent, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, CircularProgress, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import { Upload as ImportIcon, Link as LinkIcon, Add as AddIcon, CheckCircle as SuccessIcon, Error as ErrorIcon } from '@mui/icons-material';
 import { useEffect, useState } from 'react';
 import { useGameStore } from '../../store/useGameStore';
@@ -16,6 +16,8 @@ const hasCheckInStarted = (game: Game | null): boolean => {
   return new Date() >= new Date(game.checkInStartTime);
 };
 
+type LinkResultStatus = 'linked' | 'unmatched';
+
 export default function Teams() {
   const selectedGameId = useGameStore((s) => s.selectedGameId);
   const [teams, setTeams] = useState<AdminTeam[]>([]);
@@ -32,6 +34,8 @@ export default function Teams() {
   const [linking, setLinking] = useState(false);
   const [linkResult, setLinkResult] = useState<ParticipantLinkResult | null>(null);
   const [linkError, setLinkError] = useState<string | null>(null);
+  const [linkDetailsOpen, setLinkDetailsOpen] = useState(false);
+  const [linkDetailsStatus, setLinkDetailsStatus] = useState<LinkResultStatus>('linked');
 
   // Load game and teams when game changes
   useEffect(() => {
@@ -127,6 +131,7 @@ export default function Teams() {
     setLinking(true);
     setLinkResult(null);
     setLinkError(null);
+    setLinkDetailsOpen(false);
 
     try {
       const result = await gameService.linkParticipants(selectedGameId);
@@ -140,8 +145,24 @@ export default function Teams() {
     }
   };
 
+  const handleOpenLinkDetails = (status: LinkResultStatus) => {
+    if (!linkResult) return;
+    const items = status === 'linked' ? linkResult.linkedTeams : linkResult.unmatchedParticipants;
+    if (items.length === 0) return;
+    setLinkDetailsStatus(status);
+    setLinkDetailsOpen(true);
+  };
+
+  const handleCloseLinkDetails = () => {
+    setLinkDetailsOpen(false);
+  };
+
   const checkInStarted = hasCheckInStarted(game);
   const canImport = game?.externalEventId && !checkInStarted;
+  const linkedTeams = linkResult?.linkedTeams ?? [];
+  const unmatchedParticipants = linkResult?.unmatchedParticipants ?? [];
+  const detailItems = linkDetailsStatus === 'linked' ? linkedTeams : unmatchedParticipants;
+  const detailTitle = linkDetailsStatus === 'linked' ? 'Gekoppelde teams' : 'Deelnemers zonder team';
 
   return (
     <Box sx={{ p: 3 }}>
@@ -188,12 +209,16 @@ export default function Teams() {
                 color="success"
                 size="small"
                 icon={<SuccessIcon />}
+                clickable={linkedTeams.length > 0}
+                onClick={() => handleOpenLinkDetails('linked')}
               />
               {linkResult.unmatched > 0 && (
                 <Chip
                   label={`${linkResult.unmatched} zonder team`}
                   color="warning"
                   size="small"
+                  clickable={unmatchedParticipants.length > 0}
+                  onClick={() => handleOpenLinkDetails('unmatched')}
                 />
               )}
             </Box>
@@ -297,6 +322,28 @@ export default function Teams() {
         gameId={selectedGameId || ''}
         onSave={handleSave}
       />
+
+      <Dialog open={linkDetailsOpen} onClose={handleCloseLinkDetails} fullWidth maxWidth="sm">
+        <DialogTitle>{detailTitle}</DialogTitle>
+        <DialogContent dividers>
+          {detailItems.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">
+              Geen resultaten.
+            </Typography>
+          ) : (
+            <Box component="ul" sx={{ m: 0, pl: 3 }}>
+              {detailItems.map((item, index) => (
+                <Box component="li" key={`${item}-${index}`} sx={{ mb: 0.5 }}>
+                  <Typography variant="body2">{item}</Typography>
+                </Box>
+              ))}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseLinkDetails}>Sluiten</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

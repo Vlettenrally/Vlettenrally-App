@@ -132,6 +132,8 @@ export interface CheckpointImportResult {
 export interface ParticipantLinkResult {
   linked: number;
   unmatched: number;
+  linkedTeams: string[];
+  unmatchedParticipants: string[];
 }
 
 /**

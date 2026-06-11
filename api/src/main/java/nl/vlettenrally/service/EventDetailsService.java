@@ -13,6 +13,7 @@ import nl.vlettenrally.data.domain.CircleCheckpoint;
 import nl.vlettenrally.data.domain.Team;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -23,7 +24,7 @@ import java.util.UUID;
 
 /**
  * Service for syncing master data from the Legendstracking /details endpoint.
- *
+ * <p>
  * Provides two independent operations against the same endpoint:
  * <ul>
  *   <li>{@link #importCheckpoints} — upserts checkpoints (zones) by
@@ -80,34 +81,33 @@ public class EventDetailsService {
                     }
 
                     if (existing != null) {
-                        Checkpoint cp = existing;
                         boolean changed = false;
 
-                        if (!Objects.equals(cp.getExternalId(), externalId)) {
-                            cp.setExternalId(externalId);
+                        if (!Objects.equals(existing.getExternalId(), externalId)) {
+                            existing.setExternalId(externalId);
                             changed = true;
                         }
 
                         if (detail.getLocation() != null) {
                             Double newLat = detail.getLocation().getLatitude();
                             Double newLng = detail.getLocation().getLongitude();
-                            if (!Objects.equals(cp.getLatitude(), newLat)
-                                    || !Objects.equals(cp.getLongitude(), newLng)) {
-                                cp.setLatitude(newLat);
-                                cp.setLongitude(newLng);
+                            if (!Objects.equals(existing.getLatitude(), newLat)
+                                    || !Objects.equals(existing.getLongitude(), newLng)) {
+                                existing.setLatitude(newLat);
+                                existing.setLongitude(newLng);
                                 changed = true;
                             }
                         }
 
-                        if (detail.getName() != null && !detail.getName().equals(cp.getName())) {
-                            cp.setName(detail.getName());
+                        if (detail.getName() != null && !detail.getName().equals(existing.getName())) {
+                            existing.setName(detail.getName());
                             changed = true;
                         }
 
                         if (changed) {
-                            cp.setUpdatedAt(Instant.now());
-                            checkpointService.save(cp);
-                            checkpointsByExternalId.put(externalId, cp);
+                            existing.setUpdatedAt(Instant.now());
+                            checkpointService.save(existing);
+                            checkpointsByExternalId.put(externalId, existing);
                             updated++;
                         }
                     } else {
@@ -147,6 +147,8 @@ public class EventDetailsService {
 
         int linked = 0;
         int unmatched = 0;
+        List<String> linkedTeams = new ArrayList<>();
+        List<String> unmatchedParticipants = new ArrayList<>();
 
         List<EventParticipant> participants = body.getEventParticipants();
         if (participants != null && !participants.isEmpty()) {
@@ -162,6 +164,7 @@ public class EventDetailsService {
                 Team match = lookupTeamForParticipant(teamsByName, p);
                 if (match == null) {
                     unmatched++;
+                    unmatchedParticipants.add(participantDisplayLabel(p));
                     continue;
                 }
                 if (!Integer.valueOf(p.getEventParticipantsId()).equals(match.getExternalParticipantId())) {
@@ -170,10 +173,11 @@ public class EventDetailsService {
                     teamService.save(match);
                 }
                 linked++;
+                linkedTeams.add(match.getName());
             }
         }
 
-        return new ParticipantLinkResult(linked, unmatched);
+        return new ParticipantLinkResult(linked, unmatched, linkedTeams, unmatchedParticipants);
     }
 
     /** Fetches the /details event body, throwing if the response is malformed. */
@@ -195,6 +199,16 @@ public class EventDetailsService {
             return teamsByName.get(p.getBibLabel().toLowerCase().trim());
         }
         return null;
+    }
+
+    private static String participantDisplayLabel(EventParticipant participant) {
+        if (participant.getBibLabel() != null && !participant.getBibLabel().isBlank()) {
+            return participant.getBibLabel().trim();
+        }
+        if (participant.getBib() != null) {
+            return String.valueOf(participant.getBib());
+        }
+        return String.valueOf(participant.getEventParticipantsId());
     }
 
     private static Map<String, Checkpoint> indexByExternalId(List<Checkpoint> checkpoints) {
