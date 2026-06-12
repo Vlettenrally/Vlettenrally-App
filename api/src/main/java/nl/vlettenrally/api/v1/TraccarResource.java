@@ -79,7 +79,6 @@ public class TraccarResource {
             @QueryParam("bearing") Double bearing,
             @QueryParam("accuracy") Double accuracy,
             @QueryParam("hdop") Double hdop) {
-        logRawRequest("POST", httpRequest, body);
 
         JsonNode json = tryParseJson(body);
         if (json != null && json.path("location").hasNonNull("coords")) {
@@ -206,28 +205,7 @@ public class TraccarResource {
             @QueryParam("bearing") Double bearing,
             @QueryParam("accuracy") Double accuracy,
             @QueryParam("hdop") Double hdop) {
-        logRawRequest("GET", httpRequest, null);
         return report(id, lat, lon, timestamp, altitude, speed, bearing, accuracy, hdop);
-    }
-
-    /**
-     * Temporary diagnostic: dump exactly what the tracker sends so we can see where
-     * the OsmAnd values actually live (query string, body, or stripped en route).
-     * Logged at INFO so it survives a narrowed log level; remove once resolved.
-     */
-    private static void logRawRequest(String verb, HttpServerRequest req, String body) {
-        if (req == null) {
-            return;
-        }
-        Log.infof("Traccar %s raw request: uri=%s query=%s contentType=%s contentLength=%s userAgent=%s bodyLen=%d body=%s",
-            verb,
-            req.uri(),
-            req.query(),
-            req.getHeader("Content-Type"),
-            req.getHeader("Content-Length"),
-            req.getHeader("User-Agent"),
-            body != null ? body.length() : 0,
-            body != null ? body : "");
     }
 
     /** OsmAnd path: speed is in knots and accuracy falls back to hdop. */
