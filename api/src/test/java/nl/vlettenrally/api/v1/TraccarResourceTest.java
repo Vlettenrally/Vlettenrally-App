@@ -72,6 +72,34 @@ class TraccarResourceTest {
     }
 
     @Test
+    void reportPost_formBody_ingestsConvertedReading() {
+        // The official Traccar Client POSTs OsmAnd values as a form body; query
+        // params are all null. The form values must still be picked up.
+        Team team = enabledTeam("secret-id");
+        when(teamService.findByTraccarIdentifier("secret-id")).thenReturn(Optional.of(team));
+
+        Response response = resource.reportPost(
+            null, "secret-id",
+            null, 52.1,
+            null, 5.2,
+            null, "1700000000",
+            null, 12.0,
+            null, 10.0,
+            null, 90.0,
+            null, 8.0,
+            null, null);
+
+        assertEquals(200, response.getStatus());
+
+        ArgumentCaptor<LocationData> captor = ArgumentCaptor.forClass(LocationData.class);
+        verify(locationIngestService).ingest(captor.capture(), eq("Team"));
+        LocationData reading = captor.getValue();
+        assertEquals(52.1, reading.getLocation().getY(), 1e-9);
+        assertEquals(5.2, reading.getLocation().getX(), 1e-9);
+        assertEquals(18.52, reading.getSpeed().doubleValue(), 1e-6);
+    }
+
+    @Test
     void report_unknownIdentifier_doesNotIngest() {
         when(teamService.findByTraccarIdentifier("nope")).thenReturn(Optional.empty());
 

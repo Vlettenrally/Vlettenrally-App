@@ -3,10 +3,13 @@ package nl.vlettenrally.api.v1;
 import io.quarkus.logging.Log;
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.FormParam;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import nl.vlettenrally.data.domain.LocationData;
 import nl.vlettenrally.data.domain.Team;
@@ -27,8 +30,11 @@ import java.util.Optional;
  * <p>
  * The Traccar Client mobile app on a team's main device is configured during
  * check-in with this URL and the team's {@code traccarIdentifier} as its device
- * id. It then reports GPS here directly using the OsmAnd protocol — parameters in
- * the query string, on both GET and POST.
+ * id. It then reports GPS here directly using the OsmAnd protocol. Depending on
+ * client/version the values arrive either as query-string parameters (typically
+ * GET) or as an {@code application/x-www-form-urlencoded} body (the official
+ * Traccar Client's POST); we read both and coalesce, matching how the reference
+ * Traccar server decodes OsmAnd.
  * <p>
  * The identifier is the only credential, so the endpoint is public. Unknown or
  * disabled identifiers and points rejected by the ingestion guards still return
@@ -48,17 +54,33 @@ public class TraccarResource {
 
     @POST
     @PermitAll
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     public Response reportPost(
-            @QueryParam("id") String id,
-            @QueryParam("lat") Double lat,
-            @QueryParam("lon") Double lon,
-            @QueryParam("timestamp") String timestamp,
-            @QueryParam("altitude") Double altitude,
-            @QueryParam("speed") Double speed,
-            @QueryParam("bearing") Double bearing,
-            @QueryParam("accuracy") Double accuracy,
-            @QueryParam("hdop") Double hdop) {
-        return report(id, lat, lon, timestamp, altitude, speed, bearing, accuracy, hdop);
+            @QueryParam("id") String idQuery, @FormParam("id") String idForm,
+            @QueryParam("lat") Double latQuery, @FormParam("lat") Double latForm,
+            @QueryParam("lon") Double lonQuery, @FormParam("lon") Double lonForm,
+            @QueryParam("timestamp") String tsQuery, @FormParam("timestamp") String tsForm,
+            @QueryParam("altitude") Double altQuery, @FormParam("altitude") Double altForm,
+            @QueryParam("speed") Double speedQuery, @FormParam("speed") Double speedForm,
+            @QueryParam("bearing") Double bearingQuery, @FormParam("bearing") Double bearingForm,
+            @QueryParam("accuracy") Double accQuery, @FormParam("accuracy") Double accForm,
+            @QueryParam("hdop") Double hdopQuery, @FormParam("hdop") Double hdopForm) {
+        // The official Traccar Client POSTs the OsmAnd values as a form body; older
+        // clients use the query string. Prefer whichever channel actually carried it.
+        return report(
+            coalesce(idQuery, idForm),
+            coalesce(latQuery, latForm),
+            coalesce(lonQuery, lonForm),
+            coalesce(tsQuery, tsForm),
+            coalesce(altQuery, altForm),
+            coalesce(speedQuery, speedForm),
+            coalesce(bearingQuery, bearingForm),
+            coalesce(accQuery, accForm),
+            coalesce(hdopQuery, hdopForm));
+    }
+
+    private static <T> T coalesce(T primary, T fallback) {
+        return primary != null ? primary : fallback;
     }
 
     @GET
