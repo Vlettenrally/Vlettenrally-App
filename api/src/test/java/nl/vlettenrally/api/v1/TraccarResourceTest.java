@@ -1,6 +1,7 @@
 package nl.vlettenrally.api.v1;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -115,6 +116,53 @@ class TraccarResourceTest {
         assertEquals(5.2, reading.getLocation().getX(), 1e-9);
         assertEquals(18.52, reading.getSpeed().doubleValue(), 1e-6);
         assertEquals(90.0, reading.getHeading().doubleValue(), 1e-9);
+    }
+
+    @Test
+    void reportPost_backgroundGeolocationJson_ingestsNestedReading() {
+        // Real Transistorsoft background-geolocation payload: id is top-level
+        // device_id, coords are nested, speed is m/s, and -1 means "unknown".
+        Team team = enabledTeam("dev-123");
+        when(teamService.findByTraccarIdentifier("dev-123")).thenReturn(Optional.of(team));
+
+        String body = "{\"location\":{\"timestamp\":\"2026-06-12T13:14:07.164Z\",\"coords\":"
+            + "{\"latitude\":52.0158884,\"longitude\":4.7094968,\"accuracy\":13.39,"
+            + "\"speed\":-1,\"heading\":-1,\"altitude\":45.4}},\"device_id\":\"dev-123\"}";
+        Response response = resource.reportPost(body, null,
+            null, null, null, null, null, null, null, null, null);
+
+        assertEquals(200, response.getStatus());
+
+        ArgumentCaptor<LocationData> captor = ArgumentCaptor.forClass(LocationData.class);
+        verify(locationIngestService).ingest(captor.capture(), eq("Team"));
+        LocationData reading = captor.getValue();
+        assertEquals(52.0158884, reading.getLocation().getY(), 1e-9);
+        assertEquals(4.7094968, reading.getLocation().getX(), 1e-9);
+        assertEquals(java.time.Instant.parse("2026-06-12T13:14:07.164Z"), reading.getLocationTime());
+        // -1 sentinels become null rather than a bogus negative speed/heading.
+        assertNull(reading.getSpeed());
+        assertNull(reading.getHeading());
+    }
+
+    @Test
+    void reportPost_backgroundGeolocationJson_convertsSpeedFromMetersPerSecond() {
+        Team team = enabledTeam("dev-123");
+        when(teamService.findByTraccarIdentifier("dev-123")).thenReturn(Optional.of(team));
+
+        // 10 m/s -> 36 km/h.
+        String body = "{\"location\":{\"timestamp\":\"2026-06-12T13:14:07.164Z\",\"coords\":"
+            + "{\"latitude\":52.0,\"longitude\":4.7,\"speed\":10.0,\"heading\":270.0}},"
+            + "\"device_id\":\"dev-123\"}";
+        Response response = resource.reportPost(body, null,
+            null, null, null, null, null, null, null, null, null);
+
+        assertEquals(200, response.getStatus());
+
+        ArgumentCaptor<LocationData> captor = ArgumentCaptor.forClass(LocationData.class);
+        verify(locationIngestService).ingest(captor.capture(), eq("Team"));
+        LocationData reading = captor.getValue();
+        assertEquals(36.0, reading.getSpeed().doubleValue(), 1e-6);
+        assertEquals(270.0, reading.getHeading().doubleValue(), 1e-9);
     }
 
     @Test
