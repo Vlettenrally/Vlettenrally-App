@@ -56,7 +56,7 @@ class TraccarResourceTest {
         when(teamService.findByTraccarIdentifier("secret-id")).thenReturn(Optional.of(team));
 
         // speed 10 knots, bearing 90, at epoch second 1_700_000_000
-        Response response = resource.reportGet("secret-id", 52.1, 5.2, "1700000000",
+        Response response = resource.reportGet(null, "secret-id", 52.1, 5.2, "1700000000",
             12.0, 10.0, 90.0, 8.0, null);
 
         assertEquals(200, response.getStatus());
@@ -80,7 +80,7 @@ class TraccarResourceTest {
         when(teamService.findByTraccarIdentifier("secret-id")).thenReturn(Optional.of(team));
 
         String body = "id=secret-id&lat=52.1&lon=5.2&timestamp=1700000000&altitude=12.0&speed=10.0&bearing=90.0&accuracy=8.0";
-        Response response = resource.reportPost(body,
+        Response response = resource.reportPost(body, null,
             null, null, null, null, null, null, null, null, null);
 
         assertEquals(200, response.getStatus());
@@ -103,7 +103,7 @@ class TraccarResourceTest {
 
         String body = "{\"id\":\"secret-id\",\"lat\":52.1,\"lon\":5.2,\"timestamp\":1700000000,"
             + "\"altitude\":12.0,\"speed\":10.0,\"bearing\":90.0,\"accuracy\":8.0}";
-        Response response = resource.reportPost(body,
+        Response response = resource.reportPost(body, null,
             null, null, null, null, null, null, null, null, null);
 
         assertEquals(200, response.getStatus());
@@ -121,7 +121,7 @@ class TraccarResourceTest {
     void report_unknownIdentifier_doesNotIngest() {
         when(teamService.findByTraccarIdentifier("nope")).thenReturn(Optional.empty());
 
-        Response response = resource.reportGet("nope", 52.1, 5.2, null,
+        Response response = resource.reportGet(null, "nope", 52.1, 5.2, null,
             null, null, null, null, null);
 
         assertEquals(200, response.getStatus());
@@ -134,7 +134,7 @@ class TraccarResourceTest {
         team.setTraccarEnabled(false);
         when(teamService.findByTraccarIdentifier("secret-id")).thenReturn(Optional.of(team));
 
-        Response response = resource.reportGet("secret-id", 52.1, 5.2, null,
+        Response response = resource.reportGet(null, "secret-id", 52.1, 5.2, null,
             null, null, null, null, null);
 
         assertEquals(200, response.getStatus());
@@ -143,7 +143,7 @@ class TraccarResourceTest {
 
     @Test
     void report_missingRequiredParams_doesNotIngest() {
-        Response response = resource.reportGet("secret-id", null, 5.2, null,
+        Response response = resource.reportGet(null, "secret-id", null, 5.2, null,
             null, null, null, null, null);
 
         assertEquals(200, response.getStatus());

@@ -50,7 +50,7 @@ spec:
             - name: TZ
               value: "Europe/Amsterdam"
             - name: LOG_LEVEL
-              value: "DEBUG"
+              value: "INFO"
             # Database configuration
             - name: DB_HOST
               value: "vlettenrally-database-rw"

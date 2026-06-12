@@ -3,12 +3,14 @@ package nl.vlettenrally.api.v1;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.logging.Log;
+import io.vertx.core.http.HttpServerRequest;
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.Response;
 import nl.vlettenrally.data.domain.LocationData;
 import nl.vlettenrally.data.domain.Team;
@@ -68,6 +70,7 @@ public class TraccarResource {
     @PermitAll
     public Response reportPost(
             String body,
+            @Context HttpServerRequest httpRequest,
             @QueryParam("id") String id,
             @QueryParam("lat") Double lat,
             @QueryParam("lon") Double lon,
@@ -77,6 +80,7 @@ public class TraccarResource {
             @QueryParam("bearing") Double bearing,
             @QueryParam("accuracy") Double accuracy,
             @QueryParam("hdop") Double hdop) {
+        logRawRequest("POST", httpRequest, body);
         // No @Consumes: the official Traccar Client doesn't reliably set a content
         // type, so we read the raw body ourselves (JSON object or key=value form)
         // and fall back to it for any value not already present in the query string.
@@ -147,6 +151,7 @@ public class TraccarResource {
     @GET
     @PermitAll
     public Response reportGet(
+            @Context HttpServerRequest httpRequest,
             @QueryParam("id") String id,
             @QueryParam("lat") Double lat,
             @QueryParam("lon") Double lon,
@@ -156,7 +161,28 @@ public class TraccarResource {
             @QueryParam("bearing") Double bearing,
             @QueryParam("accuracy") Double accuracy,
             @QueryParam("hdop") Double hdop) {
+        logRawRequest("GET", httpRequest, null);
         return report(id, lat, lon, timestamp, altitude, speed, bearing, accuracy, hdop);
+    }
+
+    /**
+     * Temporary diagnostic: dump exactly what the tracker sends so we can see where
+     * the OsmAnd values actually live (query string, body, or stripped en route).
+     * Logged at INFO so it survives a narrowed log level; remove once resolved.
+     */
+    private static void logRawRequest(String verb, HttpServerRequest req, String body) {
+        if (req == null) {
+            return;
+        }
+        Log.infof("Traccar %s raw request: uri=%s query=%s contentType=%s contentLength=%s userAgent=%s bodyLen=%d body=%s",
+            verb,
+            req.uri(),
+            req.query(),
+            req.getHeader("Content-Type"),
+            req.getHeader("Content-Length"),
+            req.getHeader("User-Agent"),
+            body != null ? body.length() : 0,
+            body != null ? body : "");
     }
 
     private Response report(String id, Double lat, Double lon, String timestamp,
