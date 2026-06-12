@@ -197,15 +197,13 @@ public class AutomationEngine {
      * <p>
      * Points only accrue while the game is ACTIVE — the game status is the single
      * source of truth, so there is no separate enable/disable toggle to keep in
-     * sync. Meters reported outside an active game (e.g. a tracker still pushing
-     * before the start signal or after the finish) advance the baseline without
-     * credit, so they are never credited retroactively once the game starts.
+     * sync. The caller (the location ingest choke point) determines {@code active}
+     * once per fix. Meters reported outside an active game (e.g. a tracker still
+     * pushing before the start signal or after the finish) advance the baseline
+     * without credit, so they are never credited retroactively once the game starts.
      */
-    public void onDistanceUpdate(UUID gameId, UUID teamId, double reportedMeters) {
+    public void onDistanceUpdate(UUID gameId, UUID teamId, double reportedMeters, boolean active) {
         try {
-            boolean active = gameService.findById(gameId)
-                .map(game -> game.getStatus() == Game.GameStatus.ACTIVE)
-                .orElse(false);
             for (AutomationRule rule : ruleRepository.findByGameIdAndTriggerType(
                     gameId, AutomationTriggerType.DISTANCE_TRAVELED)) {
                 if (!rule.appliesToTeam(teamId)) continue;

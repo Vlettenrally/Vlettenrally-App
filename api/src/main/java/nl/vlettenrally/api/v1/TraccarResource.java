@@ -252,7 +252,9 @@ public class TraccarResource {
 
         // Broadcast the accepted fix to admin map subscribers; the poller batches a
         // whole sweep, but a single Traccar report is its own one-element batch.
-        locationIngestService.ingest(reading, team.getName())
+        // detectCheckpoints=true: raw GPS has no external checkpoint feed, so passes
+        // are derived here via local geofencing.
+        locationIngestService.ingest(reading, team.getName(), true)
             .ifPresent(location -> locationIngestService.broadcastToMap(team.getGameId(), List.of(location)));
         return Response.ok().build();
     }

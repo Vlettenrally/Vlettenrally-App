@@ -402,17 +402,7 @@ class AutomationEngineTest {
         rule.setFireOnce(false);
         when(ruleRepository.findByGameIdAndTriggerType(gameId, AutomationTriggerType.DISTANCE_TRAVELED))
             .thenReturn(List.of(rule));
-        // Distance points only accrue while the game is ACTIVE; default the lookup
-        // to an active game, individual tests override for other statuses.
-        lenient().when(gameService.findById(gameId)).thenReturn(Optional.of(activeGame()));
         return rule;
-    }
-
-    private Game activeGame() {
-        Game game = new Game();
-        game.setId(gameId);
-        game.setStatus(Game.GameStatus.ACTIVE);
-        return game;
     }
 
     private AutomationDistanceProgress progress(AutomationRule rule, double lastReported,
@@ -435,7 +425,7 @@ class AutomationEngineTest {
         when(distanceProgressRepository.findByRuleAndTeam(rule.getId(), teamId))
             .thenReturn(Optional.empty());
 
-        engine.onDistanceUpdate(gameId, teamId, 5000);
+        engine.onDistanceUpdate(gameId, teamId, 5000, true);
 
         ArgumentCaptor<AutomationDistanceProgress> captor =
             ArgumentCaptor.forClass(AutomationDistanceProgress.class);
@@ -455,7 +445,7 @@ class AutomationEngineTest {
                 anyInt(), isNull(), anyString(), isNull(), isNull())).thenReturn(entry);
 
         // +250 m → leftover 280 → 2 whole 100 m blocks, 80 m remainder
-        engine.onDistanceUpdate(gameId, teamId, 1250);
+        engine.onDistanceUpdate(gameId, teamId, 1250, true);
 
         verify(pointsLedgerService).createEntry(eq(teamId), eq(gameId), eq(PointEntryType.DISTANCE_BONUS),
             eq(12), isNull(), eq("Afstandspunten"), isNull(), isNull());
@@ -479,7 +469,7 @@ class AutomationEngineTest {
                 anyInt(), isNull(), anyString(), isNull(), isNull())).thenReturn(entry);
 
         // +250 m → 2 whole blocks × 3 points = 6, 50 m remainder
-        engine.onDistanceUpdate(gameId, teamId, 1250);
+        engine.onDistanceUpdate(gameId, teamId, 1250, true);
 
         verify(pointsLedgerService).createEntry(eq(teamId), eq(gameId), eq(PointEntryType.DISTANCE_BONUS),
             eq(6), isNull(), eq("Afstandspunten"), isNull(), isNull());
@@ -497,7 +487,7 @@ class AutomationEngineTest {
         UUID entryId = UUID.randomUUID();
         progress(rule, 1000, 0, 10, entryId);
 
-        engine.onDistanceUpdate(gameId, teamId, 1100);
+        engine.onDistanceUpdate(gameId, teamId, 1100, true);
 
         verify(pointsLedgerService).accrueEntry(entryId, 11);
         verify(pointsLedgerService, never()).createEntry(any(), any(), any(), anyInt(), any(), any(), any(), any());
@@ -508,7 +498,7 @@ class AutomationEngineTest {
         AutomationRule rule = distanceRule(1);
         progress(rule, 1000, 20, 10, null);
 
-        engine.onDistanceUpdate(gameId, teamId, 1050);
+        engine.onDistanceUpdate(gameId, teamId, 1050, true);
 
         verifyNoInteractions(pointsLedgerService);
         ArgumentCaptor<AutomationDistanceProgress> captor =
@@ -521,13 +511,9 @@ class AutomationEngineTest {
     void distance_gameNotActive_advancesBaselineWithoutCredit() {
         AutomationRule rule = distanceRule(1);
         progress(rule, 1000, 0, 0, null);
-        // Game has finished — no points should accrue even though meters are reported.
-        Game completed = new Game();
-        completed.setId(gameId);
-        completed.setStatus(Game.GameStatus.COMPLETED);
-        when(gameService.findById(gameId)).thenReturn(Optional.of(completed));
 
-        engine.onDistanceUpdate(gameId, teamId, 3000);
+        // Game not active (active=false) — no points accrue even though meters are reported.
+        engine.onDistanceUpdate(gameId, teamId, 3000, false);
 
         verifyNoInteractions(pointsLedgerService);
         ArgumentCaptor<AutomationDistanceProgress> captor =
@@ -539,22 +525,11 @@ class AutomationEngineTest {
     }
 
     @Test
-    void distance_noGame_advancesBaselineWithoutCredit() {
-        AutomationRule rule = distanceRule(1);
-        progress(rule, 1000, 0, 0, null);
-        when(gameService.findById(gameId)).thenReturn(Optional.empty());
-
-        engine.onDistanceUpdate(gameId, teamId, 3000);
-
-        verifyNoInteractions(pointsLedgerService);
-    }
-
-    @Test
     void distance_negativeDelta_rebaselinesWithoutCredit() {
         AutomationRule rule = distanceRule(1);
         progress(rule, 5000, 40, 50, null);
 
-        engine.onDistanceUpdate(gameId, teamId, 1000);
+        engine.onDistanceUpdate(gameId, teamId, 1000, true);
 
         verifyNoInteractions(pointsLedgerService);
         ArgumentCaptor<AutomationDistanceProgress> captor =
