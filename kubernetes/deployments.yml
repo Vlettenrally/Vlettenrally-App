@@ -49,6 +49,10 @@ spec:
           env:
             - name: TZ
               value: "Europe/Amsterdam"
+            - name: QUARKUS_LOG_CATEGORY__NL_VLETTENRALLY_API_V1_TRACCARRESOURCE__LEVEL
+              value: "DEBUG"
+            - name: QUARKUS_LOG_CATEGORY__NL_VLETTENRALLY_SERVICE_LOCATIONINGESTSERVICE__LEVEL
+              value: "DEBUG"
             # Database configuration
             - name: DB_HOST
               value: "vlettenrally-database-rw"

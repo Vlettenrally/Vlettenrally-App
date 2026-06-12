@@ -1,5 +1,6 @@
 package nl.vlettenrally.api.v1;
 
+import io.quarkus.logging.Log;
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
@@ -18,6 +19,7 @@ import org.locationtech.jts.geom.PrecisionModel;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -78,11 +80,18 @@ public class TraccarResource {
                             Double altitude, Double speed, Double bearing, Double accuracy, Double hdop) {
         if (id == null || id.isBlank() || lat == null || lon == null) {
             // Missing required params — still 200 to keep the tracker quiet.
+            Log.debugf("Traccar report ignored: missing required params (id=%s, lat=%s, lon=%s)", id, lat, lon);
             return Response.ok().build();
         }
 
         Optional<Team> teamOpt = teamService.findByTraccarIdentifier(id);
-        if (teamOpt.isEmpty() || !teamOpt.get().isTraccarEnabled()) {
+        if (teamOpt.isEmpty()) {
+            Log.debugf("Traccar report ignored: no team matches identifier %s", id);
+            return Response.ok().build();
+        }
+        if (!teamOpt.get().isTraccarEnabled()) {
+            Log.debugf("Traccar report ignored: tracking disabled for team %s (id %s)",
+                teamOpt.get().getId(), id);
             return Response.ok().build();
         }
         Team team = teamOpt.get();
@@ -99,7 +108,10 @@ public class TraccarResource {
         reading.setSpeed(speed != null ? BigDecimal.valueOf(speed * KNOTS_TO_KMH) : null);
         reading.setHeading(toBigDecimal(bearing));
 
-        locationIngestService.ingest(reading, team.getName());
+        // Broadcast the accepted fix to admin map subscribers; the poller batches a
+        // whole sweep, but a single Traccar report is its own one-element batch.
+        locationIngestService.ingest(reading, team.getName())
+            .ifPresent(location -> locationIngestService.broadcastToMap(team.getGameId(), List.of(location)));
         return Response.ok().build();
     }
 
