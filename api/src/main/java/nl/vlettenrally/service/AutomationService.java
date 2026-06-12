@@ -94,7 +94,10 @@ public class AutomationService {
         }
 
         existing.setName(draft.getName());
-        existing.setEnabled(draft.isEnabled());
+        // System rules' enabled flag is lifecycle-managed; ignore the draft value.
+        if (!existing.isSystem()) {
+            existing.setEnabled(draft.isEnabled());
+        }
         existing.setTriggerType(draft.getTriggerType());
         existing.setTriggerConfig(draft.getTriggerConfig());
         existing.setActions(draft.getActions());
@@ -116,6 +119,10 @@ public class AutomationService {
 
     public AutomationRule setEnabled(UUID gameId, UUID ruleId, boolean enabled) {
         AutomationRule rule = getRule(gameId, ruleId);
+        if (rule.isSystem()) {
+            throw new BadRequestException(
+                "The distance rule is enabled automatically with the game status");
+        }
         rule.setEnabled(enabled);
         rule.setUpdatedAt(Instant.now());
         return ruleRepository.save(rule);
@@ -293,7 +300,7 @@ public class AutomationService {
             return false;
         }
         target.setTriggerConfig(new AutomationTriggerConfig(null, null, null, null, null, null, null, rate, null));
-        target.setEnabled(source.isEnabled());
+        // enabled stays driven by the target game's own status, not the source's.
         target.setUpdatedAt(Instant.now());
         ruleRepository.save(target);
         return true;

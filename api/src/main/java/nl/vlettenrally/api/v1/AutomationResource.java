@@ -157,6 +157,8 @@ public class AutomationResource {
                 automationService.executionCount(ruleId))).build();
         } catch (NotFoundException e) {
             return notFound(e);
+        } catch (BadRequestException e) {
+            return badRequest(e);
         }
     }
 

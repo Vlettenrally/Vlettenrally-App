@@ -493,10 +493,12 @@ export default function AutomationFormDialog({
               onChange={(e) => setName(e.target.value)}
               required
             />
-            <FormControlLabel
-              control={<Switch checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />}
-              label="Actief"
-            />
+            {!isDistance && (
+              <FormControlLabel
+                control={<Switch checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />}
+                label="Actief"
+              />
+            )}
           </Box>
 
           <FormControl fullWidth disabled={isSystem}>

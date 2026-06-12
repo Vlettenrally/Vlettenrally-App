@@ -227,7 +227,7 @@ export default function PointsManagement() {
                       <TableCell><strong>Type</strong></TableCell>
                       <TableCell><strong>Beschrijving</strong></TableCell>
                       <TableCell align="right"><strong>Origineel</strong></TableCell>
-                      <TableCell align="right"><strong>Aftrek</strong></TableCell>
+                      <TableCell align="right"><strong>Aanpassing</strong></TableCell>
                       <TableCell align="right"><strong>Huidig</strong></TableCell>
                       <TableCell align="center"><strong>Locatie</strong></TableCell>
                       <TableCell align="center"><strong>Acties</strong></TableCell>

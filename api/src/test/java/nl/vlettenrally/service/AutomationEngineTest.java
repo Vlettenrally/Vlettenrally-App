@@ -402,7 +402,17 @@ class AutomationEngineTest {
         rule.setFireOnce(false);
         when(ruleRepository.findByGameIdAndTriggerType(gameId, AutomationTriggerType.DISTANCE_TRAVELED))
             .thenReturn(List.of(rule));
+        // Distance points only accrue while the game is ACTIVE; default the lookup
+        // to an active game, individual tests override for other statuses.
+        lenient().when(gameService.findById(gameId)).thenReturn(Optional.of(activeGame()));
         return rule;
+    }
+
+    private Game activeGame() {
+        Game game = new Game();
+        game.setId(gameId);
+        game.setStatus(Game.GameStatus.ACTIVE);
+        return game;
     }
 
     private AutomationDistanceProgress progress(AutomationRule rule, double lastReported,
@@ -508,10 +518,14 @@ class AutomationEngineTest {
     }
 
     @Test
-    void distance_disabledRule_advancesBaselineWithoutCredit() {
+    void distance_gameNotActive_advancesBaselineWithoutCredit() {
         AutomationRule rule = distanceRule(1);
-        rule.setEnabled(false);
         progress(rule, 1000, 0, 0, null);
+        // Game has finished — no points should accrue even though meters are reported.
+        Game completed = new Game();
+        completed.setId(gameId);
+        completed.setStatus(Game.GameStatus.COMPLETED);
+        when(gameService.findById(gameId)).thenReturn(Optional.of(completed));
 
         engine.onDistanceUpdate(gameId, teamId, 3000);
 
@@ -519,9 +533,20 @@ class AutomationEngineTest {
         ArgumentCaptor<AutomationDistanceProgress> captor =
             ArgumentCaptor.forClass(AutomationDistanceProgress.class);
         verify(distanceProgressRepository).save(captor.capture());
-        // Baseline moved: the 2000 m traveled while disabled can never be credited later.
+        // Baseline moved: the 2000 m traveled outside an active game can never be credited later.
         assertEquals(3000, captor.getValue().getLastReportedMeters());
         assertEquals(0, captor.getValue().getLeftoverMeters(), 0.0001);
+    }
+
+    @Test
+    void distance_noGame_advancesBaselineWithoutCredit() {
+        AutomationRule rule = distanceRule(1);
+        progress(rule, 1000, 0, 0, null);
+        when(gameService.findById(gameId)).thenReturn(Optional.empty());
+
+        engine.onDistanceUpdate(gameId, teamId, 3000);
+
+        verifyNoInteractions(pointsLedgerService);
     }
 
     @Test

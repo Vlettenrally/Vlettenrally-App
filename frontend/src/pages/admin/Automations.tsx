@@ -22,6 +22,7 @@ import {
   Alert,
   Chip,
   Switch,
+  Tooltip,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -287,11 +288,17 @@ export default function Automations() {
                       : 'Alle'}
                   </TableCell>
                   <TableCell>
-                    <Switch
-                      checked={rule.enabled}
-                      onChange={(e) => handleToggleEnabled(rule, e.target.checked)}
-                      size="small"
-                    />
+                    {rule.triggerType === 'DISTANCE_TRAVELED' ? (
+                      <Tooltip title="Punten worden automatisch toegekend zolang de game actief is">
+                        <Chip size="small" label="Tijdens de game" variant="outlined" />
+                      </Tooltip>
+                    ) : (
+                      <Switch
+                        checked={rule.enabled}
+                        onChange={(e) => handleToggleEnabled(rule, e.target.checked)}
+                        size="small"
+                      />
+                    )}
                   </TableCell>
                   <TableCell>
                     {rule.lastFiredAt ? (
@@ -306,13 +313,15 @@ export default function Automations() {
                     )}
                   </TableCell>
                   <TableCell align="right">
-                    <IconButton
-                      size="small"
-                      onClick={() => setHistoryRule(rule)}
-                      title="Historie bekijken"
-                    >
-                      <HistoryIcon />
-                    </IconButton>
+                    {rule.triggerType !== 'DISTANCE_TRAVELED' && (
+                      <IconButton
+                        size="small"
+                        onClick={() => setHistoryRule(rule)}
+                        title="Historie bekijken"
+                      >
+                        <HistoryIcon />
+                      </IconButton>
+                    )}
                     <IconButton
                       size="small"
                       onClick={() => {

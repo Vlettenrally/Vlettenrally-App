@@ -195,22 +195,28 @@ public class AutomationEngine {
      * (meters, on-course + off-course). Credits distance points through the
      * game's DISTANCE_TRAVELED rule(s).
      * <p>
-     * Disabled rules still get their baseline advanced so meters traveled
-     * while disabled are never credited retroactively on re-enable.
+     * Points only accrue while the game is ACTIVE — the game status is the single
+     * source of truth, so there is no separate enable/disable toggle to keep in
+     * sync. Meters reported outside an active game (e.g. a tracker still pushing
+     * before the start signal or after the finish) advance the baseline without
+     * credit, so they are never credited retroactively once the game starts.
      */
     public void onDistanceUpdate(UUID gameId, UUID teamId, double reportedMeters) {
         try {
+            boolean active = gameService.findById(gameId)
+                .map(game -> game.getStatus() == Game.GameStatus.ACTIVE)
+                .orElse(false);
             for (AutomationRule rule : ruleRepository.findByGameIdAndTriggerType(
                     gameId, AutomationTriggerType.DISTANCE_TRAVELED)) {
                 if (!rule.appliesToTeam(teamId)) continue;
-                accrueDistance(rule, teamId, reportedMeters);
+                accrueDistance(rule, teamId, reportedMeters, active);
             }
         } catch (Exception e) {
             Log.errorf("Automation distance hook failed for game %s team %s: %s", gameId, teamId, e.getMessage());
         }
     }
 
-    private void accrueDistance(AutomationRule rule, UUID teamId, double reportedMeters) {
+    private void accrueDistance(AutomationRule rule, UUID teamId, double reportedMeters, boolean active) {
         AutomationDistanceProgress progress = distanceProgressRepository
             .findByRuleAndTeam(rule.getId(), teamId).orElse(null);
 
@@ -229,7 +235,7 @@ public class AutomationEngine {
 
         Integer pointsPer100m = rule.getTriggerConfig() != null
             ? rule.getTriggerConfig().pointsPer100m() : null;
-        if (delta > 0 && rule.isEnabled() && pointsPer100m != null && pointsPer100m > 0) {
+        if (delta > 0 && active && pointsPer100m != null && pointsPer100m > 0) {
             double leftover = progress.getLeftoverMeters() + delta;
             int blocks = (int) Math.floor(leftover / DISTANCE_BLOCK_METERS);
             if (blocks > 0) {

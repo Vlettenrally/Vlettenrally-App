@@ -317,8 +317,20 @@ class AutomationServiceTest {
     }
 
     @Test
-    void setEnabled_togglesSystemRule() {
+    void setEnabled_rejectsSystemRule() {
         AutomationRule existing = existingSystemRule();
+
+        // The distance rule follows the game status; it cannot be toggled by hand.
+        assertThrows(BadRequestException.class,
+            () -> service.setEnabled(gameId, existing.getId(), false));
+        verify(ruleRepository, never()).save(any());
+    }
+
+    @Test
+    void setEnabled_togglesNormalRule() {
+        AutomationRule existing = validDraft();
+        existing.setGameId(gameId);
+        when(ruleRepository.findById(existing.getId())).thenReturn(Optional.of(existing));
 
         AutomationRule updated = service.setEnabled(gameId, existing.getId(), false);
 
@@ -326,14 +338,30 @@ class AutomationServiceTest {
         verify(ruleRepository).save(existing);
     }
 
+    @Test
+    void updateRule_ignoresEnabledOnSystemRule() {
+        AutomationRule existing = existingSystemRule();
+        existing.setEnabled(true);
+        AutomationRule draft = new AutomationRule();
+        draft.setName("Afstandspunten");
+        draft.setEnabled(false); // would disable a non-system rule
+        draft.setTriggerType(AutomationTriggerType.DISTANCE_TRAVELED);
+        draft.setTriggerConfig(new AutomationTriggerConfig(null, null, null, null, null, null, null, 3, null));
+        draft.setFireOnce(false);
+
+        AutomationRule updated = service.updateRule(gameId, existing.getId(), draft);
+
+        assertTrue(updated.isEnabled(), "system rule enabled flag is lifecycle-managed, not from the draft");
+        assertEquals(3, updated.getTriggerConfig().pointsPer100m());
+    }
+
     // ==================== system distance rule creation ====================
 
     @Test
-    void createSystemDistanceRule_isEnabledSystemRule_withDefaultRate() {
+    void createSystemDistanceRule_isSystemRule_withDefaultRate() {
         AutomationRule rule = service.createSystemDistanceRule(gameId);
 
         assertTrue(rule.isSystem());
-        assertTrue(rule.isEnabled());
         assertFalse(rule.isFireOnce());
         assertEquals(AutomationTriggerType.DISTANCE_TRAVELED, rule.getTriggerType());
         assertEquals(AutomationService.DEFAULT_POINTS_PER_100M, rule.getTriggerConfig().pointsPer100m());
@@ -487,7 +515,7 @@ class AutomationServiceTest {
     }
 
     @Test
-    void copyRules_copiesDistanceRateAndEnabled() {
+    void copyRules_copiesDistanceRateOnly_notEnabled() {
         stubGames(game(null, null), game(null, null));
         AutomationRule srcDist = new AutomationRule();
         srcDist.setGameId(sourceGameId);
@@ -515,7 +543,8 @@ class AutomationServiceTest {
 
         assertTrue(result.distanceRateCopied());
         assertEquals(5, tgtDist.getTriggerConfig().pointsPer100m());
-        assertFalse(tgtDist.isEnabled());
+        // enabled stays driven by the target game's own status, not the source's.
+        assertTrue(tgtDist.isEnabled());
         verify(ruleRepository).save(tgtDist);
     }
 
