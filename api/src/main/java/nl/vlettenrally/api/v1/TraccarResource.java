@@ -1,15 +1,14 @@
 package nl.vlettenrally.api.v1;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.logging.Log;
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
-import jakarta.ws.rs.Consumes;
-import jakarta.ws.rs.FormParam;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.QueryParam;
-import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import nl.vlettenrally.data.domain.LocationData;
 import nl.vlettenrally.data.domain.Team;
@@ -21,8 +20,12 @@ import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.PrecisionModel;
 
 import java.math.BigDecimal;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -30,11 +33,13 @@ import java.util.Optional;
  * <p>
  * The Traccar Client mobile app on a team's main device is configured during
  * check-in with this URL and the team's {@code traccarIdentifier} as its device
- * id. It then reports GPS here directly using the OsmAnd protocol. Depending on
- * client/version the values arrive either as query-string parameters (typically
- * GET) or as an {@code application/x-www-form-urlencoded} body (the official
- * Traccar Client's POST); we read both and coalesce, matching how the reference
- * Traccar server decodes OsmAnd.
+ * id. It then reports GPS here directly using the OsmAnd protocol. The values can
+ * arrive as query-string parameters (typically GET), as a {@code key=value&...}
+ * request body (the official Traccar Client's POST), or as a JSON object. The
+ * client does not reliably set a matching {@code Content-Type}, so rather than
+ * lean on JAX-RS content negotiation (which 415s or silently drops the body on a
+ * mismatch) we read the raw body, sniff JSON vs. form, and coalesce with any query
+ * params — matching how the reference Traccar server decodes OsmAnd.
  * <p>
  * The identifier is the only credential, so the endpoint is public. Unknown or
  * disabled identifiers and points rejected by the ingestion guards still return
@@ -46,41 +51,97 @@ public class TraccarResource {
     private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory(new PrecisionModel(), 4326);
     private static final double KNOTS_TO_KMH = 1.852;
 
+    /** OsmAnd field names we read, in either a form body or a JSON object. */
+    private static final String[] FIELDS =
+        {"id", "lat", "lon", "timestamp", "altitude", "speed", "bearing", "accuracy", "hdop"};
+
     @Inject
     TeamService teamService;
 
     @Inject
     LocationIngestService locationIngestService;
 
+    @Inject
+    ObjectMapper objectMapper;
+
     @POST
     @PermitAll
-    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     public Response reportPost(
-            @QueryParam("id") String idQuery, @FormParam("id") String idForm,
-            @QueryParam("lat") Double latQuery, @FormParam("lat") Double latForm,
-            @QueryParam("lon") Double lonQuery, @FormParam("lon") Double lonForm,
-            @QueryParam("timestamp") String tsQuery, @FormParam("timestamp") String tsForm,
-            @QueryParam("altitude") Double altQuery, @FormParam("altitude") Double altForm,
-            @QueryParam("speed") Double speedQuery, @FormParam("speed") Double speedForm,
-            @QueryParam("bearing") Double bearingQuery, @FormParam("bearing") Double bearingForm,
-            @QueryParam("accuracy") Double accQuery, @FormParam("accuracy") Double accForm,
-            @QueryParam("hdop") Double hdopQuery, @FormParam("hdop") Double hdopForm) {
-        // The official Traccar Client POSTs the OsmAnd values as a form body; older
-        // clients use the query string. Prefer whichever channel actually carried it.
+            String body,
+            @QueryParam("id") String id,
+            @QueryParam("lat") Double lat,
+            @QueryParam("lon") Double lon,
+            @QueryParam("timestamp") String timestamp,
+            @QueryParam("altitude") Double altitude,
+            @QueryParam("speed") Double speed,
+            @QueryParam("bearing") Double bearing,
+            @QueryParam("accuracy") Double accuracy,
+            @QueryParam("hdop") Double hdop) {
+        // No @Consumes: the official Traccar Client doesn't reliably set a content
+        // type, so we read the raw body ourselves (JSON object or key=value form)
+        // and fall back to it for any value not already present in the query string.
+        Map<String, String> fields = parseBody(body);
         return report(
-            coalesce(idQuery, idForm),
-            coalesce(latQuery, latForm),
-            coalesce(lonQuery, lonForm),
-            coalesce(tsQuery, tsForm),
-            coalesce(altQuery, altForm),
-            coalesce(speedQuery, speedForm),
-            coalesce(bearingQuery, bearingForm),
-            coalesce(accQuery, accForm),
-            coalesce(hdopQuery, hdopForm));
+            id != null ? id : fields.get("id"),
+            lat != null ? lat : parseDouble(fields.get("lat")),
+            lon != null ? lon : parseDouble(fields.get("lon")),
+            timestamp != null ? timestamp : fields.get("timestamp"),
+            altitude != null ? altitude : parseDouble(fields.get("altitude")),
+            speed != null ? speed : parseDouble(fields.get("speed")),
+            bearing != null ? bearing : parseDouble(fields.get("bearing")),
+            accuracy != null ? accuracy : parseDouble(fields.get("accuracy")),
+            hdop != null ? hdop : parseDouble(fields.get("hdop")));
     }
 
-    private static <T> T coalesce(T primary, T fallback) {
-        return primary != null ? primary : fallback;
+    /** Read a request body that may be a JSON object or a {@code key=value&...} form. */
+    private Map<String, String> parseBody(String body) {
+        if (body == null || body.isBlank()) {
+            return Map.of();
+        }
+        String trimmed = body.trim();
+        return trimmed.startsWith("{") ? parseJson(trimmed) : parseForm(trimmed);
+    }
+
+    private Map<String, String> parseJson(String body) {
+        Map<String, String> map = new HashMap<>();
+        try {
+            JsonNode root = objectMapper.readTree(body);
+            for (String field : FIELDS) {
+                JsonNode value = root.get(field);
+                if (value != null && !value.isNull()) {
+                    map.put(field, value.asText());
+                }
+            }
+        } catch (Exception e) {
+            Log.debugf("Traccar report: body looked like JSON but failed to parse: %s", e.getMessage());
+        }
+        return map;
+    }
+
+    /** Parse a {@code key=value&key=value} body (form/OsmAnd style) into a map. */
+    private static Map<String, String> parseForm(String body) {
+        Map<String, String> map = new HashMap<>();
+        for (String pair : body.split("&")) {
+            int eq = pair.indexOf('=');
+            if (eq <= 0) {
+                continue;
+            }
+            String key = URLDecoder.decode(pair.substring(0, eq), StandardCharsets.UTF_8);
+            String value = URLDecoder.decode(pair.substring(eq + 1), StandardCharsets.UTF_8);
+            map.put(key, value);
+        }
+        return map;
+    }
+
+    private static Double parseDouble(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return Double.valueOf(value.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     @GET

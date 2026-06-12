@@ -46,6 +46,8 @@ class TraccarResourceTest {
     void setUp() {
         teamId = UUID.randomUUID();
         gameId = UUID.randomUUID();
+        // Real mapper for the JSON-body parsing path (not a Mockito mock).
+        resource.objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
     }
 
     @Test
@@ -73,21 +75,36 @@ class TraccarResourceTest {
 
     @Test
     void reportPost_formBody_ingestsConvertedReading() {
-        // The official Traccar Client POSTs OsmAnd values as a form body; query
-        // params are all null. The form values must still be picked up.
+
         Team team = enabledTeam("secret-id");
         when(teamService.findByTraccarIdentifier("secret-id")).thenReturn(Optional.of(team));
 
-        Response response = resource.reportPost(
-            null, "secret-id",
-            null, 52.1,
-            null, 5.2,
-            null, "1700000000",
-            null, 12.0,
-            null, 10.0,
-            null, 90.0,
-            null, 8.0,
-            null, null);
+        String body = "id=secret-id&lat=52.1&lon=5.2&timestamp=1700000000&altitude=12.0&speed=10.0&bearing=90.0&accuracy=8.0";
+        Response response = resource.reportPost(body,
+            null, null, null, null, null, null, null, null, null);
+
+        assertEquals(200, response.getStatus());
+
+        ArgumentCaptor<LocationData> captor = ArgumentCaptor.forClass(LocationData.class);
+        verify(locationIngestService).ingest(captor.capture(), eq("Team"));
+        LocationData reading = captor.getValue();
+        assertEquals(52.1, reading.getLocation().getY(), 1e-9);
+        assertEquals(5.2, reading.getLocation().getX(), 1e-9);
+        // 10 knots -> 18.52 km/h
+        assertEquals(18.52, reading.getSpeed().doubleValue(), 1e-6);
+        assertEquals(90.0, reading.getHeading().doubleValue(), 1e-9);
+    }
+
+    @Test
+    void reportPost_jsonBody_ingestsConvertedReading() {
+        // A JSON object body is also accepted, regardless of content type.
+        Team team = enabledTeam("secret-id");
+        when(teamService.findByTraccarIdentifier("secret-id")).thenReturn(Optional.of(team));
+
+        String body = "{\"id\":\"secret-id\",\"lat\":52.1,\"lon\":5.2,\"timestamp\":1700000000,"
+            + "\"altitude\":12.0,\"speed\":10.0,\"bearing\":90.0,\"accuracy\":8.0}";
+        Response response = resource.reportPost(body,
+            null, null, null, null, null, null, null, null, null);
 
         assertEquals(200, response.getStatus());
 
@@ -97,6 +114,7 @@ class TraccarResourceTest {
         assertEquals(52.1, reading.getLocation().getY(), 1e-9);
         assertEquals(5.2, reading.getLocation().getX(), 1e-9);
         assertEquals(18.52, reading.getSpeed().doubleValue(), 1e-6);
+        assertEquals(90.0, reading.getHeading().doubleValue(), 1e-9);
     }
 
     @Test
