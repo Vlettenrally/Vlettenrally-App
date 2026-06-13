@@ -102,6 +102,7 @@ public class CheckpointServiceImpl implements CheckpointService {
             checkpoint.setClosingTime(Instant.parse(request.closingTime()));
         }
 
+        syncLocationFromLatLng(checkpoint);
         return checkpointRepository.save(checkpoint);
     }
 
@@ -155,6 +156,7 @@ public class CheckpointServiceImpl implements CheckpointService {
         }
         checkpoint.setUpdatedAt(Instant.now());
 
+        syncLocationFromLatLng(checkpoint);
         return Optional.of(checkpointRepository.save(checkpoint));
     }
 
@@ -228,6 +230,23 @@ public class CheckpointServiceImpl implements CheckpointService {
         target.setHidden(source.isHidden());
         target.setCreatedAt(source.getCreatedAt());
         target.setUpdatedAt(source.getUpdatedAt());
+    }
+
+    /**
+     * Keep the geofencing geometry in sync with the scalar lat/lng the API sets.
+     *
+     * The proximity query ({@link nl.vlettenrally.data.repository.CheckpointRepository#findContainingPoint})
+     * matches on the {@code location} Point, but callers only ever supply latitude/longitude. Without this,
+     * {@code location} stays NULL and circle checkpoints silently never match. Runs for every zone type so
+     * the marker and geometry can't drift; polygons additionally match on their {@code zonePolygon}.
+     */
+    private void syncLocationFromLatLng(Checkpoint checkpoint) {
+        if (checkpoint.getLatitude() != null && checkpoint.getLongitude() != null) {
+            checkpoint.setLocation(GEOMETRY_FACTORY.createPoint(
+                new Coordinate(checkpoint.getLongitude(), checkpoint.getLatitude())));
+        } else {
+            checkpoint.setLocation(null);
+        }
     }
 
     /**
