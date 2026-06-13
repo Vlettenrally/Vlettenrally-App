@@ -33,7 +33,6 @@ import api from './services/api';
 const CheckInPage = lazy(() => import('./pages/participant/Checkin'));
 const DashboardPage = lazy(() => import('./pages/participant/Dashboard'));
 const ParticipantInfoPage = lazy(() => import('./pages/participant/Info'));
-const MessagesPage = lazy(() => import('./pages/MessagesPage'));
 const ParticipantMap = lazy(() => import('./pages/participant/Map'));
 const RivalsPage = lazy(() => import('./pages/participant/Rivals'));
 const RankingsPage = lazy(() => import('./pages/participant/Rankings'));
@@ -404,18 +403,6 @@ function App() {
                 <TeamLayout>
                   <Suspense fallback={<PageLoader />}>
                     <ParticipantInfoPage />
-                  </Suspense>
-                </TeamLayout>
-              </TeamRoute>
-            }
-          />
-          <Route
-            path="/messages"
-            element={
-              <TeamRoute>
-                <TeamLayout>
-                  <Suspense fallback={<PageLoader />}>
-                    <MessagesPage />
                   </Suspense>
                 </TeamLayout>
               </TeamRoute>

@@ -236,18 +236,17 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUntracked: true }).then((clientList) => {
-      // Focus existing window if available and navigate to messages
+      // Focus existing window if available and navigate to the dashboard
       for (const client of clientList) {
         if ('focus' in client) {
           client.focus();
-          // Navigate to messages page
-          client.postMessage({ type: 'NAVIGATE', url: '/messages', messageId });
+          client.postMessage({ type: 'NAVIGATE', url: '/dashboard', messageId });
           return;
         }
       }
-      // Open new window to messages page if no existing window found
+      // Open new window to the dashboard if no existing window found
       if (self.clients.openWindow) {
-        return self.clients.openWindow('/messages')
+        return self.clients.openWindow('/dashboard')
       }
     })
   )

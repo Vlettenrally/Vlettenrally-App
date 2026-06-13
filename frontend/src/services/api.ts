@@ -723,6 +723,10 @@ async getGames() : Promise<ApiResponse<Game[]>> {
     return this.get(`/teams/${teamId}/achievements`);
   }
 
+  async getTeamVerifiedAchievements(teamId: string) {
+    return this.get(`/teams/${teamId}/achievements/verified`);
+  }
+
   async getTeamsNearCheckpoint(gameId: string, checkpointId: string): Promise<ApiResponse<CheckpointTeamStatus[]>> {
     return this.get(`/games/${gameId}/checkpoints/${checkpointId}/teams/nearby`);
   }

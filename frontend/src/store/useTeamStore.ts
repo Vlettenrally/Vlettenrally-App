@@ -46,9 +46,14 @@ export const useTeamStore = create<TeamState>((set) => ({
   setRankings: (rankings) => set({ rankings }),
   setAchievements: (achievements) => set({ achievements }),
   addAchievement: (achievement) =>
-    set((state) => ({
-      achievements: [...state.achievements, achievement],
-    })),
+    set((state) => {
+      // Dedupe by id: the counter is hydrated on load and also receives
+      // TEAM_ACHIEVEMENT WS events, which can race and double-count.
+      if (state.achievements.some((a) => a.id === achievement.id)) {
+        return state;
+      }
+      return { achievements: [...state.achievements, achievement] };
+    }),
   updatePoints: (points) =>
     set((state) => ({
       team: state.team ? { ...state.team, totalPoints: points } : null,

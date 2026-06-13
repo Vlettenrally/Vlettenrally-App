@@ -17,14 +17,11 @@ import {
   ListItemIcon,
   ListItemText,
   ListItemButton,
-  Badge,
   Divider,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
   Dashboard as DashboardIcon,
-  Message as MessageIcon,
-  EmojiEvents as TrophyIcon,
   CompareArrows as RivalIcon,
   Leaderboard as LeaderboardIcon,
   Logout as LogoutIcon,
@@ -32,7 +29,6 @@ import {
   Map as MapIcon,
   Description as DescriptionIcon,
 } from '@mui/icons-material';
-import { useMessageStore } from '../store/useMessageStore';
 import { storage } from '../services/storage';
 import { useTeamStore } from '../store/useTeamStore';
 import { useGameStore } from '../store/useGameStore';
@@ -48,7 +44,6 @@ export function TeamLayout({ children }: TeamLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const { unreadCount } = useMessageStore();
   const { reset: resetTeam, team, setTeam } = useTeamStore();
   const { reset: resetGame, game, fetchGameById } = useGameStore();
   const { showDisconnected } = useConnectionStatus();
@@ -93,12 +88,10 @@ export function TeamLayout({ children }: TeamLayoutProps) {
       ? [{ text: 'Spelinformatie', icon: <DescriptionIcon />, path: '/info' }]
       : []),
     { text: 'Kaart', icon: <MapIcon />, path: '/map' },
-    { text: 'Berichten', icon: <MessageIcon />, path: '/messages', badge: unreadCount },
     ...(gameCompleted
       ? [{ text: 'Eindstand', icon: <LeaderboardIcon />, path: '/rankings' }]
       : []),
     { text: 'Rivaal', icon: <RivalIcon />, path: '/rival' },
-    { text: 'Prestaties', icon: <TrophyIcon />, path: '/achievements' },
   ];
 
   const handleNavigate = (path: string) => {
@@ -139,11 +132,6 @@ export function TeamLayout({ children }: TeamLayoutProps) {
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             Vlettenrally
           </Typography>
-          <IconButton color="inherit" onClick={() => navigate('/messages')}>
-            <Badge badgeContent={unreadCount} color="error">
-              <MessageIcon />
-            </Badge>
-          </IconButton>
         </Toolbar>
       </AppBar>
 
@@ -172,15 +160,7 @@ export function TeamLayout({ children }: TeamLayoutProps) {
                   selected={location.pathname === item.path}
                   onClick={() => handleNavigate(item.path)}
                 >
-                  <ListItemIcon>
-                    {item.badge ? (
-                      <Badge badgeContent={item.badge} color="error">
-                        {item.icon}
-                      </Badge>
-                    ) : (
-                      item.icon
-                    )}
-                  </ListItemIcon>
+                  <ListItemIcon>{item.icon}</ListItemIcon>
                   <ListItemText primary={item.text} />
                 </ListItemButton>
               </ListItem>
