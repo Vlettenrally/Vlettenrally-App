@@ -120,7 +120,7 @@ public class JpaLocationDataRepository extends ReadReplicaAwareRepository implem
                 "SELECT l.id, l.team_id, l.game_id, l.location, l.location_time, " +
                 "l.accuracy, l.altitude, l.speed, l.heading, l.created_at " +
                 "FROM location_data l " +
-                "WHERE ST_DWithin(l.location::geography, ?1::geography, ?2) " +
+                "WHERE ST_DWithin(l.location::geography, cast(?1 as geography), ?2) " +
                 "ORDER BY l.location_time DESC",
                 LocationDataEntity.class)
                 .setParameter(1, point)
@@ -135,7 +135,7 @@ public class JpaLocationDataRepository extends ReadReplicaAwareRepository implem
                 "SELECT l.id, l.team_id, l.game_id, l.location, l.location_time, " +
                 "l.accuracy, l.altitude, l.speed, l.heading, l.created_at " +
                 "FROM location_data l " +
-                "WHERE l.team_id = ?1 AND ST_DWithin(l.location::geography, ?2::geography, ?3) " +
+                "WHERE l.team_id = ?1 AND ST_DWithin(l.location::geography, cast(?2 as geography), ?3) " +
                 "ORDER BY l.location_time DESC",
                 LocationDataEntity.class)
                 .setParameter(1, teamId)
@@ -152,7 +152,7 @@ public class JpaLocationDataRepository extends ReadReplicaAwareRepository implem
                 "SELECT l.id, l.team_id, l.game_id, l.location, l.location_time, " +
                 "l.accuracy, l.altitude, l.speed, l.heading, l.created_at " +
                 "FROM location_data l " +
-                "WHERE l.team_id = ?1 AND ST_DWithin(l.location::geography, ?2::geography, ?3) " +
+                "WHERE l.team_id = ?1 AND ST_DWithin(l.location::geography, cast(?2 as geography), ?3) " +
                 "AND l.location_time >= ?4 AND l.location_time <= ?5 " +
                 "ORDER BY l.location_time DESC",
                 LocationDataEntity.class)
@@ -169,7 +169,7 @@ public class JpaLocationDataRepository extends ReadReplicaAwareRepository implem
     public boolean isWithinDistance(Point point1, Point point2, double distanceMeters) {
         // Delegate geodetic distance check to PostGIS using geography cast for accurate meter-based results
         Boolean result = (Boolean) getReadEntityManager().createNativeQuery(
-                "SELECT ST_DWithin(?1::geography, ?2::geography, ?3)")
+                "SELECT ST_DWithin(cast(?1 as geography), cast(?2 as geography), ?3)")
                 .setParameter(1, point1)
                 .setParameter(2, point2)
                 .setParameter(3, distanceMeters)

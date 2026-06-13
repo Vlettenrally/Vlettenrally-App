@@ -76,7 +76,7 @@ public class JpaCheckpointRepository extends ReadReplicaAwareRepository implemen
                 "SELECT c.id FROM checkpoints c " +
                 "WHERE c.game_id = ?1 AND c.hidden = false AND (" +
                 "  (c.zone_type = 'circle' AND c.location IS NOT NULL " +
-                "     AND ST_DWithin(c.location::geography, ?2::geography, c.radius_meters)) " +
+                "     AND ST_DWithin(c.location::geography, cast(?2 as geography), c.radius_meters)) " +
                 "  OR (c.zone_type = 'polygon' AND c.zone_polygon IS NOT NULL " +
                 "     AND ST_Contains(c.zone_polygon, ?2)))")
                 .setParameter(1, gameId)
