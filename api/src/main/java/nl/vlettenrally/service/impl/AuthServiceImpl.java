@@ -1,6 +1,7 @@
 package nl.vlettenrally.service.impl;
 
 import io.smallrye.jwt.build.Jwt;
+import io.smallrye.mutiny.Uni;
 import io.quarkus.scheduler.Scheduled;
 import io.quarkus.logging.Log;
 import io.quarkus.elytron.security.common.BcryptUtil;
@@ -452,13 +453,12 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public boolean isAccessTokenRevoked(String subject, Instant issuedAt) {
+    public Uni<Boolean> isAccessTokenRevoked(String subject, Instant issuedAt) {
         if (subject == null || issuedAt == null) {
-            return false;
+            return Uni.createFrom().item(false);
         }
         return tokenRevocationStore.getSubjectCutoff(subject)
-            .map(issuedAt::isBefore)
-            .orElse(false);
+            .map(cutoff -> cutoff.map(issuedAt::isBefore).orElse(false));
     }
 
     @Override
@@ -471,13 +471,12 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public boolean isDeviceTokenRevoked(String subject, UUID deviceId, Instant issuedAt) {
+    public Uni<Boolean> isDeviceTokenRevoked(String subject, UUID deviceId, Instant issuedAt) {
         if (subject == null || deviceId == null || issuedAt == null) {
-            return false;
+            return Uni.createFrom().item(false);
         }
         return tokenRevocationStore.getDeviceCutoff(subject, deviceId)
-            .map(issuedAt::isBefore)
-            .orElse(false);
+            .map(cutoff -> cutoff.map(issuedAt::isBefore).orElse(false));
     }
 
     @Override

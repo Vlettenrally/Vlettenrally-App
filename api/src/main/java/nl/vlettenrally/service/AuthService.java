@@ -1,5 +1,6 @@
 package nl.vlettenrally.service;
 
+import io.smallrye.mutiny.Uni;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -74,7 +75,7 @@ public interface AuthService {
      * Returns true if access tokens for the given team subject were revoked AFTER the
      * supplied issued-at instant — i.e. the access token must be rejected.
      */
-    boolean isAccessTokenRevoked(String subject, Instant issuedAt);
+    Uni<Boolean> isAccessTokenRevoked(String subject, Instant issuedAt);
 
     /**
      * Revoke tokens for a single device of a team (used when an admin removes a single
@@ -87,7 +88,7 @@ public interface AuthService {
      * Returns true if the (subject, deviceId) pair was revoked AFTER the supplied
      * issued-at instant.
      */
-    boolean isDeviceTokenRevoked(String subject, UUID deviceId, Instant issuedAt);
+    Uni<Boolean> isDeviceTokenRevoked(String subject, UUID deviceId, Instant issuedAt);
 
     /**
      * Store a refresh token for validation and rotation

@@ -2,7 +2,10 @@ package nl.vlettenrally.service;
 
 import io.quarkus.logging.Log;
 import io.quarkus.redis.datasource.RedisDataSource;
+import io.quarkus.redis.datasource.ReactiveRedisDataSource;
 import io.quarkus.redis.datasource.value.ValueCommands;
+import io.quarkus.redis.datasource.value.ReactiveValueCommands;
+import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -26,6 +29,10 @@ import java.util.UUID;
  * On Valkey errors we fail open (treat as "not revoked") and log: this matches the
  * pre-revocation security posture, and is what every other Valkey caller in this
  * codebase does (see ValkeySessionStore, MapSubscriptionManager).
+ *
+ * Reads return {@link Uni} and use the reactive Valkey client so they can run on the
+ * Vert.x event loop — the revocation filter runs there. Writes happen on admin worker
+ * threads, so they stay on the simpler blocking client.
  */
 @ApplicationScoped
 public class TokenRevocationStore {
@@ -36,11 +43,18 @@ public class TokenRevocationStore {
     @Inject
     RedisDataSource redisDataSource;
 
+    @Inject
+    ReactiveRedisDataSource reactiveRedisDataSource;
+
     @ConfigProperty(name = "vlettenrally.jwt.access-token-expiry-minutes", defaultValue = "15")
     int accessTokenExpiryMinutes;
 
     private ValueCommands<String, String> commands() {
         return redisDataSource.value(String.class);
+    }
+
+    private ReactiveValueCommands<String, String> reactiveCommands() {
+        return reactiveRedisDataSource.value(String.class);
     }
 
     private long ttlSeconds() {
@@ -60,17 +74,16 @@ public class TokenRevocationStore {
         }
     }
 
-    public Optional<Instant> getSubjectCutoff(String subject) {
+    public Uni<Optional<Instant>> getSubjectCutoff(String subject) {
         if (subject == null) {
-            return Optional.empty();
+            return Uni.createFrom().item(Optional.<Instant>empty());
         }
-        try {
-            String raw = commands().get(SUBJECT_KEY_PREFIX + subject);
-            return parseCutoff(raw);
-        } catch (Exception e) {
-            Log.errorf("Failed to read subject revocation cutoff for %s: %s", subject, e.getMessage());
-            return Optional.empty();
-        }
+        return reactiveCommands().get(SUBJECT_KEY_PREFIX + subject)
+            .map(TokenRevocationStore::parseCutoff)
+            .onFailure().recoverWithItem(e -> {
+                Log.errorf("Failed to read subject revocation cutoff for %s: %s", subject, e.getMessage());
+                return Optional.<Instant>empty();
+            });
     }
 
     public void revokeDevice(String subject, UUID deviceId, Instant cutoff) {
@@ -84,17 +97,16 @@ public class TokenRevocationStore {
         }
     }
 
-    public Optional<Instant> getDeviceCutoff(String subject, UUID deviceId) {
+    public Uni<Optional<Instant>> getDeviceCutoff(String subject, UUID deviceId) {
         if (subject == null || deviceId == null) {
-            return Optional.empty();
+            return Uni.createFrom().item(Optional.<Instant>empty());
         }
-        try {
-            String raw = commands().get(deviceKey(subject, deviceId));
-            return parseCutoff(raw);
-        } catch (Exception e) {
-            Log.errorf("Failed to read device revocation cutoff for %s/%s: %s", subject, deviceId, e.getMessage());
-            return Optional.empty();
-        }
+        return reactiveCommands().get(deviceKey(subject, deviceId))
+            .map(TokenRevocationStore::parseCutoff)
+            .onFailure().recoverWithItem(e -> {
+                Log.errorf("Failed to read device revocation cutoff for %s/%s: %s", subject, deviceId, e.getMessage());
+                return Optional.<Instant>empty();
+            });
     }
 
     private static String deviceKey(String subject, UUID deviceId) {
@@ -103,12 +115,12 @@ public class TokenRevocationStore {
 
     private static Optional<Instant> parseCutoff(String raw) {
         if (raw == null || raw.isBlank()) {
-            return Optional.empty();
+            return Optional.<Instant>empty();
         }
         try {
             return Optional.of(Instant.ofEpochSecond(Long.parseLong(raw.trim())));
         } catch (NumberFormatException e) {
-            return Optional.empty();
+            return Optional.<Instant>empty();
         }
     }
 }
