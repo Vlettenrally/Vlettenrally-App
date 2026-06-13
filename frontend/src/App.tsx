@@ -10,6 +10,7 @@ import {TeamLayout} from './components/TeamLayout';
 import {AdminLayout} from './components/AdminLayout';
 import {storage} from './services/storage';
 import {config} from './config';
+import {seedMockAdminSession, seedMockTeamSession} from './services/mockSession';
 import {useGameStore} from './store/useGameStore';
 import {getRolesFromToken, getUserRoleFromRoles} from './services/auth';
 import {
@@ -77,9 +78,18 @@ const theme = createTheme({
 });
 
 /**
- * In mock mode we show an explicit launcher instead of auth screens.
+ * In mock mode we show an explicit launcher instead of auth screens. Each button
+ * seeds a fake local session (the app has no backend in mock mode) before opening
+ * the interface in a new tab, so the route guards let the new tab through. Writes
+ * to localStorage are synchronous and shared across same-origin tabs, so seeding
+ * before window.open is enough for the new tab to read the session.
  */
 function MockModeLauncher() {
+  const openInterface = (seed: () => void, path: string) => () => {
+    seed();
+    window.open(path, '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <Container maxWidth="sm">
       <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', py: 3 }}>
@@ -89,24 +99,12 @@ function MockModeLauncher() {
               Mock modus
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Kies welke interface je wilt openen. Beide links openen in een nieuw tabblad.
+              Kies welke interface je wilt openen. Beide openen in een nieuw tabblad.
             </Typography>
-            <Button
-              variant="contained"
-              component="a"
-              href="/admin/dashboard"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
+            <Button variant="contained" onClick={openInterface(seedMockAdminSession, '/admin/dashboard')}>
               Open admin interface
             </Button>
-            <Button
-              variant="outlined"
-              component="a"
-              href="/dashboard"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
+            <Button variant="outlined" onClick={openInterface(seedMockTeamSession, '/dashboard')}>
               Open player interface
             </Button>
           </Stack>

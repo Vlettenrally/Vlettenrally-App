@@ -15,15 +15,18 @@ npm run dev
 
 The app supports a **mock mode** that provides pre-filled data without needing the backend running. This is ideal for frontend development and testing.
 
-**Enable mock mode** by creating a `.env` file:
+**Enable mock mode** by toggling the value in the committed `.env.development`
+file (Vite loads it automatically in dev — no need to create a new `.env` file):
 
 ```bash
-cp .env.example .env
-# or simply:
-echo "VITE_USE_MOCKS=true" > .env
+# in frontend/.env.development
+VITE_USE_MOCKS=true   # set to 'false' to use the real API instead
 ```
 
-Or run with mock mode directly:
+When mock mode is on, the app shows a launcher that lets you open the **admin**
+or **player** interface (each in a new tab) without a backend or login.
+
+You can also override it for a single run:
 
 ```bash
 VITE_USE_MOCKS=true npm run dev
