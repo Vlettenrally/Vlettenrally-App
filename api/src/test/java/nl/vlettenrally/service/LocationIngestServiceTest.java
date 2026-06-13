@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -75,13 +76,18 @@ class LocationIngestServiceTest {
     void setUp() {
         service.minIntervalSeconds = 5;
         service.maxSpeedKmh = 120;
+        service.boatMaxSpeedKmh = 25;
+        service.turnAngleThresholdDegrees = 120;
+        service.minBearingSegmentMeters = 10;
+        service.maxAccuracyMeters = 50;
+        service.staleFixSeconds = 300;
         teamId = UUID.randomUUID();
         gameId = UUID.randomUUID();
     }
 
     @Test
     void ingest_firstFix_isAccepted() {
-        when(locationDataRepository.findLatestByTeamId(teamId)).thenReturn(Optional.empty());
+        when(locationDataRepository.findRecentByTeamId(teamId, 2)).thenReturn(List.of());
 
         Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 5.0, Instant.now()), "Team");
 
@@ -93,8 +99,8 @@ class LocationIngestServiceTest {
     @Test
     void ingest_tooSoonAfterLastFix_isDropped() {
         Instant base = Instant.now();
-        when(locationDataRepository.findLatestByTeamId(teamId))
-            .thenReturn(Optional.of(reading(52.0, 5.0, base)));
+        when(locationDataRepository.findRecentByTeamId(teamId, 2))
+            .thenReturn(List.of(reading(52.0, 5.0, base)));
 
         // 2 seconds after the last fix — under the 5s minimum interval.
         Optional<TeamLocationResponse> result = service.ingest(reading(52.0001, 5.0001, base.plusSeconds(2)), "Team");
@@ -106,8 +112,8 @@ class LocationIngestServiceTest {
     @Test
     void ingest_implausibleJump_isDropped() {
         Instant base = Instant.now();
-        when(locationDataRepository.findLatestByTeamId(teamId))
-            .thenReturn(Optional.of(reading(52.0, 5.0, base)));
+        when(locationDataRepository.findRecentByTeamId(teamId, 2))
+            .thenReturn(List.of(reading(52.0, 5.0, base)));
 
         // ~0.7 km east in 10s ≈ 250 km/h, well over the 120 km/h ceiling.
         Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 5.01, base.plusSeconds(10)), "Team");
@@ -119,10 +125,11 @@ class LocationIngestServiceTest {
     @Test
     void ingest_plausibleMovement_isAccepted() {
         Instant base = Instant.now();
-        when(locationDataRepository.findLatestByTeamId(teamId))
-            .thenReturn(Optional.of(reading(52.0, 5.0, base)));
+        when(locationDataRepository.findRecentByTeamId(teamId, 2))
+            .thenReturn(List.of(reading(52.0, 5.0, base)));
 
-        // ~0.7 km east in 60s ≈ 42 km/h — under the ceiling.
+        // ~0.7 km east in 60s ≈ 42 km/h — under the hard ceiling, and with no prior fix
+        // there is no bearing to trigger the direction-gated boat-speed rule.
         Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 5.01, base.plusSeconds(60)), "Team");
 
         assertTrue(result.isPresent());
@@ -141,7 +148,7 @@ class LocationIngestServiceTest {
     void ingest_recordsGeofencedPass_whenActiveAndInZone() {
         Instant time = Instant.now();
         UUID checkpointId = UUID.randomUUID();
-        when(locationDataRepository.findLatestByTeamId(teamId)).thenReturn(Optional.empty());
+        when(locationDataRepository.findRecentByTeamId(teamId, 2)).thenReturn(List.of());
         when(gameService.findById(gameId)).thenReturn(Optional.of(activeGame()));
         when(checkpointRepository.findContainingPoint(eq(gameId), any(Point.class)))
             .thenReturn(List.of(checkpointId));
@@ -154,7 +161,7 @@ class LocationIngestServiceTest {
 
     @Test
     void ingest_gameNotActive_skipsDetection() {
-        when(locationDataRepository.findLatestByTeamId(teamId)).thenReturn(Optional.empty());
+        when(locationDataRepository.findRecentByTeamId(teamId, 2)).thenReturn(List.of());
         Game completed = new Game();
         completed.setId(gameId);
         completed.setStatus(Game.GameStatus.COMPLETED);
@@ -169,7 +176,7 @@ class LocationIngestServiceTest {
 
     @Test
     void ingest_activeButOutsideAllZones_recordsNoPass() {
-        when(locationDataRepository.findLatestByTeamId(teamId)).thenReturn(Optional.empty());
+        when(locationDataRepository.findRecentByTeamId(teamId, 2)).thenReturn(List.of());
         when(gameService.findById(gameId)).thenReturn(Optional.of(activeGame()));
         when(checkpointRepository.findContainingPoint(eq(gameId), any(Point.class)))
             .thenReturn(List.of());
@@ -177,6 +184,49 @@ class LocationIngestServiceTest {
         service.ingest(reading(52.0, 5.0, Instant.now()), "Team");
 
         verify(achievementService, never()).recordVerifiedPass(any(), any(), any());
+    }
+
+    @Test
+    void ingest_spikeAfterStraightRun_isDropped() {
+        Instant base = Instant.now().minusSeconds(300);
+        // Eastward run at boat speed: prev -> last establishes a ~east heading.
+        LocationData prev = reading(52.0, 5.000, base);
+        LocationData last = reading(52.0, 5.001, base.plusSeconds(60));
+        when(locationDataRepository.findRecentByTeamId(teamId, 2)).thenReturn(List.of(last, prev));
+
+        // Candidate sharply reverses ~690 m west in 60s (~41 km/h): turn 180°, boat-implausible.
+        Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 4.991, base.plusSeconds(120)), "Team");
+
+        assertFalse(result.isPresent());
+        verify(locationDataRepository, never()).save(any(LocationData.class));
+    }
+
+    @Test
+    void ingest_genuineSharpTurnAtBoatSpeed_isAccepted() {
+        Instant base = Instant.now().minusSeconds(300);
+        LocationData prev = reading(52.0, 5.000, base);
+        LocationData last = reading(52.0, 5.001, base.plusSeconds(60));
+        when(locationDataRepository.findRecentByTeamId(teamId, 2)).thenReturn(List.of(last, prev));
+
+        // A real U-turn: ~69 m back west in 60s (~4 km/h). Sharp angle but boat speed → keep it.
+        Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 5.000, base.plusSeconds(120)), "Team");
+
+        assertTrue(result.isPresent());
+        verify(locationDataRepository).save(any(LocationData.class));
+    }
+
+    @Test
+    void ingest_poorAccuracy_isDropped() {
+        Instant base = Instant.now().minusSeconds(120);
+        when(locationDataRepository.findRecentByTeamId(teamId, 2))
+            .thenReturn(List.of(reading(52.0, 5.0, base)));
+
+        // 100 m reported accuracy, over the 50 m gate.
+        Optional<TeamLocationResponse> result =
+            service.ingest(reading(52.0001, 5.0001, base.plusSeconds(60), new BigDecimal("100.0")), "Team");
+
+        assertFalse(result.isPresent());
+        verify(locationDataRepository, never()).save(any(LocationData.class));
     }
 
     private Game activeGame() {
@@ -187,12 +237,17 @@ class LocationIngestServiceTest {
     }
 
     private LocationData reading(double lat, double lon, Instant time) {
+        return reading(lat, lon, time, null);
+    }
+
+    private LocationData reading(double lat, double lon, Instant time, BigDecimal accuracy) {
         Point point = GEOMETRY_FACTORY.createPoint(new Coordinate(lon, lat));
         LocationData data = new LocationData();
         data.setTeamId(teamId);
         data.setGameId(gameId);
         data.setLocation(point);
         data.setLocationTime(time);
+        data.setAccuracy(accuracy);
         return data;
     }
 }

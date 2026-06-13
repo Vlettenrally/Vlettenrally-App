@@ -33,4 +33,21 @@ class GeoDistanceTest {
                 GeoDistance.haversineMeters(a, b),
                 1e-9);
     }
+
+    @Test
+    void bearingDegrees_cardinalDirections() {
+        // From a base point, head a small step toward each cardinal direction.
+        assertEquals(0.0, GeoDistance.bearingDegrees(4.9, 52.0, 4.9, 52.001), 0.5);   // north
+        assertEquals(90.0, GeoDistance.bearingDegrees(4.9, 52.0, 4.901, 52.0), 0.5);  // east
+        assertEquals(180.0, GeoDistance.bearingDegrees(4.9, 52.0, 4.9, 51.999), 0.5); // south
+        assertEquals(270.0, GeoDistance.bearingDegrees(4.9, 52.0, 4.899, 52.0), 0.5); // west
+    }
+
+    @Test
+    void turnAngleDegrees_isSmallestDifferenceAndSymmetric() {
+        assertEquals(20.0, GeoDistance.turnAngleDegrees(10.0, 350.0), 1e-9);
+        assertEquals(20.0, GeoDistance.turnAngleDegrees(350.0, 10.0), 1e-9);
+        assertEquals(180.0, GeoDistance.turnAngleDegrees(0.0, 180.0), 1e-9);
+        assertEquals(0.0, GeoDistance.turnAngleDegrees(90.0, 90.0), 1e-9);
+    }
 }

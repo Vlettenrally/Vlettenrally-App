@@ -42,6 +42,13 @@ public interface LocationDataRepository {
     Optional<LocationData> findLatestByTeamId(UUID teamId);
 
     /**
+     * Find a team's most recent locations, ordered by location_time descending, capped at
+     * {@code limit}. Used by the ingest outlier filter, which needs the last two fixes to
+     * derive the prior travel bearing without replaying the whole track.
+     */
+    List<LocationData> findRecentByTeamId(UUID teamId, int limit);
+
+    /**
      * Find all locations for a game, ordered by location_time descending
      */
     List<LocationData> findByGameId(UUID gameId);

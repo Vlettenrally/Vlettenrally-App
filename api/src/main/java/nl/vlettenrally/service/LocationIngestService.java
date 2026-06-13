@@ -9,6 +9,7 @@ import nl.vlettenrally.data.domain.LocationData;
 import nl.vlettenrally.data.dto.game.TeamLocationResponse;
 import nl.vlettenrally.data.repository.CheckpointRepository;
 import nl.vlettenrally.data.repository.LocationDataRepository;
+import nl.vlettenrally.service.util.TrackOutlierFilter;
 import nl.vlettenrally.websockets.MapSubscriptionManager;
 import nl.vlettenrally.websockets.WebSocketEventTypes;
 import nl.vlettenrally.websockets.WebSocketMessage;
@@ -17,7 +18,6 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.locationtech.jts.geom.Point;
 
 import java.math.BigDecimal;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -64,13 +64,32 @@ public class LocationIngestService {
     @ConfigProperty(name = "vlettenrally.location.min-interval-seconds", defaultValue = "5")
     long minIntervalSeconds;
 
-    /** Drop fixes whose implied speed from the last fix exceeds this (GPS teleports). */
+    /** Hard teleport ceiling: drop fixes whose implied speed from the last fix exceeds this. */
     @ConfigProperty(name = "vlettenrally.location.max-speed-kmh", defaultValue = "120")
     double maxSpeedKmh;
 
+    /** Soft ceiling for the direction-gated spike rule (boats move slowly). */
+    @ConfigProperty(name = "vlettenrally.location.boat-max-speed-kmh", defaultValue = "25")
+    double boatMaxSpeedKmh;
+
+    /** A turn beyond this (degrees) is treated as a sharp reversal / spike candidate. */
+    @ConfigProperty(name = "vlettenrally.location.turn-angle-threshold-degrees", defaultValue = "120")
+    double turnAngleThresholdDegrees;
+
+    /** Legs shorter than this (meters) give unreliable bearings, so skip the turn test. */
+    @ConfigProperty(name = "vlettenrally.location.min-bearing-segment-meters", defaultValue = "10")
+    double minBearingSegmentMeters;
+
+    /** Drop fixes whose reported accuracy exceeds this (meters); null accuracy bypasses. */
+    @ConfigProperty(name = "vlettenrally.location.max-accuracy-meters", defaultValue = "50")
+    double maxAccuracyMeters;
+
+    /** Gaps longer than this (seconds) bypass the boat-speed/turn rules so the track re-acquires. */
+    @ConfigProperty(name = "vlettenrally.location.stale-fix-seconds", defaultValue = "300")
+    long staleFixSeconds;
+
     /** Reject timestamps further than this into the future (clock skew / spoofing). */
     private static final long MAX_FUTURE_SKEW_SECONDS = 60;
-    private static final double EARTH_RADIUS_METERS = 6_371_000.0;
 
     /**
      * Validate, guard, persist and notify a single location fix, then detect any
@@ -88,9 +107,14 @@ public class LocationIngestService {
             return Optional.empty();
         }
 
-        Optional<LocationData> lastOpt = locationDataRepository.findLatestByTeamId(reading.getTeamId());
-        if (lastOpt.isPresent() && !passesGuards(lastOpt.get(), reading)) {
-            return Optional.empty();
+        // The outlier filter needs the last two fixes to derive the prior travel bearing.
+        List<LocationData> recent = locationDataRepository.findRecentByTeamId(reading.getTeamId(), 2);
+        if (!recent.isEmpty()) {
+            LocationData last = recent.get(0);
+            LocationData prev = recent.size() > 1 ? recent.get(1) : null;
+            if (!passesGuards(prev, last, reading)) {
+                return Optional.empty();
+            }
         }
 
         locationDataRepository.save(reading);
@@ -176,19 +200,19 @@ public class LocationIngestService {
         return true;
     }
 
-    private boolean passesGuards(LocationData last, LocationData reading) {
-        long deltaSeconds = Duration.between(last.getLocationTime(), reading.getLocationTime()).getSeconds();
-        // Not newer than the last fix, or arriving too fast: throttle.
-        if (deltaSeconds < minIntervalSeconds) {
-            Log.debugf("Dropping location for team %s: only %ds since last fix (min %ds)",
-                reading.getTeamId(), deltaSeconds, minIntervalSeconds);
-            return false;
-        }
-        double meters = haversineMeters(last.getLocation(), reading.getLocation());
-        double impliedKmh = (meters / deltaSeconds) * 3.6;
-        if (impliedKmh > maxSpeedKmh) {
-            Log.debugf("Dropping location for team %s: implied %.0f km/h over %.0f m (max %.0f)",
-                reading.getTeamId(), impliedKmh, meters, maxSpeedKmh);
+    /**
+     * Online outlier guard. Combines time, distance (implied speed) and direction (turn angle)
+     * to drop GPS spikes/teleports while preserving genuine sharp turns at boat speed.
+     * Delegates the decision to the pure {@link TrackOutlierFilter}; {@code prev} may be null
+     * when the team has only one prior fix.
+     */
+    private boolean passesGuards(LocationData prev, LocationData last, LocationData reading) {
+        TrackOutlierFilter.Thresholds thresholds = new TrackOutlierFilter.Thresholds(
+            minIntervalSeconds, maxAccuracyMeters, maxSpeedKmh, boatMaxSpeedKmh,
+            turnAngleThresholdDegrees, minBearingSegmentMeters, staleFixSeconds);
+        TrackOutlierFilter.Decision decision = TrackOutlierFilter.evaluate(prev, last, reading, thresholds);
+        if (decision != TrackOutlierFilter.Decision.ACCEPT) {
+            Log.debugf("Dropping location for team %s: %s", reading.getTeamId(), decision);
             return false;
         }
         return true;
@@ -209,15 +233,5 @@ public class LocationIngestService {
 
     private static Double toDouble(BigDecimal value) {
         return value != null ? value.doubleValue() : null;
-    }
-
-    private static double haversineMeters(Point a, Point b) {
-        double lat1 = Math.toRadians(a.getY());
-        double lat2 = Math.toRadians(b.getY());
-        double dLat = lat2 - lat1;
-        double dLon = Math.toRadians(b.getX() - a.getX());
-        double h = Math.sin(dLat / 2) * Math.sin(dLat / 2)
-            + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-        return 2 * EARTH_RADIUS_METERS * Math.asin(Math.min(1.0, Math.sqrt(h)));
     }
 }

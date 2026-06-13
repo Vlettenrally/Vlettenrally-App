@@ -38,4 +38,37 @@ public final class GeoDistance {
     public static double haversineMeters(Point a, Point b) {
         return haversineMeters(a.getX(), a.getY(), b.getX(), b.getY());
     }
+
+    /**
+     * Initial bearing (forward azimuth) in degrees from point 1 to point 2, normalized to
+     * [0, 360) where 0 = north, 90 = east. Inputs are WGS-84 longitude/latitude in degrees.
+     */
+    public static double bearingDegrees(double lon1, double lat1, double lon2, double lat2) {
+        double lat1Rad = Math.toRadians(lat1);
+        double lat2Rad = Math.toRadians(lat2);
+        double dLon = Math.toRadians(lon2 - lon1);
+
+        double y = Math.sin(dLon) * Math.cos(lat2Rad);
+        double x = Math.cos(lat1Rad) * Math.sin(lat2Rad)
+                 - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon);
+
+        double bearing = Math.toDegrees(Math.atan2(y, x));
+        return (bearing + 360.0) % 360.0;
+    }
+
+    /**
+     * Initial bearing in degrees between two JTS Points (X = longitude, Y = latitude, degrees).
+     */
+    public static double bearingDegrees(Point a, Point b) {
+        return bearingDegrees(a.getX(), a.getY(), b.getX(), b.getY());
+    }
+
+    /**
+     * Smallest absolute difference between two bearings (degrees), in [0, 180].
+     * 0 means same direction, 180 means an exact reversal.
+     */
+    public static double turnAngleDegrees(double bearing1, double bearing2) {
+        double diff = Math.abs(bearing1 - bearing2) % 360.0;
+        return diff > 180.0 ? 360.0 - diff : diff;
+    }
 }

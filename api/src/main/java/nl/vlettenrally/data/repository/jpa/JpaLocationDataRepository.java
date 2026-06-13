@@ -89,6 +89,18 @@ public class JpaLocationDataRepository extends ReadReplicaAwareRepository implem
     }
 
     @Override
+    public List<LocationData> findRecentByTeamId(UUID teamId, int limit) {
+        List<LocationDataEntity> entities = getReadEntityManager().createQuery(
+                "SELECT l FROM LocationDataEntity l WHERE l.team.id = :teamId " +
+                "ORDER BY l.locationTime DESC",
+                LocationDataEntity.class)
+                .setParameter("teamId", teamId)
+                .setMaxResults(limit)
+                .getResultList();
+        return entities.stream().map(LocationDataMapper::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
     public List<LocationData> findByGameId(UUID gameId) {
         List<LocationDataEntity> entities = getReadEntityManager().createQuery(
                 "SELECT l FROM LocationDataEntity l WHERE l.game.id = :gameId ORDER BY l.locationTime DESC",
