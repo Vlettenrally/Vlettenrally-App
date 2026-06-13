@@ -149,7 +149,7 @@ public class MockCheckpointRepository implements CheckpointRepository {
             return List.of();
         }
         return checkpoints.values().stream()
-                .filter(cp -> gameId.equals(cp.getGameId()) && !cp.isHidden())
+                .filter(cp -> gameId.equals(cp.getGameId()))
                 .filter(cp -> zoneContains(cp, point))
                 .map(Checkpoint::getId)
                 .collect(Collectors.toList());
@@ -164,7 +164,7 @@ public class MockCheckpointRepository implements CheckpointRepository {
             return findContainingPoint(gameId, b != null ? b : a);
         }
         return checkpoints.values().stream()
-                .filter(cp -> gameId.equals(cp.getGameId()) && !cp.isHidden())
+                .filter(cp -> gameId.equals(cp.getGameId()))
                 .filter(cp -> zoneCrossedBySegment(cp, a, b))
                 .map(Checkpoint::getId)
                 .collect(Collectors.toList());

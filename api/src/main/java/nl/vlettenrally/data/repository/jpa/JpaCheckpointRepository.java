@@ -74,7 +74,7 @@ public class JpaCheckpointRepository extends ReadReplicaAwareRepository implemen
         @SuppressWarnings("unchecked")
         List<Object> ids = getReadEntityManager().createNativeQuery(
                 "SELECT c.id FROM checkpoints c " +
-                "WHERE c.game_id = ?1 AND c.hidden = false AND (" +
+                "WHERE c.game_id = ?1 AND (" +
                 "  (c.zone_type = 'circle' AND c.location IS NOT NULL " +
                 "     AND ST_DWithin(c.location::geography, cast(?2 as geography), c.radius_meters)) " +
                 "  OR (c.zone_type = 'polygon' AND c.zone_polygon IS NOT NULL " +
@@ -93,7 +93,7 @@ public class JpaCheckpointRepository extends ReadReplicaAwareRepository implemen
         @SuppressWarnings("unchecked")
         List<Object> ids = getReadEntityManager().createNativeQuery(
                 "SELECT c.id FROM checkpoints c " +
-                "WHERE c.game_id = ?1 AND c.hidden = false AND (" +
+                "WHERE c.game_id = ?1 AND (" +
                 "  (c.zone_type = 'circle' AND c.location IS NOT NULL " +
                 "     AND ST_DWithin(c.location::geography, ST_MakeLine(?2, ?3)::geography, c.radius_meters)) " +
                 "  OR (c.zone_type = 'polygon' AND c.zone_polygon IS NOT NULL " +

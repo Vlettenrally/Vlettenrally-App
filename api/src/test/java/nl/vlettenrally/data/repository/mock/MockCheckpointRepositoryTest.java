@@ -52,21 +52,40 @@ class MockCheckpointRepositoryTest {
     }
 
     @Test
-    void findContainingPoint_excludesHiddenAndOtherGames() {
+    void findContainingPoint_includesHidden_excludesOtherGames() {
+        // Hidden checkpoints stay off teams' map but must still drive automations,
+        // so detection must return them.
         UUID hiddenId = saveCircle("Hidden", 52.10000, 5.10000, 50.0);
         repository.findById(hiddenId).ifPresent(cp -> {
             cp.setHidden(true);
             repository.save(cp);
         });
+        // A checkpoint at the same spot but in a different game must never match.
         CircleCheckpoint otherGame = new CircleCheckpoint();
         otherGame.setGameId(UUID.randomUUID());
         otherGame.setLatitude(52.10000);
         otherGame.setLongitude(5.10000);
+        otherGame.setRadiusMeters(50.0);
         repository.save(otherGame);
 
         List<UUID> hits = repository.findContainingPoint(gameId, point(52.10000, 5.10000));
 
-        assertTrue(hits.isEmpty());
+        assertEquals(List.of(hiddenId), hits);
+    }
+
+    @Test
+    void findCrossedBySegment_includesHidden() {
+        // A hidden circle the segment passes straight through must still be returned.
+        UUID hiddenId = saveCircle("Hidden", 52.10000, 5.10000, 50.0);
+        repository.findById(hiddenId).ifPresent(cp -> {
+            cp.setHidden(true);
+            repository.save(cp);
+        });
+
+        List<UUID> crossing = repository.findCrossedBySegment(gameId,
+            point(52.10000, 5.09900), point(52.10000, 5.10100));
+
+        assertEquals(List.of(hiddenId), crossing);
     }
 
     @Test
