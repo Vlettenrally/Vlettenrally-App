@@ -182,7 +182,7 @@ function RootRedirect() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (config.useMocks) {
+    if (import.meta.env.DEV && config.useMocks) {
       navigate('/mock-entry', { replace: true });
       return;
     }
@@ -378,12 +378,12 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<RootRedirect />} />
-          <Route path="/mock-entry" element={config.useMocks ? <MockModeLauncher /> : <Navigate to="/" replace />} />
+          <Route path="/mock-entry" element={import.meta.env.DEV && config.useMocks ? <MockModeLauncher /> : <Navigate to="/" replace />} />
 
           {/* Team/Participant routes */}
           <Route
             path="/check-in"
-            element={config.useMocks ? <MockModeLauncher /> : <Suspense fallback={<PageLoader />}><CheckInPage /></Suspense>}
+            element={import.meta.env.DEV && config.useMocks ? <MockModeLauncher /> : <Suspense fallback={<PageLoader />}><CheckInPage /></Suspense>}
           />
           <Route
             path="/dashboard"
@@ -463,7 +463,7 @@ function App() {
           {/* Admin routes */}
           <Route
             path="/admin/login"
-            element={config.useMocks ? <MockModeLauncher /> : <Suspense fallback={<PageLoader />}><AdminLogin /></Suspense>}
+            element={import.meta.env.DEV && config.useMocks ? <MockModeLauncher /> : <Suspense fallback={<PageLoader />}><AdminLogin /></Suspense>}
           />
           <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
           <Route

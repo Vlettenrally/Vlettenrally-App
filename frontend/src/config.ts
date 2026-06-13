@@ -23,10 +23,14 @@ export interface FirebaseConfig {
 
 export const config = {
   /**
-   * When true, the app uses mock data instead of calling the real API.
+   * When true, the app shows the mock launcher instead of the auth screens.
    * Useful for frontend development without needing the backend running.
+   *
+   * Gated on import.meta.env.DEV so it is always false in production builds —
+   * combined with the import.meta.env.DEV guards in App.tsx this lets the
+   * minifier strip the mock launcher and its helpers from production artifacts.
    */
-  useMocks: import.meta.env.VITE_USE_MOCKS === 'true',
+  useMocks: import.meta.env.DEV && import.meta.env.VITE_USE_MOCKS === 'true',
 
   /**
    * API base URL for the backend
