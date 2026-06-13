@@ -8,6 +8,7 @@ import nl.vlettenrally.data.entity.jpa.CheckpointEntity;
 import nl.vlettenrally.data.entity.jpa.GameEntity;
 import nl.vlettenrally.data.mapper.CheckpointMapper;
 import nl.vlettenrally.data.repository.CheckpointRepository;
+import org.locationtech.jts.geom.Point;
 
 import java.time.Instant;
 import java.util.List;
@@ -63,6 +64,25 @@ public class JpaCheckpointRepository extends ReadReplicaAwareRepository implemen
         } catch (jakarta.persistence.NoResultException e) {
             return Optional.empty();
         }
+    }
+
+    @Override
+    public List<UUID> findContainingPoint(UUID gameId, Point point) {
+        // One spatial query for both zone shapes: circles via ST_DWithin on radius_meters
+        // (geography cast for accurate meters), polygons via ST_Contains. Both predicates
+        // are index-backed (idx_checkpoints_location_geog, idx_checkpoints_zone_polygon).
+        @SuppressWarnings("unchecked")
+        List<Object> ids = getReadEntityManager().createNativeQuery(
+                "SELECT c.id FROM checkpoints c " +
+                "WHERE c.game_id = ?1 AND c.hidden = false AND (" +
+                "  (c.zone_type = 'circle' AND c.location IS NOT NULL " +
+                "     AND ST_DWithin(c.location::geography, ?2::geography, c.radius_meters)) " +
+                "  OR (c.zone_type = 'polygon' AND c.zone_polygon IS NOT NULL " +
+                "     AND ST_Contains(c.zone_polygon, ?2)))")
+                .setParameter(1, gameId)
+                .setParameter(2, point)
+                .getResultList();
+        return ids.stream().map(id -> (UUID) id).collect(Collectors.toList());
     }
 
     @Override

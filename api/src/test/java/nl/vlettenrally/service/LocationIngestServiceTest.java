@@ -3,9 +3,9 @@ package nl.vlettenrally.service;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
@@ -23,7 +23,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import nl.vlettenrally.data.domain.CircleCheckpoint;
 import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.LocationData;
 import nl.vlettenrally.data.dto.game.TeamLocationResponse;
@@ -59,9 +58,6 @@ class LocationIngestServiceTest {
 
     @Mock
     GameService gameService;
-
-    @Mock
-    GeofencingService geofencingService;
 
     @Mock
     CheckpointRepository checkpointRepository;
@@ -142,47 +138,45 @@ class LocationIngestServiceTest {
     }
 
     @Test
-    void ingest_withDetectCheckpoints_recordsGeofencedPass_whenActiveAndInZone() {
+    void ingest_recordsGeofencedPass_whenActiveAndInZone() {
         Instant time = Instant.now();
+        UUID checkpointId = UUID.randomUUID();
         when(locationDataRepository.findLatestByTeamId(teamId)).thenReturn(Optional.empty());
         when(gameService.findById(gameId)).thenReturn(Optional.of(activeGame()));
+        when(checkpointRepository.findContainingPoint(eq(gameId), any(Point.class)))
+            .thenReturn(List.of(checkpointId));
 
-        CircleCheckpoint checkpoint = new CircleCheckpoint();
-        checkpoint.setId(UUID.randomUUID());
-        checkpoint.setGameId(gameId);
-        when(checkpointRepository.findByGameId(gameId)).thenReturn(List.of(checkpoint));
-        when(geofencingService.isWithinCheckpointGeofence(any(LocationData.class), any())).thenReturn(true);
-
-        Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 5.0, time), "Team", true);
+        Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 5.0, time), "Team");
 
         assertTrue(result.isPresent());
-        verify(achievementService).recordVerifiedPass(teamId, checkpoint.getId(), time);
+        verify(achievementService).recordVerifiedPass(teamId, checkpointId, time);
     }
 
     @Test
-    void ingest_withDetectCheckpoints_gameNotActive_skipsDetection() {
+    void ingest_gameNotActive_skipsDetection() {
         when(locationDataRepository.findLatestByTeamId(teamId)).thenReturn(Optional.empty());
         Game completed = new Game();
         completed.setId(gameId);
         completed.setStatus(Game.GameStatus.COMPLETED);
         when(gameService.findById(gameId)).thenReturn(Optional.of(completed));
 
-        Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 5.0, Instant.now()), "Team", true);
+        Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 5.0, Instant.now()), "Team");
 
         assertTrue(result.isPresent());
+        verify(checkpointRepository, never()).findContainingPoint(any(), any());
         verify(achievementService, never()).recordVerifiedPass(any(), any(), any());
     }
 
     @Test
-    void ingest_withoutDetectCheckpoints_skipsDetection() {
+    void ingest_activeButOutsideAllZones_recordsNoPass() {
         when(locationDataRepository.findLatestByTeamId(teamId)).thenReturn(Optional.empty());
         when(gameService.findById(gameId)).thenReturn(Optional.of(activeGame()));
+        when(checkpointRepository.findContainingPoint(eq(gameId), any(Point.class)))
+            .thenReturn(List.of());
 
-        // Legendstracking path (detectCheckpoints=false): no local geofencing.
         service.ingest(reading(52.0, 5.0, Instant.now()), "Team");
 
         verify(achievementService, never()).recordVerifiedPass(any(), any(), any());
-        verifyNoInteractions(geofencingService);
     }
 
     private Game activeGame() {

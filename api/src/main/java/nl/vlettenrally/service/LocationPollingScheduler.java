@@ -6,17 +6,13 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import nl.vlettenrally.client.LocationApiClient;
-import nl.vlettenrally.client.dto.legendstracking.EventParticipantCheckpoint;
 import nl.vlettenrally.client.dto.legendstracking.EventParticipantLocation;
-import nl.vlettenrally.client.dto.legendstracking.EventParticipantsCheckpointsResponse;
 import nl.vlettenrally.client.dto.legendstracking.EventParticipantsLocationsResponse;
 import nl.vlettenrally.client.exception.LocationApiException;
-import nl.vlettenrally.data.domain.Checkpoint;
 import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.LocationData;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.dto.game.TeamLocationResponse;
-import nl.vlettenrally.data.repository.CheckpointRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
@@ -26,14 +22,15 @@ import org.locationtech.jts.geom.PrecisionModel;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * Polls Legendstracking endpoints for every active game with a base URL configured
- * and broadcasts location updates plus auto-verified checkpoint passes.
+ * Polls the Legendstracking {@code /participants_locations} endpoint for every active
+ * game with a base URL configured and broadcasts location updates. Checkpoint passes
+ * are not taken from the external feed — they are detected internally from each fix via
+ * {@link LocationIngestService} (PostGIS geofencing), the same path Traccar uses.
  * <p>
  * Runs at the configured interval on a single instance at a time — leader election
  * via {@link PollingLeader} (Valkey-backed lease).
@@ -57,16 +54,10 @@ public class LocationPollingScheduler {
     TeamRepository teamRepository;
 
     @Inject
-    CheckpointRepository checkpointRepository;
-
-    @Inject
     LocationApiClient locationApiClient;
 
     @Inject
     LocationIngestService locationIngestService;
-
-    @Inject
-    AchievementService achievementService;
 
     @Inject
     PollingLeader pollingLeader;
@@ -106,7 +97,6 @@ public class LocationPollingScheduler {
         }
 
         pollParticipantLocations(game, teamsByParticipantId);
-        pollParticipantCheckpoints(game, teamsByParticipantId);
     }
 
     private void pollParticipantLocations(Game game, Map<Integer, Team> teamsByParticipantId) {
@@ -149,40 +139,6 @@ public class LocationPollingScheduler {
         }
 
         locationIngestService.broadcastToMap(game.getId(), broadcasts);
-    }
-
-    private void pollParticipantCheckpoints(Game game, Map<Integer, Team> teamsByParticipantId) {
-        EventParticipantsCheckpointsResponse response;
-        try {
-            response = locationApiClient.fetchParticipantCheckpoints(game.getLocationEndpointUrl());
-        } catch (LocationApiException e) {
-            Log.warnf("Legendstracking /participants_checkpoints error for game %s: %s", game.getId(), e.getMessage());
-            return;
-        }
-
-        if (response == null || response.getEvent() == null
-                || response.getEvent().getEventParticipantCheckpoints() == null) {
-            return;
-        }
-
-        Map<Integer, Checkpoint> checkpointsByExternalId = new HashMap<>();
-
-        for (EventParticipantCheckpoint epc : response.getEvent().getEventParticipantCheckpoints()) {
-            Team team = teamsByParticipantId.get(epc.getEventParticipantsId());
-            if (team == null) continue;
-
-            Checkpoint checkpoint = checkpointsByExternalId.computeIfAbsent(epc.getCheckpointId(), id ->
-                checkpointRepository.findByGameIdAndExternalId(game.getId(), String.valueOf(id)).orElse(null));
-            if (checkpoint == null) continue;
-
-            Instant passTime = parseInstant(epc.getLocationTime());
-            try {
-                achievementService.recordVerifiedPass(team.getId(), checkpoint.getId(), passTime);
-            } catch (Exception e) {
-                Log.warnf("Failed to record verified pass team=%s checkpoint=%s: %s",
-                    team.getId(), checkpoint.getId(), e.getMessage());
-            }
-        }
     }
 
     private static Instant parseInstant(String raw) {

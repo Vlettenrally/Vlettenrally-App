@@ -4,7 +4,6 @@ import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
-import nl.vlettenrally.data.domain.Checkpoint;
 import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.LocationData;
 import nl.vlettenrally.data.dto.game.TeamLocationResponse;
@@ -56,9 +55,6 @@ public class LocationIngestService {
     GameService gameService;
 
     @Inject
-    GeofencingService geofencingService;
-
-    @Inject
     CheckpointRepository checkpointRepository;
 
     @Inject
@@ -77,9 +73,10 @@ public class LocationIngestService {
     private static final double EARTH_RADIUS_METERS = 6_371_000.0;
 
     /**
-     * Validate, guard, persist and notify a single location fix, without local
-     * checkpoint detection. Used by the Legendstracking poller, which gets
-     * checkpoint passes from the external {@code /participants_checkpoints} feed.
+     * Validate, guard, persist and notify a single location fix, then detect any
+     * checkpoint passes internally via geofencing. All sources (the Legendstracking
+     * poller and the Traccar/OsmAnd endpoint) flow through here and detect passes the
+     * same way — from the fix itself, not from an external checkpoint feed.
      *
      * @return the broadcastable team location if accepted, or empty if the fix was
      *         rejected by a guard (caller should treat a rejection as a successful
@@ -87,21 +84,6 @@ public class LocationIngestService {
      */
     @Transactional
     public Optional<TeamLocationResponse> ingest(LocationData reading, String teamName) {
-        return ingest(reading, teamName, false);
-    }
-
-    /**
-     * Validate, guard, persist and notify a single location fix.
-     *
-     * @param detectCheckpoints derive checkpoint passes from this fix via local
-     *        geofencing. Raw-GPS sources (Traccar/OsmAnd) have no external
-     *        checkpoint feed, so this is the only way they detect passes; the
-     *        Legendstracking poller leaves it off and uses its feed instead.
-     * @return the broadcastable team location if accepted, or empty if the fix was
-     *         rejected by a guard.
-     */
-    @Transactional
-    public Optional<TeamLocationResponse> ingest(LocationData reading, String teamName, boolean detectCheckpoints) {
         if (!isValid(reading)) {
             return Optional.empty();
         }
@@ -130,7 +112,7 @@ public class LocationIngestService {
         double cumulativeMeters = teamDistanceCalculator.computeTraveledMeters(reading.getTeamId());
         automationEngine.onDistanceUpdate(reading.getGameId(), reading.getTeamId(), cumulativeMeters, active);
 
-        if (detectCheckpoints && active) {
+        if (active) {
             detectCheckpointPasses(reading);
         }
 
@@ -138,22 +120,19 @@ public class LocationIngestService {
     }
 
     /**
-     * Auto-verify any checkpoint whose geofence now contains the fix, mirroring
-     * the Legendstracking checkpoint feed for sources that only push raw positions.
-     * {@link AchievementService#recordVerifiedPass} is idempotent per
-     * (team, checkpoint), so repeated fixes inside a zone don't re-award.
+     * Auto-verify every checkpoint whose geofence contains the fix. A single spatial
+     * query ({@link CheckpointRepository#findContainingPoint}) resolves all matching
+     * checkpoints at once. {@link AchievementService#recordVerifiedPass} is idempotent
+     * per (team, checkpoint), so repeated fixes inside a zone don't re-award.
      */
     private void detectCheckpointPasses(LocationData reading) {
-        for (Checkpoint checkpoint : checkpointRepository.findByGameId(reading.getGameId())) {
-            if (!geofencingService.isWithinCheckpointGeofence(reading, checkpoint)) {
-                continue;
-            }
+        for (UUID checkpointId : checkpointRepository.findContainingPoint(reading.getGameId(), reading.getLocation())) {
             try {
                 achievementService.recordVerifiedPass(
-                    reading.getTeamId(), checkpoint.getId(), reading.getLocationTime());
+                    reading.getTeamId(), checkpointId, reading.getLocationTime());
             } catch (Exception e) {
                 Log.warnf("Failed to record geofenced pass team=%s checkpoint=%s: %s",
-                    reading.getTeamId(), checkpoint.getId(), e.getMessage());
+                    reading.getTeamId(), checkpointId, e.getMessage());
             }
         }
     }

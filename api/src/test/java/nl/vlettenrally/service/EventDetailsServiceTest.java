@@ -8,6 +8,7 @@ import nl.vlettenrally.client.dto.legendstracking.EventDetailsResponse;
 import nl.vlettenrally.client.dto.legendstracking.EventParticipant;
 import nl.vlettenrally.data.domain.Checkpoint;
 import nl.vlettenrally.data.domain.CircleCheckpoint;
+import nl.vlettenrally.data.domain.PolygonCheckpoint;
 import nl.vlettenrally.data.domain.Team;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,6 +23,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -109,6 +111,75 @@ class EventDetailsServiceTest {
         assertEquals(0, result.updated());
         assertEquals(0, result.errors());
         verify(checkpointService, times(1)).save(any(Checkpoint.class));
+    }
+
+    @Test
+    void importCheckpoints_newCircleZoneUsesApiRadius() throws Exception {
+        when(checkpointService.findByGameId(gameId)).thenReturn(new ArrayList<>());
+        when(checkpointService.save(any(Checkpoint.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        EventCheckpoint detail = eventCheckpoint(789, "Radius zone", 52.20000, 5.20000);
+        detail.setRadius(120.0);
+        when(locationApiClient.fetchDetails("https://tracker/details"))
+            .thenReturn(responseWithCheckpoints(detail));
+
+        ImportResult result = eventDetailsService.importCheckpoints(gameId, "https://tracker/details");
+
+        assertEquals(1, result.created());
+        ArgumentCaptor<Checkpoint> captor = ArgumentCaptor.forClass(Checkpoint.class);
+        verify(checkpointService).save(captor.capture());
+        Checkpoint saved = captor.getValue();
+        assertInstanceOf(CircleCheckpoint.class, saved);
+        assertEquals(120.0, ((CircleCheckpoint) saved).getRadiusMeters(), 1e-9);
+    }
+
+    @Test
+    void importCheckpoints_newPolygonZoneFromPolygonCoordinates() throws Exception {
+        when(checkpointService.findByGameId(gameId)).thenReturn(new ArrayList<>());
+        when(checkpointService.save(any(Checkpoint.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        EventCheckpoint detail = eventCheckpoint(789, "Polygon zone", 52.025, 4.675);
+        // Flat lng,lat pairs — a triangle.
+        detail.setPolygonCoordinates("4.668807,52.025402,4.681167,52.030261,4.681682,52.020860");
+        when(locationApiClient.fetchDetails("https://tracker/details"))
+            .thenReturn(responseWithCheckpoints(detail));
+
+        ImportResult result = eventDetailsService.importCheckpoints(gameId, "https://tracker/details");
+
+        assertEquals(1, result.created());
+        ArgumentCaptor<Checkpoint> captor = ArgumentCaptor.forClass(Checkpoint.class);
+        verify(checkpointService).save(captor.capture());
+        Checkpoint saved = captor.getValue();
+        assertInstanceOf(PolygonCheckpoint.class, saved);
+        var polygon = ((PolygonCheckpoint) saved).getZonePolygon();
+        // 3 vertices + the closing point repeated, parsed as (x=lng, y=lat).
+        assertEquals(4, polygon.getExteriorRing().getNumPoints());
+        assertEquals(4.668807, polygon.getExteriorRing().getCoordinateN(0).x, 1e-9);
+        assertEquals(52.025402, polygon.getExteriorRing().getCoordinateN(0).y, 1e-9);
+    }
+
+    @Test
+    void importCheckpoints_matchedZoneKeepsAppGeometry() throws Exception {
+        // App-authored circle with a deliberate, non-default radius.
+        CircleCheckpoint existing = checkpoint("Hand drawn", null, 52.10000, 5.10000);
+        existing.setRadiusMeters(25.0);
+        when(checkpointService.findByGameId(gameId)).thenReturn(new ArrayList<>(List.of(existing)));
+        when(checkpointService.save(any(Checkpoint.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        // API checkpoint matches by location but carries its own radius + polygon.
+        EventCheckpoint detail = eventCheckpoint(123, "New name", 52.10005, 5.10005);
+        detail.setRadius(200.0);
+        detail.setPolygonCoordinates("4.668807,52.025402,4.681167,52.030261,4.681682,52.020860");
+        when(locationApiClient.fetchDetails("https://tracker/details"))
+            .thenReturn(responseWithCheckpoints(detail));
+
+        eventDetailsService.importCheckpoints(gameId, "https://tracker/details");
+
+        ArgumentCaptor<Checkpoint> captor = ArgumentCaptor.forClass(Checkpoint.class);
+        verify(checkpointService).save(captor.capture());
+        Checkpoint saved = captor.getValue();
+        assertEquals(existing.getId(), saved.getId());
+        // Still the app circle and its radius — API geometry did not overwrite it.
+        assertInstanceOf(CircleCheckpoint.class, saved);
+        assertEquals(25.0, ((CircleCheckpoint) saved).getRadiusMeters(), 1e-9);
+        assertEquals("123", saved.getExternalId());
     }
 
     @Test

@@ -6,7 +6,9 @@ import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import nl.vlettenrally.data.domain.Checkpoint;
 import nl.vlettenrally.data.domain.CircleCheckpoint;
+import nl.vlettenrally.data.domain.PolygonCheckpoint;
 import nl.vlettenrally.data.repository.CheckpointRepository;
+import org.locationtech.jts.geom.Point;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -132,6 +134,43 @@ public class MockCheckpointRepository implements CheckpointRepository {
         return checkpoints.values().stream()
                 .filter(cp -> gameId.equals(cp.getGameId()) && externalId.equals(cp.getExternalId()))
                 .findFirst();
+    }
+
+    @Override
+    public List<UUID> findContainingPoint(UUID gameId, Point point) {
+        // In-memory equivalent of the JPA spatial query: haversine ≤ radius for circles,
+        // JTS polygon containment for polygons. Keeps mock/test detection consistent with PostGIS.
+        if (point == null) {
+            return List.of();
+        }
+        return checkpoints.values().stream()
+                .filter(cp -> gameId.equals(cp.getGameId()) && !cp.isHidden())
+                .filter(cp -> zoneContains(cp, point))
+                .map(Checkpoint::getId)
+                .collect(Collectors.toList());
+    }
+
+    private static boolean zoneContains(Checkpoint cp, Point point) {
+        return switch (cp) {
+            case PolygonCheckpoint poly -> poly.getZonePolygon() != null && poly.getZonePolygon().contains(point);
+            case CircleCheckpoint circle -> {
+                if (cp.getLatitude() == null || cp.getLongitude() == null) {
+                    yield false;
+                }
+                double radius = circle.getRadiusMeters() > 0 ? circle.getRadiusMeters() : 50.0;
+                yield haversineMeters(point.getY(), point.getX(), cp.getLatitude(), cp.getLongitude()) <= radius;
+            }
+        };
+    }
+
+    private static double haversineMeters(double lat1, double lon1, double lat2, double lon2) {
+        double earthRadiusMeters = 6_371_000.0;
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        return 2 * earthRadiusMeters * Math.asin(Math.min(1.0, Math.sqrt(a)));
     }
 
     @Override

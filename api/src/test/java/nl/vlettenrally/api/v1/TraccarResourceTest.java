@@ -3,7 +3,6 @@ package nl.vlettenrally.api.v1;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -58,13 +57,13 @@ class TraccarResourceTest {
         when(teamService.findByTraccarIdentifier("secret-id")).thenReturn(Optional.of(team));
 
         // speed 10 knots, bearing 90, at epoch second 1_700_000_000
-        Response response = resource.reportGet(null, "secret-id", 52.1, 5.2, "1700000000",
+        Response response = resource.reportGet("secret-id", 52.1, 5.2, "1700000000",
             12.0, 10.0, 90.0, 8.0, null);
 
         assertEquals(200, response.getStatus());
 
         ArgumentCaptor<LocationData> captor = ArgumentCaptor.forClass(LocationData.class);
-        verify(locationIngestService).ingest(captor.capture(), eq("Team"), eq(true));
+        verify(locationIngestService).ingest(captor.capture(), eq("Team"));
         LocationData reading = captor.getValue();
         assertEquals(teamId, reading.getTeamId());
         assertEquals(gameId, reading.getGameId());
@@ -82,13 +81,13 @@ class TraccarResourceTest {
         when(teamService.findByTraccarIdentifier("secret-id")).thenReturn(Optional.of(team));
 
         String body = "id=secret-id&lat=52.1&lon=5.2&timestamp=1700000000&altitude=12.0&speed=10.0&bearing=90.0&accuracy=8.0";
-        Response response = resource.reportPost(body, null,
-            null, null, null, null, null, null, null, null, null);
+        Response response = resource.reportPost(body,
+                null, null, null, null, null, null, null, null, null);
 
         assertEquals(200, response.getStatus());
 
         ArgumentCaptor<LocationData> captor = ArgumentCaptor.forClass(LocationData.class);
-        verify(locationIngestService).ingest(captor.capture(), eq("Team"), eq(true));
+        verify(locationIngestService).ingest(captor.capture(), eq("Team"));
         LocationData reading = captor.getValue();
         assertEquals(52.1, reading.getLocation().getY(), 1e-9);
         assertEquals(5.2, reading.getLocation().getX(), 1e-9);
@@ -105,13 +104,13 @@ class TraccarResourceTest {
 
         String body = "{\"id\":\"secret-id\",\"lat\":52.1,\"lon\":5.2,\"timestamp\":1700000000,"
             + "\"altitude\":12.0,\"speed\":10.0,\"bearing\":90.0,\"accuracy\":8.0}";
-        Response response = resource.reportPost(body, null,
-            null, null, null, null, null, null, null, null, null);
+        Response response = resource.reportPost(body,
+                null, null, null, null, null, null, null, null, null);
 
         assertEquals(200, response.getStatus());
 
         ArgumentCaptor<LocationData> captor = ArgumentCaptor.forClass(LocationData.class);
-        verify(locationIngestService).ingest(captor.capture(), eq("Team"), eq(true));
+        verify(locationIngestService).ingest(captor.capture(), eq("Team"));
         LocationData reading = captor.getValue();
         assertEquals(52.1, reading.getLocation().getY(), 1e-9);
         assertEquals(5.2, reading.getLocation().getX(), 1e-9);
@@ -129,13 +128,13 @@ class TraccarResourceTest {
         String body = "{\"location\":{\"timestamp\":\"2026-06-12T13:14:07.164Z\",\"coords\":"
             + "{\"latitude\":52.0158884,\"longitude\":4.7094968,\"accuracy\":13.39,"
             + "\"speed\":-1,\"heading\":-1,\"altitude\":45.4}},\"device_id\":\"dev-123\"}";
-        Response response = resource.reportPost(body, null,
-            null, null, null, null, null, null, null, null, null);
+        Response response = resource.reportPost(body,
+                null, null, null, null, null, null, null, null, null);
 
         assertEquals(200, response.getStatus());
 
         ArgumentCaptor<LocationData> captor = ArgumentCaptor.forClass(LocationData.class);
-        verify(locationIngestService).ingest(captor.capture(), eq("Team"), eq(true));
+        verify(locationIngestService).ingest(captor.capture(), eq("Team"));
         LocationData reading = captor.getValue();
         assertEquals(52.0158884, reading.getLocation().getY(), 1e-9);
         assertEquals(4.7094968, reading.getLocation().getX(), 1e-9);
@@ -154,13 +153,13 @@ class TraccarResourceTest {
         String body = "{\"location\":{\"timestamp\":\"2026-06-12T13:14:07.164Z\",\"coords\":"
             + "{\"latitude\":52.0,\"longitude\":4.7,\"speed\":10.0,\"heading\":270.0}},"
             + "\"device_id\":\"dev-123\"}";
-        Response response = resource.reportPost(body, null,
-            null, null, null, null, null, null, null, null, null);
+        Response response = resource.reportPost(body,
+                null, null, null, null, null, null, null, null, null);
 
         assertEquals(200, response.getStatus());
 
         ArgumentCaptor<LocationData> captor = ArgumentCaptor.forClass(LocationData.class);
-        verify(locationIngestService).ingest(captor.capture(), eq("Team"), eq(true));
+        verify(locationIngestService).ingest(captor.capture(), eq("Team"));
         LocationData reading = captor.getValue();
         assertEquals(36.0, reading.getSpeed().doubleValue(), 1e-6);
         assertEquals(270.0, reading.getHeading().doubleValue(), 1e-9);
@@ -170,11 +169,11 @@ class TraccarResourceTest {
     void report_unknownIdentifier_doesNotIngest() {
         when(teamService.findByTraccarIdentifier("nope")).thenReturn(Optional.empty());
 
-        Response response = resource.reportGet(null, "nope", 52.1, 5.2, null,
+        Response response = resource.reportGet("nope", 52.1, 5.2, null,
             null, null, null, null, null);
 
         assertEquals(200, response.getStatus());
-        verify(locationIngestService, never()).ingest(any(), any(), anyBoolean());
+        verify(locationIngestService, never()).ingest(any(), any());
     }
 
     @Test
@@ -183,20 +182,20 @@ class TraccarResourceTest {
         team.setTraccarEnabled(false);
         when(teamService.findByTraccarIdentifier("secret-id")).thenReturn(Optional.of(team));
 
-        Response response = resource.reportGet(null, "secret-id", 52.1, 5.2, null,
+        Response response = resource.reportGet("secret-id", 52.1, 5.2, null,
             null, null, null, null, null);
 
         assertEquals(200, response.getStatus());
-        verify(locationIngestService, never()).ingest(any(), any(), anyBoolean());
+        verify(locationIngestService, never()).ingest(any(), any());
     }
 
     @Test
     void report_missingRequiredParams_doesNotIngest() {
-        Response response = resource.reportGet(null, "secret-id", null, 5.2, null,
+        Response response = resource.reportGet("secret-id", null, 5.2, null,
             null, null, null, null, null);
 
         assertEquals(200, response.getStatus());
-        verify(locationIngestService, never()).ingest(any(), any(), anyBoolean());
+        verify(locationIngestService, never()).ingest(any(), any());
     }
 
     private Team enabledTeam(String identifier) {

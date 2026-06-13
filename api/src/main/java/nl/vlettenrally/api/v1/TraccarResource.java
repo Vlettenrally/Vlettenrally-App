@@ -3,14 +3,12 @@ package nl.vlettenrally.api.v1;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.logging.Log;
-import io.vertx.core.http.HttpServerRequest;
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.QueryParam;
-import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.Response;
 import nl.vlettenrally.data.domain.LocationData;
 import nl.vlettenrally.data.domain.Team;
@@ -69,7 +67,6 @@ public class TraccarResource {
     @PermitAll
     public Response reportPost(
             String body,
-            @Context HttpServerRequest httpRequest,
             @QueryParam("id") String id,
             @QueryParam("lat") Double lat,
             @QueryParam("lon") Double lon,
@@ -195,7 +192,6 @@ public class TraccarResource {
     @GET
     @PermitAll
     public Response reportGet(
-            @Context HttpServerRequest httpRequest,
             @QueryParam("id") String id,
             @QueryParam("lat") Double lat,
             @QueryParam("lon") Double lon,
@@ -252,9 +248,8 @@ public class TraccarResource {
 
         // Broadcast the accepted fix to admin map subscribers; the poller batches a
         // whole sweep, but a single Traccar report is its own one-element batch.
-        // detectCheckpoints=true: raw GPS has no external checkpoint feed, so passes
-        // are derived here via local geofencing.
-        locationIngestService.ingest(reading, team.getName(), true)
+        // Checkpoint passes are detected internally from the fix via geofencing.
+        locationIngestService.ingest(reading, team.getName())
             .ifPresent(location -> locationIngestService.broadcastToMap(team.getGameId(), List.of(location)));
         return Response.ok().build();
     }

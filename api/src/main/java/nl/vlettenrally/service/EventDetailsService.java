@@ -10,7 +10,12 @@ import nl.vlettenrally.client.dto.legendstracking.EventParticipant;
 import nl.vlettenrally.client.exception.LocationApiException;
 import nl.vlettenrally.data.domain.Checkpoint;
 import nl.vlettenrally.data.domain.CircleCheckpoint;
+import nl.vlettenrally.data.domain.PolygonCheckpoint;
 import nl.vlettenrally.data.domain.Team;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.geom.PrecisionModel;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -43,6 +48,7 @@ public class EventDetailsService {
 
     private static final double CHECKPOINT_MATCH_TOLERANCE_METERS = 50.0;
     private static final double EARTH_RADIUS_METERS = 6_371_000.0;
+    private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory(new PrecisionModel(), 4326);
 
     @Inject
     LocationApiClient locationApiClient;
@@ -111,15 +117,10 @@ public class EventDetailsService {
                             updated++;
                         }
                     } else {
-                        CircleCheckpoint cp = new CircleCheckpoint();
-                        cp.setGameId(gameId);
-                        cp.setExternalId(externalId);
-                        cp.setName(detail.getName() != null ? detail.getName() : "Zone " + externalId);
-                        cp.setPoints(0);
-                        if (detail.getLocation() != null) {
-                            cp.setLatitude(detail.getLocation().getLatitude());
-                            cp.setLongitude(detail.getLocation().getLongitude());
-                        }
+                        // No existing app zone matched — create a new checkpoint and take its
+                        // geofence geometry from the API (polygon when provided, else a circle
+                        // with the API radius). Matched zones above keep their app geometry.
+                        Checkpoint cp = buildImportedCheckpoint(gameId, externalId, detail);
                         checkpointService.save(cp);
                         existingCheckpoints.add(cp);
                         checkpointsByExternalId.put(externalId, cp);
@@ -219,6 +220,70 @@ public class EventDetailsService {
             }
         }
         return byExternalId;
+    }
+
+    /**
+     * Build a brand-new checkpoint from an API detail, deriving its geofence shape from
+     * the API: a {@link PolygonCheckpoint} when {@code polygon_coordinates} describes at
+     * least a triangle, otherwise a {@link CircleCheckpoint} using the API radius (falling
+     * back to the 50 m default when absent or non-positive).
+     */
+    private static Checkpoint buildImportedCheckpoint(UUID gameId, String externalId, EventCheckpoint detail) {
+        Polygon polygon = parsePolygon(detail.getPolygonCoordinates());
+
+        Checkpoint cp;
+        if (polygon != null) {
+            PolygonCheckpoint poly = new PolygonCheckpoint();
+            poly.setZonePolygon(polygon);
+            cp = poly;
+        } else {
+            CircleCheckpoint circle = new CircleCheckpoint();
+            if (detail.getRadius() != null && detail.getRadius() > 0) {
+                circle.setRadiusMeters(detail.getRadius());
+            }
+            cp = circle;
+        }
+
+        cp.setGameId(gameId);
+        cp.setExternalId(externalId);
+        cp.setName(detail.getName() != null ? detail.getName() : "Zone " + externalId);
+        cp.setPoints(0);
+        if (detail.getLocation() != null) {
+            cp.setLatitude(detail.getLocation().getLatitude());
+            cp.setLongitude(detail.getLocation().getLongitude());
+        }
+        return cp;
+    }
+
+    /**
+     * Parse a Legendstracking {@code polygon_coordinates} string — a flat comma-separated
+     * list of {@code lng,lat} pairs, e.g.
+     * {@code "4.668807,52.025402,4.681167,52.030261,4.681682,52.020860"} — into a closed
+     * JTS polygon. Returns {@code null} when the string is blank, malformed, or describes
+     * fewer than three points, so the caller falls back to a circle.
+     */
+    private static Polygon parsePolygon(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String[] parts = raw.trim().split(",");
+        if (parts.length < 6 || parts.length % 2 != 0) {
+            return null;
+        }
+        try {
+            int pointCount = parts.length / 2;
+            Coordinate[] coords = new Coordinate[pointCount + 1];
+            for (int i = 0; i < pointCount; i++) {
+                double lng = Double.parseDouble(parts[2 * i].trim());
+                double lat = Double.parseDouble(parts[2 * i + 1].trim());
+                coords[i] = new Coordinate(lng, lat);
+            }
+            coords[pointCount] = coords[0]; // close the ring
+            return GEOMETRY_FACTORY.createPolygon(coords);
+        } catch (IllegalArgumentException e) {
+            // NumberFormatException (bad number) or an invalid ring — fall back to a circle.
+            return null;
+        }
     }
 
     private static Optional<Checkpoint> matchCheckpointByLocation(EventCheckpoint detail, List<Checkpoint> existingCheckpoints) {

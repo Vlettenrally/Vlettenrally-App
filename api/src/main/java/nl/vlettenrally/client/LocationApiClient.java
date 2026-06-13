@@ -6,7 +6,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 import nl.vlettenrally.client.dto.TestConnectionResult;
 import nl.vlettenrally.client.dto.legendstracking.EventDetailsResponse;
 import nl.vlettenrally.client.dto.legendstracking.EventParticipant;
-import nl.vlettenrally.client.dto.legendstracking.EventParticipantsCheckpointsResponse;
 import nl.vlettenrally.client.dto.legendstracking.EventParticipantsLocationsResponse;
 import nl.vlettenrally.client.exception.LocationApiException;
 
@@ -27,7 +26,6 @@ public class LocationApiClient {
 
     private static final String DETAILS_SUFFIX = "/details";
     private static final String PARTICIPANT_LOCATIONS_SUFFIX = "/participants_locations";
-    private static final String PARTICIPANT_CHECKPOINTS_SUFFIX = "/participants_checkpoints";
 
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
@@ -46,10 +44,6 @@ public class LocationApiClient {
 
     public EventParticipantsLocationsResponse fetchParticipantLocations(String baseUrl) throws LocationApiException {
         return get(joinUrl(baseUrl, PARTICIPANT_LOCATIONS_SUFFIX), EventParticipantsLocationsResponse.class);
-    }
-
-    public EventParticipantsCheckpointsResponse fetchParticipantCheckpoints(String baseUrl) throws LocationApiException {
-        return get(joinUrl(baseUrl, PARTICIPANT_CHECKPOINTS_SUFFIX), EventParticipantsCheckpointsResponse.class);
     }
 
     public TestConnectionResult testConnection(String baseUrl) throws LocationApiException {

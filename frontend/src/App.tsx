@@ -4,11 +4,12 @@
 import type {ReactNode} from 'react';
 import {lazy, Suspense, useCallback, useEffect, useState} from 'react';
 import {BrowserRouter, Navigate, Route, Routes, useNavigate} from 'react-router-dom';
-import {Alert, Box, Button, CircularProgress, createTheme, CssBaseline, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Snackbar, ThemeProvider} from '@mui/material';
+import {Alert, Box, Button, CircularProgress, Container, createTheme, CssBaseline, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Paper, Snackbar, Stack, ThemeProvider, Typography} from '@mui/material';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import {TeamLayout} from './components/TeamLayout';
 import {AdminLayout} from './components/AdminLayout';
 import {storage} from './services/storage';
+import {config} from './config';
 import {useGameStore} from './store/useGameStore';
 import {getRolesFromToken, getUserRoleFromRoles} from './services/auth';
 import {
@@ -74,6 +75,46 @@ const theme = createTheme({
     },
   },
 });
+
+/**
+ * In mock mode we show an explicit launcher instead of auth screens.
+ */
+function MockModeLauncher() {
+  return (
+    <Container maxWidth="sm">
+      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', py: 3 }}>
+        <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
+          <Stack spacing={2.5}>
+            <Typography variant="h5" component="h1">
+              Mock modus
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Kies welke interface je wilt openen. Beide links openen in een nieuw tabblad.
+            </Typography>
+            <Button
+              variant="contained"
+              component="a"
+              href="/admin/dashboard"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Open admin interface
+            </Button>
+            <Button
+              variant="outlined"
+              component="a"
+              href="/dashboard"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Open player interface
+            </Button>
+          </Stack>
+        </Paper>
+      </Box>
+    </Container>
+  );
+}
 
 /**
  * Route guard for team/participant routes
@@ -143,6 +184,11 @@ function RootRedirect() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (config.useMocks) {
+      navigate('/mock-entry', { replace: true });
+      return;
+    }
+
     const token = storage.getAuthToken();
     let role = storage.getUserRole();
 
@@ -334,9 +380,13 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<RootRedirect />} />
-          
+          <Route path="/mock-entry" element={config.useMocks ? <MockModeLauncher /> : <Navigate to="/" replace />} />
+
           {/* Team/Participant routes */}
-          <Route path="/check-in" element={<Suspense fallback={<PageLoader />}><CheckInPage /></Suspense>} />
+          <Route
+            path="/check-in"
+            element={config.useMocks ? <MockModeLauncher /> : <Suspense fallback={<PageLoader />}><CheckInPage /></Suspense>}
+          />
           <Route
             path="/dashboard"
             element={
@@ -413,7 +463,10 @@ function App() {
           />
 
           {/* Admin routes */}
-          <Route path="/admin/login" element={<Suspense fallback={<PageLoader />}><AdminLogin /></Suspense>} />
+          <Route
+            path="/admin/login"
+            element={config.useMocks ? <MockModeLauncher /> : <Suspense fallback={<PageLoader />}><AdminLogin /></Suspense>}
+          />
           <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
           <Route
             path="/admin/dashboard"
