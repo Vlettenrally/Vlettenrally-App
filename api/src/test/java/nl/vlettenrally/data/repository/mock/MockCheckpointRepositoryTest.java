@@ -69,6 +69,40 @@ class MockCheckpointRepositoryTest {
         assertTrue(hits.isEmpty());
     }
 
+    @Test
+    void findCrossedBySegment_circle_matchesWhenLinePassesThroughZone() {
+        UUID circleId = saveCircle("On the line", 52.10000, 5.10000, 50.0);
+
+        // Endpoints ~68 m east/west of the centre (both outside the 50 m radius) but the
+        // line between them runs straight through the centre.
+        List<UUID> crossing = repository.findCrossedBySegment(gameId,
+            point(52.10000, 5.09900), point(52.10000, 5.10100));
+        assertEquals(List.of(circleId), crossing);
+
+        // A parallel line ~100 m north of the centre never enters the zone.
+        List<UUID> beside = repository.findCrossedBySegment(gameId,
+            point(52.10090, 5.09900), point(52.10090, 5.10100));
+        assertTrue(beside.isEmpty());
+    }
+
+    @Test
+    void findCrossedBySegment_polygon_matchesWhenLineIntersects() {
+        UUID polygonId = savePolygon("Triangle",
+            new Coordinate(5.0990, 52.0990),
+            new Coordinate(5.1010, 52.0990),
+            new Coordinate(5.1000, 52.1010));
+
+        // A line through the middle of the triangle, endpoints outside it.
+        List<UUID> crossing = repository.findCrossedBySegment(gameId,
+            point(52.10000, 5.0980), point(52.10000, 5.1020));
+        assertEquals(List.of(polygonId), crossing);
+
+        // A line above the apex misses entirely.
+        List<UUID> beside = repository.findCrossedBySegment(gameId,
+            point(52.10300, 5.0980), point(52.10300, 5.1020));
+        assertTrue(beside.isEmpty());
+    }
+
     private UUID saveCircle(String name, double lat, double lng, double radius) {
         CircleCheckpoint cp = new CircleCheckpoint();
         cp.setGameId(gameId);

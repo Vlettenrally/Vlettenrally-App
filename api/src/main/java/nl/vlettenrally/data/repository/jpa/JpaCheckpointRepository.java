@@ -86,6 +86,26 @@ public class JpaCheckpointRepository extends ReadReplicaAwareRepository implemen
     }
 
     @Override
+    public List<UUID> findCrossedBySegment(UUID gameId, Point a, Point b) {
+        // Same shape as findContainingPoint, but tests the segment a→b instead of a point:
+        // circles via ST_DWithin on the line (geography cast for meters), polygons via
+        // ST_Intersects with the line. Both predicates stay index-backed.
+        @SuppressWarnings("unchecked")
+        List<Object> ids = getReadEntityManager().createNativeQuery(
+                "SELECT c.id FROM checkpoints c " +
+                "WHERE c.game_id = ?1 AND c.hidden = false AND (" +
+                "  (c.zone_type = 'circle' AND c.location IS NOT NULL " +
+                "     AND ST_DWithin(c.location::geography, ST_MakeLine(?2, ?3)::geography, c.radius_meters)) " +
+                "  OR (c.zone_type = 'polygon' AND c.zone_polygon IS NOT NULL " +
+                "     AND ST_Intersects(c.zone_polygon, ST_MakeLine(?2, ?3))))")
+                .setParameter(1, gameId)
+                .setParameter(2, a)
+                .setParameter(3, b)
+                .getResultList();
+        return ids.stream().map(id -> (UUID) id).collect(Collectors.toList());
+    }
+
+    @Override
     @Transactional
     public Checkpoint save(Checkpoint checkpoint) {
         CheckpointEntity entity = getWriteEntityManager().find(CheckpointEntity.class, checkpoint.getId());

@@ -229,6 +229,41 @@ class LocationIngestServiceTest {
         verify(locationDataRepository, never()).save(any(LocationData.class));
     }
 
+    @Test
+    void ingest_recordsPass_whenSegmentCrossesZoneBetweenFixes() {
+        Instant base = Instant.now().minusSeconds(120);
+        UUID checkpointId = UUID.randomUUID();
+        when(locationDataRepository.findRecentByTeamId(teamId, 2))
+            .thenReturn(List.of(reading(52.0, 5.000, base)));
+        when(gameService.findById(gameId)).thenReturn(Optional.of(activeGame()));
+        when(checkpointRepository.findCrossedBySegment(eq(gameId), any(Point.class), any(Point.class)))
+            .thenReturn(List.of(checkpointId));
+
+        // ~150 m east in 60s (~9 km/h). Neither endpoint need be in the zone; the segment is.
+        Instant t = base.plusSeconds(60);
+        Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 5.0022, t), "Team");
+
+        assertTrue(result.isPresent());
+        verify(achievementService).recordVerifiedPass(teamId, checkpointId, t);
+        verify(checkpointRepository, never()).findContainingPoint(any(), any());
+    }
+
+    @Test
+    void ingest_staleGap_usesPointDetectionNotSegment() {
+        Instant base = Instant.now().minusSeconds(700);
+        when(locationDataRepository.findRecentByTeamId(teamId, 2))
+            .thenReturn(List.of(reading(52.0, 5.000, base)));
+        when(gameService.findById(gameId)).thenReturn(Optional.of(activeGame()));
+        when(checkpointRepository.findContainingPoint(eq(gameId), any(Point.class)))
+            .thenReturn(List.of());
+
+        // 600s after the last fix — beyond the 300s staleness window, so no connecting segment.
+        service.ingest(reading(52.0, 5.001, base.plusSeconds(600)), "Team");
+
+        verify(checkpointRepository).findContainingPoint(eq(gameId), any(Point.class));
+        verify(checkpointRepository, never()).findCrossedBySegment(any(), any(), any());
+    }
+
     private Game activeGame() {
         Game game = new Game();
         game.setId(gameId);

@@ -8,7 +8,10 @@ import nl.vlettenrally.data.domain.Checkpoint;
 import nl.vlettenrally.data.domain.CircleCheckpoint;
 import nl.vlettenrally.data.domain.PolygonCheckpoint;
 import nl.vlettenrally.data.repository.CheckpointRepository;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.PrecisionModel;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -28,6 +31,8 @@ import java.util.stream.Collectors;
 @IfBuildProfile(anyOf = {"dev", "test"})
 @ApplicationScoped
 public class MockCheckpointRepository implements CheckpointRepository {
+
+    private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory(new PrecisionModel(), 4326);
 
     private final Map<UUID, Checkpoint> checkpoints = new ConcurrentHashMap<>();
 
@@ -148,6 +153,57 @@ public class MockCheckpointRepository implements CheckpointRepository {
                 .filter(cp -> zoneContains(cp, point))
                 .map(Checkpoint::getId)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<UUID> findCrossedBySegment(UUID gameId, Point a, Point b) {
+        // In-memory equivalent of the JPA segment query: distance(center, segment) ≤ radius
+        // for circles, JTS line/polygon intersection for polygons. A null endpoint degrades
+        // to the point-containment check so callers never get worse results than before.
+        if (a == null || b == null) {
+            return findContainingPoint(gameId, b != null ? b : a);
+        }
+        return checkpoints.values().stream()
+                .filter(cp -> gameId.equals(cp.getGameId()) && !cp.isHidden())
+                .filter(cp -> zoneCrossedBySegment(cp, a, b))
+                .map(Checkpoint::getId)
+                .collect(Collectors.toList());
+    }
+
+    private static boolean zoneCrossedBySegment(Checkpoint cp, Point a, Point b) {
+        return switch (cp) {
+            case PolygonCheckpoint poly -> poly.getZonePolygon() != null
+                    && poly.getZonePolygon().intersects(GEOMETRY_FACTORY.createLineString(
+                            new Coordinate[]{a.getCoordinate(), b.getCoordinate()}));
+            case CircleCheckpoint circle -> {
+                if (cp.getLatitude() == null || cp.getLongitude() == null) {
+                    yield false;
+                }
+                double radius = circle.getRadiusMeters() > 0 ? circle.getRadiusMeters() : 50.0;
+                yield pointToSegmentMeters(cp.getLatitude(), cp.getLongitude(), a, b) <= radius;
+            }
+        };
+    }
+
+    /**
+     * Distance in meters from a checkpoint centre to the segment a–b, using a local
+     * equirectangular projection centred on the checkpoint. Planar geometry is accurate to
+     * well under a meter at the sub-kilometre scales between consecutive fixes.
+     */
+    private static double pointToSegmentMeters(double centerLat, double centerLon, Point a, Point b) {
+        double metersPerDegLat = 111_320.0;
+        double metersPerDegLon = 111_320.0 * Math.cos(Math.toRadians(centerLat));
+        // Project to local meters with the checkpoint centre at the origin.
+        double px = 0.0, py = 0.0;
+        double ax = (a.getX() - centerLon) * metersPerDegLon, ay = (a.getY() - centerLat) * metersPerDegLat;
+        double bx = (b.getX() - centerLon) * metersPerDegLon, by = (b.getY() - centerLat) * metersPerDegLat;
+
+        double dx = bx - ax, dy = by - ay;
+        double lenSq = dx * dx + dy * dy;
+        double t = lenSq == 0.0 ? 0.0 : ((px - ax) * dx + (py - ay) * dy) / lenSq;
+        t = Math.max(0.0, Math.min(1.0, t));
+        double cx = ax + t * dx, cy = ay + t * dy;
+        return Math.hypot(px - cx, py - cy);
     }
 
     private static boolean zoneContains(Checkpoint cp, Point point) {

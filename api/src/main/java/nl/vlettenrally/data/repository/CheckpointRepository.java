@@ -28,6 +28,15 @@ public interface CheckpointRepository {
      */
     List<UUID> findContainingPoint(UUID gameId, Point point);
 
+    /**
+     * Return the ids of every non-hidden checkpoint in the game whose geofence zone is
+     * crossed by the straight segment a→b — circle zones whose centre lies within
+     * radius_meters of the line, polygon zones the line intersects. A strict superset of
+     * {@link #findContainingPoint} for the endpoint {@code b}: used to credit a pass when a
+     * boat transits a zone between two consecutive fixes without either fix landing inside.
+     */
+    List<UUID> findCrossedBySegment(UUID gameId, Point a, Point b);
+
     Checkpoint save(Checkpoint checkpoint);
 
     void delete(UUID id);

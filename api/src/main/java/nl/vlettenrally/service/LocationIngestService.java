@@ -18,6 +18,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.locationtech.jts.geom.Point;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -109,10 +110,12 @@ public class LocationIngestService {
 
         // The outlier filter needs the last two fixes to derive the prior travel bearing.
         List<LocationData> recent = locationDataRepository.findRecentByTeamId(reading.getTeamId(), 2);
-        if (!recent.isEmpty()) {
-            LocationData last = recent.get(0);
+        // The most recent accepted fix before this one; null on the very first fix. Also the
+        // start of the segment used for checkpoint-pass detection below.
+        LocationData previous = recent.isEmpty() ? null : recent.get(0);
+        if (previous != null) {
             LocationData prev = recent.size() > 1 ? recent.get(1) : null;
-            if (!passesGuards(prev, last, reading)) {
+            if (!passesGuards(prev, previous, reading)) {
                 return Optional.empty();
             }
         }
@@ -137,20 +140,29 @@ public class LocationIngestService {
         automationEngine.onDistanceUpdate(reading.getGameId(), reading.getTeamId(), cumulativeMeters, active);
 
         if (active) {
-            detectCheckpointPasses(reading);
+            detectCheckpointPasses(previous, reading);
         }
 
         return Optional.of(teamLocation);
     }
 
     /**
-     * Auto-verify every checkpoint whose geofence contains the fix. A single spatial
-     * query ({@link CheckpointRepository#findContainingPoint}) resolves all matching
-     * checkpoints at once. {@link AchievementService#recordVerifiedPass} is idempotent
-     * per (team, checkpoint), so repeated fixes inside a zone don't re-award.
+     * Auto-verify every checkpoint the boat passed since the previous fix. For two
+     * consecutive fixes within the staleness window the straight segment between them is
+     * tested ({@link CheckpointRepository#findCrossedBySegment}), so a zone transited between
+     * fixes is credited even when neither fix lands inside it. On the first fix, or after a
+     * gap longer than the staleness window (where the connecting line isn't a real path),
+     * it falls back to the point test ({@link CheckpointRepository#findContainingPoint}).
+     * A single spatial query resolves all matching checkpoints at once;
+     * {@link AchievementService#recordVerifiedPass} is idempotent per (team, checkpoint).
      */
-    private void detectCheckpointPasses(LocationData reading) {
-        for (UUID checkpointId : checkpointRepository.findContainingPoint(reading.getGameId(), reading.getLocation())) {
+    private void detectCheckpointPasses(LocationData previous, LocationData reading) {
+        boolean connect = previous != null
+            && Duration.between(previous.getLocationTime(), reading.getLocationTime()).getSeconds() <= staleFixSeconds;
+        List<UUID> matched = connect
+            ? checkpointRepository.findCrossedBySegment(reading.getGameId(), previous.getLocation(), reading.getLocation())
+            : checkpointRepository.findContainingPoint(reading.getGameId(), reading.getLocation());
+        for (UUID checkpointId : matched) {
             try {
                 achievementService.recordVerifiedPass(
                     reading.getTeamId(), checkpointId, reading.getLocationTime());
