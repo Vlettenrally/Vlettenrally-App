@@ -35,6 +35,8 @@ import { useGameStore } from '../store/useGameStore';
 import { useConnectionStatus } from '../hooks/useConnectionStatus';
 import { useTeamRealtime } from '../hooks/useRealtime';
 import api from '../services/api';
+import { mockApi } from '../services/mockApi';
+import { config } from '../config';
 
 interface TeamLayoutProps {
   children: ReactNode;
@@ -53,13 +55,16 @@ export function TeamLayout({ children }: TeamLayoutProps) {
   // Initialize team data from storage if not in store (e.g., after page refresh)
   useEffect(() => {
     if (!team && teamId) {
+      // Use mock API in mock mode
+      const apiToUse = config.useMocks ? mockApi : api;
+      
       // First try to load from storage cache
       const cachedTeam = storage.getTeamData();
       if (cachedTeam) {
         setTeam(cachedTeam);
       }
       // Then fetch fresh data from API
-      api.getMyTeam().then(response => {
+      apiToUse.getMyTeam().then(response => {
         if (response.data) {
           setTeam(response.data);
           storage.setTeamData(response.data);
@@ -129,21 +134,50 @@ export function TeamLayout({ children }: TeamLayoutProps) {
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            Vlettenrally
-          </Typography>
+          
+          {team ? (
+            <Box sx={{ flexGrow: 1 }}>
+              <Typography 
+                variant="h6" 
+                component="div" 
+                sx={{ 
+                  fontFamily: 'Poppins, Roboto, sans-serif',
+                  fontWeight: 600,
+                  fontSize: '1.1rem',
+                  lineHeight: 1.2,
+                }}
+              >
+                {team.description}
+              </Typography>
+              <Typography 
+                variant="caption" 
+                component="div" 
+                sx={{ 
+                  fontSize: '0.75rem',
+                  opacity: 0.9,
+                  lineHeight: 1,
+                }}
+              >
+                {team.name}
+              </Typography>
+            </Box>
+          ) : (
+            <Typography 
+              variant="h5" 
+              component="div" 
+              sx={{ 
+                flexGrow: 1,
+                fontFamily: 'Poppins, Roboto, sans-serif',
+                fontWeight: 600,
+                fontSize: '1.4rem',
+                color: 'inherit',
+              }}
+            >
+              Vlettenrally
+            </Typography>
+          )}
         </Toolbar>
       </AppBar>
-
-      {showDisconnected && (
-        <Alert 
-          severity="warning" 
-          icon={<WifiOffIcon />}
-          sx={{ borderRadius: 0 }}
-        >
-          Geen verbinding met server. Sommige gegevens kunnen verouderd zijn.
-        </Alert>
-      )}
 
       <Drawer anchor="left" open={drawerOpen} onClose={() => setDrawerOpen(false)}>
         <Box sx={{ width: 250 }} role="presentation">

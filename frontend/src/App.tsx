@@ -68,10 +68,90 @@ const theme = createTheme({
   palette: {
     mode: 'light',
     primary: {
-      main: '#1976d2',
+      main: '#165656', // Vlettenrally groen/blauw
+      light: '#2a7a7a',
+      dark: '#0f3d3d',
+      contrastText: '#fff',
     },
     secondary: {
-      main: '#dc004e',
+      main: '#ffcb0f', // Vlettenrally geel accent
+      light: '#ffd740',
+      dark: '#c79f00',
+      contrastText: '#000',
+    },
+    background: {
+      default: '#f8f9fa',
+      paper: '#ffffff',
+    },
+  },
+  typography: {
+    fontFamily: 'Roboto, sans-serif',
+    fontSize: 14, // Smaller base size for mobile
+    h4: {
+      fontFamily: 'Poppins, sans-serif', // Speelser voor titels
+      fontSize: '1.5rem',
+      fontWeight: 600,
+      color: '#165656',
+    },
+    h5: {
+      fontFamily: 'Poppins, sans-serif',
+      fontSize: '1.25rem',
+      fontWeight: 600, // Poppins heeft mooiere 600
+      color: '#165656',
+    },
+    h6: {
+      fontFamily: 'Poppins, sans-serif',
+      fontSize: '1.1rem',
+      fontWeight: 600,
+    },
+    body1: {
+      fontSize: '0.95rem',
+    },
+    body2: {
+      fontSize: '0.875rem',
+    },
+    button: {
+      fontFamily: 'Poppins, sans-serif', // Ook buttons speelser
+      textTransform: 'none',
+      fontWeight: 500,
+      fontSize: '0.9rem',
+    },
+  },
+  shape: {
+    borderRadius: 4, // Veel kleinere radius
+  },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: 4,
+          padding: '10px 24px',
+          boxShadow: 'none',
+          '&:hover': {
+            boxShadow: '0 2px 8px rgba(22, 86, 86, 0.2)',
+          },
+        },
+        contained: {
+          '&:hover': {
+            boxShadow: '0 4px 12px rgba(22, 86, 86, 0.3)',
+          },
+        },
+      },
+    },
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          borderRadius: 6,
+          boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+        },
+      },
+    },
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          borderRadius: 6,
+        },
+      },
     },
   },
 });
