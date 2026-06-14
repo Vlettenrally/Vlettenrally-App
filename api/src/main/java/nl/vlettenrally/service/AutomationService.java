@@ -421,6 +421,7 @@ public class AutomationService {
                         throw new BadRequestException("Admin notification actions need a text");
                     }
                 }
+                case FINISH_TEAM -> { /* no config: marks the affected team(s) finished */ }
             }
         }
     }

@@ -298,6 +298,13 @@ public class TeamResource {
                 team.setTraccarEnabled(request.traccarEnabled());
             }
 
+            // Admin override for the finished state (set/reverse a finish). Stamp
+            // finishedAt on transition to finished; clear it when un-finishing.
+            if (request.finished() != null && request.finished() != team.isFinished()) {
+                team.setFinished(request.finished());
+                team.setFinishedAt(request.finished() ? java.time.Instant.now() : null);
+            }
+
             Team updatedTeam = teamService.save(team);
             
             // Broadcast update via WebSocket

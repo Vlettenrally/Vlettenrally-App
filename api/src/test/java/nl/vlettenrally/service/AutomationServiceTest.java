@@ -89,6 +89,18 @@ class AutomationServiceTest {
     }
 
     @Test
+    void createRule_acceptsFinishTeamAction() {
+        AutomationRule draft = validDraft();
+        draft.setActions(List.of(new AutomationAction(
+            AutomationActionType.FINISH_TEAM, null, null, null, null, null, null, null)));
+
+        AutomationRule created = service.createRule(gameId, draft, adminId);
+
+        assertEquals(gameId, created.getGameId());
+        verify(ruleRepository).save(created);
+    }
+
+    @Test
     void createRule_rejectsDistanceTrigger() {
         AutomationRule draft = validDraft();
         draft.setTriggerType(AutomationTriggerType.DISTANCE_TRAVELED);

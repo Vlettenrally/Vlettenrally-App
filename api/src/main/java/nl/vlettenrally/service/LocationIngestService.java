@@ -6,9 +6,11 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.LocationData;
+import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.dto.game.TeamLocationResponse;
 import nl.vlettenrally.data.repository.CheckpointRepository;
 import nl.vlettenrally.data.repository.LocationDataRepository;
+import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.service.util.TrackOutlierFilter;
 import nl.vlettenrally.websockets.MapSubscriptionManager;
 import nl.vlettenrally.websockets.WebSocketEventTypes;
@@ -57,6 +59,9 @@ public class LocationIngestService {
 
     @Inject
     CheckpointRepository checkpointRepository;
+
+    @Inject
+    TeamRepository teamRepository;
 
     @Inject
     AchievementService achievementService;
@@ -131,10 +136,16 @@ public class LocationIngestService {
         );
 
         // The game status drives both distance crediting and checkpoint detection;
-        // look it up once here, the single choke point for every fix.
-        boolean active = gameService.findById(reading.getGameId())
+        // look it up once here, the single choke point for every fix. A team that
+        // has finished (reached its finish zone) is gated out the same way an
+        // inactive game is — its meters advance the baseline but earn no points.
+        boolean gameActive = gameService.findById(reading.getGameId())
             .map(game -> game.getStatus() == Game.GameStatus.ACTIVE)
             .orElse(false);
+        boolean teamFinished = teamRepository.findById(reading.getTeamId())
+            .map(Team::isFinished)
+            .orElse(false);
+        boolean active = gameActive && !teamFinished;
 
         double cumulativeMeters = teamDistanceCalculator.computeTraveledMeters(reading.getTeamId());
         automationEngine.onDistanceUpdate(reading.getGameId(), reading.getTeamId(), cumulativeMeters, active);

@@ -30,6 +30,11 @@ public class Team {
     private UUID mainDeviceId;
     private boolean checkedIn;
     private boolean checkedInDigitally;
+    // Set once the team reaches its finish zone (via the FINISH_TEAM automation
+    // action or an admin override). A finished team keeps its points and ranking
+    // but stops accruing automatic points (checkpoint passes + distance).
+    private boolean finished;
+    private Instant finishedAt;
     private int totalPoints;
     private List<UUID> rivals;
     private String notes;
@@ -52,6 +57,7 @@ public class Team {
         this.emergencyPhoneNumbers = new ArrayList<>();
         this.checkedIn = false;
         this.checkedInDigitally = false;
+        this.finished = false;
         this.totalPoints = 0;
         this.traccarEnabled = false;
         this.createdAt = Instant.now();

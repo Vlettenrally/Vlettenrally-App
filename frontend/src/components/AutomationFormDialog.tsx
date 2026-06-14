@@ -57,6 +57,7 @@ const ACTION_OPTIONS: { value: AutomationActionType; label: string }[] = [
   { value: 'SEND_MESSAGE', label: 'Bericht naar team(s)' },
   { value: 'AWARD_POINTS', label: 'Punten toekennen' },
   { value: 'NOTIFY_ADMINS', label: 'Melding aan beheerders' },
+  { value: 'FINISH_TEAM', label: 'Team laten finishen' },
 ];
 
 // Backend MessageType enum values
@@ -472,6 +473,14 @@ export default function AutomationFormDialog({
             onChange={(e) => updateAction(index, { adminNotification: e.target.value })}
             helperText={placeholderHint}
           />
+        );
+      case 'FINISH_TEAM':
+        return (
+          <FormHelperText>
+            Het team wordt op finish gezet: het behoudt zijn punten en plaats, maar krijgt
+            geen automatische punten meer (checkpoints en afstand). Combineer met een
+            checkpoint-trigger op de finishzone.
+          </FormHelperText>
         );
     }
   };

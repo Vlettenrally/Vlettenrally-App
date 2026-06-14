@@ -157,6 +157,7 @@ export interface AdminTeam extends TeamBase {
   externalId?: string;
   checkedIn: boolean;
   checkedInDigitally: boolean;
+  finished: boolean;
   traccarEnabled: boolean;
   traccarIdentifier?: string | null;
   rivals: string[];
@@ -563,7 +564,7 @@ export type AutomationTriggerType =
   | 'RIVAL_OVERTAKE'
   | 'DISTANCE_TRAVELED';
 
-export type AutomationActionType = 'SEND_MESSAGE' | 'AWARD_POINTS' | 'NOTIFY_ADMINS';
+export type AutomationActionType = 'SEND_MESSAGE' | 'AWARD_POINTS' | 'NOTIFY_ADMINS' | 'FINISH_TEAM';
 
 /**
  * Flat config; which fields apply depends on the rule's trigger type.

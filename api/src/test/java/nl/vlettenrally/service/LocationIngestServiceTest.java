@@ -3,6 +3,7 @@ package nl.vlettenrally.service;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -26,9 +27,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.LocationData;
+import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.dto.game.TeamLocationResponse;
 import nl.vlettenrally.data.repository.CheckpointRepository;
 import nl.vlettenrally.data.repository.LocationDataRepository;
+import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.websockets.MapSubscriptionManager;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 
@@ -62,6 +65,9 @@ class LocationIngestServiceTest {
 
     @Mock
     CheckpointRepository checkpointRepository;
+
+    @Mock
+    TeamRepository teamRepository;
 
     @Mock
     AchievementService achievementService;
@@ -262,6 +268,27 @@ class LocationIngestServiceTest {
 
         verify(checkpointRepository).findContainingPoint(eq(gameId), any(Point.class));
         verify(checkpointRepository, never()).findCrossedBySegment(any(), any(), any());
+    }
+
+    @Test
+    void ingest_finishedTeam_skipsDetectionAndCreditsNoDistance() {
+        when(locationDataRepository.findRecentByTeamId(teamId, 2)).thenReturn(List.of());
+        when(gameService.findById(gameId)).thenReturn(Optional.of(activeGame()));
+        Team finished = new Team();
+        finished.setId(teamId);
+        finished.setGameId(gameId);
+        finished.setFinished(true);
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(finished));
+
+        Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 5.0, Instant.now()), "Team");
+
+        assertTrue(result.isPresent());
+        // Distance still computed for tracking but credited as inactive (active=false).
+        verify(automationEngine).onDistanceUpdate(eq(gameId), eq(teamId), anyDouble(), eq(false));
+        // No checkpoint detection and no points for a finished team.
+        verify(checkpointRepository, never()).findContainingPoint(any(), any());
+        verify(checkpointRepository, never()).findCrossedBySegment(any(), any(), any());
+        verify(achievementService, never()).recordVerifiedPass(any(), any(), any());
     }
 
     private Game activeGame() {
