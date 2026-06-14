@@ -149,6 +149,21 @@ class AutomationServiceTest {
     }
 
     @Test
+    void createRule_rejectsForeignExcludedCheckpoint() {
+        UUID excludedId = UUID.randomUUID();
+        CircleCheckpoint checkpoint = new CircleCheckpoint();
+        checkpoint.setId(excludedId);
+        checkpoint.setGameId(UUID.randomUUID()); // other game
+        when(checkpointRepository.findById(excludedId)).thenReturn(Optional.of(checkpoint));
+
+        AutomationRule draft = validDraft();
+        draft.setTriggerConfig(new AutomationTriggerConfig(null, null, null, null, null, null, null, null, null,
+            List.of(excludedId)));
+
+        assertThrows(BadRequestException.class, () -> service.createRule(gameId, draft, adminId));
+    }
+
+    @Test
     void createRule_rejectsForeignTargetTeam() {
         Team ownTeam = new Team();
         ownTeam.setId(UUID.randomUUID());

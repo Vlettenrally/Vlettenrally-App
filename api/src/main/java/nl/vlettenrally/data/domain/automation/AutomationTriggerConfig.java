@@ -5,6 +5,7 @@ import io.quarkus.runtime.annotations.RegisterForReflection;
 import nl.vlettenrally.data.domain.Game;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -15,11 +16,13 @@ import java.util.UUID;
  *
  * <ul>
  *   <li>CHECKPOINT_ENTRY — {@code checkpointId} (null = any checkpoint).
- *       Optionally {@code comparison} + the time fields below restrict firing
- *       to passes BEFORE/AFTER a boundary time (e.g. finish-zone bonus for
- *       arriving before a deadline, or a penalty for arriving after); the
- *       boundary uses the same ABSOLUTE/RELATIVE shape as SCHEDULED_TIME and
- *       is compared against the recorded pass time.</li>
+ *       When firing on any checkpoint, {@code excludedCheckpointIds} is an
+ *       optional blocklist of checkpoints to skip (only meaningful while
+ *       {@code checkpointId} is null). Optionally {@code comparison} + the time
+ *       fields below restrict firing to passes BEFORE/AFTER a boundary time
+ *       (e.g. finish-zone bonus for arriving before a deadline, or a penalty
+ *       for arriving after); the boundary uses the same ABSOLUTE/RELATIVE shape
+ *       as SCHEDULED_TIME and is compared against the recorded pass time.</li>
  *   <li>SCHEDULED_TIME — {@code mode}; ABSOLUTE needs {@code absoluteTime},
  *       RELATIVE needs {@code relativeTo} + {@code offsetMinutes}</li>
  *   <li>GAME_STATUS_CHANGE — {@code toStatus} (ACTIVE or COMPLETED)</li>
@@ -40,8 +43,20 @@ public record AutomationTriggerConfig(
     Game.GameStatus toStatus,
     Integer inactiveMinutes,
     Integer pointsPer100m,
-    PassComparison comparison
+    PassComparison comparison,
+    List<UUID> excludedCheckpointIds
 ) {
+    /**
+     * Backwards-compatible constructor for the many call sites that predate the
+     * {@code excludedCheckpointIds} blocklist; delegates with no exclusions.
+     */
+    public AutomationTriggerConfig(UUID checkpointId, ScheduleMode mode, Instant absoluteTime,
+            RelativeAnchor relativeTo, Integer offsetMinutes, Game.GameStatus toStatus,
+            Integer inactiveMinutes, Integer pointsPer100m, PassComparison comparison) {
+        this(checkpointId, mode, absoluteTime, relativeTo, offsetMinutes, toStatus,
+                inactiveMinutes, pointsPer100m, comparison, null);
+    }
+
     public enum ScheduleMode { ABSOLUTE, RELATIVE }
 
     public enum RelativeAnchor { GAME_START, GAME_END }

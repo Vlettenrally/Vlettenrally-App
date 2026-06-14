@@ -21,6 +21,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -216,6 +217,14 @@ public class AutomationService {
                 newCheckpointId = match.get().getId();
             }
 
+            // Remap each excluded checkpoint to the target game, dropping any that don't match.
+            List<UUID> newExcludedCheckpointIds = config == null || config.excludedCheckpointIds() == null
+                    ? null
+                    : config.excludedCheckpointIds().stream()
+                        .map(id -> matchCheckpoint(id, targetCheckpoints).map(Checkpoint::getId).orElse(null))
+                        .filter(Objects::nonNull)
+                        .toList();
+
             // Shift an absolute schedule/finish time into the target timeframe.
             Instant newAbsolute = config != null ? config.absoluteTime() : null;
             if (config != null && config.mode() == AutomationTriggerConfig.ScheduleMode.ABSOLUTE
@@ -230,7 +239,7 @@ public class AutomationService {
             draft.setTriggerConfig(config == null ? null : new AutomationTriggerConfig(
                 newCheckpointId, config.mode(), newAbsolute, config.relativeTo(),
                 config.offsetMinutes(), config.toStatus(), config.inactiveMinutes(),
-                config.pointsPer100m(), config.comparison()));
+                config.pointsPer100m(), config.comparison(), newExcludedCheckpointIds));
             draft.setActions(new ArrayList<>(source.getActions()));
             draft.setTargetTeamIds(new ArrayList<>()); // team ids are game-specific
             draft.setFireOnce(source.isFireOnce());
@@ -340,14 +349,22 @@ public class AutomationService {
         validateTargetTeams(rule);
     }
 
+    /** A null id is allowed (means "any checkpoint"); a set id must exist in the game. */
+    private void requireCheckpointInGame(UUID checkpointId, UUID gameId) {
+        if (checkpointId != null && checkpointRepository.findById(checkpointId)
+                .filter(cp -> gameId.equals(cp.getGameId())).isEmpty()) {
+            throw new BadRequestException("Checkpoint does not belong to this game: " + checkpointId);
+        }
+    }
+
     private void validateTriggerConfig(AutomationRule rule) {
         AutomationTriggerConfig config = rule.getTriggerConfig();
         switch (rule.getTriggerType()) {
             case CHECKPOINT_ENTRY -> {
                 UUID checkpointId = config != null ? config.checkpointId() : null;
-                if (checkpointId != null && checkpointRepository.findById(checkpointId)
-                        .filter(cp -> rule.getGameId().equals(cp.getGameId())).isEmpty()) {
-                    throw new BadRequestException("Checkpoint does not belong to this game: " + checkpointId);
+                requireCheckpointInGame(checkpointId, rule.getGameId());
+                if (config != null && config.excludedCheckpointIds() != null) {
+                    config.excludedCheckpointIds().forEach(id -> requireCheckpointInGame(id, rule.getGameId()));
                 }
                 if (config != null && config.comparison() != null) {
                     validateTimeSpec(config, "Checkpoint rules with a before/after condition");

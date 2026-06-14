@@ -574,6 +574,7 @@ export type AutomationActionType = 'SEND_MESSAGE' | 'AWARD_POINTS' | 'NOTIFY_ADM
  */
 export interface AutomationTriggerConfig {
   checkpointId?: string | null;
+  excludedCheckpointIds?: string[] | null;
   mode?: 'ABSOLUTE' | 'RELATIVE' | null;
   absoluteTime?: string | null;
   relativeTo?: 'GAME_START' | 'GAME_END' | null;

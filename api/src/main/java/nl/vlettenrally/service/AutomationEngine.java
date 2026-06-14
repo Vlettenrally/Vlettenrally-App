@@ -110,6 +110,8 @@ public class AutomationEngine {
                 AutomationTriggerConfig config = rule.getTriggerConfig();
                 UUID wanted = config != null ? config.checkpointId() : null;
                 if (wanted != null && !wanted.equals(checkpointId)) continue;
+                if (wanted == null && config != null && config.excludedCheckpointIds() != null
+                        && config.excludedCheckpointIds().contains(checkpointId)) continue;
                 if (!passesTimeWindow(rule, passTime)) continue;
                 fireForTeam(rule, teamId, checkpointId.toString());
             }

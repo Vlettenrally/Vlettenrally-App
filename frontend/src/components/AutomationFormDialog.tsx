@@ -286,7 +286,14 @@ export default function AutomationFormDialog({
               <Select
                 label="Checkpoint"
                 value={config.checkpointId ?? ''}
-                onChange={(e) => setConfig({ ...config, checkpointId: e.target.value || undefined })}
+                onChange={(e) =>
+                  setConfig({
+                    ...config,
+                    checkpointId: e.target.value || undefined,
+                    // exclusions only apply when firing on any checkpoint
+                    excludedCheckpointIds: e.target.value ? undefined : config.excludedCheckpointIds,
+                  })
+                }
               >
                 <MenuItem value="">Alle checkpoints</MenuItem>
                 {checkpoints.map((cp) => (
@@ -297,6 +304,28 @@ export default function AutomationFormDialog({
               </Select>
               <FormHelperText>Leeg = vuurt bij elk checkpoint (één keer per checkpoint per team)</FormHelperText>
             </FormControl>
+            {!config.checkpointId && (
+              <Autocomplete
+                multiple
+                options={checkpoints}
+                getOptionLabel={(cp) => cp.name}
+                value={checkpoints.filter((cp) => (config.excludedCheckpointIds ?? []).includes(cp.id))}
+                onChange={(_, value) =>
+                  setConfig({
+                    ...config,
+                    excludedCheckpointIds: value.length > 0 ? value.map((cp) => cp.id) : undefined,
+                  })
+                }
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Uitgesloten checkpoints"
+                    placeholder="Geen uitsluitingen"
+                    helperText="Deze checkpoints triggeren de automatisering niet"
+                  />
+                )}
+              />
+            )}
             <FormControl fullWidth>
               <InputLabel>Tijdsvoorwaarde</InputLabel>
               <Select
@@ -307,7 +336,7 @@ export default function AutomationFormDialog({
                   setConfig(
                     comparison
                       ? { ...config, comparison, mode: config.mode ?? 'ABSOLUTE' }
-                      : { checkpointId: config.checkpointId }
+                      : { checkpointId: config.checkpointId, excludedCheckpointIds: config.excludedCheckpointIds }
                   );
                 }}
               >
