@@ -197,6 +197,8 @@ class AutomationActionExecutorTest {
         ArgumentCaptor<Team> captor = ArgumentCaptor.forClass(Team.class);
         verify(teamRepository).save(captor.capture());
         assertTrue(captor.getValue().isFinished());
+        // The team's own dashboard is notified live (scoped to that team).
+        verify(webSocketPublisher).sendToTeam(eq(gameId), eq(team.getId()), eq("TEAM_UPDATE"), any());
     }
 
     @Test

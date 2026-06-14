@@ -14,6 +14,7 @@ import nl.vlettenrally.data.enums.AutomationExecutionStatus;
 import nl.vlettenrally.data.enums.MessageType;
 import nl.vlettenrally.data.enums.PointEntryType;
 import nl.vlettenrally.data.repository.TeamRepository;
+import nl.vlettenrally.websockets.WebSocketEventTypes;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 import nl.vlettenrally.websockets.dto.WebSocketMessageType;
 
@@ -169,6 +170,10 @@ public class AutomationActionExecutor {
                 team.setFinished(true);
                 team.setFinishedAt(Instant.now());
                 teamRepository.save(team);
+                // Push the finish to the team's own dashboard live (scoped to this
+                // team, so no other team sees it). The client refetches its own data.
+                webSocketPublisher.sendToTeam(team.getGameId(), team.getId(),
+                    WebSocketEventTypes.TEAM_UPDATE, Map.of("finished", true));
             } catch (Exception e) {
                 teamErrors.add(target.getName() + ": " + e.getMessage());
             }

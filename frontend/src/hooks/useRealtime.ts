@@ -70,6 +70,20 @@ export function useTeamRealtime({ gameId, teamId }: UseRealtimeTeamOptions) {
       setRankings(message.payload as RankingEntry[]);
     });
 
+    // Own team changed (e.g. finished toggled by automation or admin). Refresh
+    // the player's own team so the dashboard reflects it live; the payload is
+    // minimal so we refetch the scoped team rather than trust a broadcast shape.
+    const unsubscribeTeamUpdate = subscribe('TEAM_UPDATE', () => {
+      (async () => {
+        try {
+          const team = await teamService.getMyTeam();
+          if (team) useTeamStore.getState().setTeam(team);
+        } catch (e) {
+          console.warn('Failed to refresh team after team update', e);
+        }
+      })();
+    });
+
     // Subscribe to game status changes. Used to gate the Rankings page.
     const unsubscribeGameStatus = subscribe('GAME_STATUS', (message) => {
       const payload = message.payload as { status?: 'planned' | 'active' | 'completed' } | undefined;
@@ -98,6 +112,7 @@ export function useTeamRealtime({ gameId, teamId }: UseRealtimeTeamOptions) {
       unsubscribeAchievements();
       unsubscribeRival();
       unsubscribeRanking();
+      unsubscribeTeamUpdate();
       unsubscribeGameStatus();
       unsubscribeCheckinReset();
       unsubscribeDeviceRemoved();

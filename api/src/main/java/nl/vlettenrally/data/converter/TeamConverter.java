@@ -58,6 +58,7 @@ public class TeamConverter {
                 domain.getDescription(),
                 domain.isCheckedIn(),
                 domain.isCheckedInDigitally(),
+                domain.isFinished(),
                 domain.getTotalPoints(),
                 domain.getRivals(),
                 domain.getCreatedAt().toString()

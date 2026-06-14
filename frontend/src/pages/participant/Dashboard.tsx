@@ -38,6 +38,7 @@ const RECENT_MESSAGES_COUNT = 5;
 /** Game-status card driven by a 1s tick so countdowns stay live. */
 function GameStatusCard() {
   const { game } = useGameStore();
+  const { team } = useTeamStore();
   // Tick every second so the countdowns below re-evaluate against the clock.
   const [, setTick] = useState(0);
 
@@ -57,6 +58,23 @@ function GameStatusCard() {
         <CardContent sx={{ p: 1, '&:last-child': { pb: 1 }, textAlign: 'center' }}>
           <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.95rem' }}>De Vlettenrally is afgelopen</Typography>
           <Typography variant="caption" sx={{ fontSize: '0.8rem', opacity: 0.9 }}>Bedankt voor het meedoen!</Typography>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // This team has finished: their race is over even while the game runs on.
+  if (team?.finished) {
+    return (
+      <Card sx={{ mb: 3, bgcolor: 'success.main', color: 'success.contrastText' }}>
+        <CardContent>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <FlagIcon fontSize="large" />
+            <Box sx={{ flexGrow: 1 }}>
+              <Typography variant="h6">Jullie zijn gefinisht!</Typography>
+              <Typography variant="body2">Goed gevaren — jullie eindscore staat vast.</Typography>
+            </Box>
+          </Box>
         </CardContent>
       </Card>
     );

@@ -175,6 +175,7 @@ export interface PlayerTeam extends TeamBase {
   description: string;
   checkedIn: boolean;
   checkedInDigitally: boolean;
+  finished: boolean;
   rivals: string[];
   createdAt: string;
 }
