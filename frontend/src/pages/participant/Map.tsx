@@ -10,8 +10,9 @@ import {lazy, Suspense, useCallback, useEffect, useState} from 'react';
 import {Alert, Box, CircularProgress, Typography} from '@mui/material';
 import type {MapMarker} from '../../components/MapView';
 import {getTeamColor} from '../../utils/teamColors';
-import type {Checkpoint, TeamLocation} from '../../types/entities';
+import type {TeamLocation} from '../../types/entities';
 import {useTeamStore} from '../../store/useTeamStore';
+import {useGameStore} from '../../store/useGameStore';
 import {useTeamWebSocket} from '../../hooks/useWebSocket';
 import {storage} from '../../services/storage';
 import api from '../../services/api';
@@ -26,7 +27,8 @@ export default function ParticipantMap() {
   const { subscribe, connected } = useTeamWebSocket(gameId, teamId || null);
 
   const [myLocation, setMyLocation] = useState<TeamLocation | null>(null);
-  const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([]);
+  // Checkpoints live in the game store so useTeamSync can refresh them on resume.
+  const checkpoints = useGameStore((state) => state.checkpoints);
   const [loading, setLoading] = useState(!!gameId);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,7 +46,7 @@ export default function ParticipantMap() {
         if (cancelled) return;
 
         if (response.data) {
-          setCheckpoints(response.data);
+          useGameStore.getState().setCheckpoints(response.data);
         }
         if (response.error) {
           setError(response.error);

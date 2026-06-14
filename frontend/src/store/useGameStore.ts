@@ -4,18 +4,10 @@
 import { create } from 'zustand';
 import { storage } from '../services/storage';
 import { gameService } from '../services/gameService';
-import type { Game } from '../types/entities';
+import type { Checkpoint, Game } from '../types/entities';
 
-export interface Checkpoint {
-  id: string;
-  gameId: string;
-  name: string;
-  openingTime: string;
-  closingTime?: string;
-  points: number;
-  latitude?: number;
-  longitude?: number;
-}
+// Re-exported so consumers can keep importing Checkpoint from the store.
+export type { Checkpoint };
 
 interface GameState {
   game: Game | null;

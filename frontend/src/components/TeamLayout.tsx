@@ -31,6 +31,7 @@ import { storage } from '../services/storage';
 import { useTeamStore } from '../store/useTeamStore';
 import { useGameStore } from '../store/useGameStore';
 import { useTeamRealtime } from '../hooks/useRealtime';
+import { useTeamSync } from '../hooks/useTeamSync';
 import api from '../services/api';
 import { mockApi } from '../services/mockApi';
 import { config } from '../config';
@@ -74,6 +75,10 @@ export function TeamLayout({ children }: TeamLayoutProps) {
   // Initialize websocket connection for the entire team app
   // Use teamId from storage as fallback when store is not yet populated
   useTeamRealtime({ gameId, teamId: team?.id || teamId || null });
+
+  // Re-sync full player state on reconnect / app resume so data that changed
+  // while offline or suspended is refreshed without needing a remount.
+  useTeamSync({ gameId, teamId: team?.id || teamId || null });
 
   // Load the game so we can gate the Rankings menu/route on its status.
   useEffect(() => {

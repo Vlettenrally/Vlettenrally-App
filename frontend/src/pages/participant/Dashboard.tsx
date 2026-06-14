@@ -131,14 +131,15 @@ export function DashboardPage() {
   const { team, achievements, setAchievements } = useTeamStore();
   const { messages, setMessages } = useMessageStore();
   const { showDisconnected } = useConnectionStatus();
+  // Checkpoints live in the game store so useTeamSync can refresh them on resume.
+  const totalCheckpoints = useGameStore((state) => state.checkpoints.length);
 
   const [showAllMessages, setShowAllMessages] = useState(false);
-  const [totalCheckpoints, setTotalCheckpoints] = useState(0);
 
   // Hydrate data needed on this page (messages, verified achievements,
-  // checkpoint total). Real-time updates keep messages/achievements fresh
-  // afterwards. getCheckpoints already excludes hidden checkpoints for teams,
-  // so its length is the right denominator.
+  // checkpoints). Real-time updates and useTeamSync keep these fresh afterwards.
+  // getCheckpoints already excludes hidden checkpoints for teams, so its length
+  // is the right denominator.
   useEffect(() => {
     const teamId = storage.getTeamId();
     const gameId = storage.getGameId();
@@ -157,7 +158,7 @@ export function DashboardPage() {
 
     if (gameId) {
       apiToUse.getCheckpoints(gameId).then((response) => {
-        if (response.data) setTotalCheckpoints(response.data.length);
+        if (response.data) useGameStore.getState().setCheckpoints(response.data);
       });
       
       // Load game data for countdown
