@@ -21,6 +21,7 @@ interface GameState {
   
   setGame: (game: Game) => void;
   setGameStatus: (status: 'planned' | 'active' | 'completed') => void;
+  setRankingsPublished: (published: boolean) => void;
   setCheckpoints: (checkpoints: Checkpoint[]) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
@@ -46,6 +47,8 @@ export const useGameStore = create<GameState>((set) => ({
   setGame: (game) => set({ game }),
   setGameStatus: (status) =>
     set((state) => ({ game: state.game ? { ...state.game, status } : null })),
+  setRankingsPublished: (published) =>
+    set((state) => ({ game: state.game ? { ...state.game, rankingsPublished: published } : null })),
   setCheckpoints: (checkpoints) => set({ checkpoints }),
   setLoading: (isLoading) => set({ isLoading }),
   setError: (error) => set({ error }),

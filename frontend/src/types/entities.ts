@@ -8,6 +8,8 @@ export interface Game {
   description?: string;
   participantInfo?: string;
   status?: 'planned' | 'active' | 'completed';
+  // Whether the final ranking has been revealed to players (admin-triggered at the ceremony).
+  rankingsPublished?: boolean;
   // External event integration
   externalEventId?: number;
   externalEventName?: string;

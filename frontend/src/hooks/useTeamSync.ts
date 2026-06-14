@@ -16,14 +16,14 @@
  * It is mounted once in TeamLayout so it runs for the whole player app, not
  * per page. It is event-driven, not a standing poll loop.
  */
-import { useCallback, useEffect, useRef } from 'react';
-import { websocket } from '../services/websocket';
+import {useCallback, useEffect, useRef} from 'react';
+import {websocket} from '../services/websocket';
 import teamService from '../services/teamService';
 import api from '../services/api';
-import { useTeamStore, type Achievement, type RankingEntry } from '../store/useTeamStore';
-import { useGameStore } from '../store/useGameStore';
-import { useMessageStore, type Message } from '../store/useMessageStore';
-import type { PublicTeam } from '../types/entities';
+import {type Achievement, type RankingEntry, useTeamStore} from '../store/useTeamStore';
+import {useGameStore} from '../store/useGameStore';
+import {type Message, useMessageStore} from '../store/useMessageStore';
+import type {PublicTeam} from '../types/entities';
 
 interface UseTeamSyncOptions {
   gameId: string | null;
@@ -41,7 +41,7 @@ export function useTeamSync({ gameId, teamId }: UseTeamSyncOptions) {
     if (!gameId || !teamId) return;
     // Offline: a NetworkFirst fetch would just serve stale cache. Wait for the
     // 'online'/reconnect trigger instead.
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return;
     if (isSyncing.current) return;
     if (Date.now() - lastSyncAt.current < RESYNC_THROTTLE_MS) return;
 
@@ -68,9 +68,9 @@ export function useTeamSync({ gameId, teamId }: UseTeamSyncOptions) {
         api.getCheckpoints(gameId).then((res) => {
           if (res.data) useGameStore.getState().setCheckpoints(res.data);
         }),
-        // Rankings are only shown once the game has completed; mirror that gate
-        // to avoid a needless query during an active game.
-        useGameStore.getState().game?.status === 'completed'
+        // Rankings are only shown once an admin has revealed them; mirror that
+        // gate to avoid a needless query before the reveal.
+        useGameStore.getState().game?.rankingsPublished
           ? api.getRankings(gameId).then((res) => {
               if (res.data) useTeamStore.getState().setRankings(res.data as RankingEntry[]);
             })
@@ -87,7 +87,7 @@ export function useTeamSync({ gameId, teamId }: UseTeamSyncOptions) {
   useEffect(() => {
     if (!gameId || !teamId) return;
     let wasDisconnected = false;
-    const unsubscribe = websocket.onConnectionChange((connected) => {
+    return websocket.onConnectionChange((connected) => {
       if (!connected) {
         wasDisconnected = true;
       } else if (wasDisconnected) {
@@ -95,7 +95,6 @@ export function useTeamSync({ gameId, teamId }: UseTeamSyncOptions) {
         void resyncPlayerState();
       }
     });
-    return unsubscribe;
   }, [gameId, teamId, resyncPlayerState]);
 
   // Resume triggers: page becomes visible again, or the browser comes online.

@@ -1,6 +1,7 @@
 /**
- * Rankings Page - Final game leaderboard. Only reachable once the game is COMPLETED;
- * App.tsx redirects elsewhere while the game is still PLANNED/ACTIVE.
+ * Rankings Page - Final game leaderboard. Only reachable once an admin has
+ * revealed the standings at the award ceremony (game.rankingsPublished);
+ * App.tsx's RankingsRoute redirects elsewhere before the reveal.
  */
 import { useEffect, useState } from 'react';
 import {

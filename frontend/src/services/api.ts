@@ -718,6 +718,12 @@ async getGames() : Promise<ApiResponse<Game[]>> {
     return this.get(`/games/${gameId}/rankings`);
   }
 
+  // Reveal the final ranking to players (admin only). Persists the reveal and
+  // pushes the standings to connected teams.
+  async publishRankings(gameId: string): Promise<ApiResponse<Game>> {
+    return this.post(`/games/${gameId}/rankings/publish`);
+  }
+
   // Achievements endpoints
   async getTeamAchievements(teamId: string) {
     return this.get(`/teams/${teamId}/achievements`);

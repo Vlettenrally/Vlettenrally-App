@@ -12,6 +12,7 @@ import {storage} from './services/storage';
 import {config} from './config';
 import {seedMockAdminSession, seedMockTeamSession} from './services/mockSession';
 import {useGameStore} from './store/useGameStore';
+import {useTeamStore} from './store/useTeamStore';
 import {getRolesFromToken, getUserRoleFromRoles} from './services/auth';
 import {
   getNotificationPermission,
@@ -207,13 +208,27 @@ function TeamRoute({ children }: { children: ReactNode }) {
 }
 
 /**
- * Rankings is reachable only after the game has ended. The menu item in
- * TeamLayout is hidden in the same condition, but this guard prevents direct
- * URL access while the game is still PLANNED or ACTIVE.
+ * Rankings are reachable only once an admin has revealed the final standings at
+ * the award ceremony. The menu item in TeamLayout is hidden in the same
+ * condition; this guard prevents direct URL access before the reveal.
  */
 function RankingsRoute({ children }: { children: ReactNode }) {
   const game = useGameStore((s) => s.game);
-  if (game && game.status !== 'completed') {
+  if (game && !game.rankingsPublished) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <>{children}</>;
+}
+
+/**
+ * Rivals are hidden once a team finishes or the game completes, so no scores
+ * leak near the end. The menu item is hidden in the same condition; this guard
+ * blocks direct URL access.
+ */
+function RivalsRoute({ children }: { children: ReactNode }) {
+  const game = useGameStore((s) => s.game);
+  const team = useTeamStore((s) => s.team);
+  if (team?.finished || game?.status === 'completed') {
     return <Navigate to="/dashboard" replace />;
   }
   return <>{children}</>;
@@ -504,11 +519,13 @@ function App() {
             path="/rival"
             element={
               <TeamRoute>
-                <TeamLayout>
-                  <Suspense fallback={<PageLoader />}>
-                    <RivalsPage />
-                  </Suspense>
-                </TeamLayout>
+                <RivalsRoute>
+                  <TeamLayout>
+                    <Suspense fallback={<PageLoader />}>
+                      <RivalsPage />
+                    </Suspense>
+                  </TeamLayout>
+                </RivalsRoute>
               </TeamRoute>
             }
           />

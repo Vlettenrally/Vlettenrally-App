@@ -36,6 +36,9 @@ public class Game {
     private Integer locationPollingFrequency;
     private Boolean locationEndpointActive;
 
+    /** Whether the final ranking has been revealed to players (admin-triggered at the ceremony). */
+    private Boolean rankingsPublished;
+
     public enum GameStatus {
         PLANNED,
         ACTIVE,
@@ -47,6 +50,7 @@ public class Game {
         this.status = GameStatus.PLANNED;
         this.locationPollingFrequency = 30; // Matches Legendstracking 30 s cache
         this.locationEndpointActive = false;
+        this.rankingsPublished = false;
         this.createdAt = Instant.now();
         this.updatedAt = Instant.now();
     }

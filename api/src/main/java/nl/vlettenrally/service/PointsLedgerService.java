@@ -31,11 +31,11 @@ import java.util.stream.Collectors;
 
 /**
  * Single mutator of {@link Team#getTotalPoints()}.
- *
+ * <p>
  * Every change is recorded as a PointEntry. The team's totalPoints is updated
  * by the same delta in the same transaction. After commit, an admin WebSocket
  * event is published so the Points Management page updates live.
- *
+ * <p>
  * Both create and edit enforce that the resulting team totalPoints stays >= 0.
  */
 @ApplicationScoped
@@ -223,7 +223,7 @@ public class PointsLedgerService {
     /**
      * Publish standings after a point change, gated on game status. Done after
      * commit so subscribers never see standings from a rolled-back tx.
-     *
+     * <p>
      * Only once the game is COMPLETED may the full ranking (every team's score)
      * be revealed — it is then broadcast to the whole game for the Rankings page.
      * While the game is still running, the full ranking would leak every team's
@@ -250,13 +250,14 @@ public class PointsLedgerService {
     }
 
     private void publishStandings(UUID gameId, UUID changedTeamId) {
-        if (isGameCompleted(gameId)) {
-            // Scores are public once the game is over — broadcast the full ranking.
+        if (isRankingsPublished(gameId)) {
+            // Standings are only player-visible once an admin has revealed them.
+            // After that, a points correction re-broadcasts the updated ranking.
             webSocketPublisher.broadcastToGame(
                 gameId,
                 WebSocketMessageType.RANKING_UPDATE.getValue(),
                 rankingService.buildRanking(gameId));
-        } else {
+        } else if (!isGameCompleted(gameId)) {
             // During the game, never send the full ranking. Refresh only the
             // rival views that include the changed team: the changed team itself
             // (its own total moved) and every team that picked it as a rival.
@@ -284,6 +285,12 @@ public class PointsLedgerService {
     private boolean isGameCompleted(UUID gameId) {
         return gameService.findById(gameId)
             .map(g -> g.getStatus() == Game.GameStatus.COMPLETED)
+            .orElse(false);
+    }
+
+    private boolean isRankingsPublished(UUID gameId) {
+        return gameService.findById(gameId)
+            .map(g -> Boolean.TRUE.equals(g.getRankingsPublished()))
             .orElse(false);
     }
 

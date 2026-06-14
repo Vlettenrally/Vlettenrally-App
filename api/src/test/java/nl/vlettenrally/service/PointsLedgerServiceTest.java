@@ -348,10 +348,31 @@ class PointsLedgerServiceTest {
     }
 
     @Test
-    void createEntry_afterCompletion_broadcastsFullRanking_andNoPerTeamSends() {
+    void createEntry_afterCompletion_beforeReveal_broadcastsNothing() {
+        // Game over but the admin has not revealed the standings yet — scores
+        // stay hidden from players: no full ranking and no rival updates.
         team.setCheckedIn(true);
         when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
         when(gameService.findById(gameId)).thenReturn(Optional.of(game(Game.GameStatus.COMPLETED)));
+
+        ledger.createEntry(teamId, gameId, PointEntryType.CHECKPOINT_VERIFICATION,
+            50, null, "Checkpoint X", null, null);
+        fireAfterCommit();
+
+        verify(webSocketPublisher, never()).broadcastToGame(eq(gameId),
+            eq(WebSocketMessageType.RANKING_UPDATE.getValue()), any());
+        verify(webSocketPublisher, never()).sendToTeam(any(), any(),
+            eq(WebSocketMessageType.RIVAL_UPDATE.getValue()), any());
+    }
+
+    @Test
+    void createEntry_afterReveal_broadcastsFullRanking_andNoPerTeamSends() {
+        // Once published, a points correction re-broadcasts the updated ranking.
+        team.setCheckedIn(true);
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+        Game published = game(Game.GameStatus.COMPLETED);
+        published.setRankingsPublished(true);
+        when(gameService.findById(gameId)).thenReturn(Optional.of(published));
         List<RankingResponse> full = List.of(new RankingResponse(1, teamId, "Test team", 150));
         when(rankingService.buildRanking(gameId)).thenReturn(full);
 

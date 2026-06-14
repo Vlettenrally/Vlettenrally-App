@@ -80,24 +80,28 @@ export function TeamLayout({ children }: TeamLayoutProps) {
   // while offline or suspended is refreshed without needing a remount.
   useTeamSync({ gameId, teamId: team?.id || teamId || null });
 
-  // Load the game so we can gate the Rankings menu/route on its status.
+  // Load the game so we can gate the Rankings/Rivals menu items and routes.
   useEffect(() => {
     if (!game && gameId) {
       fetchGameById(gameId).catch(() => undefined);
     }
   }, [game, gameId, fetchGameById]);
 
-  const gameCompleted = game?.status === 'completed';
+  // Rivals are hidden once a team finishes / the game completes so no scores leak
+  // near the end; the final ranking is only shown after an admin reveals it.
+  const rivalsHidden = team?.finished || game?.status === 'completed';
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
     ...(game?.participantInfo
       ? [{ text: 'Spelinformatie', icon: <DescriptionIcon />, path: '/info' }]
       : []),
     { text: 'Kaart', icon: <MapIcon />, path: '/map' },
-    ...(gameCompleted
+    ...(game?.rankingsPublished
       ? [{ text: 'Eindstand', icon: <LeaderboardIcon />, path: '/rankings' }]
       : []),
-    { text: 'Rivaal', icon: <RivalIcon />, path: '/rival' },
+    ...(rivalsHidden
+      ? []
+      : [{ text: 'Rivaal', icon: <RivalIcon />, path: '/rival' }]),
   ];
 
   const handleNavigate = (path: string) => {

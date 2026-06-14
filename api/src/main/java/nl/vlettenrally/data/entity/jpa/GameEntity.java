@@ -74,6 +74,11 @@ public class GameEntity {
     @Column(name = "location_endpoint_active", nullable = false)
     private Boolean locationEndpointActive = false;
 
+    // Whether the final ranking has been revealed to players (set by an admin at
+    // the award ceremony). Gates all player-facing ranking visibility.
+    @Column(name = "rankings_published", nullable = false)
+    private Boolean rankingsPublished = false;
+
     public enum GameStatus {
         PLANNED,
         ACTIVE,
