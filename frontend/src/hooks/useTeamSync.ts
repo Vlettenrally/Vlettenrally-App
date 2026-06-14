@@ -16,14 +16,14 @@
  * It is mounted once in TeamLayout so it runs for the whole player app, not
  * per page. It is event-driven, not a standing poll loop.
  */
-import {useCallback, useEffect, useRef} from 'react';
-import {websocket} from '../services/websocket';
+import { useCallback, useEffect, useRef } from 'react';
+import { websocket } from '../services/websocket';
 import teamService from '../services/teamService';
 import api from '../services/api';
-import {type Achievement, type RankingEntry, useTeamStore} from '../store/useTeamStore';
-import {useGameStore} from '../store/useGameStore';
-import {type Message, useMessageStore} from '../store/useMessageStore';
-import type {PublicTeam} from '../types/entities';
+import { useTeamStore, type Achievement, type RankingEntry } from '../store/useTeamStore';
+import { useGameStore } from '../store/useGameStore';
+import { useMessageStore, type Message } from '../store/useMessageStore';
+import type { PublicTeam } from '../types/entities';
 
 interface UseTeamSyncOptions {
   gameId: string | null;
