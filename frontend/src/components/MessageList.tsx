@@ -24,7 +24,6 @@ import {
   CompareArrows as RivalIcon,
 } from '@mui/icons-material';
 import { useInViewMarkAsRead } from '../hooks/useInViewMarkAsRead';
-import { RelativeTime } from './RelativeTime';
 import type { Message } from '../store/useMessageStore';
 
 const getMessageIcon = (type: string) => {
@@ -76,7 +75,7 @@ export function MessageList({ messages, emptyText = 'Nog geen berichten' }: Mess
 
   return (
     <List disablePadding>
-      {messages.map((message, index) => {
+      {messages.map((message) => {
         const messageTime = new Date(message.sentAt);
         const timeString = messageTime.toLocaleTimeString('nl-NL', { 
           hour: '2-digit', 

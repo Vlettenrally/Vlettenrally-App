@@ -4,23 +4,20 @@
 import { useEffect, useState } from 'react';
 import {
   Box,
-  Container,
-  Grid,
   Paper,
   Typography,
   Card,
   CardContent,
-  LinearProgress,
-  Button,
+  Alert,
+  Grid,
   Dialog,
   DialogTitle,
   DialogContent,
 } from '@mui/material';
 import {
   EmojiEvents as TrophyIcon,
-  Timer as TimerIcon,
   Flag as FlagIcon,
-  ChatBubble as ChatBubbleIcon,
+  WifiOff as WifiOffIcon,
 } from '@mui/icons-material';
 import { useTeamStore, type Achievement } from '../../store/useTeamStore';
 import { useGameStore } from '../../store/useGameStore';
@@ -32,8 +29,6 @@ import { mockApi } from '../../services/mockApi';
 import { config } from '../../config';
 import { MessageList } from '../../components/MessageList';
 import { useConnectionStatus } from '../../hooks/useConnectionStatus';
-import { WifiOff as WifiOffIcon } from '@mui/icons-material';
-import { Alert } from '@mui/material';
 
 /** Show an "ending soon" warning when the rally ends within this many seconds. */
 const ENDING_SOON_SECONDS = 30 * 60;
@@ -165,14 +160,6 @@ export function DashboardPage() {
   }, []);
 
   const reachedCount = achievements.length;
-  const progressValue =
-    totalCheckpoints > 0
-      ? Math.min(100, (reachedCount / totalCheckpoints) * 100)
-      : reachedCount > 0
-        ? 100
-        : 0;
-
-  const recentMessages = messages.slice(0, RECENT_MESSAGES_COUNT);
 
   return (
     <Box sx={{ 

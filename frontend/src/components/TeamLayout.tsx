@@ -5,7 +5,6 @@ import { useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  Alert,
   AppBar,
   Box,
   Toolbar,
@@ -25,14 +24,12 @@ import {
   CompareArrows as RivalIcon,
   Leaderboard as LeaderboardIcon,
   Logout as LogoutIcon,
-  WifiOff as WifiOffIcon,
   Map as MapIcon,
   Description as DescriptionIcon,
 } from '@mui/icons-material';
 import { storage } from '../services/storage';
 import { useTeamStore } from '../store/useTeamStore';
 import { useGameStore } from '../store/useGameStore';
-import { useConnectionStatus } from '../hooks/useConnectionStatus';
 import { useTeamRealtime } from '../hooks/useRealtime';
 import api from '../services/api';
 import { mockApi } from '../services/mockApi';
@@ -48,7 +45,6 @@ export function TeamLayout({ children }: TeamLayoutProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { reset: resetTeam, team, setTeam } = useTeamStore();
   const { reset: resetGame, game, fetchGameById } = useGameStore();
-  const { showDisconnected } = useConnectionStatus();
   const gameId = storage.getGameId();
   const teamId = storage.getTeamId();
 
