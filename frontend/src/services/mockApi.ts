@@ -3,6 +3,8 @@
  * Returns fake data for all API endpoints
  */
 
+import type { Game } from '../types/entities';
+
 const MOCK_TEAM_ID = '11111111-1111-1111-1111-111111111111';
 const MOCK_GAME_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 
@@ -104,16 +106,16 @@ const mockCheckpoints = [
 ];
 
 // Mock game
-const mockGame = {
+const mockGame: Game = {
   id: MOCK_GAME_ID,
   name: 'Vlettenrally 2026',
   description: 'De jaarlijkse Vlettenrally',
-  startTime: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(), // Started 6 hours ago
-  endTime: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), // Ends in 2 hours
+  startTime: new Date(Date.now() - 6 * 60 * 60 * 1000), // Started 6 hours ago
+  endTime: new Date(Date.now() + 2 * 60 * 60 * 1000), // Ends in 2 hours
   status: 'active',
   participantInfo: 'Veel plezier!',
-  createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-  updatedAt: new Date().toISOString(),
+  createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+  updatedAt: new Date(),
 };
 
 export const mockApi = {

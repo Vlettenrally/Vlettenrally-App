@@ -150,8 +150,7 @@ export function DashboardPage() {
         mockApi.getGameById().then((response) => {
           if (response.data) {
             const { setGame } = useGameStore.getState();
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            setGame(response.data as any);
+            setGame(response.data);
           }
         });
       }
