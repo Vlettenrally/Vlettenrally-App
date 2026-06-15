@@ -198,23 +198,6 @@ registerRoute(
   })
 )
 
-// Cache fonts
-registerRoute(
-  /^https:\/\/fonts\.googleapis\.com\/.*/i,
-  new CacheFirst({
-    cacheName: 'google-fonts-cache',
-    plugins: [
-      new CacheableResponsePlugin({
-        statuses: [0, 200],
-      }),
-      new ExpirationPlugin({
-        maxEntries: 10,
-        maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
-      }),
-    ],
-  })
-)
-
 // Listen for messages from the app
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {

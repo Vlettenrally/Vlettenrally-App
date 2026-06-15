@@ -70,7 +70,7 @@ function GameStatusCard() {
         <Card sx={{ bgcolor: 'rgba(255, 152, 0, 0.2)', color: 'white', boxShadow: 'none' }}>
           <CardContent sx={{ p: 1, '&:last-child': { pb: 1 } }}>
             <Typography variant="caption" sx={{ fontSize: '0.7rem', opacity: 0.9 }}>Zorg dat je optijd finisht, de Vlettenrally eindigt over:</Typography>
-            <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.2rem', my: 0.3 }}>{formatCountdown(secondsToEnd)}</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 700, x: '1.2rem', my: 0.3 }}>{formatCountdown(secondsToEnd)}</Typography>
           </CardContent>
         </Card>
       );
