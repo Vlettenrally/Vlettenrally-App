@@ -68,9 +68,9 @@ function GameStatusCard() {
     if (secondsToEnd !== null && secondsToEnd > 0 && secondsToEnd <= ENDING_SOON_SECONDS) {
       return (
         <Card sx={{ bgcolor: 'rgb(182, 66, 24)', color: 'white', boxShadow: 'none' }}>
-          <CardContent sx={{ p: 1, '&:last-child': { pb: 1 }, textAlign: 'center' }}>
-            <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.9rem', opacity: 0.9 }}>Zorg dat je optijd finisht! <br />De Vlettenrally finish sluit over:</Typography>
-            <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.4rem', my: 0.3 }}>{formatCountdown(secondsToEnd)}</Typography>
+          <CardContent sx={{ p: 1, '&:last-child': { pb: 1 } }}>
+            <Typography variant="caption" sx={{ fontSize: '0.7rem', opacity: 0.9 }}>Zorg dat je optijd finisht, de Vlettenrally eindigt over:</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.2rem', my: 0.3 }}>{formatCountdown(secondsToEnd)}</Typography>
           </CardContent>
         </Card>
       );
