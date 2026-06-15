@@ -559,7 +559,7 @@ export function CheckInPage() {
                       ? 'Stel de tracking-app in zodat jullie locatie zichtbaar is.'
                       : step === 'wait'
                         ? 'Een andere telefoon van jullie team vult op dit moment de gegevens in.'
-                        : 'Check je team in voor de rally.'}
+                        : 'Volg het spel online en check je team in voor de Vlettenrally.'}
               </Typography>
             </Box>
 
@@ -590,7 +590,7 @@ export function CheckInPage() {
 
             {step === 'select-team' && (
               <Stack spacing={2}>
-                <Typography variant="h6">Kies je team</Typography>
+                <Typography variant="h6">Zoek je bootnummer</Typography>
                 <Autocomplete
                   options={sortedTeamOptions}
                   value={selectedTeam}
@@ -603,7 +603,7 @@ export function CheckInPage() {
                     </Box>
                   )}
                   renderInput={(params) => (
-                    <TextField {...params} label="Teamnaam" placeholder="Zoek op teamnaam" fullWidth />
+                    <TextField {...params} label="Bijv: 1234" placeholder="Zoek op bootnummer" fullWidth />
                   )}
                   fullWidth
                   autoHighlight
@@ -653,10 +653,10 @@ export function CheckInPage() {
               <Stack spacing={2}>
                 <Typography variant="h6">Teamgegevens</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Vul de namen en noodnummers in voor jullie team. Andere telefoons wachten tot je klaar bent.
+                  Vul de namen en noodnummers in voor jullie team. Alleen jij kunt dit invoeren namens iedereen. Andere telefoons die nu inchecken wachten tot je klaar bent.
                 </Typography>
                 <TextField
-                  label="Deelnemers"
+                  label="Deelnemers namen"
                   value={participantsText}
                   onChange={(e) => setParticipantsText(e.target.value)}
                   multiline
@@ -665,7 +665,7 @@ export function CheckInPage() {
                   helperText="Zet elke deelnemer op een nieuwe regel"
                 />
                 <TextField
-                  label="Noodnummers"
+                  label="Telefoonnummers van telefoons aan boord"
                   value={emergencyPhonesText}
                   onChange={(e) => setEmergencyPhonesText(e.target.value)}
                   multiline
@@ -803,10 +803,10 @@ export function CheckInPage() {
 
             {step === 'rivals' && (
               <Stack spacing={2}>
-                <Typography variant="h6">Kies jullie rivalen</Typography>
+                <Typography variant="h6">Selecteer jullie rivalen</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Kies maximaal {MAX_RIVALS} teams om hun stand bij te houden. Dit kan later ook nog
-                  via het dashboard.
+                  Kies maximaal {MAX_RIVALS} teams om hun stand bij te houden tijdens de Vlettenrally. Dit kan later nog
+                  aangepast worden via het dashboard.
                 </Typography>
                 <Autocomplete
                   multiple
@@ -831,7 +831,7 @@ export function CheckInPage() {
                     ))
                   }
                   renderInput={(params) => (
-                    <TextField {...params} label="Zoek een team" placeholder="Begin te typen…" />
+                    <TextField {...params} label="Zoek een bootnummer" placeholder="Begin te typen…" />
                   )}
                 />
                 {formError && <Alert severity="error">{formError}</Alert>}

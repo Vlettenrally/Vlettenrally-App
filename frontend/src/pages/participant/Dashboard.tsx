@@ -31,7 +31,7 @@ import { MessageList } from '../../components/MessageList';
 import { useConnectionStatus } from '../../hooks/useConnectionStatus';
 
 /** Show an "ending soon" warning when the rally ends within this many seconds. */
-const ENDING_SOON_SECONDS = 30 * 60;
+const ENDING_SOON_SECONDS = 60 * 60;
 /** How many messages to preview on the dashboard. */
 const RECENT_MESSAGES_COUNT = 5;
 
@@ -53,10 +53,10 @@ function GameStatusCard() {
   // Ended / completed.
   if (game.status === 'completed' || endPassed) {
     return (
-      <Card sx={{ bgcolor: 'rgba(0,0,0,0.2)', color: 'white', boxShadow: 'none' }}>
-        <CardContent sx={{ p: 1, '&:last-child': { pb: 1 } }}>
-          <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.85rem' }}>De rally is afgelopen</Typography>
-          <Typography variant="caption" sx={{ fontSize: '0.7rem', opacity: 0.9 }}>Bedankt voor het meedoen!</Typography>
+      <Card sx={{ bgcolor: 'rgba(88, 242, 5, 0.67)', color: 'white', boxShadow: 'none' }}>
+        <CardContent sx={{ p: 1, '&:last-child': { pb: 1 }, textAlign: 'center' }}>
+          <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.95rem' }}>De Vlettenrally is afgelopen</Typography>
+          <Typography variant="caption" sx={{ fontSize: '0.8rem', opacity: 0.9 }}>Bedankt voor het meedoen!</Typography>
         </CardContent>
       </Card>
     );
@@ -67,21 +67,18 @@ function GameStatusCard() {
     const secondsToEnd = game.endTime ? getSecondsUntil(game.endTime) : null;
     if (secondsToEnd !== null && secondsToEnd > 0 && secondsToEnd <= ENDING_SOON_SECONDS) {
       return (
-        <Card sx={{ bgcolor: 'rgba(255, 152, 0, 0.2)', color: 'white', boxShadow: 'none' }}>
-          <CardContent sx={{ p: 1, '&:last-child': { pb: 1 } }}>
-            <Typography variant="caption" sx={{ fontSize: '0.7rem', opacity: 0.9 }}>Zorg dat je optijd finisht, de Vlettenrally eindigt over:</Typography>
-            <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.2rem', my: 0.3 }}>{formatCountdown(secondsToEnd)}</Typography>
+        <Card sx={{ bgcolor: 'rgb(182, 66, 24)', color: 'white', boxShadow: 'none' }}>
+          <CardContent sx={{ p: 1, '&:last-child': { pb: 1 }, textAlign: 'center' }}>
+            <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.9rem', opacity: 0.9 }}>Zorg dat je optijd finisht! <br />De Vlettenrally finish sluit over:</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.4rem', my: 0.3 }}>{formatCountdown(secondsToEnd)}</Typography>
           </CardContent>
         </Card>
       );
     }
     return (
-      <Card sx={{ bgcolor: 'rgba(76, 175, 80, 0.2)', color: 'white', boxShadow: 'none' }}>
-        <CardContent sx={{ p: 1, '&:last-child': { pb: 1 } }}>
-          <Typography variant="caption" sx={{ fontSize: '0.7rem', opacity: 0.9 }}>Zorg dat je optijd finisht, de Vlettenrally eindigt over:</Typography>
-          <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.2rem', my: 0.3 }}>
-            {secondsToEnd ? formatCountdown(secondsToEnd) : 'Veel succes!'}
-          </Typography>
+        <Card sx={{ bgcolor: 'rgb(3, 177, 0)', color: 'white', boxShadow: 'none' }}>
+        <CardContent sx={{ p: 1, '&:last-child': { pb: 1 }, textAlign: 'center' }}>
+          <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.9rem', opacity: 0.9 }}>De Vlettenrally is gestart!</Typography>
         </CardContent>
       </Card>
     );
@@ -92,10 +89,10 @@ function GameStatusCard() {
   const secondsToStart = startTarget ? getSecondsUntil(startTarget) : null;
   if (secondsToStart !== null && secondsToStart > 0) {
     return (
-      <Card sx={{ bgcolor: 'rgba(22, 86, 86, 0.2)', color: 'white', boxShadow: 'none' }}>
-        <CardContent sx={{ p: 1, '&:last-child': { pb: 1 } }}>
-          <Typography variant="caption" sx={{ fontSize: '0.7rem', opacity: 0.9 }}>Het Vlettenrally startsein gaat over:</Typography>
-          <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.2rem', my: 0.3 }}>{formatCountdown(secondsToStart)}</Typography>
+      <Card sx={{ bgcolor: 'rgba(252, 172, 0, 0.79)', color: 'white', boxShadow: 'none' }}>
+        <CardContent sx={{ p: 1, '&:last-child': { pb: 1 }, textAlign: 'center' }}>
+          <Typography variant="caption" sx={{ fontSize: '1.2rem', opacity: 0.9 }}>De Vlettenrally start over:</Typography>
+          <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.5rem', my: 0.3 }}>{formatCountdown(secondsToStart)}</Typography>
         </CardContent>
       </Card>
     );
@@ -103,10 +100,10 @@ function GameStatusCard() {
 
   // Start time reached but not yet flipped to active.
   return (
-    <Card sx={{ bgcolor: 'rgba(22, 86, 86, 0.2)', color: 'white', boxShadow: 'none' }}>
-      <CardContent sx={{ p: 1, '&:last-child': { pb: 1 } }}>
-        <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.85rem' }}>Bijna van start!</Typography>
-        <Typography variant="caption" sx={{ fontSize: '0.7rem', opacity: 0.9 }}>Maak je klaar om te starten!</Typography>
+    <Card sx={{ bgcolor: 'rgb(31, 170, 0)', color: 'white', boxShadow: 'none' }}>
+      <CardContent sx={{ p: 1, '&:last-child': { pb: 1 }, textAlign: 'center' }}>
+        <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '1.3rem' }}>Bijna van start!</Typography>
+        <Typography variant="caption" sx={{ fontSize: '1rem', opacity: 0.9 }}>Maak je klaar om te starten!</Typography>
       </CardContent>
     </Card>
   );
@@ -174,7 +171,7 @@ export function DashboardPage() {
           elevation={2} 
           sx={{ 
             p: 1, 
-            background: 'linear-gradient(135deg, #165656 0%, #2a7a7a 100%)',
+            background: 'linear-gradient(180deg, #1b6363 0%, #2f9898 100%)',
             color: 'white',
             borderRadius: 0,
           }}
@@ -191,10 +188,10 @@ export function DashboardPage() {
               }}>
                 <TrophyIcon sx={{ color: '#ffcb0f', fontSize: '1.2rem' }} />
                 <Box>
-                  <Typography variant="body1" sx={{ fontWeight: 600, color: 'white', fontSize: '1rem', lineHeight: 1.2 }}>
+                  <Typography variant="body1" sx={{ fontWeight: 600, color: 'white', fontSize: '1.5rem', lineHeight: 1.2 }}>
                     {team.totalPoints}
                   </Typography>
-                  <Typography variant="caption" sx={{ opacity: 0.85, fontSize: '0.7rem' }}>
+                  <Typography variant="caption" sx={{ opacity: 0.85, fontSize: '0.9rem' }}>
                     Punten
                   </Typography>
                 </Box>
@@ -211,12 +208,12 @@ export function DashboardPage() {
               }}>
                 <FlagIcon sx={{ color: '#ffcb0f', fontSize: '1.2rem' }} />
                 <Box>
-                  <Typography variant="body1" sx={{ fontWeight: 600, color: 'white', fontSize: '1rem', lineHeight: 1.2 }}>
+                  <Typography variant="body1" sx={{ fontWeight: 600, color: 'white', fontSize: '1.5rem', lineHeight: 1.2 }}>
                     {totalCheckpoints > 0
                       ? `${reachedCount}/${totalCheckpoints}`
                       : reachedCount}
                   </Typography>
-                  <Typography variant="caption" sx={{ opacity: 0.85, fontSize: '0.7rem' }}>
+                  <Typography variant="caption" sx={{ opacity: 0.85, fontSize: '0.9rem' }}>
                     Checkpoints
                   </Typography>
                 </Box>
