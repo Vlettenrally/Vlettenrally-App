@@ -84,6 +84,7 @@ const mockTeam = {
   totalPoints: 420,
   checkedIn: true,
   checkedInDigitally: true,
+  finished: false,
   rivals: [],
   createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
 };

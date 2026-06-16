@@ -20,7 +20,7 @@ import {
   WifiOff as WifiOffIcon,
 } from '@mui/icons-material';
 import { useTeamStore, type Achievement } from '../../store/useTeamStore';
-import { useGameStore } from '../../store/useGameStore';
+import { useGameStore, type Checkpoint } from '../../store/useGameStore';
 import { useMessageStore, type Message } from '../../store/useMessageStore';
 import { formatCountdown, getSecondsUntil } from '../../utils/dateTime';
 import { storage } from '../../services/storage';
@@ -158,7 +158,7 @@ export function DashboardPage() {
 
     if (gameId) {
       apiToUse.getCheckpoints(gameId).then((response) => {
-        if (response.data) useGameStore.getState().setCheckpoints(response.data);
+        if (response.data) useGameStore.getState().setCheckpoints(response.data as Checkpoint[]);
       });
       
       // Load game data for countdown
