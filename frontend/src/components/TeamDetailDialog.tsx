@@ -53,6 +53,7 @@ export default function TeamDetailDialog({
     checkedIn: false,
     checkedInDigitally: false,
     traccarEnabled: false,
+    finished: false,
     totalPoints: 0,
   });
 
@@ -69,6 +70,7 @@ export default function TeamDetailDialog({
         checkedIn: team.checkedIn,
         checkedInDigitally: team.checkedInDigitally,
         traccarEnabled: team.traccarEnabled,
+        finished: team.finished,
         totalPoints: team.totalPoints,
       });
       setIsEditing(false);
@@ -115,6 +117,7 @@ export default function TeamDetailDialog({
         checkedIn: false,
         checkedInDigitally: false,
         traccarEnabled: false,
+        finished: false,
         totalPoints: 0,
       });
       setIsEditing(true);
@@ -211,6 +214,7 @@ export default function TeamDetailDialog({
           checkedIn: team.checkedIn,
           checkedInDigitally: team.checkedInDigitally,
           traccarEnabled: team.traccarEnabled,
+          finished: team.finished,
           totalPoints: team.totalPoints,
         });
       }
@@ -242,6 +246,7 @@ export default function TeamDetailDialog({
         checkedIn: formData.checkedIn,
         checkedInDigitally: formData.checkedInDigitally,
         traccarEnabled: formData.traccarEnabled,
+        finished: formData.finished,
         totalPoints: formData.totalPoints,
       };
 
@@ -273,7 +278,7 @@ export default function TeamDetailDialog({
     }));
   };
 
-  const handleCheckboxChange = (field: 'checkedIn' | 'checkedInDigitally' | 'traccarEnabled') => (
+  const handleCheckboxChange = (field: 'checkedIn' | 'checkedInDigitally' | 'traccarEnabled' | 'finished') => (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     const newValue = event.target.checked;
@@ -432,6 +437,29 @@ export default function TeamDetailDialog({
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1, wordBreak: 'break-all' }}>
                     Apparaat-ID: {team.traccarIdentifier}
                   </Typography>
+                )}
+              </Box>
+
+              <Box>
+                <Typography variant="subtitle2" gutterBottom>
+                  Finish
+                </Typography>
+                {isEditing ? (
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={formData.finished}
+                        onChange={handleCheckboxChange('finished')}
+                      />
+                    }
+                    label="Gefinisht (geen automatische punten meer)"
+                  />
+                ) : (
+                  <Chip
+                    label={team.finished ? 'Gefinisht' : 'Nog onderweg'}
+                    color={team.finished ? 'success' : 'default'}
+                    size="small"
+                  />
                 )}
               </Box>
 

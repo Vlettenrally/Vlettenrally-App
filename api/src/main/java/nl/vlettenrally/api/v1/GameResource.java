@@ -48,6 +48,8 @@ import nl.vlettenrally.service.ParticipantLinkResult;
 import nl.vlettenrally.service.AuthService;
 import nl.vlettenrally.service.TeamService;
 import nl.vlettenrally.service.TeamImportService;
+import nl.vlettenrally.websockets.WebSocketPublisher;
+import nl.vlettenrally.websockets.dto.WebSocketMessageType;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -117,6 +119,9 @@ public class GameResource {
 
     @Inject
     AutomationEngine automationEngine;
+
+    @Inject
+    WebSocketPublisher webSocketPublisher;
 
     /**
      * Get all games
@@ -232,8 +237,9 @@ public class GameResource {
      * Get team rankings for a game.
      * <p>
      * The full ranking exposes every team's score, so non-admin (team) callers
-     * may only read it once the game has COMPLETED. Admins can always read it
-     * (needed for points management during the game).
+     * may only read it once an admin has published the final standings (the
+     * award-ceremony reveal). Admins can always read it (needed for points
+     * management during the game and to announce the standings).
      */
     @GET
     @Path("/{gameId}/rankings")
@@ -244,13 +250,38 @@ public class GameResource {
             return gameNotFoundResponse();
         }
 
-        if (!ctx.isUserInRole("admin") && game.get().getStatus() != Game.GameStatus.COMPLETED) {
+        if (!ctx.isUserInRole("admin") && !Boolean.TRUE.equals(game.get().getRankingsPublished())) {
             return Response.status(Response.Status.FORBIDDEN)
-                .entity(new ErrorResponse("Rankings are available after the game has completed"))
+                .entity(new ErrorResponse("Rankings have not been published yet"))
                 .build();
         }
 
         return Response.ok(rankingService.buildRanking(gameId)).build();
+    }
+
+    /**
+     * Publish (reveal) the final ranking to players.
+     * <p>
+     * Admin-only. Persists the reveal on the game so it survives players
+     * reloading/reconnecting, and pushes the full ranking to all connected teams.
+     * Idempotent: re-publishing just re-broadcasts the latest standings (useful
+     * if points were corrected mid-ceremony).
+     */
+    @POST
+    @Path("/{gameId}/rankings/publish")
+    @RolesAllowed("admin")
+    public Response publishRankings(@PathParam("gameId") UUID gameId) {
+        return gameService.findById(gameId)
+            .map(game -> {
+                game.setRankingsPublished(true);
+                Game updated = gameService.save(game);
+                webSocketPublisher.broadcastToGame(
+                    gameId,
+                    WebSocketMessageType.RANKING_UPDATE.getValue(),
+                    rankingService.buildRanking(gameId));
+                return Response.ok(toDto(updated)).build();
+            })
+            .orElse(gameNotFoundResponse());
     }
 
     /**
@@ -585,6 +616,7 @@ public class GameResource {
             game.getLocationEndpointUrl(),
             game.getLocationPollingFrequency(),
             game.getLocationEndpointActive(),
+            game.getRankingsPublished() != null && game.getRankingsPublished(),
             game.getCreatedAt() != null ? game.getCreatedAt().toString() : null,
             game.getUpdatedAt() != null ? game.getUpdatedAt().toString() : null
         );

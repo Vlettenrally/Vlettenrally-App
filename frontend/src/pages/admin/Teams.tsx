@@ -269,6 +269,7 @@ export default function Teams() {
                   <TableCell align="right"><strong>Points</strong></TableCell>
                   <TableCell align="center"><strong>Checked In</strong></TableCell>
                   <TableCell align="center"><strong>Digital</strong></TableCell>
+                  <TableCell align="center"><strong>Finish</strong></TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -297,6 +298,11 @@ export default function Teams() {
                           size="small"
                           variant="outlined"
                         />
+                      )}
+                    </TableCell>
+                    <TableCell align="center">
+                      {team.finished && (
+                        <Chip label="Gefinisht" color="success" size="small" />
                       )}
                     </TableCell>
                   </TableRow>

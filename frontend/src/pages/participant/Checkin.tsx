@@ -31,6 +31,7 @@ import { useTeamWebSocket } from '../../hooks/useWebSocket';
 import { useDeviceIdentity } from '../../hooks/useDeviceIdentity';
 import { isPhoneNumber, validateParticipantNames } from '../../utils/validators';
 import { initializePushNotificationsWithReason } from '../../services/firebaseMessaging';
+import { shouldPromptHomescreenInstall } from '../../utils/pwa';
 import { WebSocketEventType } from '../../services/websocket';
 import type {
   CheckInState,
@@ -42,6 +43,7 @@ import type {
 } from '../../types/entities';
 
 type Step =
+  | 'install-app'
   | 'loading'
   | 'select-game'
   | 'select-team'
@@ -172,8 +174,9 @@ export function CheckInPage() {
     setTeamOptions(response.data ?? []);
   }, []);
 
-  // Entry: legacy token shortcut OR public flow.
-  useEffect(() => {
+  // Runs the actual check-in entry: legacy token shortcut OR public flow.
+  const beginCheckIn = useCallback(() => {
+    setStep('loading');
     const init = async () => {
       const token = searchParams.get('token');
       if (token) {
@@ -222,6 +225,16 @@ export function CheckInPage() {
       console.error('Check-in init error:', err);
       setError('Er ging iets mis. Probeer de pagina opnieuw te laden.');
     });
+  }, [searchParams, loadTodayGames]);
+
+  // Entry: iOS browser users must add the app to their home screen first
+  // (push only works in standalone mode); everyone else starts check-in.
+  useEffect(() => {
+    if (shouldPromptHomescreenInstall()) {
+      setStep('install-app');
+      return;
+    }
+    beginCheckIn();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -551,7 +564,9 @@ export function CheckInPage() {
                 Vlettenrally
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                {step === 'permissions'
+                {step === 'install-app'
+                  ? 'Zet de app eerst op je beginscherm zodat je meldingen kunt ontvangen.'
+                  : step === 'permissions'
                   ? 'Sta meldingen toe om updates te ontvangen tijdens de rally.'
                   : step === 'rivals'
                     ? 'Kies welke teams jullie in de gaten willen houden.'
@@ -559,11 +574,45 @@ export function CheckInPage() {
                       ? 'Stel de tracking-app in zodat jullie locatie zichtbaar is.'
                       : step === 'wait'
                         ? 'Een andere telefoon van jullie team vult op dit moment de gegevens in.'
-                        : 'Check je team in voor de rally.'}
+                        : 'Volg het spel online en check je team in voor de Vlettenrally.'}
               </Typography>
             </Box>
 
             {error && <Alert severity="error">{error}</Alert>}
+
+            {step === 'install-app' && (
+              <Stack spacing={2}>
+                <Typography variant="h6">Zet de app op je beginscherm</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Op een iPhone of iPad kun je alleen meldingen ontvangen als je de app eerst aan je
+                  beginscherm toevoegt en daarna vanaf daar opent. Zo blijf je tijdens de rally op de hoogte
+                  van belangrijke berichten.
+                </Typography>
+                <Box component="ol" sx={{ pl: 3, m: 0, '& li': { mb: 1 } }}>
+                  <Typography component="li" variant="body2">
+                    Tik onderin Safari op het deel-icoon (het vierkantje met de pijl omhoog).
+                  </Typography>
+                  <Typography component="li" variant="body2">
+                    Kies <strong>“Zet op beginscherm”</strong> en bevestig met <strong>“Voeg toe”</strong>.
+                  </Typography>
+                  <Typography component="li" variant="body2">
+                    Open de Vlettenrally-app vanaf je beginscherm en check daar in.
+                  </Typography>
+                </Box>
+                <Button
+                  variant="contained"
+                  size="large"
+                  fullWidth
+                  onClick={beginCheckIn}
+                >
+                  Ik heb het gedaan, ga verder
+                </Button>
+                <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
+                  Lukt het toevoegen niet? Je kunt ook hier verder inchecken, maar dan ontvang je geen
+                  meldingen op dit apparaat.
+                </Typography>
+              </Stack>
+            )}
 
             {step === 'loading' && (
               <Box sx={{ textAlign: 'center' }}>
@@ -590,7 +639,7 @@ export function CheckInPage() {
 
             {step === 'select-team' && (
               <Stack spacing={2}>
-                <Typography variant="h6">Kies je team</Typography>
+                <Typography variant="h6">Zoek je bootnummer</Typography>
                 <Autocomplete
                   options={sortedTeamOptions}
                   value={selectedTeam}
@@ -603,7 +652,7 @@ export function CheckInPage() {
                     </Box>
                   )}
                   renderInput={(params) => (
-                    <TextField {...params} label="Teamnaam" placeholder="Zoek op teamnaam" fullWidth />
+                    <TextField {...params} label="Bijv: 1234" placeholder="Zoek op bootnummer" fullWidth />
                   )}
                   fullWidth
                   autoHighlight
@@ -653,10 +702,10 @@ export function CheckInPage() {
               <Stack spacing={2}>
                 <Typography variant="h6">Teamgegevens</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Vul de namen en noodnummers in voor jullie team. Andere telefoons wachten tot je klaar bent.
+                  Vul de namen en noodnummers in voor jullie team. Alleen jij kunt dit invoeren namens iedereen. Andere telefoons die nu inchecken wachten tot je klaar bent.
                 </Typography>
                 <TextField
-                  label="Deelnemers"
+                  label="Deelnemers namen"
                   value={participantsText}
                   onChange={(e) => setParticipantsText(e.target.value)}
                   multiline
@@ -665,7 +714,7 @@ export function CheckInPage() {
                   helperText="Zet elke deelnemer op een nieuwe regel"
                 />
                 <TextField
-                  label="Noodnummers"
+                  label="Telefoonnummers van telefoons aan boord"
                   value={emergencyPhonesText}
                   onChange={(e) => setEmergencyPhonesText(e.target.value)}
                   multiline
@@ -803,10 +852,10 @@ export function CheckInPage() {
 
             {step === 'rivals' && (
               <Stack spacing={2}>
-                <Typography variant="h6">Kies jullie rivalen</Typography>
+                <Typography variant="h6">Selecteer jullie rivalen</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Kies maximaal {MAX_RIVALS} teams om hun stand bij te houden. Dit kan later ook nog
-                  via het dashboard.
+                  Kies maximaal {MAX_RIVALS} teams om hun stand bij te houden tijdens de Vlettenrally. Dit kan later nog
+                  aangepast worden via het dashboard.
                 </Typography>
                 <Autocomplete
                   multiple
@@ -831,7 +880,7 @@ export function CheckInPage() {
                     ))
                   }
                   renderInput={(params) => (
-                    <TextField {...params} label="Zoek een team" placeholder="Begin te typen…" />
+                    <TextField {...params} label="Zoek een bootnummer" placeholder="Begin te typen…" />
                   )}
                 />
                 {formError && <Alert severity="error">{formError}</Alert>}

@@ -92,6 +92,8 @@ function actionLabel(action: AutomationAction): string {
       return `${(action.points ?? 0) > 0 ? '+' : ''}${action.points ?? 0} punten`;
     case 'NOTIFY_ADMINS':
       return 'Admin-melding';
+    case 'FINISH_TEAM':
+      return 'Finish';
   }
 }
 

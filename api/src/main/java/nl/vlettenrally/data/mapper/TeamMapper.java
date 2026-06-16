@@ -39,6 +39,8 @@ public class TeamMapper {
         domain.setMainDeviceId(entity.getMainDeviceId());
         domain.setCheckedIn(entity.isCheckedIn());
         domain.setCheckedInDigitally(entity.isCheckedInDigitally());
+        domain.setFinished(entity.isFinished());
+        domain.setFinishedAt(entity.getFinishedAt());
         domain.setTraccarEnabled(entity.isTraccarEnabled());
         domain.setTraccarIdentifier(entity.getTraccarIdentifier());
         domain.setTotalPoints(entity.getTotalPoints());
@@ -77,6 +79,8 @@ public class TeamMapper {
         entity.setMainDeviceId(domain.getMainDeviceId());
         entity.setCheckedIn(domain.isCheckedIn());
         entity.setCheckedInDigitally(domain.isCheckedInDigitally());
+        entity.setFinished(domain.isFinished());
+        entity.setFinishedAt(domain.getFinishedAt());
         entity.setTraccarEnabled(domain.isTraccarEnabled());
         entity.setTraccarIdentifier(domain.getTraccarIdentifier());
         entity.setTotalPoints(domain.getTotalPoints());
@@ -105,6 +109,8 @@ public class TeamMapper {
         entity.setMainDeviceId(domain.getMainDeviceId());
         entity.setCheckedIn(domain.isCheckedIn());
         entity.setCheckedInDigitally(domain.isCheckedInDigitally());
+        entity.setFinished(domain.isFinished());
+        entity.setFinishedAt(domain.getFinishedAt());
         entity.setTraccarEnabled(domain.isTraccarEnabled());
         entity.setTraccarIdentifier(domain.getTraccarIdentifier());
         entity.setTotalPoints(domain.getTotalPoints());

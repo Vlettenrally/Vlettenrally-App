@@ -31,10 +31,12 @@ import nl.vlettenrally.data.dto.team.TeamUpdateRequest;
 import nl.vlettenrally.data.repository.DeviceRegistrationRepository;
 import nl.vlettenrally.service.CheckInCoordinationService;
 import nl.vlettenrally.service.TeamService;
+import nl.vlettenrally.websockets.WebSocketEventTypes;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -298,15 +300,30 @@ public class TeamResource {
                 team.setTraccarEnabled(request.traccarEnabled());
             }
 
+            // Admin override for the finished state (set/reverse a finish). Stamp
+            // finishedAt on transition to finished; clear it when un-finishing.
+            boolean finishedChanged = false;
+            if (request.finished() != null && request.finished() != team.isFinished()) {
+                team.setFinished(request.finished());
+                team.setFinishedAt(request.finished() ? java.time.Instant.now() : null);
+                finishedChanged = true;
+            }
+
             Team updatedTeam = teamService.save(team);
-            
+
             // Broadcast update via WebSocket
             webSocketPublisher.broadcastToGame(
-                updatedTeam.getGameId(), 
-                "team:updated", 
+                updatedTeam.getGameId(),
+                "team:updated",
                 teamConverter.toDto(updatedTeam)
             );
-            
+
+            // Push a finish toggle to the team's own dashboard live (scoped to it).
+            if (finishedChanged) {
+                webSocketPublisher.sendToTeam(updatedTeam.getGameId(), updatedTeam.getId(),
+                    WebSocketEventTypes.TEAM_UPDATE, Map.of("finished", updatedTeam.isFinished()));
+            }
+
             return Response.ok(teamConverter.toDto(updatedTeam)).build();
         } catch (IllegalArgumentException e) {
             return Response.status(Response.Status.BAD_REQUEST)

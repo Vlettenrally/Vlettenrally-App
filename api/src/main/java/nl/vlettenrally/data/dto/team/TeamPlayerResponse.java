@@ -17,6 +17,7 @@ public record TeamPlayerResponse(
     String description,
     boolean checkedIn,
     boolean checkedInDigitally,
+    boolean finished,
     int totalPoints,
     List<UUID> rivals,
     String createdAt

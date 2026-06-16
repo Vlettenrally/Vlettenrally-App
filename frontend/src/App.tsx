@@ -12,6 +12,7 @@ import {storage} from './services/storage';
 import {config} from './config';
 import {seedMockAdminSession, seedMockTeamSession} from './services/mockSession';
 import {useGameStore} from './store/useGameStore';
+import {useTeamStore} from './store/useTeamStore';
 import {getRolesFromToken, getUserRoleFromRoles} from './services/auth';
 import {
   getNotificationPermission,
@@ -68,10 +69,90 @@ const theme = createTheme({
   palette: {
     mode: 'light',
     primary: {
-      main: '#1976d2',
+      main: '#165656', // Vlettenrally groen/blauw
+      light: '#2a7a7a',
+      dark: '#0f3d3d',
+      contrastText: '#fff',
     },
     secondary: {
-      main: '#dc004e',
+      main: '#ffcb0f', // Vlettenrally geel accent
+      light: '#ffd740',
+      dark: '#c79f00',
+      contrastText: '#000',
+    },
+    background: {
+      default: '#f8f9fa',
+      paper: '#ffffff',
+    },
+  },
+  typography: {
+    fontFamily: 'Roboto, sans-serif',
+    fontSize: 14, // Smaller base size for mobile
+    h4: {
+      fontFamily: 'Poppins, sans-serif', // Speelser voor titels
+      fontSize: '1.5rem',
+      fontWeight: 600,
+      color: '#165656',
+    },
+    h5: {
+      fontFamily: 'Poppins, sans-serif',
+      fontSize: '1.25rem',
+      fontWeight: 600, // Poppins heeft mooiere 600
+      color: '#165656',
+    },
+    h6: {
+      fontFamily: 'Poppins, sans-serif',
+      fontSize: '1.1rem',
+      fontWeight: 600,
+    },
+    body1: {
+      fontSize: '0.95rem',
+    },
+    body2: {
+      fontSize: '0.875rem',
+    },
+    button: {
+      fontFamily: 'Poppins, sans-serif', // Ook buttons speelser
+      textTransform: 'none',
+      fontWeight: 500,
+      fontSize: '0.9rem',
+    },
+  },
+  shape: {
+    borderRadius: 4, // Veel kleinere radius
+  },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: 4,
+          padding: '10px 24px',
+          boxShadow: 'none',
+          '&:hover': {
+            boxShadow: '0 2px 8px rgba(22, 86, 86, 0.2)',
+          },
+        },
+        contained: {
+          '&:hover': {
+            boxShadow: '0 4px 12px rgba(22, 86, 86, 0.3)',
+          },
+        },
+      },
+    },
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          borderRadius: 6,
+          boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+        },
+      },
+    },
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          borderRadius: 6,
+        },
+      },
     },
   },
 });
@@ -127,13 +208,27 @@ function TeamRoute({ children }: { children: ReactNode }) {
 }
 
 /**
- * Rankings is reachable only after the game has ended. The menu item in
- * TeamLayout is hidden in the same condition, but this guard prevents direct
- * URL access while the game is still PLANNED or ACTIVE.
+ * Rankings are reachable only once an admin has revealed the final standings at
+ * the award ceremony. The menu item in TeamLayout is hidden in the same
+ * condition; this guard prevents direct URL access before the reveal.
  */
 function RankingsRoute({ children }: { children: ReactNode }) {
   const game = useGameStore((s) => s.game);
-  if (game && game.status !== 'completed') {
+  if (game && !game.rankingsPublished) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <>{children}</>;
+}
+
+/**
+ * Rivals are hidden once a team finishes or the game completes, so no scores
+ * leak near the end. The menu item is hidden in the same condition; this guard
+ * blocks direct URL access.
+ */
+function RivalsRoute({ children }: { children: ReactNode }) {
+  const game = useGameStore((s) => s.game);
+  const team = useTeamStore((s) => s.team);
+  if (team?.finished || game?.status === 'completed') {
     return <Navigate to="/dashboard" replace />;
   }
   return <>{children}</>;
@@ -424,11 +519,13 @@ function App() {
             path="/rival"
             element={
               <TeamRoute>
-                <TeamLayout>
-                  <Suspense fallback={<PageLoader />}>
-                    <RivalsPage />
-                  </Suspense>
-                </TeamLayout>
+                <RivalsRoute>
+                  <TeamLayout>
+                    <Suspense fallback={<PageLoader />}>
+                      <RivalsPage />
+                    </Suspense>
+                  </TeamLayout>
+                </RivalsRoute>
               </TeamRoute>
             }
           />

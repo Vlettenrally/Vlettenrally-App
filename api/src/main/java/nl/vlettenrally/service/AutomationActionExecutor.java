@@ -13,9 +13,12 @@ import nl.vlettenrally.data.domain.automation.AutomationAction;
 import nl.vlettenrally.data.enums.AutomationExecutionStatus;
 import nl.vlettenrally.data.enums.MessageType;
 import nl.vlettenrally.data.enums.PointEntryType;
+import nl.vlettenrally.data.repository.TeamRepository;
+import nl.vlettenrally.websockets.WebSocketEventTypes;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 import nl.vlettenrally.websockets.dto.WebSocketMessageType;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -49,6 +52,9 @@ public class AutomationActionExecutor {
     @Inject
     AdminInboxService adminInboxService;
 
+    @Inject
+    TeamRepository teamRepository;
+
     /** Outcome of one rule firing: overall status plus per-action detail as JSON. */
     public record Result(AutomationExecutionStatus status, String detail) {}
 
@@ -74,6 +80,7 @@ public class AutomationActionExecutor {
                     case SEND_MESSAGE -> sendMessage(rule, action, targets, ctx);
                     case AWARD_POINTS -> awardPoints(rule, action, targets, detail);
                     case NOTIFY_ADMINS -> notifyAdmins(rule, action, targets, ctx);
+                    case FINISH_TEAM -> finishTeams(targets, detail);
                 }
                 detail.put("ok", !Boolean.FALSE.equals(detail.get("ok")));
             } catch (Exception e) {
@@ -138,6 +145,37 @@ public class AutomationActionExecutor {
                     PointEntryType.AUTOMATION_BONUS, action.points(), null, description, null, null);
             } catch (Exception e) {
                 teamErrors.add(team.getName() + ": " + e.getMessage());
+            }
+        }
+        if (!teamErrors.isEmpty()) {
+            detail.put("ok", teamErrors.size() < targets.size());
+            detail.put("error", String.join("; ", teamErrors));
+        }
+    }
+
+    /**
+     * Mark each target team finished: it keeps its points and ranking but stops
+     * accruing automatic points (checkpoint passes + distance) — the gate is read
+     * by {@code LocationIngestService} on the next fix. Idempotent: an
+     * already-finished team is left untouched.
+     */
+    private void finishTeams(List<Team> targets, Map<String, Object> detail) {
+        List<String> teamErrors = new ArrayList<>();
+        for (Team target : targets) {
+            try {
+                Team team = teamRepository.findById(target.getId()).orElse(target);
+                if (team.isFinished()) {
+                    continue;
+                }
+                team.setFinished(true);
+                team.setFinishedAt(Instant.now());
+                teamRepository.save(team);
+                // Push the finish to the team's own dashboard live (scoped to this
+                // team, so no other team sees it). The client refetches its own data.
+                webSocketPublisher.sendToTeam(team.getGameId(), team.getId(),
+                    WebSocketEventTypes.TEAM_UPDATE, Map.of("finished", true));
+            } catch (Exception e) {
+                teamErrors.add(target.getName() + ": " + e.getMessage());
             }
         }
         if (!teamErrors.isEmpty()) {

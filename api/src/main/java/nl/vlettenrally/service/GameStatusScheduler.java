@@ -8,7 +8,6 @@ import jakarta.transaction.Transactional;
 import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.websockets.WebSocketEventTypes;
 import nl.vlettenrally.websockets.WebSocketPublisher;
-import nl.vlettenrally.websockets.dto.WebSocketMessageType;
 
 import java.time.Instant;
 import java.util.List;
@@ -33,9 +32,6 @@ public class GameStatusScheduler {
 
     @Inject
     WebSocketPublisher webSocketPublisher;
-
-    @Inject
-    RankingService rankingService;
 
     @Inject
     AutomationEngine automationEngine;
@@ -107,13 +103,6 @@ public class GameStatusScheduler {
             )
         );
 
-        // Scores become public on completion — push the full ranking so already
-        // connected clients see the final standings without re-fetching.
-        webSocketPublisher.broadcastToGame(
-            game.getId(),
-            WebSocketMessageType.RANKING_UPDATE.getValue(),
-            rankingService.buildRanking(game.getId())
-        );
 
         Log.info("Game '" + game.getName() + "' transitioned to COMPLETED");
 

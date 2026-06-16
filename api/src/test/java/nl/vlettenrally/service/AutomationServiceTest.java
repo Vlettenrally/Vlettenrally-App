@@ -89,6 +89,18 @@ class AutomationServiceTest {
     }
 
     @Test
+    void createRule_acceptsFinishTeamAction() {
+        AutomationRule draft = validDraft();
+        draft.setActions(List.of(new AutomationAction(
+            AutomationActionType.FINISH_TEAM, null, null, null, null, null, null, null)));
+
+        AutomationRule created = service.createRule(gameId, draft, adminId);
+
+        assertEquals(gameId, created.getGameId());
+        verify(ruleRepository).save(created);
+    }
+
+    @Test
     void createRule_rejectsDistanceTrigger() {
         AutomationRule draft = validDraft();
         draft.setTriggerType(AutomationTriggerType.DISTANCE_TRAVELED);
@@ -132,6 +144,21 @@ class AutomationServiceTest {
 
         AutomationRule draft = validDraft();
         draft.setTriggerConfig(new AutomationTriggerConfig(checkpointId, null, null, null, null, null, null, null, null));
+
+        assertThrows(BadRequestException.class, () -> service.createRule(gameId, draft, adminId));
+    }
+
+    @Test
+    void createRule_rejectsForeignExcludedCheckpoint() {
+        UUID excludedId = UUID.randomUUID();
+        CircleCheckpoint checkpoint = new CircleCheckpoint();
+        checkpoint.setId(excludedId);
+        checkpoint.setGameId(UUID.randomUUID()); // other game
+        when(checkpointRepository.findById(excludedId)).thenReturn(Optional.of(checkpoint));
+
+        AutomationRule draft = validDraft();
+        draft.setTriggerConfig(new AutomationTriggerConfig(null, null, null, null, null, null, null, null, null,
+            List.of(excludedId)));
 
         assertThrows(BadRequestException.class, () -> service.createRule(gameId, draft, adminId));
     }

@@ -13,5 +13,6 @@ public record TeamUpdateRequest(
     Boolean checkedIn,
     Boolean checkedInDigitally,
     Boolean traccarEnabled,
+    Boolean finished,
     String notes
 ) {}

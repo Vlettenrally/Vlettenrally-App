@@ -29,7 +29,7 @@ export function useTeamRealtime({ gameId, teamId }: UseRealtimeTeamOptions) {
   const { subscribe, connected } = useTeamWebSocket(gameId, teamId);
   const { addMessage } = useMessageStore();
   const { setRivalTeams, setRankings, addAchievement, updatePoints } = useTeamStore();
-  const { setGameStatus } = useGameStore();
+  const { setGameStatus, setRankingsPublished } = useGameStore();
 
   useEffect(() => {
     if (!gameId || !teamId) return;
@@ -65,9 +65,26 @@ export function useTeamRealtime({ gameId, teamId }: UseRealtimeTeamOptions) {
       })();
     });
 
-    // Subscribe to ranking updates — payload is the full game ranking.
+    // Subscribe to ranking updates — payload is the full game ranking. A push
+    // only happens once an admin reveals the standings, so flip the local flag
+    // too: the Eindstand menu item / route open live without re-fetching the game.
     const unsubscribeRanking = subscribe('RANKING_UPDATE', (message) => {
       setRankings(message.payload as RankingEntry[]);
+      setRankingsPublished(true);
+    });
+
+    // Own team changed (e.g. finished toggled by automation or admin). Refresh
+    // the player's own team so the dashboard reflects it live; the payload is
+    // minimal so we refetch the scoped team rather than trust a broadcast shape.
+    const unsubscribeTeamUpdate = subscribe('TEAM_UPDATE', () => {
+      (async () => {
+        try {
+          const team = await teamService.getMyTeam();
+          if (team) useTeamStore.getState().setTeam(team);
+        } catch (e) {
+          console.warn('Failed to refresh team after team update', e);
+        }
+      })();
     });
 
     // Subscribe to game status changes. Used to gate the Rankings page.
@@ -98,11 +115,12 @@ export function useTeamRealtime({ gameId, teamId }: UseRealtimeTeamOptions) {
       unsubscribeAchievements();
       unsubscribeRival();
       unsubscribeRanking();
+      unsubscribeTeamUpdate();
       unsubscribeGameStatus();
       unsubscribeCheckinReset();
       unsubscribeDeviceRemoved();
     };
-  }, [gameId, teamId, subscribe, addMessage, setRivalTeams, setRankings, setGameStatus, addAchievement, updatePoints]);
+  }, [gameId, teamId, subscribe, addMessage, setRivalTeams, setRankings, setGameStatus, setRankingsPublished, addAchievement, updatePoints]);
 
   return { connected };
 }

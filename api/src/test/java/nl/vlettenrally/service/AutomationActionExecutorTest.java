@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -34,6 +35,7 @@ import nl.vlettenrally.data.enums.AutomationExecutionStatus;
 import nl.vlettenrally.data.enums.AutomationTriggerType;
 import nl.vlettenrally.data.enums.MessageType;
 import nl.vlettenrally.data.enums.PointEntryType;
+import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 
 /**
@@ -49,6 +51,7 @@ class AutomationActionExecutorTest {
     @Mock WebSocketPublisher webSocketPublisher;
     @Mock MessageTemplateService messageTemplateService;
     @Mock AdminInboxService adminInboxService;
+    @Mock TeamRepository teamRepository;
 
     @InjectMocks AutomationActionExecutor executor;
 
@@ -89,6 +92,10 @@ class AutomationActionExecutorTest {
 
     private static AutomationAction notify(String text) {
         return new AutomationAction(AutomationActionType.NOTIFY_ADMINS, null, null, null, null, null, null, text);
+    }
+
+    private static AutomationAction finish() {
+        return new AutomationAction(AutomationActionType.FINISH_TEAM, null, null, null, null, null, null, null);
     }
 
     @Test
@@ -177,6 +184,33 @@ class AutomationActionExecutorTest {
         assertEquals("Testregel", captor.getValue().get("ruleName"));
         verify(adminInboxService).createNotification(eq(gameId), eq(team.getId()), eq("AUTOMATION_NOTIFICATION"),
             eq("De Watervlooien ging Windkracht Tien voorbij"), anyString());
+    }
+
+    @Test
+    void finishTeam_marksTargetFinished() {
+        rule.setActions(List.of(finish()));
+        when(teamRepository.findById(team.getId())).thenReturn(Optional.of(team));
+
+        AutomationActionExecutor.Result result = executor.execute(rule, List.of(team), EMPTY);
+
+        assertEquals(AutomationExecutionStatus.SUCCESS, result.status());
+        ArgumentCaptor<Team> captor = ArgumentCaptor.forClass(Team.class);
+        verify(teamRepository).save(captor.capture());
+        assertTrue(captor.getValue().isFinished());
+        // The team's own dashboard is notified live (scoped to that team).
+        verify(webSocketPublisher).sendToTeam(eq(gameId), eq(team.getId()), eq("TEAM_UPDATE"), any());
+    }
+
+    @Test
+    void finishTeam_alreadyFinished_isNoOp() {
+        team.setFinished(true);
+        rule.setActions(List.of(finish()));
+        when(teamRepository.findById(team.getId())).thenReturn(Optional.of(team));
+
+        AutomationActionExecutor.Result result = executor.execute(rule, List.of(team), EMPTY);
+
+        assertEquals(AutomationExecutionStatus.SUCCESS, result.status());
+        verify(teamRepository, never()).save(any());
     }
 
     @Test

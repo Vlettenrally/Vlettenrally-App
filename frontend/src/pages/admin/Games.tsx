@@ -32,8 +32,10 @@ import {
     QrCode2 as QrCodeIcon,
   ContentCopy as ContentCopyIcon,
   FileDownload as FileDownloadIcon,
+  Leaderboard as LeaderboardIcon,
 } from '@mui/icons-material';
 import QRCode from 'qrcode';
+import api from '../../services/api';
 import { gameService } from '../../services/gameService';
 import { useGameStore } from '../../store/useGameStore';
 import { websocket, WebSocketEventType } from '../../services/websocket';
@@ -79,6 +81,10 @@ const Games = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [gameToDelete, setGameToDelete] = useState<Game | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const [publishDialogOpen, setPublishDialogOpen] = useState(false);
+  const [gameToPublish, setGameToPublish] = useState<Game | null>(null);
+  const [publishing, setPublishing] = useState(false);
 
   const [checkInDialogOpen, setCheckInDialogOpen] = useState(false);
   const [checkInGame, setCheckInGame] = useState<Game | null>(null);
@@ -132,6 +138,28 @@ const Games = () => {
       setLocalError(err instanceof Error ? err.message : 'Failed to delete game');
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handlePublishClick = (game: Game) => {
+    setGameToPublish(game);
+    setPublishDialogOpen(true);
+  };
+
+  const handlePublishConfirm = async () => {
+    if (!gameToPublish) return;
+
+    setPublishing(true);
+    try {
+      const response = await api.publishRankings(gameToPublish.id);
+      if (response.error) throw new Error(response.error);
+      setPublishDialogOpen(false);
+      setGameToPublish(null);
+      await fetchGames();
+    } catch (err) {
+      setLocalError(err instanceof Error ? err.message : 'Failed to publish rankings');
+    } finally {
+      setPublishing(false);
     }
   };
 
@@ -313,6 +341,17 @@ const Games = () => {
                     )}
                   </TableCell>
                   <TableCell align="right">
+                    {game.status === 'completed' && (
+                      <IconButton
+                        size="small"
+                        onClick={() => handlePublishClick(game)}
+                        disabled={game.rankingsPublished}
+                        color={game.rankingsPublished ? 'success' : 'default'}
+                        title={game.rankingsPublished ? 'Eindstand is vrijgegeven' : 'Eindstand vrijgeven aan spelers'}
+                      >
+                        <LeaderboardIcon />
+                      </IconButton>
+                    )}
                     <IconButton
                       size="small"
                       onClick={() => handleGenerateCheckInLink(game)}
@@ -350,6 +389,29 @@ const Games = () => {
         game={selectedGame}
         onSave={handleFormSave}
       />
+
+      {/* Publish Rankings Confirmation Dialog */}
+      <Dialog open={publishDialogOpen} onClose={() => setPublishDialogOpen(false)}>
+        <DialogTitle>Eindstand vrijgeven</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Weet je zeker dat je de eindstand van "{gameToPublish?.name}" wilt vrijgeven? Alle
+            teams zien dan direct de volledige ranglijst. Doe dit pas tijdens de prijsuitreiking.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPublishDialogOpen(false)}>Annuleren</Button>
+          <Button
+            onClick={handlePublishConfirm}
+            color="primary"
+            variant="contained"
+            disabled={publishing}
+            startIcon={publishing ? <CircularProgress size={16} /> : <LeaderboardIcon />}
+          >
+            Vrijgeven
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>

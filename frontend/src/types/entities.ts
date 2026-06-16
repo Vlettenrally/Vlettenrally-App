@@ -8,6 +8,8 @@ export interface Game {
   description?: string;
   participantInfo?: string;
   status?: 'planned' | 'active' | 'completed';
+  // Whether the final ranking has been revealed to players (admin-triggered at the ceremony).
+  rankingsPublished?: boolean;
   // External event integration
   externalEventId?: number;
   externalEventName?: string;
@@ -157,6 +159,7 @@ export interface AdminTeam extends TeamBase {
   externalId?: string;
   checkedIn: boolean;
   checkedInDigitally: boolean;
+  finished: boolean;
   traccarEnabled: boolean;
   traccarIdentifier?: string | null;
   rivals: string[];
@@ -174,6 +177,7 @@ export interface PlayerTeam extends TeamBase {
   description: string;
   checkedIn: boolean;
   checkedInDigitally: boolean;
+  finished: boolean;
   rivals: string[];
   createdAt: string;
 }
@@ -563,7 +567,7 @@ export type AutomationTriggerType =
   | 'RIVAL_OVERTAKE'
   | 'DISTANCE_TRAVELED';
 
-export type AutomationActionType = 'SEND_MESSAGE' | 'AWARD_POINTS' | 'NOTIFY_ADMINS';
+export type AutomationActionType = 'SEND_MESSAGE' | 'AWARD_POINTS' | 'NOTIFY_ADMINS' | 'FINISH_TEAM';
 
 /**
  * Flat config; which fields apply depends on the rule's trigger type.
@@ -572,6 +576,7 @@ export type AutomationActionType = 'SEND_MESSAGE' | 'AWARD_POINTS' | 'NOTIFY_ADM
  */
 export interface AutomationTriggerConfig {
   checkpointId?: string | null;
+  excludedCheckpointIds?: string[] | null;
   mode?: 'ABSOLUTE' | 'RELATIVE' | null;
   absoluteTime?: string | null;
   relativeTo?: 'GAME_START' | 'GAME_END' | null;

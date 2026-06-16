@@ -167,6 +167,27 @@ class AutomationEngineTest {
     }
 
     @Test
+    void checkpointPass_skipsExcludedCheckpoint_butFiresForOthers() {
+        UUID excluded = checkpointId;
+        UUID allowed = UUID.randomUUID();
+        AutomationRule rule = rule(AutomationTriggerType.CHECKPOINT_ENTRY,
+            new AutomationTriggerConfig(null, null, null, null, null, null, null, null, null,
+                List.of(excluded)));
+        when(ruleRepository.findByGameIdAndTriggerType(gameId, AutomationTriggerType.CHECKPOINT_ENTRY))
+            .thenReturn(List.of(rule));
+        lenient().when(executionRepository.existsByRuleTeamAndContext(any(), any(), anyString()))
+            .thenReturn(false);
+
+        // Excluded checkpoint: rule does not fire.
+        engine.onCheckpointPass(gameId, teamId, excluded, Instant.now());
+        verifyNoInteractions(actionExecutor);
+
+        // Any other checkpoint: rule fires as usual.
+        engine.onCheckpointPass(gameId, teamId, allowed, Instant.now());
+        verify(actionExecutor).execute(eq(rule), eq(List.of(team)), any());
+    }
+
+    @Test
     void checkpointPass_fireOnce_skipsSecondPass_butFiresOtherCheckpoint() {
         AutomationRule rule = rule(AutomationTriggerType.CHECKPOINT_ENTRY, emptyConfig());
         when(ruleRepository.findByGameIdAndTriggerType(gameId, AutomationTriggerType.CHECKPOINT_ENTRY))

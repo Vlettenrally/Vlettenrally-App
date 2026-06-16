@@ -15,6 +15,7 @@ public record TeamResponse(
     UUID deviceId,
     boolean checkedIn,
     boolean checkedInDigitally,
+    boolean finished,
     boolean traccarEnabled,
     String traccarIdentifier,
     int totalPoints,

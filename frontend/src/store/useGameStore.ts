@@ -4,18 +4,10 @@
 import { create } from 'zustand';
 import { storage } from '../services/storage';
 import { gameService } from '../services/gameService';
-import type { Game } from '../types/entities';
+import type { Checkpoint, Game } from '../types/entities';
 
-export interface Checkpoint {
-  id: string;
-  gameId: string;
-  name: string;
-  openingTime: string;
-  closingTime?: string;
-  points: number;
-  latitude?: number;
-  longitude?: number;
-}
+// Re-exported so consumers can keep importing Checkpoint from the store.
+export type { Checkpoint };
 
 interface GameState {
   game: Game | null;
@@ -29,6 +21,7 @@ interface GameState {
   
   setGame: (game: Game) => void;
   setGameStatus: (status: 'planned' | 'active' | 'completed') => void;
+  setRankingsPublished: (published: boolean) => void;
   setCheckpoints: (checkpoints: Checkpoint[]) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
@@ -54,6 +47,8 @@ export const useGameStore = create<GameState>((set) => ({
   setGame: (game) => set({ game }),
   setGameStatus: (status) =>
     set((state) => ({ game: state.game ? { ...state.game, status } : null })),
+  setRankingsPublished: (published) =>
+    set((state) => ({ game: state.game ? { ...state.game, rankingsPublished: published } : null })),
   setCheckpoints: (checkpoints) => set({ checkpoints }),
   setLoading: (isLoading) => set({ isLoading }),
   setError: (error) => set({ error }),
