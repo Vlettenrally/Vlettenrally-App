@@ -23,6 +23,17 @@ import {
   Typography,
 } from '@mui/material';
 import QRCode from 'qrcode';
+import {
+  Celebration as PartyIcon,
+  Smartphone as PhoneIcon,
+  Notifications as NotificationIcon,
+  AccessTime as ClockIcon,
+} from '@mui/icons-material';
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { Pagination } from 'swiper/modules';
+import 'swiper/css';
+import 'swiper/css/pagination';
+import '../../checkin.css';
 import api from '../../services/api';
 import { storage } from '../../services/storage';
 import teamService from '../../services/teamService';
@@ -33,6 +44,7 @@ import { isPhoneNumber, validateParticipantNames } from '../../utils/validators'
 import { initializePushNotificationsWithReason } from '../../services/firebaseMessaging';
 import { shouldPromptHomescreenInstall } from '../../utils/pwa';
 import { WebSocketEventType } from '../../services/websocket';
+import { IOSInstallGuide } from '../../components/IOSInstallGuide';
 import type {
   CheckInState,
   PlayerTeam,
@@ -43,6 +55,7 @@ import type {
 } from '../../types/entities';
 
 type Step =
+  | 'welcome'
   | 'install-app'
   | 'loading'
   | 'select-game'
@@ -227,14 +240,23 @@ export function CheckInPage() {
     });
   }, [searchParams, loadTodayGames]);
 
-  // Entry: iOS browser users must add the app to their home screen first
-  // (push only works in standalone mode); everyone else starts check-in.
+  // Entry: Show welcome screen for first-time users, then proceed to install-app or check-in.
   useEffect(() => {
-    if (shouldPromptHomescreenInstall()) {
-      setStep('install-app');
-      return;
+    const hasSeenWelcome = localStorage.getItem('vlettenrally_welcome_seen');
+    const isReturningUser = localStorage.getItem('vlettenrally_device_id');
+    
+    if (isReturningUser && hasSeenWelcome) {
+      // Returning user: skip welcome
+      if (shouldPromptHomescreenInstall()) {
+        setStep('install-app');
+      } else {
+        beginCheckIn();
+      }
+    } else {
+      // New user: show welcome
+      setStep('welcome');
+      localStorage.setItem('vlettenrally_welcome_seen', 'true');
     }
-    beginCheckIn();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -559,59 +581,476 @@ export function CheckInPage() {
       <Box sx={{ mt: 6, mb: 4, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <Paper elevation={3} sx={{ p: 3, width: '100%' }}>
           <Stack spacing={3}>
-            <Box sx={{ textAlign: 'center' }}>
-              <Typography variant="h4" component="h1" gutterBottom>
-                Vlettenrally
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {step === 'install-app'
-                  ? 'Zet de app eerst op je beginscherm zodat je meldingen kunt ontvangen.'
-                  : step === 'permissions'
-                  ? 'Sta meldingen toe om updates te ontvangen tijdens de rally.'
-                  : step === 'rivals'
-                    ? 'Kies welke teams jullie in de gaten willen houden.'
-                    : step === 'traccar-setup'
-                      ? 'Stel de tracking-app in zodat jullie locatie zichtbaar is.'
-                      : step === 'wait'
-                        ? 'Een andere telefoon van jullie team vult op dit moment de gegevens in.'
-                        : 'Volg het spel online en check je team in voor de Vlettenrally.'}
-              </Typography>
-            </Box>
+            {step !== 'welcome' && (
+              <Box sx={{ textAlign: 'center' }}>
+                <Typography variant="h4" component="h1" gutterBottom>
+                  Vlettenrally
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {step === 'install-app'
+                    ? 'Zet de app eerst op je beginscherm zodat je meldingen kunt ontvangen.'
+                    : step === 'permissions'
+                    ? 'Sta meldingen toe om updates te ontvangen tijdens de rally.'
+                    : step === 'rivals'
+                      ? 'Kies welke teams jullie in de gaten willen houden.'
+                      : step === 'traccar-setup'
+                        ? 'Stel de tracking-app in zodat jullie locatie zichtbaar is.'
+                        : step === 'wait'
+                          ? 'Een andere telefoon van jullie team vult op dit moment de gegevens in.'
+                          : 'Volg het spel online en check je team in voor de Vlettenrally.'}
+                </Typography>
+              </Box>
+            )}
 
             {error && <Alert severity="error">{error}</Alert>}
 
-            {step === 'install-app' && (
-              <Stack spacing={2}>
-                <Typography variant="h6">Zet de app op je beginscherm</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Op een iPhone of iPad kun je alleen meldingen ontvangen als je de app eerst aan je
-                  beginscherm toevoegt en daarna vanaf daar opent. Zo blijf je tijdens de rally op de hoogte
-                  van belangrijke berichten.
-                </Typography>
-                <Box component="ol" sx={{ pl: 3, m: 0, '& li': { mb: 1 } }}>
-                  <Typography component="li" variant="body2">
-                    Tik onderin Safari op het deel-icoon (het vierkantje met de pijl omhoog).
-                  </Typography>
-                  <Typography component="li" variant="body2">
-                    Kies <strong>“Zet op beginscherm”</strong> en bevestig met <strong>“Voeg toe”</strong>.
-                  </Typography>
-                  <Typography component="li" variant="body2">
-                    Open de Vlettenrally-app vanaf je beginscherm en check daar in.
-                  </Typography>
-                </Box>
-                <Button
-                  variant="contained"
-                  size="large"
-                  fullWidth
-                  onClick={beginCheckIn}
+            {step === 'welcome' && (
+              <Box sx={{ width: '100%', minHeight: 400 }}>
+                <Swiper
+                  modules={[Pagination]}
+                  pagination={{ clickable: true }}
+                  spaceBetween={20}
+                  slidesPerView={1}
+                  style={{ paddingBottom: '40px' }}
                 >
-                  Ik heb het gedaan, ga verder
-                </Button>
-                <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
-                  Lukt het toevoegen niet? Je kunt ook hier verder inchecken, maar dan ontvang je geen
-                  meldingen op dit apparaat.
-                </Typography>
-              </Stack>
+                  {/* Slide 1: Welkom + Logo */}
+                  <SwiperSlide>
+                    <Stack spacing={2} alignItems="center" sx={{ py: 2, height: '100%', justifyContent: 'space-between' }}>
+                      {/* Logo bovenaan */}
+                      <Box
+                        component="img"
+                        src="/logo.svg"
+                        alt="Vlettenrally logo"
+                        sx={{
+                          width: '85%',
+                          maxWidth: 280,
+                          mt: 1,
+                          animation: 'logoEntrance 1.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                          '@keyframes logoEntrance': {
+                            '0%': { opacity: 0, transform: 'scale(0.3) rotate(-10deg)' },
+                            '100%': { opacity: 1, transform: 'scale(1) rotate(0deg)' },
+                          },
+                        }}
+                      />
+                      
+                      {/* Tekst in het midden - groter */}
+                      <Box sx={{ textAlign: 'center', px: 2 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 2, animation: 'slideInLeft 0.8s ease-out 0.3s both' }}>
+                          <Typography variant="h4" sx={{ fontWeight: 700, color: '#165656' }}>
+                            Welkom!
+                          </Typography>
+                        </Box>
+                        <Typography 
+                          variant="h6" 
+                          align="center" 
+                          sx={{ 
+                            fontWeight: 500,
+                            color: '#165656',
+                            mb: 1.5,
+                            animation: 'slideInRight 0.8s ease-out 0.5s both' 
+                          }}
+                        >
+                          Tijd om je lelievlet op te tuigen!
+                        </Typography>
+                        <Typography 
+                          variant="body1" 
+                          align="center" 
+                          color="text.secondary"
+                          sx={{ animation: 'slideInUp 0.8s ease-out 0.7s both' }}
+                        >
+                          Vaart jouw boot verder dan de rest?
+                        </Typography>
+                      </Box>
+
+                      {/* Bootje onderaan - vaart over het scherm */}
+                      <Box sx={{ width: '100%', position: 'relative', height: 120, overflow: 'visible', mb: 1 }}>
+                        <Box
+                          component="img"
+                          src="/boat.svg"
+                          alt="Vlettenrally boot"
+                          sx={{
+                            width: 100,
+                            height: 100,
+                            position: 'absolute',
+                            bottom: 10,
+                            animation: 'sailAcross 10s ease-in-out infinite',
+                            '@keyframes sailAcross': {
+                              '0%': { left: '-120px', transform: 'translateY(0px) rotate(-3deg)' },
+                              '50%': { left: 'calc(50% - 50px)', transform: 'translateY(-8px) rotate(0deg)' },
+                              '100%': { left: 'calc(100% + 20px)', transform: 'translateY(0px) rotate(3deg)' },
+                            },
+                          }}
+                        />
+                      </Box>
+
+                      {/* Swipe hint */}
+                      <Typography 
+                        variant="caption" 
+                        color="text.secondary" 
+                        sx={{ 
+                          animation: 'pulse 2s ease-in-out infinite',
+                          pb: 1,
+                        }}
+                      >
+                        Swipe voor meer →
+                      </Typography>
+                    </Stack>
+                  </SwiperSlide>
+
+                  {/* Slide 2: Het Spel */}
+                  <SwiperSlide>
+                    <Stack spacing={3} sx={{ py: 2, height: '100%', justifyContent: 'center' }}>
+                      <Box sx={{ textAlign: 'center' }}>
+                        {/* Gestileerde kaart met pulserende checkpoints */}
+                        <Box sx={{ 
+                          position: 'relative', 
+                          width: '100%', 
+                          maxWidth: 300, 
+                          height: 200,
+                          mx: 'auto',
+                          mb: 2,
+                        }}>
+                          {/* Kaart achtergrond */}
+                          <Box sx={{
+                            width: '100%',
+                            height: '100%',
+                            borderRadius: 2,
+                            border: '3px solid #165656',
+                            position: 'relative',
+                            overflow: 'hidden',
+                            boxShadow: '0 6px 16px rgba(22, 86, 86, 0.25)',
+                            background: '#e8f5e9',
+                          }}>
+                            {/* SVG voor land en water (Wolderwijd stijl) */}
+                            <svg 
+                              viewBox="0 0 300 200" 
+                              style={{ 
+                                position: 'absolute', 
+                                top: 0, 
+                                left: 0, 
+                                width: '100%', 
+                                height: '100%',
+                              }}
+                            >
+                              <defs>
+                                <linearGradient id="waterGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                  <stop offset="0%" style={{ stopColor: '#90caf9', stopOpacity: 1 }} />
+                                  <stop offset="50%" style={{ stopColor: '#64b5f6', stopOpacity: 1 }} />
+                                  <stop offset="100%" style={{ stopColor: '#42a5f5', stopOpacity: 1 }} />
+                                </linearGradient>
+                                <linearGradient id="landGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                  <stop offset="0%" style={{ stopColor: '#c8e6c9', stopOpacity: 1 }} />
+                                  <stop offset="100%" style={{ stopColor: '#a5d6a7', stopOpacity: 1 }} />
+                                </linearGradient>
+                              </defs>
+                              
+                              {/* Land achtergrond (hele kaart) */}
+                              <rect x="0" y="0" width="300" height="200" fill="url(#landGradient)" />
+                              
+                              {/* Centraal watervlak (Wolderwijd vorm) - verticaal langwerpig */}
+                              <path 
+                                d="M 80,10 
+                                   Q 60,15 55,30 
+                                   L 45,60 
+                                   Q 40,80 45,100 
+                                   L 50,130 
+                                   Q 55,150 60,165 
+                                   L 70,185 
+                                   Q 80,195 100,195 
+                                   L 130,190 
+                                   Q 150,188 165,185 
+                                   L 190,175 
+                                   Q 210,165 220,150 
+                                   L 235,120 
+                                   Q 245,95 240,70 
+                                   L 230,40 
+                                   Q 220,20 200,15 
+                                   L 170,10 
+                                   Q 140,8 110,10 
+                                   Z" 
+                                fill="url(#waterGradient)"
+                              />
+                              
+                              {/* Kustlijn accent */}
+                              <path 
+                                d="M 80,10 Q 60,15 55,30 L 45,60 Q 40,80 45,100 L 50,130 Q 55,150 60,165 L 70,185 Q 80,195 100,195 L 130,190 Q 150,188 165,185 L 190,175 Q 210,165 220,150 L 235,120 Q 245,95 240,70 L 230,40 Q 220,20 200,15 L 170,10 Q 140,8 110,10 Z" 
+                                stroke="#81c784"
+                                strokeWidth="2"
+                                fill="none"
+                                opacity="0.5"
+                              />
+                              
+                              {/* Water rimpelingen */}
+                              <circle cx="120" cy="80" r="15" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1">
+                                <animate attributeName="r" values="10;20;10" dur="5s" repeatCount="indefinite"/>
+                                <animate attributeName="opacity" values="0.4;0;0.4" dur="5s" repeatCount="indefinite"/>
+                              </circle>
+                              <circle cx="160" cy="120" r="12" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1">
+                                <animate attributeName="r" values="8;18;8" dur="6s" repeatCount="indefinite"/>
+                                <animate attributeName="opacity" values="0.4;0;0.4" dur="6s" repeatCount="indefinite"/>
+                              </circle>
+                              
+                              {/* Groeiende route lijn door het water - langs checkpoints */}
+                              <path 
+                                d="M 70,170 Q 90,150 110,135 L 135,110 Q 145,95 155,75 L 160,60" 
+                                stroke="#165656" 
+                                strokeWidth="3"
+                                fill="none"
+                                strokeDasharray="10,6"
+                                strokeDashoffset="500"
+                                opacity="0.6"
+                              >
+                                <animate 
+                                  attributeName="stroke-dashoffset" 
+                                  from="500" 
+                                  to="0" 
+                                  dur="12s" 
+                                  repeatCount="indefinite"
+                                />
+                              </path>
+                            </svg>
+
+                            {/* Rode checkpoint 1 (op water, onderaan) */}
+                            <Box sx={{
+                              position: 'absolute',
+                              top: '85%', left: '23%',
+                              width: 16, height: 16,
+                              borderRadius: '50%',
+                              bgcolor: '#f44336',
+                              border: '2px solid white',
+                              boxShadow: '0 0 0 0 rgba(244, 67, 54, 0.7), 0 2px 4px rgba(0,0,0,0.2)',
+                              animation: 'checkpoint-pulse 2s infinite',
+                              zIndex: 4,
+                              '@keyframes checkpoint-pulse': {
+                                '0%, 100%': { 
+                                  boxShadow: '0 0 0 0 rgba(244, 67, 54, 0.7), 0 2px 4px rgba(0,0,0,0.2)',
+                                  transform: 'scale(1)',
+                                },
+                                '50%': { 
+                                  boxShadow: '0 0 0 10px rgba(244, 67, 54, 0), 0 2px 8px rgba(0,0,0,0.3)',
+                                  transform: 'scale(1.15)',
+                                },
+                              },
+                            }} />
+
+                            {/* Rode checkpoint 2 (op kustlijn, links) */}
+                            <Box sx={{
+                              position: 'absolute',
+                              top: '50%', left: '15%',
+                              width: 16, height: 16,
+                              borderRadius: '50%',
+                              bgcolor: '#f44336',
+                              border: '2px solid white',
+                              boxShadow: '0 0 0 0 rgba(244, 67, 54, 0.7), 0 2px 4px rgba(0,0,0,0.2)',
+                              animation: 'checkpoint-pulse 2s infinite 0.3s',
+                              zIndex: 4,
+                            }} />
+
+                            {/* Rode checkpoint 3 (op water, midden) */}
+                            <Box sx={{
+                              position: 'absolute',
+                              top: '55%', left: '45%',
+                              width: 16, height: 16,
+                              borderRadius: '50%',
+                              bgcolor: '#f44336',
+                              border: '2px solid white',
+                              boxShadow: '0 0 0 0 rgba(244, 67, 54, 0.7), 0 2px 4px rgba(0,0,0,0.2)',
+                              animation: 'checkpoint-pulse 2s infinite 0.6s',
+                              zIndex: 4,
+                            }} />
+
+                            {/* Rode checkpoint 4 (op kustlijn, rechts) */}
+                            <Box sx={{
+                              position: 'absolute',
+                              top: '60%', left: '73%',
+                              width: 16, height: 16,
+                              borderRadius: '50%',
+                              bgcolor: '#f44336',
+                              border: '2px solid white',
+                              boxShadow: '0 0 0 0 rgba(244, 67, 54, 0.7), 0 2px 4px rgba(0,0,0,0.2)',
+                              animation: 'checkpoint-pulse 2s infinite 0.9s',
+                              zIndex: 4,
+                            }} />
+
+                            {/* Gouden super-checkpoint (op water, boven) */}
+                            <Box sx={{
+                              position: 'absolute',
+                              top: '30%', left: '53%',
+                              width: 20, height: 20,
+                              borderRadius: '50%',
+                              bgcolor: '#ffcb0f',
+                              border: '2px solid white',
+                              boxShadow: '0 0 0 0 rgba(255, 203, 15, 0.8), 0 3px 6px rgba(0,0,0,0.25)',
+                              animation: 'checkpoint-pulse 2s infinite 1.2s',
+                              zIndex: 4,
+                              '&::before': {
+                                content: '""',
+                                position: 'absolute',
+                                top: '50%',
+                                left: '50%',
+                                transform: 'translate(-50%, -50%)',
+                                width: 8,
+                                height: 8,
+                                borderRadius: '50%',
+                                bgcolor: 'white',
+                              },
+                            }} />
+
+                            {/* Rode checkpoint 5 (op kustlijn, boven) */}
+                            <Box sx={{
+                              position: 'absolute',
+                              top: '15%', left: '67%',
+                              width: 16, height: 16,
+                              borderRadius: '50%',
+                              bgcolor: '#f44336',
+                              border: '2px solid white',
+                              boxShadow: '0 0 0 0 rgba(244, 67, 54, 0.7), 0 2px 4px rgba(0,0,0,0.2)',
+                              animation: 'checkpoint-pulse 2s infinite 1.5s',
+                              zIndex: 4,
+                            }} />
+                          </Box>
+                        </Box>
+
+                        <Typography variant="h4" align="center" sx={{ fontWeight: 700, color: '#165656', mb: 3 }}>
+                          Ontdek & Win Punten!
+                        </Typography>
+                      </Box>
+                      
+                      <Box component="ul" sx={{ pl: 3, '& li': { mb: 1.5 } }}>
+                        <Typography component="li" variant="body1" sx={{ fontWeight: 500 }}>
+                          Vaar zoveel mogelijk kilometers
+                        </Typography>
+                        <Typography component="li" variant="body1" sx={{ fontWeight: 500 }}>
+                          Vind checkpoints op de kaart
+                        </Typography>
+                        <Typography component="li" variant="body1" sx={{ fontWeight: 500 }}>
+                          Doe mee met pitstop activiteiten
+                        </Typography>
+                        <Typography component="li" variant="body1" sx={{ fontWeight: 500 }}>
+                          Zoek geheime super-checkpoints
+                        </Typography>
+                      </Box>
+
+                      <Alert 
+                        severity="warning" 
+                        icon={<ClockIcon />}
+                        sx={{ 
+                          mt: 2,
+                          '& .MuiAlert-message': {
+                            width: '100%',
+                            textAlign: 'center',
+                          }
+                        }}
+                      >
+                        <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                          Finish voor 23:00u bij de Rallydesk!
+                        </Typography>
+                      </Alert>
+                    </Stack>
+                  </SwiperSlide>
+
+                  {/* Slide 3: Online Volgen */}
+                  <SwiperSlide>
+                    <Stack spacing={3} sx={{ py: 2, height: '100%', justifyContent: 'center' }}>
+                      <Box sx={{ textAlign: 'center' }}>
+                        <PhoneIcon sx={{ color: '#165656', fontSize: 48, mb: 1 }} />
+                        <Typography variant="h4" align="center" sx={{ fontWeight: 700, color: '#165656', mb: 3 }}>
+                          Volg Alles Live!
+                        </Typography>
+                      </Box>
+                      
+                      <Box component="ul" sx={{ pl: 3, '& li': { mb: 1.5 } }}>
+                        <Typography component="li" variant="body1" sx={{ fontWeight: 500 }}>
+                          Zie je punten en positie
+                        </Typography>
+                        <Typography component="li" variant="body1" sx={{ fontWeight: 500 }}>
+                          Ontvang berichten van de Rallydesk
+                        </Typography>
+                        <Typography component="li" variant="body1" sx={{ fontWeight: 500 }}>
+                          Check je rivalen
+                        </Typography>
+                        <Typography component="li" variant="body1" sx={{ fontWeight: 500 }}>
+                          GPS-tracker volgt je route
+                        </Typography>
+                      </Box>
+
+                      <Alert 
+                        severity="info" 
+                        icon={<NotificationIcon />}
+                        sx={{ 
+                          mt: 2,
+                          '& .MuiAlert-message': {
+                            width: '100%',
+                            textAlign: 'center',
+                          }
+                        }}
+                      >
+                        <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                          Blijf online tijdens de rally voor live updates!
+                        </Typography>
+                      </Alert>
+                    </Stack>
+                  </SwiperSlide>
+
+                  {/* Slide 4: Call-to-Action */}
+                  <SwiperSlide>
+                    <Stack spacing={3} alignItems="center" sx={{ py: 2, height: '100%', justifyContent: 'center' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <PartyIcon sx={{ color: '#ffcb0f', fontSize: 40 }} />
+                        <Typography variant="h4" align="center" sx={{ fontWeight: 700, color: '#165656' }}>
+                          Klaar voor vertrek?
+                        </Typography>
+                      </Box>
+                      <Box
+                        component="img"
+                        src="/boat.svg"
+                        alt="Boot"
+                        sx={{
+                          width: 140,
+                          height: 140,
+                          animation: 'bounce 1s ease-in-out infinite',
+                          '@keyframes bounce': {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-15px)' },
+                          },
+                        }}
+                      />
+                      <Button
+                        variant="contained"
+                        size="large"
+                        fullWidth
+                        onClick={() => {
+                          if (shouldPromptHomescreenInstall()) {
+                            setStep('install-app');
+                          } else {
+                            beginCheckIn();
+                          }
+                        }}
+                        sx={{
+                          py: 2,
+                          fontSize: '1.1rem',
+                          fontWeight: 700,
+                          background: 'linear-gradient(135deg, #165656 0%, #2a7a7a 100%)',
+                          boxShadow: '0 4px 15px rgba(22, 86, 86, 0.4)',
+                          '&:hover': {
+                            background: 'linear-gradient(135deg, #0d3333 0%, #165656 100%)',
+                            boxShadow: '0 6px 20px rgba(22, 86, 86, 0.6)',
+                          },
+                        }}
+                      >
+                        Start Inchecken! 🚀
+                      </Button>
+                      <Typography variant="caption" color="text.secondary" align="center">
+                        Heb je al ingecheckt? Log opnieuw in via deze pagina.
+                      </Typography>
+                    </Stack>
+                  </SwiperSlide>
+                </Swiper>
+              </Box>
+            )}
+
+            {step === 'install-app' && (
+              <IOSInstallGuide onComplete={beginCheckIn} />
             )}
 
             {step === 'loading' && (

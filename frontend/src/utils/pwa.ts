@@ -29,3 +29,23 @@ export function isRunningStandalone(): boolean {
 export function shouldPromptHomescreenInstall(): boolean {
   return isIOS() && !isRunningStandalone();
 }
+
+/**
+ * Detect if user is on Safari or Chrome on iOS.
+ * Returns 'safari' | 'chrome' | 'other'
+ */
+export function getIOSBrowser(): 'safari' | 'chrome' | 'other' {
+  const ua = navigator.userAgent;
+  
+  // Chrome on iOS
+  if (/CriOS/.test(ua)) {
+    return 'chrome';
+  }
+  
+  // Safari on iOS (default browser)
+  if (/Safari/.test(ua) && !/CriOS/.test(ua) && !/FxiOS/.test(ua)) {
+    return 'safari';
+  }
+  
+  return 'other';
+}
