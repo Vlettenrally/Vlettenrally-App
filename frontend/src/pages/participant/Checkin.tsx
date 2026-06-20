@@ -28,6 +28,7 @@ import {
   Smartphone as PhoneIcon,
   Notifications as NotificationIcon,
   AccessTime as ClockIcon,
+  Warning as WarningIcon,
 } from '@mui/icons-material';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Pagination } from 'swiper/modules';
@@ -281,6 +282,16 @@ export function CheckInPage() {
       setFormError('Kies eerst je team.');
       return;
     }
+    
+    // Validate that team has physically checked in at Rally Desk first
+    if (!selectedTeam.checkedIn) {
+      setFormError(
+        'Dit team moet eerst langs de Rallydesk om fysiek in te checken. Hier ontvang je de benodigde spullen voor het spel. ' +
+        'Kom daarna terug om digitaal in te checken.'
+      );
+      return;
+    }
+    
     setResolvedTeam({ id: selectedTeam.id, gameId: selectedGameId, name: selectedTeam.name });
     setFormError(null);
     setStep('nickname');
@@ -1087,6 +1098,14 @@ export function CheckInPage() {
                   renderOption={(props, option) => (
                     <Box component="li" {...props} sx={{ minHeight: 48, display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Typography variant="body1" sx={{ flexGrow: 1 }}>{option.name}</Typography>
+                      {!option.checkedIn && (
+                        <Chip 
+                          size="small" 
+                          color="warning" 
+                          icon={<WarningIcon />}
+                          label="Eerst naar Rally Desk" 
+                        />
+                      )}
                       {option.checkedIn && <Chip size="small" color="success" label="Ingecheckt" />}
                     </Box>
                   )}
