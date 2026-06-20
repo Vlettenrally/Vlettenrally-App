@@ -8,6 +8,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { resolveMapStyle, DEFAULT_CENTER } from '../utils/mapStyle';
+import { formatRelativeTime } from '../utils/dateTime';
 import turfCircle from '@turf/circle';
 
 export interface MapMarker {
@@ -24,6 +25,10 @@ export interface MapMarker {
   polygonPoints?: number[][];
   /** Hidden from teams — admin maps render these in a muted style */
   hidden?: boolean;
+  /** Team marker: most recent location is older than the staleness threshold — rendered dimmed */
+  stale?: boolean;
+  /** Team marker: ISO timestamp of the most recent location fix, shown in the popup */
+  locationTime?: string;
 }
 
 export interface MapTrack {
@@ -76,6 +81,8 @@ export function MapView({ markers, center, zoom, className, teamLocation, tracks
           id: m.id,
           label: m.label,
           color: m.color,
+          stale: m.stale ?? false,
+          locationTime: m.locationTime ?? '',
         },
       }));
 
@@ -316,6 +323,9 @@ export function MapView({ markers, center, zoom, className, teamLocation, tracks
                 'circle-color': ['get', 'color'],
                 'circle-stroke-width': 2,
                 'circle-stroke-color': '#ffffff',
+                // Dim teams whose latest location is stale (older than the threshold)
+                'circle-opacity': ['case', ['get', 'stale'], 0.35, 1],
+                'circle-stroke-opacity': ['case', ['get', 'stale'], 0.35, 1],
               },
             });
 
@@ -335,6 +345,7 @@ export function MapView({ markers, center, zoom, className, teamLocation, tracks
                 'text-color': '#333333',
                 'text-halo-color': '#ffffff',
                 'text-halo-width': 1.5,
+                'text-opacity': ['case', ['get', 'stale'], 0.45, 1],
               },
             });
           }
@@ -417,10 +428,12 @@ export function MapView({ markers, center, zoom, className, teamLocation, tracks
           const feature = e.features[0];
           const coords = (feature.geometry as GeoJSON.Point).coordinates.slice() as [number, number];
           const label = feature.properties?.label || '';
+          const locationTime = feature.properties?.locationTime || '';
+          const age = locationTime ? formatRelativeTime(locationTime) : '';
 
           new maplibregl.Popup({ offset: markerStyle === 'pin' ? 32 : 12, closeButton: false })
             .setLngLat(coords)
-            .setHTML(`<strong>${label}</strong>`)
+            .setHTML(age ? `<strong>${label}</strong><br/>${age}` : `<strong>${label}</strong>`)
             .addTo(map);
         });
 

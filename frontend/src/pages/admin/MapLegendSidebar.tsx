@@ -21,6 +21,8 @@ import type { SelectChangeEvent } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import PushPinIcon from '@mui/icons-material/PushPin';
 import PushPinOutlinedIcon from '@mui/icons-material/PushPinOutlined';
+import { RelativeTime } from '../../components/RelativeTime';
+import { STALE_AFTER_MS } from './mapConstants';
 
 export type TrackWindowMinutes = 15 | 30 | 60 | 120;
 
@@ -28,6 +30,8 @@ export interface LegendTeam {
   id: string;
   name: string;
   color: string;
+  /** ISO timestamp of the team's most recent location fix. */
+  locationTime: string;
 }
 
 export interface LegendCheckpoint {
@@ -46,6 +50,8 @@ interface MapLegendSidebarProps {
   hiddenCheckpointIds: Set<string>;
   trackTeamIds: Set<string>;
   windowMinutes: TrackWindowMinutes;
+  /** Current time (ms) supplied by the parent's staleness tick, used to flag stale teams. */
+  now: number;
   onToggleTeam: (id: string) => void;
   onToggleCheckpoint: (id: string) => void;
   onToggleTrack: (id: string) => void;
@@ -80,6 +86,7 @@ export function MapLegendSidebar({
   hiddenCheckpointIds,
   trackTeamIds,
   windowMinutes,
+  now,
   onToggleTeam,
   onToggleCheckpoint,
   onToggleTrack,
@@ -192,6 +199,8 @@ export function MapLegendSidebar({
                   {filteredTeams.map(team => {
                 const visible = !hiddenTeamIds.has(team.id);
                 const trackOn = trackTeamIds.has(team.id);
+                const ts = Date.parse(team.locationTime);
+                const stale = !Number.isNaN(ts) && now - ts > STALE_AFTER_MS;
                 return (
                   <ListItem
                     key={team.id}
@@ -230,7 +239,15 @@ export function MapLegendSidebar({
                     />
                     <ListItemText
                       primary={team.name}
-                      primaryTypographyProps={{ variant: 'body2', noWrap: true }}
+                      secondary={<RelativeTime date={team.locationTime} />}
+                      slotProps={{
+                        primary: { variant: 'body2', noWrap: true },
+                        secondary: {
+                          variant: 'caption',
+                          noWrap: true,
+                          color: stale ? 'warning.main' : 'text.secondary',
+                        },
+                      }}
                     />
                   </ListItem>
                 );
@@ -282,7 +299,7 @@ export function MapLegendSidebar({
                         />
                         <ListItemText
                           primary={cp.name}
-                          primaryTypographyProps={{ variant: 'body2', noWrap: true }}
+                          slotProps={{ primary: { variant: 'body2', noWrap: true } }}
                         />
                       </ListItem>
                     );

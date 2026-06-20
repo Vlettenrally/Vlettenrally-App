@@ -10,16 +10,19 @@
 import {lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Alert, Box, ButtonBase, CircularProgress, Typography} from '@mui/material';
 import type {MapMarker, MapTrack} from '../../components/MapView';
-import {getTeamColor} from '../../utils/teamColors';
 import type {Checkpoint, TeamLocation} from '../../types/entities';
 import {useGameStore} from '../../store/useGameStore';
 import {useAdminWebSocket} from '../../hooks/useWebSocket';
 import api from '../../services/api';
 import MapLegendSidebar, {type TrackWindowMinutes} from './MapLegendSidebar';
+import {STALE_AFTER_MS, TEAM_COLOR} from './mapConstants';
 
 const MapView = lazy(() => import('../../components/MapView'));
 
 const MAP_HEARTBEAT_INTERVAL_MS = 10_000; // 10 seconds
+
+// Re-evaluate marker staleness on this cadence even when no new data arrives.
+const STALENESS_TICK_MS = 30_000; // 30 seconds
 
 export default function AdminMap() {
   const { selectedGameId } = useGameStore();
@@ -29,6 +32,8 @@ export default function AdminMap() {
   const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([]);
   const [loading, setLoading] = useState(!!selectedGameId);
   const [error, setError] = useState<string | null>(null);
+  // Ticks periodically so marker staleness is recomputed without new location data.
+  const [now, setNow] = useState(() => Date.now());
 
   // Legend filter state — resets on page reload (no persistence by design).
   const [hiddenTeamIds, setHiddenTeamIds] = useState<Set<string>>(() => new Set());
@@ -67,6 +72,12 @@ export default function AdminMap() {
       }
     };
   }, [connected, send]);
+
+  // Periodically advance `now` so stale markers dim without waiting for new data.
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), STALENESS_TICK_MS);
+    return () => clearInterval(id);
+  }, []);
 
   // Fetch initial data when game changes
   useEffect(() => {
@@ -114,8 +125,17 @@ export default function AdminMap() {
     const payload = message.payload;
 
     if (Array.isArray(payload)) {
-      // Admin receives full game locations as array
-      setTeamLocations(payload as TeamLocation[]);
+
+      const incoming = payload as TeamLocation[];
+      if (incoming.length > 0) {
+        setTeamLocations(prev => {
+          const byId = new Map(prev.map(l => [l.teamId, l]));
+          for (const loc of incoming) {
+            byId.set(loc.teamId, loc);
+          }
+          return Array.from(byId.values());
+        });
+      }
     } else {
       // Single team update - merge into existing locations
       const teamLoc = payload as TeamLocation;
@@ -151,14 +171,19 @@ export default function AdminMap() {
   const markers: MapMarker[] = [
     ...teamLocations
       .filter(loc => !hiddenTeamIds.has(loc.teamId))
-      .map(loc => ({
-        id: loc.teamId,
-        lat: loc.latitude,
-        lng: loc.longitude,
-        label: loc.teamName,
-        color: getTeamColor(loc.teamId),
-        type: 'team' as const,
-      })),
+      .map(loc => {
+        const ts = Date.parse(loc.locationTime);
+        return {
+          id: loc.teamId,
+          lat: loc.latitude,
+          lng: loc.longitude,
+          label: loc.teamName,
+          color: TEAM_COLOR,
+          type: 'team' as const,
+          locationTime: loc.locationTime,
+          stale: !Number.isNaN(ts) && now - ts > STALE_AFTER_MS,
+        };
+      }),
     ...checkpoints
       .filter(cp => cp.latitude != null && cp.longitude != null)
       .filter(cp => !hiddenCheckpointIds.has(cp.id))
@@ -179,7 +204,7 @@ export default function AdminMap() {
   const tracks: MapTrack[] = useMemo(
     () => Object.entries(teamTracks).map(([teamId, points]) => ({
       teamId,
-      color: getTeamColor(teamId),
+      color: TEAM_COLOR,
       points,
     })),
     [teamTracks],
@@ -189,7 +214,8 @@ export default function AdminMap() {
     () => teamLocations.map(loc => ({
       id: loc.teamId,
       name: loc.teamName,
-      color: getTeamColor(loc.teamId),
+      color: TEAM_COLOR,
+      locationTime: loc.locationTime,
     })),
     [teamLocations],
   );
@@ -366,6 +392,7 @@ export default function AdminMap() {
             hiddenCheckpointIds={hiddenCheckpointIds}
             trackTeamIds={trackTeamIds}
             windowMinutes={windowMinutes}
+            now={now}
             onToggleTeam={handleToggleTeam}
             onToggleCheckpoint={handleToggleCheckpoint}
             onToggleTrack={handleToggleTrack}
