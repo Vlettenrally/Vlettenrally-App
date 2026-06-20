@@ -57,14 +57,51 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-mui': ['@mui/material', '@mui/icons-material', '@emotion/react', '@emotion/styled'],
-          'vendor-mui-datagrid': ['@mui/x-data-grid'],
-          'vendor-firebase': ['firebase/app', 'firebase/messaging'],
-          'vendor-maplibre': ['maplibre-gl', '@turf/circle', '@turf/helpers'],
-          'vendor-date-fns': ['date-fns'],
-          'vendor-qrcode': ['qrcode'],
+        manualChunks: (id) => {
+          if (!id.includes('node_modules')) {
+            return
+          }
+
+          if (
+            id.includes('/react/') ||
+            id.includes('/react-dom/') ||
+            id.includes('/react-router-dom/')
+          ) {
+            return 'vendor-react'
+          }
+
+          if (
+            id.includes('/@mui/material/') ||
+            id.includes('/@mui/icons-material/') ||
+            id.includes('/@emotion/react/') ||
+            id.includes('/@emotion/styled/')
+          ) {
+            return 'vendor-mui'
+          }
+
+          if (id.includes('/@mui/x-data-grid/')) {
+            return 'vendor-mui-datagrid'
+          }
+
+          if (id.includes('/firebase/')) {
+            return 'vendor-firebase'
+          }
+
+          if (
+            id.includes('/maplibre-gl/') ||
+            id.includes('/@turf/circle/') ||
+            id.includes('/@turf/helpers/')
+          ) {
+            return 'vendor-maplibre'
+          }
+
+          if (id.includes('/date-fns/')) {
+            return 'vendor-date-fns'
+          }
+
+          if (id.includes('/qrcode/')) {
+            return 'vendor-qrcode'
+          }
         },
       },
     },
