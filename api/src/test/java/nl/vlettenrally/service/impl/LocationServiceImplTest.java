@@ -168,19 +168,18 @@ class LocationServiceImplTest {
     }
 
     @Test
-    void getTeamLocationHistory_clampsBelowOne() {
+    void getTeamLocationHistory_allTimeSentinel_queriesFromEpoch() {
         when(gameService.findById(gameId)).thenReturn(Optional.of(new Game()));
         when(teamRepository.findByGameId(gameId)).thenReturn(List.of(team));
         when(locationDataRepository.findByTeamIdAndTimeRange(eq(teamId), any(), any())).thenReturn(List.of());
 
+        // windowMinutes <= 0 is the "all time" sentinel.
         locationService.getTeamLocationHistory(gameId, teamId, 0);
 
         ArgumentCaptor<Instant> startCaptor = ArgumentCaptor.forClass(Instant.class);
-        ArgumentCaptor<Instant> endCaptor = ArgumentCaptor.forClass(Instant.class);
-        verify(locationDataRepository).findByTeamIdAndTimeRange(eq(teamId), startCaptor.capture(), endCaptor.capture());
+        verify(locationDataRepository).findByTeamIdAndTimeRange(eq(teamId), startCaptor.capture(), any());
 
-        long windowSeconds = endCaptor.getValue().getEpochSecond() - startCaptor.getValue().getEpochSecond();
-        assertEquals(60L, windowSeconds);
+        assertEquals(Instant.EPOCH, startCaptor.getValue());
     }
 
     @Test

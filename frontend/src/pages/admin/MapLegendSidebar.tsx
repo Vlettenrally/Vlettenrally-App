@@ -24,7 +24,7 @@ import PushPinOutlinedIcon from '@mui/icons-material/PushPinOutlined';
 import { RelativeTime } from '../../components/RelativeTime';
 import { STALE_AFTER_MS } from './mapConstants';
 
-export type TrackWindowMinutes = 15 | 30 | 60 | 120;
+export type TrackWindowMinutes = 15 | 30 | 60 | 120 | 720 | 0; // 0 = all time
 
 export interface LegendTeam {
   id: string;
@@ -60,7 +60,14 @@ interface MapLegendSidebarProps {
   onWindowChange: (mins: TrackWindowMinutes) => void;
 }
 
-const WINDOW_OPTIONS: TrackWindowMinutes[] = [15, 30, 60, 120];
+const WINDOW_OPTIONS: { value: TrackWindowMinutes; label: string }[] = [
+  { value: 15, label: '15 minuten' },
+  { value: 30, label: '30 minuten' },
+  { value: 60, label: '60 minuten' },
+  { value: 120, label: '120 minuten' },
+  { value: 720, label: '12 uur' },
+  { value: 0, label: 'Alles' },
+];
 
 interface MasterState {
   checked: boolean;
@@ -319,8 +326,8 @@ export function MapLegendSidebar({
               value={windowMinutes}
               onChange={handleWindowChange}
             >
-              {WINDOW_OPTIONS.map(m => (
-                <MenuItem key={m} value={m}>{m} minuten</MenuItem>
+              {WINDOW_OPTIONS.map(o => (
+                <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
               ))}
             </Select>
           </FormControl>

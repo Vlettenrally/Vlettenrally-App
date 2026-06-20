@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 @ApplicationScoped
 public class LocationServiceImpl implements LocationService {
 
-    static final int MAX_HISTORY_WINDOW_MINUTES = 240;
+    static final int MAX_HISTORY_WINDOW_MINUTES = 720;
 
     @Inject
     LocationDataRepository locationDataRepository;
@@ -66,9 +66,11 @@ public class LocationServiceImpl implements LocationService {
             return Optional.empty();
         }
 
-        int clamped = Math.max(1, Math.min(windowMinutes, MAX_HISTORY_WINDOW_MINUTES));
         Instant end = Instant.now();
-        Instant start = end.minus(clamped, ChronoUnit.MINUTES);
+        // windowMinutes <= 0 is the "all time" sentinel: query the team's full track.
+        Instant start = windowMinutes <= 0
+            ? Instant.EPOCH
+            : end.minus(Math.clamp(windowMinutes, 1, MAX_HISTORY_WINDOW_MINUTES), ChronoUnit.MINUTES);
 
         List<TeamLocationResponse> points = locationDataRepository.findByTeamIdAndTimeRange(teamId, start, end).stream()
             .sorted(Comparator.comparing(LocationData::getLocationTime))
