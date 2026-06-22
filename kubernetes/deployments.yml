@@ -138,6 +138,10 @@ spec:
                 secretKeyRef:
                   name: opentelemetry-destination
                   key: token
+            - name: K8S_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
             # S3 Image Storage Configuration
             - name: S3_ENDPOINT
               valueFrom:
