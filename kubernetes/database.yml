@@ -62,3 +62,13 @@ spec:
         image: ghcr.io/joostvanviegen/cnpg-vlettenrally-custom:18
       - major: 17
         image: ghcr.io/joostvanviegen/cnpg-vlettenrally-custom:17
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: vlettenrally-database-backup
+spec:
+  schedule: "0 0 */1 * * *"
+  backupOwnerReference: self
+  cluster:
+    name: vlettenrally-database
