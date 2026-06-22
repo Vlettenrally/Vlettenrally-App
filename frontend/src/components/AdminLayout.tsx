@@ -47,6 +47,7 @@ import {
   Place as PlaceIcon,
   Flag as FlagIcon,
   Scoreboard as ScoreboardIcon,
+  PhotoLibrary as PhotoLibraryIcon,
 } from '@mui/icons-material';
 import { storage } from '../services/storage';
 import { useGameStore } from '../store/useGameStore';
@@ -116,6 +117,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { text: 'Berichten', icon: <MessageIcon />, path: '/admin/messages' },
     { text: 'Inbox', icon: <InboxIcon />, path: '/admin/inbox' },
     { text: 'Automations', icon: <AutomationsIcon />, path: '/admin/automations' },
+    { text: 'Foto\'s', icon: <PhotoLibraryIcon />, path: '/admin/pictures' },
     { text: 'Instellingen', icon: <SettingsIcon />, path: '/admin/settings' },
   ];
 

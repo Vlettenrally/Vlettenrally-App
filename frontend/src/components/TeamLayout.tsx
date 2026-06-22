@@ -26,6 +26,7 @@ import {
   Logout as LogoutIcon,
   Map as MapIcon,
   Description as DescriptionIcon,
+  PhotoCamera as PhotoCameraIcon,
 } from '@mui/icons-material';
 import { storage } from '../services/storage';
 import { useTeamStore } from '../store/useTeamStore';
@@ -96,6 +97,7 @@ export function TeamLayout({ children }: TeamLayoutProps) {
       ? [{ text: 'Spelinformatie', icon: <DescriptionIcon />, path: '/info' }]
       : []),
     { text: 'Kaart', icon: <MapIcon />, path: '/map' },
+    { text: 'Foto\'s', icon: <PhotoCameraIcon />, path: '/pictures' },
     ...(game?.rankingsPublished
       ? [{ text: 'Eindstand', icon: <LeaderboardIcon />, path: '/rankings' }]
       : []),

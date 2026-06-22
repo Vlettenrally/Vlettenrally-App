@@ -397,6 +397,40 @@ export interface Achievement {
   notes?: string;
 }
 
+export type PictureStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+/**
+ * A team-uploaded picture. `viewUrl` is a short-lived pre-signed URL, present only
+ * once the picture has been uploaded.
+ */
+export interface Picture {
+  id: string;
+  teamId: string;
+  gameId: string;
+  status: PictureStatus;
+  contentType: string | null;
+  sizeBytes: number | null;
+  viewUrl: string | null;
+  createdAt: string | null;
+  uploadedAt: string | null;
+  moderatedAt: string | null;
+  notes: string | null;
+}
+
+/**
+ * Response when reserving an upload slot: the pre-signed PUT URL plus the limits the
+ * client should enforce before uploading.
+ */
+export interface PictureUploadResponse {
+  pictureId: string;
+  objectKey: string;
+  uploadUrl: string;
+  contentType: string;
+  expiresAt: string;
+  maxBytes: number;
+  allowedContentTypes: string[];
+}
+
 /**
  * Team entry shown in the checkpoint station (GPS + achievement status merged)
  */

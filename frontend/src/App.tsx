@@ -37,6 +37,7 @@ const ParticipantInfoPage = lazy(() => import('./pages/participant/Info'));
 const ParticipantMap = lazy(() => import('./pages/participant/Map'));
 const RivalsPage = lazy(() => import('./pages/participant/Rivals'));
 const RankingsPage = lazy(() => import('./pages/participant/Rankings'));
+const PicturesPage = lazy(() => import('./pages/participant/Pictures'));
 
 // Lazy-loaded admin pages
 const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'));
@@ -53,6 +54,7 @@ const Settings = lazy(() => import('./pages/admin/Settings'));
 const AdminUsers = lazy(() => import('./pages/admin/AdminUsers'));
 const CheckpointStation = lazy(() => import('./pages/admin/CheckpointStation'));
 const PointsManagement = lazy(() => import('./pages/admin/PointsManagement'));
+const AdminPictures = lazy(() => import('./pages/admin/Pictures'));
 
 /**
  * Shared loading fallback for Suspense boundaries
@@ -516,6 +518,18 @@ function App() {
             }
           />
           <Route
+            path="/pictures"
+            element={
+              <TeamRoute>
+                <TeamLayout>
+                  <Suspense fallback={<PageLoader />}>
+                    <PicturesPage />
+                  </Suspense>
+                </TeamLayout>
+              </TeamRoute>
+            }
+          />
+          <Route
             path="/rival"
             element={
               <TeamRoute>
@@ -706,7 +720,19 @@ function App() {
               </AdminRoute>
             }
           />
-          
+          <Route
+            path="/admin/pictures"
+            element={
+              <AdminRoute>
+                <AdminLayout>
+                  <Suspense fallback={<PageLoader />}>
+                    <AdminPictures />
+                  </Suspense>
+                </AdminLayout>
+              </AdminRoute>
+            }
+          />
+
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

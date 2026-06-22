@@ -11,7 +11,8 @@ import { useMessageStore, type Message } from '../store/useMessageStore';
 import { useTeamStore, type Achievement, type RankingEntry } from '../store/useTeamStore';
 import { useGameStore } from '../store/useGameStore';
 import { usePointEntryStore } from '../store/usePointEntryStore';
-import type { PublicTeam, PointEntry } from '../types/entities';
+import { usePictureStore } from '../store/usePictureStore';
+import type { PublicTeam, PointEntry, Picture } from '../types/entities';
 
 interface UseRealtimeTeamOptions {
   gameId: string | null;
@@ -30,6 +31,7 @@ export function useTeamRealtime({ gameId, teamId }: UseRealtimeTeamOptions) {
   const { addMessage } = useMessageStore();
   const { setRivalTeams, setRankings, addAchievement, updatePoints } = useTeamStore();
   const { setGameStatus, setRankingsPublished } = useGameStore();
+  const upsertPicture = usePictureStore((s) => s.upsertPicture);
 
   useEffect(() => {
     if (!gameId || !teamId) return;
@@ -87,6 +89,12 @@ export function useTeamRealtime({ gameId, teamId }: UseRealtimeTeamOptions) {
       })();
     });
 
+    // A picture this team uploaded was approved/rejected by an admin — reflect the
+    // new status live in the gallery.
+    const unsubscribePicture = subscribe('PICTURE_MODERATED', (message) => {
+      upsertPicture(message.payload as Picture);
+    });
+
     // Subscribe to game status changes. Used to gate the Rankings page.
     const unsubscribeGameStatus = subscribe('GAME_STATUS', (message) => {
       const payload = message.payload as { status?: 'planned' | 'active' | 'completed' } | undefined;
@@ -116,11 +124,12 @@ export function useTeamRealtime({ gameId, teamId }: UseRealtimeTeamOptions) {
       unsubscribeRival();
       unsubscribeRanking();
       unsubscribeTeamUpdate();
+      unsubscribePicture();
       unsubscribeGameStatus();
       unsubscribeCheckinReset();
       unsubscribeDeviceRemoved();
     };
-  }, [gameId, teamId, subscribe, addMessage, setRivalTeams, setRankings, setGameStatus, setRankingsPublished, addAchievement, updatePoints]);
+  }, [gameId, teamId, subscribe, addMessage, setRivalTeams, setRankings, setGameStatus, setRankingsPublished, addAchievement, updatePoints, upsertPicture]);
 
   return { connected };
 }

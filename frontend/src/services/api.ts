@@ -50,6 +50,8 @@ import type {
   AutomationExecutionListResponse,
   CopyAutomationsResult,
   CopyCheckpointsResult,
+  Picture,
+  PictureUploadResponse,
 } from '../types/entities';
 import storage from './storage';
 import { isTokenExpiringSoon } from './auth';
@@ -831,6 +833,76 @@ async getGames() : Promise<ApiResponse<Game[]>> {
 
   async editPointEntry(entryId: string, request: EditPointEntryRequest): Promise<ApiResponse<PointEntry>> {
     return this.patch(`/admin/point-entries/${entryId}`, request);
+  }
+
+  // ==================== Picture endpoints ====================
+
+  // Team: reserve an upload slot and get a pre-signed PUT URL.
+  async requestPictureUpload(
+    teamId: string,
+    body: { contentType: string; fileName?: string; sizeBytes?: number },
+  ): Promise<ApiResponse<PictureUploadResponse>> {
+    return this.post(`/teams/${teamId}/pictures`, body);
+  }
+
+  /**
+   * Upload a file directly to S3 using a pre-signed PUT URL.
+   *
+   * Deliberately bypasses the request() wrapper: this goes straight to the storage
+   * provider, so it must NOT carry our Authorization header, and it needs upload
+   * progress (which fetch cannot report). Uses a raw XMLHttpRequest. The Content-Type
+   * must match the type the URL was signed with, or S3 rejects the signature.
+   */
+  uploadFileToS3(
+    uploadUrl: string,
+    file: File,
+    contentType: string,
+    onProgress?: (percent: number) => void,
+  ): Promise<{ ok: boolean; status: number }> {
+    return new Promise((resolve) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('PUT', uploadUrl, true);
+      xhr.setRequestHeader('Content-Type', contentType);
+      if (onProgress) {
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            onProgress(Math.round((event.loaded / event.total) * 100));
+          }
+        };
+      }
+      xhr.onload = () => resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status });
+      xhr.onerror = () => resolve({ ok: false, status: xhr.status || 0 });
+      xhr.send(file);
+    });
+  }
+
+  async confirmPictureUpload(teamId: string, pictureId: string): Promise<ApiResponse<Picture>> {
+    return this.post(`/teams/${teamId}/pictures/${pictureId}/confirm`);
+  }
+
+  async getMyPictures(teamId: string): Promise<ApiResponse<Picture[]>> {
+    return this.get(`/teams/${teamId}/pictures`);
+  }
+
+  async deletePicture(teamId: string, pictureId: string): Promise<ApiResponse<void>> {
+    return this.delete(`/teams/${teamId}/pictures/${pictureId}`);
+  }
+
+  // Admin moderation
+  async getPendingPictures(): Promise<ApiResponse<Picture[]>> {
+    return this.get('/pictures/pending');
+  }
+
+  async getAllPictures(status?: string): Promise<ApiResponse<Picture[]>> {
+    return this.get(status ? `/pictures?status=${encodeURIComponent(status)}` : '/pictures');
+  }
+
+  async approvePicture(pictureId: string): Promise<ApiResponse<Picture>> {
+    return this.post(`/pictures/${pictureId}/approve`);
+  }
+
+  async rejectPicture(pictureId: string, notes?: string): Promise<ApiResponse<Picture>> {
+    return this.post(`/pictures/${pictureId}/reject`, { notes });
   }
 }
 
