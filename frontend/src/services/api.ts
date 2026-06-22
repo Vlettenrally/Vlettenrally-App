@@ -522,6 +522,10 @@ class ApiService {
     });
   }
 
+  async deleteTeam(teamId: string) : Promise<ApiResponse<void>> {
+    return this.delete(`/teams/${teamId}`);
+  }
+
   // Game endpoints
 async getGames() : Promise<ApiResponse<Game[]>> {
     return this.get('/games');

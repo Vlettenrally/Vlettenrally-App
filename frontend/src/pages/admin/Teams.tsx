@@ -64,10 +64,12 @@ export default function Teams() {
     
     const unsubscribeCreated = websocket.on('team:created', refreshTeams);
     const unsubscribeUpdated = websocket.on('team:updated', refreshTeams);
+    const unsubscribeDeleted = websocket.on('team:deleted', refreshTeams);
 
     return () => {
       unsubscribeCreated();
       unsubscribeUpdated();
+      unsubscribeDeleted();
     };
   }, [selectedGameId]);
 

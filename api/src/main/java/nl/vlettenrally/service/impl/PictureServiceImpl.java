@@ -140,6 +140,20 @@ public class PictureServiceImpl implements PictureService {
     }
 
     @Override
+    public void deleteAllForTeam(UUID teamId) {
+        for (Picture picture : pictureRepository.findByTeamId(teamId)) {
+            try {
+                storageService.delete(picture.getObjectKey());
+            } catch (RuntimeException e) {
+                // Best-effort: a failed object delete must not block removing the team.
+                Log.warnf("Failed to delete object %s while removing team %s: %s",
+                    picture.getObjectKey(), teamId, e.getMessage());
+            }
+            pictureRepository.delete(picture.getId());
+        }
+    }
+
+    @Override
     public void deleteOwnPicture(UUID teamId, UUID pictureId) {
         Picture picture = ownedPicture(teamId, pictureId);
         if (picture.getStatus() != PictureStatus.PENDING) {

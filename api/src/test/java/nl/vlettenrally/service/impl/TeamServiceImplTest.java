@@ -27,6 +27,7 @@ import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.service.GameService;
+import nl.vlettenrally.service.PictureService;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 
 /**
@@ -44,6 +45,9 @@ class TeamServiceImplTest {
 
     @Mock
     WebSocketPublisher webSocketPublisher;
+
+    @Mock
+    PictureService pictureService;
 
     @InjectMocks
     TeamServiceImpl teamService;
@@ -262,6 +266,16 @@ class TeamServiceImplTest {
         teamService.delete(teamId);
 
         // Assert
+        verify(teamRepository).delete(teamId);
+    }
+
+    @Test
+    void delete_alsoRemovesTeamPictures() {
+        // Act
+        teamService.delete(teamId);
+
+        // Assert: picture objects are cleaned up before the team row is removed.
+        verify(pictureService).deleteAllForTeam(teamId);
         verify(teamRepository).delete(teamId);
     }
 

@@ -379,6 +379,31 @@ public class TeamResource {
     }
 
     /**
+     * Delete a team. Cascades (DB-level) to its participants, emergency phones, rivals,
+     * devices, achievements, point entries, messages, location data and pictures.
+     */
+    @DELETE
+    @Path("/teams/{teamId}")
+    public Response deleteTeam(@PathParam("teamId") UUID teamId) {
+        Optional<Team> teamOpt = teamService.findById(teamId);
+        if (teamOpt.isEmpty()) {
+            return Response.status(Response.Status.NOT_FOUND)
+                .entity(new ErrorResponse("Team not found"))
+                .build();
+        }
+
+        UUID gameId = teamOpt.get().getGameId();
+        teamService.delete(teamId);
+
+        // Broadcast removal so admin dashboards drop the team live.
+        if (gameId != null) {
+            webSocketPublisher.broadcastToGame(gameId, "team:deleted", Map.of("id", teamId.toString()));
+        }
+
+        return Response.noContent().build();
+    }
+
+    /**
      * Admin: list every registered check-in device for a team.
      */
     @GET

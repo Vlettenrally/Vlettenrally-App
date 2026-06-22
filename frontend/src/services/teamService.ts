@@ -103,6 +103,11 @@ export const teamService = {
     return response.data ?? null;
   },
 
+  deleteTeam: async (teamId: string): Promise<{ error: string | null }> => {
+    const response = await api.deleteTeam(teamId);
+    return { error: response.error ?? null };
+  },
+
   listDevices: async (teamId: string): Promise<CheckInDevice[]> => {
     const response = await api.getTeamDevices(teamId);
     return response.data ?? [];

@@ -6,6 +6,7 @@ import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.service.GameService;
+import nl.vlettenrally.service.PictureService;
 import nl.vlettenrally.service.TeamService;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 import nl.vlettenrally.websockets.dto.WebSocketMessageType;
@@ -35,6 +36,9 @@ public class TeamServiceImpl implements TeamService {
 
     @Inject
     WebSocketPublisher webSocketPublisher;
+
+    @Inject
+    PictureService pictureService;
 
     @ConfigProperty(name = "vlettenrally.rivals.max-per-team", defaultValue = "5")
     int maxRivals;
@@ -125,6 +129,8 @@ public class TeamServiceImpl implements TeamService {
 
     @Override
     public void delete(UUID id) {
+        // Stored picture objects don't cascade with the team's DB row — remove them first.
+        pictureService.deleteAllForTeam(id);
         teamRepository.delete(id);
     }
 

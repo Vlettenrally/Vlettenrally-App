@@ -43,6 +43,8 @@ export default function TeamDetailDialog({
   const [deviceActionPending, setDeviceActionPending] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const [deviceError, setDeviceError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -126,6 +128,7 @@ export default function TeamDetailDialog({
       setConfirmReset(false);
       setDeviceError(null);
     }
+    setConfirmDelete(false);
     setError(null);
   }, [team, gameId]);
 
@@ -269,6 +272,24 @@ export default function TeamDetailDialog({
     }
   };
 
+  const handleDelete = async () => {
+    if (!team) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      const { error: deleteError } = await teamService.deleteTeam(team.id);
+      if (deleteError) {
+        setError(deleteError);
+        return;
+      }
+      setConfirmDelete(false);
+      onSave?.();
+      onClose();
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const handleChange = (field: keyof typeof formData) => (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
@@ -309,7 +330,37 @@ export default function TeamDetailDialog({
             {error}
           </Alert>
         )}
-        
+
+        {confirmDelete && team && (
+          <Alert
+            severity="error"
+            sx={{ mb: 2 }}
+            action={
+              <Stack direction="row" spacing={1}>
+                <Button
+                  size="small"
+                  color="inherit"
+                  disabled={deleting}
+                  onClick={() => setConfirmDelete(false)}
+                >
+                  Annuleer
+                </Button>
+                <Button
+                  size="small"
+                  color="error"
+                  variant="contained"
+                  disabled={deleting}
+                  onClick={handleDelete}
+                >
+                  {deleting ? <CircularProgress size={20} /> : 'Verwijder definitief'}
+                </Button>
+              </Stack>
+            }
+          >
+            Team "{team.name}" en alle bijbehorende gegevens (punten, foto's, locaties, apparaten) definitief verwijderen?
+          </Alert>
+        )}
+
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
           <TextField
             label="Team Name"
@@ -609,7 +660,7 @@ export default function TeamDetailDialog({
           )}
         </Box>
       </DialogContent>
-      <DialogActions>
+      <DialogActions sx={{ justifyContent: isEditing || isCreateMode ? 'flex-end' : 'space-between' }}>
         {isEditing ? (
           <>
             <Button onClick={handleCancel} disabled={loading}>
@@ -625,10 +676,21 @@ export default function TeamDetailDialog({
           </>
         ) : (
           <>
-            <Button onClick={onClose}>Close</Button>
-            <Button onClick={handleEdit} variant="contained">
-              Edit
-            </Button>
+            {!isCreateMode && (
+              <Button
+                color="error"
+                onClick={() => setConfirmDelete(true)}
+                disabled={deleting || confirmDelete}
+              >
+                Verwijder team
+              </Button>
+            )}
+            <Box>
+              <Button onClick={onClose}>Close</Button>
+              <Button onClick={handleEdit} variant="contained" sx={{ ml: 1 }}>
+                Edit
+              </Button>
+            </Box>
           </>
         )}
       </DialogActions>

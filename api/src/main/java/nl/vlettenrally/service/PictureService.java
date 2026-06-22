@@ -40,6 +40,12 @@ public interface PictureService {
     List<Picture> findByTeamId(UUID teamId);
 
     /**
+     * Delete every picture owned by a team, including its stored object. Used when a team is
+     * removed: the DB rows cascade with the team, but the S3 objects would otherwise be orphaned.
+     */
+    void deleteAllForTeam(UUID teamId);
+
+    /**
      * Delete a team's own picture (only while PENDING) and its object, freeing a slot.
      *
      * @throws PictureException 404 if not found for the team, 409 if it is not PENDING.
