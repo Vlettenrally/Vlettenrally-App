@@ -138,6 +138,27 @@ spec:
                 secretKeyRef:
                   name: opentelemetry-destination
                   key: token
+            # S3 Image Storage Configuration
+            - name: S3_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: vlettenrally-s3-images
+                  key: endpoint
+            - name: S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: vlettenrally-s3-images
+                  key: access-key
+            - name: S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: vlettenrally-s3-images
+                  key: secret-key
+            - name: S3_BUCKET_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: vlettenrally-s3-images
+                  key: bucket-name
           volumeMounts:
             - name: firebase-credentials
               mountPath: /secrets/firebase
