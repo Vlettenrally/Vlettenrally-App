@@ -144,17 +144,17 @@ spec:
                 secretKeyRef:
                   name: vlettenrally-s3-images
                   key: endpoint
-            - name: S3_ACCESS_KEY
+            - name: STORJ_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
                   name: vlettenrally-s3-images
                   key: access-key
-            - name: S3_SECRET_KEY
+            - name: STORJ_SECRET_KEY
               valueFrom:
                 secretKeyRef:
                   name: vlettenrally-s3-images
                   key: secret-key
-            - name: S3_BUCKET_NAME
+            - name: PICTURES_BUCKET
               valueFrom:
                 secretKeyRef:
                   name: vlettenrally-s3-images
