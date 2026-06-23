@@ -26,7 +26,8 @@ class PublicGalleryTokenFilterTest {
 
     private PublicGalleryTokenFilter filter(String configuredToken) {
         PublicGalleryTokenFilter f = new PublicGalleryTokenFilter();
-        f.configuredToken = Optional.ofNullable(configuredToken);
+        // PublicGalleryConfig is a single-method interface, so a lambda stands in for it.
+        f.config = () -> Optional.ofNullable(configuredToken);
         return f;
     }
 

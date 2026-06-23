@@ -1,18 +1,18 @@
 package nl.vlettenrally.api.security;
 
 import jakarta.annotation.Priority;
+import jakarta.inject.Inject;
 import jakarta.ws.rs.Priorities;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.container.ContainerRequestFilter;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.Provider;
+import nl.vlettenrally.config.PublicGalleryConfig;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.util.Optional;
 
 /**
  * JAX-RS filter that guards {@link PublicGalleryToken}-annotated endpoints with a single shared
@@ -28,13 +28,13 @@ public class PublicGalleryTokenFilter implements ContainerRequestFilter {
 
     private static final String BEARER_PREFIX = "Bearer ";
 
-    @ConfigProperty(name = "vlettenrally.public-gallery.token")
-    Optional<String> configuredToken;
+    @Inject
+    PublicGalleryConfig config;
 
     @Override
     public void filter(ContainerRequestContext requestContext) {
         // Fail closed: an unset/blank token disables the public gallery entirely.
-        String expected = configuredToken.map(String::trim).filter(t -> !t.isEmpty()).orElse(null);
+        String expected = config.token().map(String::trim).filter(t -> !t.isEmpty()).orElse(null);
         if (expected == null) {
             abortUnauthorized(requestContext, "Public gallery is not enabled");
             return;
