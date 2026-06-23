@@ -25,7 +25,7 @@ import java.util.UUID;
  * Public, read-only gallery API for approved pictures.
  * <p>
  * Unlike {@link PictureResource} (team/admin JWT auth), every endpoint here is guarded by a single
- * shared secret ({@link PublicGalleryToken}, {@code Authorization: Bearer <token>}) so an external,
+ * shared secret ({@link PublicGalleryToken}, {@code X-Public-Gallery-Token: <token>}) so an external,
  * embeddable consumer (e.g. an event slideshow) can read approved pictures without a login.
  * {@code @PermitAll} bypasses the JWT role machinery; the token filter does the real gatekeeping.
  * <p>

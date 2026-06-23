@@ -1,7 +1,6 @@
 package nl.vlettenrally.api.security;
 
 import jakarta.ws.rs.container.ContainerRequestContext;
-import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,28 +38,28 @@ class PublicGalleryTokenFilterTest {
 
     @Test
     void missingHeader_returns401() {
-        when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
+        when(requestContext.getHeaderString(PublicGalleryTokenFilter.TOKEN_HEADER)).thenReturn(null);
         filter("secret").filter(requestContext);
         assertAborted(401);
     }
 
     @Test
-    void nonBearerHeader_returns401() {
-        when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("secret");
+    void blankHeader_returns401() {
+        when(requestContext.getHeaderString(PublicGalleryTokenFilter.TOKEN_HEADER)).thenReturn("   ");
         filter("secret").filter(requestContext);
         assertAborted(401);
     }
 
     @Test
     void wrongToken_returns401() {
-        when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer nope");
+        when(requestContext.getHeaderString(PublicGalleryTokenFilter.TOKEN_HEADER)).thenReturn("nope");
         filter("secret").filter(requestContext);
         assertAborted(401);
     }
 
     @Test
     void correctToken_passesThrough() {
-        when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer secret");
+        when(requestContext.getHeaderString(PublicGalleryTokenFilter.TOKEN_HEADER)).thenReturn("secret");
         filter("secret").filter(requestContext);
         verify(requestContext, never()).abortWith(org.mockito.ArgumentMatchers.any());
     }

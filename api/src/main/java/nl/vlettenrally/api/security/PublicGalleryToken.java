@@ -9,10 +9,12 @@ import java.lang.annotation.Target;
 /**
  * Security annotation guarding the public gallery API with a single shared secret.
  * <p>
- * Endpoints annotated with this require an {@code Authorization: Bearer <token>} header that
+ * Endpoints annotated with this require an {@code X-Public-Gallery-Token: <token>} header that
  * matches the configured {@code vlettenrally.public-gallery.token}. This is intentionally
  * separate from the JWT/team authentication: it lets an external, embeddable consumer (e.g. an
- * event slideshow) read approved pictures without a team or admin login.
+ * event slideshow) read approved pictures without a team or admin login. A dedicated header
+ * (rather than {@code Authorization: Bearer}) is used so the shared secret is never seen by the
+ * SmallRye JWT mechanism, which would otherwise reject it as an invalid JWT.
  * <p>
  * If the token is not configured, or the header is missing or wrong, a 401 Unauthorized response
  * is returned (fail closed). See {@link PublicGalleryTokenFilter}.
