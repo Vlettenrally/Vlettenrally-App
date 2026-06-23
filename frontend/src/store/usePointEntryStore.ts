@@ -8,6 +8,9 @@
 import { create } from 'zustand';
 import type { PointEntry } from '../types/entities';
 
+/** Newest first, matching the API's default ordering. */
+const byCreatedAtDesc = (a: PointEntry, b: PointEntry) => b.createdAt.localeCompare(a.createdAt);
+
 interface PointEntryState {
   entries: PointEntry[];
   totalCount: number;
@@ -44,15 +47,19 @@ export const usePointEntryStore = create<PointEntryState>((set) => ({
   }),
 
   addEntry: (entry) => set((state) => {
+    // Only count it as a new entry when the id wasn't already present — the same
+    // id can arrive twice (event replay) or be routed here as an update, and
+    // those must not inflate totalCount / pagination.
+    const isNew = !state.entries.some((e) => e.id === entry.id);
     const without = state.entries.filter((e) => e.id !== entry.id);
-    const next = [entry, ...without].sort((a, b) =>
-      b.createdAt.localeCompare(a.createdAt)
-    );
-    return { entries: next, totalCount: state.totalCount + 1 };
+    const next = [entry, ...without].sort(byCreatedAtDesc);
+    return { entries: next, totalCount: isNew ? state.totalCount + 1 : state.totalCount };
   }),
 
   updateEntry: (entry) => set((state) => ({
-    entries: state.entries.map((e) => (e.id === entry.id ? entry : e)),
+    // Re-sort: an edit can change createdAt, which would otherwise leave the
+    // list out of order (addEntry keeps it sorted, so updateEntry must too).
+    entries: state.entries.map((e) => (e.id === entry.id ? entry : e)).sort(byCreatedAtDesc),
   })),
 
   setLoading: (isLoading) => set({ isLoading }),

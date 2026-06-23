@@ -46,11 +46,16 @@ export function useTeamRealtime({ gameId, teamId }: UseRealtimeTeamOptions) {
       console.log('Countdown update:', message.payload);
     });
 
-    // Subscribe to team achievements
+    // Subscribe to team achievements. addAchievement dedupes by id; only apply
+    // the points total when the achievement is actually new, so a duplicate /
+    // replayed event can't clobber the displayed total with a stale value.
     const unsubscribeAchievements = subscribe('TEAM_ACHIEVEMENT', (message) => {
       const achievement = message.payload as Achievement & { totalPoints: number };
+      const isNew = !useTeamStore.getState().achievements.some((a) => a.id === achievement.id);
       addAchievement(achievement);
-      updatePoints(achievement.totalPoints);
+      if (isNew) {
+        updatePoints(achievement.totalPoints);
+      }
     });
 
     // Subscribe to rival updates — payload is the team's full rival list.

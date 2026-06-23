@@ -78,11 +78,7 @@ describe('useTeamRealtime', () => {
     expect(useGameStore.getState().game?.rankingsPublished).toBe(true);
   });
 
-  // KNOWN BUG: TEAM_ACHIEVEMENT calls updatePoints() unconditionally, but
-  // addAchievement() dedupes by id. A duplicate event therefore does NOT add a
-  // second achievement, yet it STILL overwrites totalPoints — so a stale/replayed
-  // event can clobber the displayed points. Asserting current behavior.
-  it('TEAM_ACHIEVEMENT dedupes the achievement but still overwrites points (known bug)', () => {
+  it('TEAM_ACHIEVEMENT dedupes the achievement and ignores points from a duplicate event', () => {
     useTeamStore.getState().setTeam({ id: 't', name: 'Team', totalPoints: 0 } as PlayerTeam);
     renderHook(() => useTeamRealtime({ gameId: 'g', teamId: 't' }));
 
@@ -97,7 +93,7 @@ describe('useTeamRealtime', () => {
     fire('TEAM_ACHIEVEMENT', { ...base, totalPoints: 999 }); // duplicate id
 
     expect(useTeamStore.getState().achievements).toHaveLength(1); // deduped
-    expect(useTeamStore.getState().team?.totalPoints).toBe(999); // BUG: points still clobbered
+    expect(useTeamStore.getState().team?.totalPoints).toBe(50); // duplicate did not clobber
   });
 
   it('stops mutating stores after unmount', () => {

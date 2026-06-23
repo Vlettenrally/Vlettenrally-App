@@ -78,10 +78,13 @@ export const useMessageStore = create<MessageState>((set) => ({
     }),
 
   markAllAsRead: () =>
-    set((state) => ({
-      messages: state.messages.map((m) => ({ ...m, read: true })),
-      unreadCount: 0,
-    })),
+    set((state) => {
+      const messages = state.messages.map((m) => ({ ...m, read: true }));
+      return {
+        messages,
+        unreadCount: messages.filter((m) => !m.read).length,
+      };
+    }),
 
   setLoading: (isLoading) => set({ isLoading }),
   setError: (error) => set({ error }),
