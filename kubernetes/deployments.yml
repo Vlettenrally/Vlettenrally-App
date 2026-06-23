@@ -5,7 +5,7 @@ metadata:
   labels:
     app: vlettenrally-api
 spec:
-  replicas: 2
+  replicas: 6
   selector:
     matchLabels:
       app: vlettenrally-api
@@ -208,7 +208,7 @@ metadata:
   labels:
     app: vlettenrally-frontend
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: vlettenrally-frontend
@@ -273,7 +273,7 @@ metadata:
   labels:
     app: vlettenrally-tileserver
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: vlettenrally-tileserver
@@ -451,7 +451,7 @@ spec:
         storageClassName: sata
         resources:
           requests:
-            storage: 6Gi
+            storage: 20Gi
 
 ---
 # =============================================================================

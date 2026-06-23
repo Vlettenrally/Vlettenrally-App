@@ -82,14 +82,40 @@ class WebSocketService {
   private lastPongReceived: number | null = null;
   private pongTimeoutCheck: number | null = null;
   private isOnline = true;
+  private isConnecting = false;
 
   constructor() {
     // Monitor online/offline status
     this.isOnline = navigator.onLine;
-    
+
     window.addEventListener('online', this.handleOnline);
     window.addEventListener('offline', this.handleOffline);
+
+    // Recover the socket when the app is foregrounded. Backgrounding a mobile tab
+    // throttles timers and usually drops the socket, but it does NOT fire 'online'
+    // (the network never went down), so the backoff never gets reset on resume.
+    document.addEventListener('visibilitychange', this.handleVisibilityChange);
+    // pageshow also covers bfcache restore on mobile Safari, where visibilitychange
+    // may not fire.
+    window.addEventListener('pageshow', this.handleVisibilityChange);
   }
+
+  private handleVisibilityChange = (): void => {
+    if (document.visibilityState !== 'visible') return;
+    if (!this.config || this.isIntentionallyClosed || !this.isOnline) return;
+
+    if (!this.isConnected()) {
+      // Foregrounded with a dropped socket. The backoff timer was throttled while
+      // hidden (or the attempt cap was hit), so the socket can stay dead even though
+      // the network is fine. Force a fresh, immediate reconnect - mirrors handleOnline,
+      // which only fires on real network changes, not on foregrounding.
+      this.resetAndReconnect();
+    } else if (this.lastPongReceived && Date.now() - this.lastPongReceived > this.PONG_TIMEOUT_MS) {
+      // Zombie: socket still reports OPEN but pings were frozen while hidden. Drop and
+      // reconnect now instead of waiting out the watchdog.
+      this.forceReconnect();
+    }
+  };
 
   private handleOnline = (): void => {
     console.log('Network connection restored');
@@ -216,6 +242,14 @@ class WebSocketService {
       return;
     }
 
+    // Guard against concurrent connection attempts. buildUrl() awaits a token fetch
+    // before this.socket is assigned, so without this flag a second trigger (online
+    // event, visibility change, or a fired backoff timer) could open a duplicate socket.
+    if (this.isConnecting) {
+      return;
+    }
+    this.isConnecting = true;
+
     try {
       const url = await this.buildUrl();
       // Mask token in logs for security
@@ -226,6 +260,7 @@ class WebSocketService {
 
       this.socket.onopen = () => {
         console.log('WebSocket connected as', this.config?.type);
+        this.isConnecting = false;
         this.reconnectAttempts = 0;
         this.reconnectDelay = 1000;
         this.lastPongReceived = Date.now();
@@ -253,6 +288,7 @@ class WebSocketService {
 
       this.socket.onclose = () => {
         console.log('WebSocket disconnected');
+        this.isConnecting = false;
         this.socket = null;
         this.stopPing();
 
@@ -265,6 +301,7 @@ class WebSocketService {
       };
     } catch (error) {
       console.error('Failed to create WebSocket connection:', error);
+      this.isConnecting = false;
       this.scheduleReconnect();
     }
   }
@@ -280,19 +317,20 @@ class WebSocketService {
       return;
     }
 
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.error('Max reconnection attempts reached');
-      return;
+    // Keep counting attempts only up to the cap; past it we keep retrying at the
+    // capped interval rather than giving up forever. A permanent stop here would
+    // leave the client showing "server unreachable" even once the server is back,
+    // since only the 'online' event or foregrounding would ever reset it.
+    if (this.reconnectAttempts < this.maxReconnectAttempts) {
+      this.reconnectAttempts++;
     }
-
-    this.reconnectAttempts++;
     const delay = Math.min(this.reconnectDelay * this.reconnectAttempts, 30000);
 
     console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
 
     this.reconnectTimeout = window.setTimeout(() => {
-      // Double-check we're still online before attempting
-      if (this.isOnline) {
+      // Double-check we're still online and not already connecting before attempting
+      if (this.isOnline && !this.isConnecting) {
         this.createConnection().catch(err => console.error('Reconnection failed:', err));
       }
     }, delay);
@@ -312,9 +350,28 @@ class WebSocketService {
       this.reconnectTimeout = null;
     }
 
-    if (this.config && this.isOnline && !this.isConnected()) {
+    if (this.config && this.isOnline && !this.isConnected() && !this.isConnecting) {
       this.createConnection().catch(err => console.error('Manual reconnection failed:', err));
     }
+  }
+
+  /**
+   * Drop a socket that still reports OPEN but is stale (no recent pong) and
+   * reconnect immediately. resetAndReconnect() deliberately no-ops while
+   * isConnected() is true, so this path is needed for zombie sockets after resume.
+   */
+  private forceReconnect(): void {
+    this.stopPing();
+    if (this.socket) {
+      // Clear handlers so the imminent close() doesn't run scheduleReconnect and
+      // race with the fresh connection we start below.
+      this.socket.onclose = null;
+      this.socket.close();
+      this.socket = null;
+    }
+    this.isConnecting = false;
+    this.notifyConnectionState(false);
+    this.resetAndReconnect();
   }
 
   private startPing(): void {
@@ -459,6 +516,7 @@ class WebSocketService {
    */
   disconnect(clearHandlers = true): void {
     this.isIntentionallyClosed = true;
+    this.isConnecting = false;
 
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
@@ -487,6 +545,8 @@ class WebSocketService {
     this.disconnect();
     window.removeEventListener('online', this.handleOnline);
     window.removeEventListener('offline', this.handleOffline);
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+    window.removeEventListener('pageshow', this.handleVisibilityChange);
   }
 
   /**
