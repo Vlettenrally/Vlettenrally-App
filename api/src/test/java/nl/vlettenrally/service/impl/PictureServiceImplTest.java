@@ -326,6 +326,39 @@ class PictureServiceImplTest {
         return game;
     }
 
+    // ==================== findApprovedForLatestGame ====================
+
+    @Test
+    void findApprovedForLatestGame_emptyWhenNoneApproved() {
+        when(pictureRepository.findByStatus(PictureStatus.APPROVED)).thenReturn(List.of());
+        assertTrue(service.findApprovedForLatestGame().isEmpty());
+    }
+
+    @Test
+    void findApprovedForLatestGame_keepsOnlyTheMostRecentGame() {
+        UUID latestGame = UUID.randomUUID();
+        UUID olderGame = UUID.randomUUID();
+        // findByStatus returns newest first, so the first element's game is the latest.
+        Picture newest = approvedFor(latestGame);
+        Picture alsoLatest = approvedFor(latestGame);
+        Picture older = approvedFor(olderGame);
+        when(pictureRepository.findByStatus(PictureStatus.APPROVED))
+            .thenReturn(List.of(newest, alsoLatest, older));
+
+        List<Picture> result = service.findApprovedForLatestGame();
+
+        assertEquals(2, result.size());
+        assertTrue(result.stream().allMatch(p -> latestGame.equals(p.getGameId())));
+    }
+
+    private Picture approvedFor(UUID game) {
+        Picture p = new Picture();
+        p.setGameId(game);
+        p.setStatus(PictureStatus.APPROVED);
+        p.setUploadedAt(java.time.Instant.now());
+        return p;
+    }
+
     private Picture reservation() {
         Picture p = new Picture();
         p.setTeamId(teamId);

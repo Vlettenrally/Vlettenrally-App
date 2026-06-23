@@ -61,6 +61,16 @@ public interface PictureService {
     /** All pictures (admin). */
     List<Picture> findAll();
 
+    /** Approved pictures for a game, newest first (public gallery). */
+    List<Picture> findApprovedByGame(UUID gameId);
+
+    /**
+     * Approved pictures for the most recent game that has any approved picture, newest first.
+     * Empty when no approved pictures exist. Lets a public consumer show a gallery without
+     * having to pick a game.
+     */
+    List<Picture> findApprovedForLatestGame();
+
     /**
      * Approve an uploaded picture.
      *

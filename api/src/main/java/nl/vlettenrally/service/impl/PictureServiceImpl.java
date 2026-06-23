@@ -62,6 +62,8 @@ public class PictureServiceImpl implements PictureService {
     @ConfigProperty(name = "vlettenrally.pictures.view-url-ttl")
     Duration viewUrlTtl;
 
+    private static final String PICTURE_NOT_FOUND = "Picture not found: ";
+
     @Override
     public UploadTicket requestUpload(UUID teamId, String contentType) {
         String normalized = contentType != null ? contentType.trim().toLowerCase() : "";
@@ -179,9 +181,28 @@ public class PictureServiceImpl implements PictureService {
     }
 
     @Override
+    public List<Picture> findApprovedByGame(UUID gameId) {
+        return pictureRepository.findApprovedByGameId(gameId);
+    }
+
+    @Override
+    public List<Picture> findApprovedForLatestGame() {
+        // findByStatus returns approved pictures newest first, so the first element belongs to
+        // the most recently active game; keep just that game's pictures (order preserved).
+        List<Picture> approved = pictureRepository.findByStatus(PictureStatus.APPROVED);
+        if (approved.isEmpty()) {
+            return approved;
+        }
+        UUID latestGameId = approved.getFirst().getGameId();
+        return approved.stream()
+            .filter(p -> latestGameId.equals(p.getGameId()))
+            .toList();
+    }
+
+    @Override
     public Picture approve(UUID pictureId, UUID adminId) {
         Picture picture = pictureRepository.findById(pictureId)
-            .orElseThrow(() -> new PictureException(Response.Status.NOT_FOUND, "Picture not found: " + pictureId));
+            .orElseThrow(() -> new PictureException(Response.Status.NOT_FOUND, PICTURE_NOT_FOUND + pictureId));
         if (!picture.isUploaded()) {
             throw new PictureException(Response.Status.CONFLICT, "Picture has not been uploaded yet");
         }
@@ -194,7 +215,7 @@ public class PictureServiceImpl implements PictureService {
     @Override
     public Picture reject(UUID pictureId, UUID adminId, String notes) {
         Picture picture = pictureRepository.findById(pictureId)
-            .orElseThrow(() -> new PictureException(Response.Status.NOT_FOUND, "Picture not found: " + pictureId));
+            .orElseThrow(() -> new PictureException(Response.Status.NOT_FOUND, PICTURE_NOT_FOUND + pictureId));
         picture.setStatus(PictureStatus.REJECTED);
         picture.setModeratedAt(Instant.now());
         picture.setModeratedBy(adminId);
@@ -245,9 +266,9 @@ public class PictureServiceImpl implements PictureService {
 
     private Picture ownedPicture(UUID teamId, UUID pictureId) {
         Picture picture = pictureRepository.findById(pictureId)
-            .orElseThrow(() -> new PictureException(Response.Status.NOT_FOUND, "Picture not found: " + pictureId));
+            .orElseThrow(() -> new PictureException(Response.Status.NOT_FOUND, PICTURE_NOT_FOUND + pictureId));
         if (!teamId.equals(picture.getTeamId())) {
-            throw new PictureException(Response.Status.NOT_FOUND, "Picture not found: " + pictureId);
+            throw new PictureException(Response.Status.NOT_FOUND, PICTURE_NOT_FOUND + pictureId);
         }
         return picture;
     }
