@@ -38,10 +38,11 @@ spec:
           image: ghcr.io/joostvanviegen/vlettenrally-api:2026-06-23-2-native
           resources:
             requests:
-              memory: "1Gi"
-              cpu: "1000m"
+              memory: "512Mi"
+              cpu: "100m"
             limits:
-              memory: "4Gi"
+              memory: "1024Mi"
+              cpu: "500m"
           ports:
             - name: http
               containerPort: 8080
@@ -207,7 +208,7 @@ metadata:
   labels:
     app: vlettenrally-frontend
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: vlettenrally-frontend
@@ -240,10 +241,11 @@ spec:
           image: ghcr.io/joostvanviegen/vlettenrally-frontend:2026-06-23-2
           resources:
             requests:
-              memory: "512Mi"
-              cpu: "500m"
+              memory: "128Mi"
+              cpu: "100m"
             limits:
-              memory: "1Gi"
+              memory: "256Mi"
+              cpu: "500m"
           env:
             - name: TZ
               value: "Europe/Amsterdam"
