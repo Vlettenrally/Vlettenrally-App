@@ -163,6 +163,12 @@ spec:
                 secretKeyRef:
                   name: vlettenrally-s3-images
                   key: bucket-name
+            # Public gallery configuration
+            - name: PUBLIC_GALLERY_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: vlettenrally-public-gallery
+                  key: token
           volumeMounts:
             - name: firebase-credentials
               mountPath: /secrets/firebase
