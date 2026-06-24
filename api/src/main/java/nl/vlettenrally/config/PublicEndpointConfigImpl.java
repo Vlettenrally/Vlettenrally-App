@@ -10,7 +10,7 @@ import org.eclipse.microprofile.config.Config;
 import java.util.Optional;
 
 /**
- * Runtime-resolved {@link PublicGalleryConfig}.
+ * Runtime-resolved {@link PublicEndpointConfig}.
  * <p>
  * The value is read <em>fresh</em> from the injected {@link Config} on every call, rather than from
  * a cached {@code @ConfigProperty} field. In a native image a {@code @ConfigProperty} value can be
@@ -19,9 +19,9 @@ import java.util.Optional;
  * the live runtime config sources (including environment variables) each time.
  */
 @ApplicationScoped
-public class PublicGalleryConfigImpl implements PublicGalleryConfig {
+public class PublicEndpointConfigImpl implements PublicEndpointConfig {
 
-    static final String TOKEN_PROPERTY = "vlettenrally.public-gallery.token";
+    static final String TOKEN_PROPERTY = "vlettenrally.public-endpoint.token";
 
     @Inject
     Config config;
@@ -38,10 +38,10 @@ public class PublicGalleryConfigImpl implements PublicGalleryConfig {
     void onStart(@Observes StartupEvent event) {
         String resolved = token().map(String::trim).filter(t -> !t.isEmpty()).orElse(null);
         if (resolved != null) {
-            Log.infof("Public gallery API ENABLED: %s resolved at runtime (length=%d).",
+            Log.infof("Public endpoint API ENABLED: %s resolved at runtime (length=%d).",
                 TOKEN_PROPERTY, resolved.length());
         } else {
-            Log.warnf("Public gallery API DISABLED: %s is empty/unset at runtime. "
+            Log.warnf("Public endpoint API DISABLED: %s is empty/unset at runtime. "
                 + "Set the PUBLIC_GALLERY_TOKEN environment variable on the pod.", TOKEN_PROPERTY);
         }
     }

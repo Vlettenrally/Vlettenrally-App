@@ -8,16 +8,12 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import nl.vlettenrally.api.security.PublicGalleryToken;
-import nl.vlettenrally.data.domain.Game;
+import nl.vlettenrally.api.security.PublicEndpointToken;
 import nl.vlettenrally.data.domain.Picture;
-import nl.vlettenrally.data.dto.game.PublicGameResponse;
 import nl.vlettenrally.data.dto.picture.PublicPictureResponse;
 import nl.vlettenrally.data.enums.PictureStatus;
-import nl.vlettenrally.service.GameService;
 import nl.vlettenrally.service.PictureService;
 
-import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -25,9 +21,10 @@ import java.util.UUID;
  * Public, read-only gallery API for approved pictures.
  * <p>
  * Unlike {@link PictureResource} (team/admin JWT auth), every endpoint here is guarded by a single
- * shared secret ({@link PublicGalleryToken}, {@code X-Public-Gallery-Token: <token>}) so an external,
+ * shared secret ({@link PublicEndpointToken}, {@code X-Public-Endpoint-Token: <token>}) so an external,
  * embeddable consumer (e.g. an event slideshow) can read approved pictures without a login.
  * {@code @PermitAll} bypasses the JWT role machinery; the token filter does the real gatekeeping.
+ * The game listing a consumer picks from lives on {@link PublicResource}.
  * <p>
  * Only APPROVED pictures are ever returned, and view URLs come from the cached long-lived
  * pre-signed URL path ({@link PictureService#viewUrlFor}).
@@ -35,29 +32,14 @@ import java.util.UUID;
 @Path("/api/v1/public")
 @Produces(MediaType.APPLICATION_JSON)
 @PermitAll
-@PublicGalleryToken
+@PublicEndpointToken
 public class PublicGalleryResource {
 
     @Inject
     PictureService pictureService;
 
     @Inject
-    GameService gameService;
-
-    @Inject
     PublicGalleryCache galleryCache;
-
-    /** List games (minimal projection) so a consumer can pick one. Most recent first. */
-    @GET
-    @Path("/games")
-    public Response games() {
-        List<PublicGameResponse> body = gameService.findAll().stream()
-            .sorted(Comparator.comparing(Game::getStartTime,
-                Comparator.nullsLast(Comparator.reverseOrder())))
-            .map(PublicGameResponse::from)
-            .toList();
-        return Response.ok(body).build();
-    }
 
     /** Approved pictures for a specific game, newest first. */
     @GET

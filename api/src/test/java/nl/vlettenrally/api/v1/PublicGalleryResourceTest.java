@@ -1,11 +1,8 @@
 package nl.vlettenrally.api.v1;
 
-import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.Picture;
-import nl.vlettenrally.data.dto.game.PublicGameResponse;
 import nl.vlettenrally.data.dto.picture.PublicPictureResponse;
 import nl.vlettenrally.data.enums.PictureStatus;
-import nl.vlettenrally.service.GameService;
 import nl.vlettenrally.service.PictureService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,7 +18,6 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
 /**
@@ -31,24 +27,9 @@ import static org.mockito.Mockito.when;
 class PublicGalleryResourceTest {
 
     @Mock PictureService pictureService;
-    @Mock GameService gameService;
     @Mock PublicGalleryCache galleryCache;
 
     @InjectMocks PublicGalleryResource resource;
-
-    @Test
-    void games_returnsMinimalProjectionMostRecentFirst() {
-        Game older = game("Spring Rally", Instant.parse("2026-04-01T10:00:00Z"));
-        Game newer = game("Summer Rally", Instant.parse("2026-06-01T10:00:00Z"));
-        when(gameService.findAll()).thenReturn(List.of(older, newer));
-
-        Response response = resource.games();
-
-        assertEquals(200, response.getStatus());
-        List<?> body = assertInstanceOf(List.class, response.getEntity());
-        assertEquals(2, body.size());
-        assertEquals("Summer Rally", ((PublicGameResponse) body.getFirst()).name());
-    }
 
     @Test
     void approvedForGame_mapsToPublicDtoWithViewUrl() {
@@ -88,14 +69,7 @@ class PublicGalleryResourceTest {
 
         assertEquals(200, response.getStatus());
         List<?> body = assertInstanceOf(List.class, response.getEntity());
-	    assertInstanceOf(PublicPictureResponse.class, body.getFirst());
-    }
-
-    private Game game(String name, Instant startTime) {
-        Game g = new Game();
-        g.setName(name);
-        g.setStartTime(startTime);
-        return g;
+        assertInstanceOf(PublicPictureResponse.class, body.getFirst());
     }
 
     private Picture picture(UUID gameId) {

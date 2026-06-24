@@ -15,13 +15,17 @@ import nl.vlettenrally.data.domain.Game;
 public record PublicGameResponse(
     UUID id,
     String name,
-    String startTime
+    String startTime,
+    String status,
+    boolean scoresPublished
 ) {
     public static PublicGameResponse from(Game g) {
         return new PublicGameResponse(
             g.getId(),
             g.getName(),
-            g.getStartTime() != null ? g.getStartTime().toString() : null
+            g.getStartTime() != null ? g.getStartTime().toString() : null,
+            g.getStatus() != null ? g.getStatus().name().toLowerCase() : null,
+            Boolean.TRUE.equals(g.getRankingsPublished())
         );
     }
 }

@@ -16,16 +16,17 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for {@link PublicGalleryTokenFilter}: fail-closed behaviour and token matching.
+ * Unit tests for {@link PublicEndpointTokenFilter}: fail-closed behaviour, token matching, and
+ * acceptance of both the current and legacy header names.
  */
 @ExtendWith(MockitoExtension.class)
-class PublicGalleryTokenFilterTest {
+class PublicEndpointTokenFilterTest {
 
     @Mock ContainerRequestContext requestContext;
 
-    private PublicGalleryTokenFilter filter(String configuredToken) {
-        PublicGalleryTokenFilter f = new PublicGalleryTokenFilter();
-        // PublicGalleryConfig is a single-method interface, so a lambda stands in for it.
+    private PublicEndpointTokenFilter filter(String configuredToken) {
+        PublicEndpointTokenFilter f = new PublicEndpointTokenFilter();
+        // PublicEndpointConfig is a single-method interface, so a lambda stands in for it.
         f.config = () -> Optional.ofNullable(configuredToken);
         return f;
     }
@@ -38,28 +39,38 @@ class PublicGalleryTokenFilterTest {
 
     @Test
     void missingHeader_returns401() {
-        when(requestContext.getHeaderString(PublicGalleryTokenFilter.TOKEN_HEADER)).thenReturn(null);
+        when(requestContext.getHeaderString(PublicEndpointTokenFilter.TOKEN_HEADER)).thenReturn(null);
+        when(requestContext.getHeaderString(PublicEndpointTokenFilter.LEGACY_TOKEN_HEADER)).thenReturn(null);
         filter("secret").filter(requestContext);
         assertAborted(401);
     }
 
     @Test
     void blankHeader_returns401() {
-        when(requestContext.getHeaderString(PublicGalleryTokenFilter.TOKEN_HEADER)).thenReturn("   ");
+        when(requestContext.getHeaderString(PublicEndpointTokenFilter.TOKEN_HEADER)).thenReturn("   ");
+        when(requestContext.getHeaderString(PublicEndpointTokenFilter.LEGACY_TOKEN_HEADER)).thenReturn(null);
         filter("secret").filter(requestContext);
         assertAborted(401);
     }
 
     @Test
     void wrongToken_returns401() {
-        when(requestContext.getHeaderString(PublicGalleryTokenFilter.TOKEN_HEADER)).thenReturn("nope");
+        when(requestContext.getHeaderString(PublicEndpointTokenFilter.TOKEN_HEADER)).thenReturn("nope");
         filter("secret").filter(requestContext);
         assertAborted(401);
     }
 
     @Test
     void correctToken_passesThrough() {
-        when(requestContext.getHeaderString(PublicGalleryTokenFilter.TOKEN_HEADER)).thenReturn("secret");
+        when(requestContext.getHeaderString(PublicEndpointTokenFilter.TOKEN_HEADER)).thenReturn("secret");
+        filter("secret").filter(requestContext);
+        verify(requestContext, never()).abortWith(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void correctToken_onLegacyHeader_passesThrough() {
+        when(requestContext.getHeaderString(PublicEndpointTokenFilter.TOKEN_HEADER)).thenReturn(null);
+        when(requestContext.getHeaderString(PublicEndpointTokenFilter.LEGACY_TOKEN_HEADER)).thenReturn("secret");
         filter("secret").filter(requestContext);
         verify(requestContext, never()).abortWith(org.mockito.ArgumentMatchers.any());
     }
