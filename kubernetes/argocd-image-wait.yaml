@@ -16,9 +16,10 @@ metadata:
     argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
 spec:
   backoffLimit: 0
-  # Hard cap (~25 min): if the build never publishes the images the hook fails,
-  # which fails the sync instead of rolling out a broken/missing image.
-  activeDeadlineSeconds: 1500
+  # Backstop only — the authoritative timeout lives in the script below, because
+  # activeDeadlineSeconds is not reliably enforced for this hook (sync was
+  # observed running far past it). Kept as a safety net at a higher value.
+  activeDeadlineSeconds: 1800
   template:
     spec:
       restartPolicy: Never
@@ -33,11 +34,20 @@ spec:
             - |
               set -u
               IMAGES="ghcr.io/joostvanviegen/vlettenrally-api:2026-06-24-4-native ghcr.io/joostvanviegen/vlettenrally-frontend:2026-06-24-4"
+              TIMEOUT_SECONDS=1500   # ~25 min wall-clock budget for the build
+              INTERVAL=15
+              CHECK_TIMEOUT=30       # cap a single (possibly hung) registry call
+              DEADLINE=$(( $(date +%s) + TIMEOUT_SECONDS ))
+              IMAGES="ghcr.io/joostvanviegen/vlettenrally-api:2026-06-24-2-native ghcr.io/joostvanviegen/vlettenrally-frontend:2026-06-24-2"
               for img in $IMAGES; do
                 echo "Waiting for $img ..."
-                until crane manifest "$img" >/dev/null 2>&1; do
-                  echo "  not available yet, retrying in 15s"
-                  sleep 15
+                while ! timeout "$CHECK_TIMEOUT" crane manifest "$img" >/dev/null 2>&1; do
+                  if [ "$(date +%s)" -ge "$DEADLINE" ]; then
+                    echo "ERROR: timed out after ${TIMEOUT_SECONDS}s waiting for $img" >&2
+                    exit 1
+                  fi
+                  echo "  not available yet, retrying in ${INTERVAL}s"
+                  sleep "$INTERVAL"
                 done
                 echo "  found $img"
               done
