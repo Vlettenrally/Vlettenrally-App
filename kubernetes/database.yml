@@ -9,13 +9,15 @@ spec:
     enablePodAntiAffinity: true
     topologyKey: kubernetes.io/hostname
     podAntiAffinityType: preferred
-    additionalPodAffinityRules:
-      - labelSelector:
-          matchExpressions:
-            - key: servers.ngpc.rxt.io/type
-              operator: In
-              values:
-                - ondemand
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          preference:
+            matchExpressions:
+              - key: servers.ngpc.rxt.io/type
+                operator: In
+                values:
+                  - ondemand
   imagePullSecrets:
     - name: ghcr-creds
   postgresql:
