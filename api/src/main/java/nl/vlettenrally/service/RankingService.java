@@ -41,7 +41,7 @@ public class RankingService {
                         position++;
                     }
                 }
-                return new RankingResponse(position, team.getId(), team.getName(), team.getTotalPoints());
+                return new RankingResponse(position, team.getId(), team.getName(), team.getDescription(), team.getTotalPoints());
             })
             .toList();
     }
