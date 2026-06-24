@@ -1,7 +1,7 @@
 /**
  * Check-In Progress Widget - Shows team check-in status
  */
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import { HowToReg as CheckInIcon } from '@mui/icons-material';
 import { useGameStore } from '../../store/useGameStore';
+import { useAdminResync } from '../../hooks/useAdminSync';
 import { teamService } from '../../services/teamService';
 
 interface CheckInProgressWidgetProps {
@@ -24,11 +25,8 @@ export function CheckInProgressWidget({ collapsed = false }: CheckInProgressWidg
   const [loading, setLoading] = useState(true);
   const selectedGameId = useGameStore((s) => s.selectedGameId);
 
-  useEffect(() => {
-    if (!selectedGameId) {
-      return;
-    }
-    
+  const loadCheckInProgress = useCallback(() => {
+    if (!selectedGameId) return;
     teamService.getTeamsByGame(selectedGameId).then((teams) => {
       const checkedInTeams = teams.filter((t) => t.checkedIn).length;
       setCheckedIn(checkedInTeams);
@@ -36,6 +34,12 @@ export function CheckInProgressWidget({ collapsed = false }: CheckInProgressWidg
       setLoading(false);
     });
   }, [selectedGameId]);
+
+  useEffect(() => {
+    loadCheckInProgress();
+  }, [loadCheckInProgress]);
+
+  useAdminResync(loadCheckInProgress);
 
   const progress = total > 0 ? (checkedIn / total) * 100 : 0;
 

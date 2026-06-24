@@ -1,7 +1,8 @@
 import { Box, Typography, Button, Card, CardContent, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, CircularProgress, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import { Upload as ImportIcon, Link as LinkIcon, Add as AddIcon, CheckCircle as SuccessIcon, Error as ErrorIcon } from '@mui/icons-material';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useGameStore } from '../../store/useGameStore';
+import { useAdminResync } from '../../hooks/useAdminSync';
 import { teamService } from '../../services/teamService';
 import { gameService } from '../../services/gameService';
 import { websocket } from '../../services/websocket';
@@ -29,30 +30,28 @@ export default function Teams() {
   const [linkDetailsOpen, setLinkDetailsOpen] = useState(false);
   const [linkDetailsStatus, setLinkDetailsStatus] = useState<LinkResultStatus>('linked');
 
-  // Load game and teams when game changes
-  useEffect(() => {
+  // Reload game details + teams. Used on game change and on resync (app resume /
+  // reconnect) to top up state that missed team:* WebSocket events.
+  const reloadGameAndTeams = useCallback(async () => {
     if (!selectedGameId) {
       setGame(null);
       setTeams([]);
       return;
     }
-    
-    let cancelled = false;
-    
-    // Load game details
-    gameService.getGame(selectedGameId).then((data) => {
-      if (!cancelled) setGame(data);
-    });
-    
-    // Load teams
-    teamService.getTeamsByGame(selectedGameId).then((data) => {
-      if (!cancelled) setTeams(data);
-    });
-    
-    return () => {
-      cancelled = true;
-    };
+    const [gameData, teamData] = await Promise.all([
+      gameService.getGame(selectedGameId),
+      teamService.getTeamsByGame(selectedGameId),
+    ]);
+    setGame(gameData);
+    setTeams(teamData);
   }, [selectedGameId]);
+
+  // Load game and teams when game changes
+  useEffect(() => {
+    void reloadGameAndTeams();
+  }, [reloadGameAndTeams]);
+
+  useAdminResync(reloadGameAndTeams);
 
   // Subscribe to WebSocket team events
   useEffect(() => {

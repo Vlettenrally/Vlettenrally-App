@@ -37,6 +37,7 @@ import {
   Warning as WarningIcon,
 } from '@mui/icons-material';
 import { useGameStore } from '../../store/useGameStore';
+import { useAdminResync } from '../../hooks/useAdminSync';
 import type { AdminMessage, MessageTemplate, AdminTeam } from '../../types/entities';
 import api from '../../services/api';
 import websocket, { WebSocketEventType } from '../../services/websocket';
@@ -160,6 +161,13 @@ export default function AdminMessages() {
     };
     void loadData();
   }, [fetchTemplates]);
+
+  // Reload on resync (app resume / reconnect) to catch messages/templates whose
+  // delivery events were missed while suspended.
+  useAdminResync(() => {
+    void fetchMessages();
+    void fetchTemplates();
+  });
 
   // Subscribe to WebSocket for real-time delivery updates
   useEffect(() => {

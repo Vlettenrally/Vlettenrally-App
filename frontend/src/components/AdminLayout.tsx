@@ -53,6 +53,7 @@ import { storage } from '../services/storage';
 import { useGameStore } from '../store/useGameStore';
 import { useConnectionStatus } from '../hooks/useConnectionStatus';
 import { useAdminWebSocket } from '../hooks/useWebSocket';
+import { useAdminSync, useAdminResync } from '../hooks/useAdminSync';
 import { isSuperAdmin } from '../services/auth';
 import api from '../services/api';
 import {
@@ -100,6 +101,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   // Admin websocket connection - hook manages connect/disconnect lifecycle
   useAdminWebSocket(selectedGameId);
+
+  // Drive the admin resync signal (reconnect / app resume) for the whole shell,
+  // and refresh the games list when it fires.
+  useAdminSync();
+  useAdminResync(fetchGames);
 
   // Persist sidebar collapsed state
   useEffect(() => {

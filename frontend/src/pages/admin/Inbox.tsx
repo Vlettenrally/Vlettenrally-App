@@ -15,6 +15,7 @@ import {
 import MarkEmailReadIcon from '@mui/icons-material/MarkEmailRead';
 import api from '../../services/api';
 import { useGameStore } from '../../store/useGameStore';
+import { useAdminResync } from '../../hooks/useAdminSync';
 import websocket, { WebSocketEventType } from '../../services/websocket';
 import type { AdminInboxNotification } from '../../types/entities';
 
@@ -61,6 +62,10 @@ export default function AdminInbox() {
     }, 0);
     return () => window.clearTimeout(timer);
   }, [loadNotifications]);
+
+  // Reload on resync (app resume / reconnect) to catch notifications whose
+  // events were missed while suspended.
+  useAdminResync(() => void loadNotifications());
 
   useEffect(() => {
     const unsubAutomation = websocket.on(WebSocketEventType.AUTOMATION_NOTIFICATION, (message) => {

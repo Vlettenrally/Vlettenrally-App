@@ -30,6 +30,7 @@ import {
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { useGameStore } from '../../store/useGameStore';
+import { useAdminResync } from '../../hooks/useAdminSync';
 import { usePointEntryStore } from '../../store/usePointEntryStore';
 import { teamService } from '../../services/teamService';
 import api from '../../services/api';
@@ -127,6 +128,10 @@ export default function PointsManagement() {
     void loadEntries({ page: 0 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedGameId, filterTeam, filterType]);
+
+  // Reload the ledger on resync (app resume / reconnect) to catch point entries
+  // whose POINT_ENTRY_* events were missed while suspended.
+  useAdminResync(() => void loadEntries());
 
   const teamNameById = useMemo(() => {
     const map = new Map<string, string>();

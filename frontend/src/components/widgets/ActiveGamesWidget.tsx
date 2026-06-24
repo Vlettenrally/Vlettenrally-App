@@ -1,7 +1,7 @@
 /**
  * Active Games Widget - Shows count and status of running games
  */
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import { SportsScore as GamesIcon } from '@mui/icons-material';
 import { gameService } from '../../services/gameService';
+import { useAdminResync } from '../../hooks/useAdminSync';
 import type { Game } from '../../types/entities';
 
 interface ActiveGamesWidgetProps {
@@ -22,12 +23,18 @@ export function ActiveGamesWidget({ collapsed = false }: ActiveGamesWidgetProps)
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const loadGames = useCallback(() => {
     gameService.getGames().then((data) => {
       setGames(data);
       setLoading(false);
-    });    
+    });
   }, []);
+
+  useEffect(() => {
+    loadGames();
+  }, [loadGames]);
+
+  useAdminResync(loadGames);
 
   const activeGames = games.filter((g) => g.status === 'active');
   const plannedGames = games.filter((g) => g.status === 'planned');

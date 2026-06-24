@@ -13,6 +13,7 @@ import type {MapMarker, MapTrack} from '../../components/MapView';
 import type {Checkpoint, TeamLocation} from '../../types/entities';
 import {useGameStore} from '../../store/useGameStore';
 import {useAdminWebSocket} from '../../hooks/useWebSocket';
+import {useAdminResync} from '../../hooks/useAdminSync';
 import api from '../../services/api';
 import MapLegendSidebar, {type TrackWindowMinutes} from './MapLegendSidebar';
 import {STALE_AFTER_MS, TEAM_COLOR} from './mapConstants';
@@ -79,46 +80,40 @@ export default function AdminMap() {
     return () => clearInterval(id);
   }, []);
 
+  // Fetch the latest location/checkpoint snapshot. Used on game change and on
+  // resync (app resume / reconnect) to top up state that missed WebSocket events.
+  const fetchData = useCallback(async () => {
+    if (!selectedGameId) return;
+    try {
+      const [locationsResponse, checkpointsResponse] = await Promise.all([
+        api.getLatestTeamLocations(selectedGameId),
+        api.getCheckpoints(selectedGameId),
+      ]);
+
+      if (locationsResponse.data) {
+        setTeamLocations(locationsResponse.data);
+      }
+      if (checkpointsResponse.data) {
+        setCheckpoints(checkpointsResponse.data);
+      }
+      if (locationsResponse.error) {
+        setError(locationsResponse.error);
+      }
+    } catch (err) {
+      console.error('Failed to load map data:', err);
+      setError('Kon kaartdata niet laden');
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedGameId]);
+
   // Fetch initial data when game changes
   useEffect(() => {
-    if (!selectedGameId) {
-      return;
-    }
+    if (!selectedGameId) return;
+    void fetchData();
+  }, [selectedGameId, fetchData]);
 
-    let cancelled = false;
-
-    const fetchData = async () => {
-      try {
-        const [locationsResponse, checkpointsResponse] = await Promise.all([
-          api.getLatestTeamLocations(selectedGameId),
-          api.getCheckpoints(selectedGameId),
-        ]);
-        if (cancelled) return;
-
-        if (locationsResponse.data) {
-          setTeamLocations(locationsResponse.data);
-        }
-        if (checkpointsResponse.data) {
-          setCheckpoints(checkpointsResponse.data);
-        }
-        if (locationsResponse.error) {
-          setError(locationsResponse.error);
-        }
-      } catch (err) {
-        if (cancelled) return;
-        console.error('Failed to load map data:', err);
-        setError('Kon kaartdata niet laden');
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchData();
-
-    return () => { cancelled = true; };
-  }, [selectedGameId]);
+  useAdminResync(fetchData);
 
   // Subscribe to real-time location updates
   const handleLocationUpdate = useCallback((message: { payload: unknown }) => {
