@@ -5,7 +5,6 @@ metadata:
   labels:
     app: vlettenrally-api
 spec:
-  replicas: 2
   selector:
     matchLabels:
       app: vlettenrally-api
@@ -210,7 +209,6 @@ metadata:
   labels:
     app: vlettenrally-frontend
 spec:
-  replicas: 2
   selector:
     matchLabels:
       app: vlettenrally-frontend
@@ -275,7 +273,6 @@ metadata:
   labels:
     app: vlettenrally-tileserver
 spec:
-  replicas: 2
   selector:
     matchLabels:
       app: vlettenrally-tileserver
