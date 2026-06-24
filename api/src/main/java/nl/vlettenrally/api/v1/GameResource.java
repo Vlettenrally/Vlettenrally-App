@@ -44,6 +44,7 @@ import nl.vlettenrally.service.RankingService;
 import nl.vlettenrally.service.CheckpointService;
 import nl.vlettenrally.service.EventDetailsService;
 import nl.vlettenrally.service.ImportResult;
+import nl.vlettenrally.service.TeamImportResult;
 import nl.vlettenrally.service.ParticipantLinkResult;
 import nl.vlettenrally.service.AuthService;
 import nl.vlettenrally.service.TeamService;
@@ -406,11 +407,16 @@ public class GameResource {
                 }
 
                 try {
-                    ImportResult result = teamImportService.importTeams(gameId, game.getExternalEventId());
+                    TeamImportResult result = teamImportService.importTeams(gameId, game.getExternalEventId());
                     return Response.ok(new TeamImportResponse(
                         result.created(),
                         result.updated(),
-                        result.errors()
+                        result.skipped(),
+                        result.errors(),
+                        result.createdTeams(),
+                        result.updatedTeams(),
+                        result.skippedDuplicates(),
+                        result.errorDetails()
                     )).build();
                 } catch (Exception e) {
                     return Response.status(Response.Status.BAD_GATEWAY)

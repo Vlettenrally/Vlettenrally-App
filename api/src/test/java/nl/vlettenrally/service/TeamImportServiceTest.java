@@ -67,7 +67,7 @@ class TeamImportServiceTest {
         when(teamRepository.findByGameIdAndExternalId(eq(gameId), any())).thenReturn(Optional.empty());
         when(teamRepository.save(any(Team.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        ImportResult result = teamImportService.importTeams(gameId, externalEventId);
+        TeamImportResult result = teamImportService.importTeams(gameId, externalEventId);
 
         assertEquals(3, result.created());
         assertEquals(0, result.updated());
@@ -91,7 +91,7 @@ class TeamImportServiceTest {
         when(teamRepository.findByGameIdAndExternalId(gameId, "897")).thenReturn(Optional.of(existingTeam));
         when(teamRepository.save(any(Team.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        ImportResult result = teamImportService.importTeams(gameId, externalEventId);
+        TeamImportResult result = teamImportService.importTeams(gameId, externalEventId);
 
         assertEquals(0, result.created());
         assertEquals(1, result.updated());
@@ -175,7 +175,7 @@ class TeamImportServiceTest {
     void importTeams_handlesEmptyBookingList() throws PreRegistrationApiException {
         when(preRegistrationClient.fetchRegistrations(externalEventId)).thenReturn(new ArrayList<>());
 
-        ImportResult result = teamImportService.importTeams(gameId, externalEventId);
+        TeamImportResult result = teamImportService.importTeams(gameId, externalEventId);
 
         assertEquals(0, result.created());
         assertEquals(0, result.updated());
@@ -194,7 +194,7 @@ class TeamImportServiceTest {
         when(preRegistrationClient.fetchRegistrations(externalEventId))
             .thenReturn(List.of(emptyBooking, nullAttendeesBooking));
 
-        ImportResult result = teamImportService.importTeams(gameId, externalEventId);
+        TeamImportResult result = teamImportService.importTeams(gameId, externalEventId);
 
         assertEquals(0, result.created());
         assertEquals(0, result.updated());
@@ -217,7 +217,7 @@ class TeamImportServiceTest {
             .thenThrow(new RuntimeException("Database error"))
             .thenAnswer(invocation -> invocation.getArgument(0));
 
-        ImportResult result = teamImportService.importTeams(gameId, externalEventId);
+        TeamImportResult result = teamImportService.importTeams(gameId, externalEventId);
 
         assertEquals(2, result.created());
         assertEquals(0, result.updated());
@@ -241,12 +241,62 @@ class TeamImportServiceTest {
         when(teamRepository.findByGameIdAndExternalId(gameId, "2")).thenReturn(Optional.of(existingTeam));
         when(teamRepository.save(any(Team.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        ImportResult result = teamImportService.importTeams(gameId, externalEventId);
+        TeamImportResult result = teamImportService.importTeams(gameId, externalEventId);
 
         assertEquals(1, result.created());
         assertEquals(1, result.updated());
         assertEquals(0, result.errors());
         verify(teamRepository, times(2)).save(any(Team.class));
+    }
+
+    @Test
+    void importTeams_skipsDuplicateBoatNumbers_withinSameRun() throws PreRegistrationApiException {
+        // External API returns the same boat twice under different ticket booking ids.
+        Registration booking = createBooking(299, "Scouting Den Hoorn",
+            attendee(897, "642", "4", ""),
+            attendee(898, "642", "5", "duplicate"));
+
+        when(preRegistrationClient.fetchRegistrations(externalEventId)).thenReturn(List.of(booking));
+        when(teamRepository.findByGameIdAndExternalId(eq(gameId), any())).thenReturn(Optional.empty());
+        when(teamRepository.save(any(Team.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        TeamImportResult result = teamImportService.importTeams(gameId, externalEventId);
+
+        assertEquals(1, result.created());
+        assertEquals(0, result.updated());
+        assertEquals(1, result.skipped());
+        assertEquals(0, result.errors());
+        assertEquals(List.of("642"), result.createdTeams());
+        assertEquals(List.of("642"), result.skippedDuplicates());
+        verify(teamRepository, times(1)).save(any(Team.class));
+    }
+
+    @Test
+    void importTeams_skipsBoatAlreadyPresentFromEarlierImport_regardlessOfTicketId()
+            throws PreRegistrationApiException {
+        // Boat "642" already exists for this game (imported earlier under ticket 893).
+        // The API now returns it again under a different ticket id 999; it must not be
+        // duplicated, even though the ticket id no longer matches.
+        Team existingTeam = new Team();
+        existingTeam.setId(UUID.randomUUID());
+        existingTeam.setGameId(gameId);
+        existingTeam.setExternalId("893");
+        existingTeam.setName("642");
+
+        Registration booking = createBooking(298, "Cornelis de Houtman",
+            attendee(999, "642", "5", ""));
+
+        when(preRegistrationClient.fetchRegistrations(externalEventId)).thenReturn(List.of(booking));
+        when(teamRepository.findByGameId(gameId)).thenReturn(List.of(existingTeam));
+        when(teamRepository.findByGameIdAndExternalId(eq(gameId), any())).thenReturn(Optional.empty());
+
+        TeamImportResult result = teamImportService.importTeams(gameId, externalEventId);
+
+        assertEquals(0, result.created());
+        assertEquals(0, result.updated());
+        assertEquals(1, result.skipped());
+        assertEquals(List.of("642"), result.skippedDuplicates());
+        verify(teamRepository, never()).save(any(Team.class));
     }
 
     private Registration createBooking(int bookingId, String scoutingGroup, Attendee... attendees) {

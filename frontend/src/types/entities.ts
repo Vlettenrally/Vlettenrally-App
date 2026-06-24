@@ -55,7 +55,12 @@ export interface ExternalEvent {
 export interface TeamImportResult {
   created: number;
   updated: number;
+  skipped: number;
   errors: number;
+  createdTeams: string[];
+  updatedTeams: string[];
+  skippedDuplicates: string[];
+  errorDetails: string[];
 }
 
 /**

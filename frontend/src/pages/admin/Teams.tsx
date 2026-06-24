@@ -9,7 +9,7 @@ import { websocket } from '../../services/websocket';
 import TeamDetailDialog from '../../components/TeamDetailDialog';
 import type { AdminTeam, Game, TeamImportResult, ParticipantLinkResult } from '../../types/entities';
 
-type LinkResultStatus = 'linked' | 'unmatched';
+type DetailDialog = { title: string; items: string[] };
 
 export default function Teams() {
   const selectedGameId = useGameStore((s) => s.selectedGameId);
@@ -27,8 +27,9 @@ export default function Teams() {
   const [linking, setLinking] = useState(false);
   const [linkResult, setLinkResult] = useState<ParticipantLinkResult | null>(null);
   const [linkError, setLinkError] = useState<string | null>(null);
-  const [linkDetailsOpen, setLinkDetailsOpen] = useState(false);
-  const [linkDetailsStatus, setLinkDetailsStatus] = useState<LinkResultStatus>('linked');
+
+  // Shared detail dialog for clickable result chips (import + linking)
+  const [detail, setDetail] = useState<DetailDialog | null>(null);
 
   // Reload game details + teams. Used on game change and on resync (app resume /
   // reconnect) to top up state that missed team:* WebSocket events.
@@ -124,7 +125,7 @@ export default function Teams() {
     setLinking(true);
     setLinkResult(null);
     setLinkError(null);
-    setLinkDetailsOpen(false);
+    setDetail(null);
 
     try {
       const result = await gameService.linkParticipants(selectedGameId);
@@ -138,24 +139,20 @@ export default function Teams() {
     }
   };
 
-  const handleOpenLinkDetails = (status: LinkResultStatus) => {
-    if (!linkResult) return;
-    const items = status === 'linked' ? linkResult.linkedTeams : linkResult.unmatchedParticipants;
+  // Open the shared detail dialog for a result chip. No-op when there's nothing to show.
+  const openDetail = (title: string, items: string[]) => {
     if (items.length === 0) return;
-    setLinkDetailsStatus(status);
-    setLinkDetailsOpen(true);
+    setDetail({ title, items });
   };
 
-  const handleCloseLinkDetails = () => {
-    setLinkDetailsOpen(false);
+  const handleCloseDetail = () => {
+    setDetail(null);
   };
 
   const isCompleted = game?.status === 'completed';
   const canImport = game?.externalEventId && !isCompleted;
   const linkedTeams = linkResult?.linkedTeams ?? [];
   const unmatchedParticipants = linkResult?.unmatchedParticipants ?? [];
-  const detailItems = linkDetailsStatus === 'linked' ? linkedTeams : unmatchedParticipants;
-  const detailTitle = linkDetailsStatus === 'linked' ? 'Gekoppelde teams' : 'Deelnemers zonder team';
 
   return (
     <Box sx={{ p: 3 }}>
@@ -166,23 +163,38 @@ export default function Teams() {
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
           {importResult && (
             <Box sx={{ display: 'flex', gap: 1 }}>
-              <Chip 
-                label={`${importResult.created} aangemaakt`} 
-                color="success" 
-                size="small" 
+              <Chip
+                label={`${importResult.created} aangemaakt`}
+                color="success"
+                size="small"
                 icon={<SuccessIcon />}
+                clickable={importResult.createdTeams.length > 0}
+                onClick={() => openDetail('Aangemaakte teams', importResult.createdTeams)}
               />
-              <Chip 
-                label={`${importResult.updated} bijgewerkt`} 
-                color="info" 
-                size="small" 
+              <Chip
+                label={`${importResult.updated} bijgewerkt`}
+                color="info"
+                size="small"
+                clickable={importResult.updatedTeams.length > 0}
+                onClick={() => openDetail('Bijgewerkte teams', importResult.updatedTeams)}
               />
+              {importResult.skipped > 0 && (
+                <Chip
+                  label={`${importResult.skipped} overgeslagen`}
+                  color="warning"
+                  size="small"
+                  clickable={importResult.skippedDuplicates.length > 0}
+                  onClick={() => openDetail('Overgeslagen (dubbele bootnummers)', importResult.skippedDuplicates)}
+                />
+              )}
               {importResult.errors > 0 && (
-                <Chip 
-                  label={`${importResult.errors} fouten`} 
-                  color="error" 
-                  size="small" 
+                <Chip
+                  label={`${importResult.errors} fouten`}
+                  color="error"
+                  size="small"
                   icon={<ErrorIcon />}
+                  clickable={importResult.errorDetails.length > 0}
+                  onClick={() => openDetail('Fouten', importResult.errorDetails)}
                 />
               )}
             </Box>
@@ -203,7 +215,7 @@ export default function Teams() {
                 size="small"
                 icon={<SuccessIcon />}
                 clickable={linkedTeams.length > 0}
-                onClick={() => handleOpenLinkDetails('linked')}
+                onClick={() => openDetail('Gekoppelde teams', linkedTeams)}
               />
               {linkResult.unmatched > 0 && (
                 <Chip
@@ -211,7 +223,7 @@ export default function Teams() {
                   color="warning"
                   size="small"
                   clickable={unmatchedParticipants.length > 0}
-                  onClick={() => handleOpenLinkDetails('unmatched')}
+                  onClick={() => openDetail('Deelnemers zonder team', unmatchedParticipants)}
                 />
               )}
             </Box>
@@ -322,16 +334,16 @@ export default function Teams() {
         onSave={handleSave}
       />
 
-      <Dialog open={linkDetailsOpen} onClose={handleCloseLinkDetails} fullWidth maxWidth="sm">
-        <DialogTitle>{detailTitle}</DialogTitle>
+      <Dialog open={detail !== null} onClose={handleCloseDetail} fullWidth maxWidth="sm">
+        <DialogTitle>{detail?.title}</DialogTitle>
         <DialogContent dividers>
-          {detailItems.length === 0 ? (
+          {!detail || detail.items.length === 0 ? (
             <Typography variant="body2" color="text.secondary">
               Geen resultaten.
             </Typography>
           ) : (
             <Box component="ul" sx={{ m: 0, pl: 3 }}>
-              {detailItems.map((item, index) => (
+              {detail.items.map((item, index) => (
                 <Box component="li" key={`${item}-${index}`} sx={{ mb: 0.5 }}>
                   <Typography variant="body2">{item}</Typography>
                 </Box>
@@ -340,7 +352,7 @@ export default function Teams() {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseLinkDetails}>Sluiten</Button>
+          <Button onClick={handleCloseDetail}>Sluiten</Button>
         </DialogActions>
       </Dialog>
     </Box>

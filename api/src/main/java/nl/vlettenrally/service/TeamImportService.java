@@ -13,8 +13,10 @@ import nl.vlettenrally.data.repository.TeamRepository;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -40,14 +42,27 @@ public class TeamImportService {
      * @return Import result with counts of created, updated, and failed teams
      */
     @Transactional
-    public ImportResult importTeams(UUID gameId, int externalEventId)
+    public TeamImportResult importTeams(UUID gameId, int externalEventId)
             throws PreRegistrationApiException {
 
         List<Registration> bookings = preRegistrationClient.fetchRegistrations(externalEventId);
 
-        int created = 0;
-        int updated = 0;
-        int errors = 0;
+        List<String> createdTeams = new ArrayList<>();
+        List<String> updatedTeams = new ArrayList<>();
+        List<String> skippedDuplicates = new ArrayList<>();
+        List<String> errorDetails = new ArrayList<>();
+
+        // Boat numbers already present for this game (from earlier imports or this run).
+        // The external API sometimes returns the same boat under multiple ticket booking
+        // ids; we import each boat at most once. Seeding from existing teams keeps the
+        // dedup robust across re-imports and independent of attendee ordering.
+        Set<String> seenBoatNumbers = new HashSet<>();
+        for (Team existing : teamRepository.findByGameId(gameId)) {
+            String key = normalizeBoatNumber(existing.getName());
+            if (key != null) {
+                seenBoatNumbers.add(key);
+            }
+        }
 
         for (Registration booking : bookings) {
             List<Attendee> attendees = booking.getAttendees();
@@ -56,6 +71,8 @@ public class TeamImportService {
             }
 
             for (Attendee attendee : attendees) {
+                String boatNumber = attendee.getBoatNumber();
+                String boatKey = normalizeBoatNumber(boatNumber);
                 try {
                     String externalId = String.valueOf(attendee.getTicketBookingId());
 
@@ -65,21 +82,52 @@ public class TeamImportService {
                         Team team = existingTeam.get();
                         updateTeamFromAttendee(team, booking, attendee);
                         teamRepository.save(team);
-                        updated++;
+                        updatedTeams.add(boatNumber);
+                        if (boatKey != null) {
+                            seenBoatNumbers.add(boatKey);
+                        }
+                    } else if (boatKey != null && seenBoatNumbers.contains(boatKey)) {
+                        // Same boat already imported for this game: skip the duplicate.
+                        skippedDuplicates.add(boatNumber);
                     } else {
                         Team team = createTeamFromAttendee(gameId, booking, attendee);
                         teamRepository.save(team);
-                        created++;
+                        createdTeams.add(boatNumber);
+                        if (boatKey != null) {
+                            seenBoatNumbers.add(boatKey);
+                        }
                     }
                 } catch (Exception e) {
-                    errors++;
-                    Log.error("Failed to import team for booking " + booking.getBookingId()
-                            + " boat " + attendee.getBoatNumber() + ": " + e.getMessage());
+                    String detail = "booking " + booking.getBookingId()
+                            + " boat " + boatNumber + ": " + e.getMessage();
+                    errorDetails.add(detail);
+                    Log.error("Failed to import team for " + detail);
                 }
             }
         }
 
-        return new ImportResult(created, updated, errors);
+        return new TeamImportResult(
+                createdTeams.size(),
+                updatedTeams.size(),
+                skippedDuplicates.size(),
+                errorDetails.size(),
+                createdTeams,
+                updatedTeams,
+                skippedDuplicates,
+                errorDetails
+        );
+    }
+
+    /**
+     * Normalize a boat number for duplicate comparison. Blank names are not deduped
+     * (returns {@code null}), so attendees without a boat number are still imported.
+     */
+    private String normalizeBoatNumber(String boatNumber) {
+        if (boatNumber == null) {
+            return null;
+        }
+        String trimmed = boatNumber.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private Team createTeamFromAttendee(UUID gameId, Registration booking, Attendee attendee) {

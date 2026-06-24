@@ -4,13 +4,15 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import java.util.List;
+
 import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
 import nl.vlettenrally.data.dto.game.GameResponse;
 import nl.vlettenrally.data.dto.game.RankingResponse;
 import nl.vlettenrally.data.dto.game.TeamImportResponse;
 import nl.vlettenrally.service.GameService;
-import nl.vlettenrally.service.ImportResult;
+import nl.vlettenrally.service.TeamImportResult;
 import nl.vlettenrally.service.RankingService;
 import nl.vlettenrally.service.TeamImportService;
 import nl.vlettenrally.websockets.WebSocketPublisher;
@@ -68,7 +70,8 @@ class GameResourceTest {
     void importTeams_plannedGame_returnsOk() throws Exception {
         Game game = gameWith(Game.GameStatus.PLANNED, 42);
         when(gameService.findById(gameId)).thenReturn(Optional.of(game));
-        when(teamImportService.importTeams(gameId, 42)).thenReturn(new ImportResult(3, 1, 0));
+        when(teamImportService.importTeams(gameId, 42)).thenReturn(
+            new TeamImportResult(3, 1, 0, 0, List.of(), List.of(), List.of(), List.of()));
 
         try (Response response = gameResource.importTeams(gameId)) {
             assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());
@@ -82,7 +85,8 @@ class GameResourceTest {
     void importTeams_activeGame_returnsOk() throws Exception {
         Game game = gameWith(Game.GameStatus.ACTIVE, 42);
         when(gameService.findById(gameId)).thenReturn(Optional.of(game));
-        when(teamImportService.importTeams(gameId, 42)).thenReturn(new ImportResult(0, 2, 0));
+        when(teamImportService.importTeams(gameId, 42)).thenReturn(
+            new TeamImportResult(0, 2, 0, 0, List.of(), List.of(), List.of(), List.of()));
 
         try (Response response = gameResource.importTeams(gameId)) {
             assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());

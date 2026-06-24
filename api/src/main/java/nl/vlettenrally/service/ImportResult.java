@@ -1,7 +1,7 @@
 package nl.vlettenrally.service;
 
 /**
- * Result of a team import operation.
+ * Result of a generic import operation (counts only).
  */
 public record ImportResult(
         int created,
