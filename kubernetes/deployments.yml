@@ -409,13 +409,17 @@ spec:
           env:
             - name: TZ
               value: "Europe/Amsterdam"
+          # Memory request == limit (Guaranteed QoS) so the session/pub-sub/cache
+          # store is not evicted under node pressure. 1.5Gi leaves ~512Mi of
+          # headroom above maxmemory (1gb) to absorb copy-on-write during AOF
+          # rewrites.
           resources:
             requests:
-              memory: "128Mi"
-              cpu: "100m"
+              memory: "1536Mi"
+              cpu: "250m"
             limits:
-              memory: "256Mi"
-              cpu: "200m"
+              memory: "1536Mi"
+              cpu: "1"
           ports:
             - name: valkey
               containerPort: 6379

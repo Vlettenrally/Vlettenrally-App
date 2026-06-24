@@ -32,7 +32,7 @@ data:
     protected-mode no
     
     # Memory management
-    maxmemory 200mb
+    maxmemory 1gb
     maxmemory-policy allkeys-lru
     
     # Persistence - AOF (Append Only File)

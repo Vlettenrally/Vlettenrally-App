@@ -20,6 +20,16 @@ spec:
                   - ondemand
   imagePullSecrets:
     - name: ghcr-creds
+  # Memory request == limit so each instance lands in the Guaranteed QoS class
+  # and is never evicted under node memory pressure. CNPG sizes shared_buffers
+  # to 25% of the memory limit (~512Mi here) automatically.
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "2"
   postgresql:
     shared_preload_libraries:
       - timescaledb
