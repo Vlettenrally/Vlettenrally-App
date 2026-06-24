@@ -68,7 +68,7 @@ class PublicRankingResourceTest {
         UUID gameId = UUID.randomUUID();
         Game g = game();
         g.setRankingsPublished(true);
-        RankingResponse entry = new RankingResponse(1, UUID.randomUUID(), "De Watervlooien", 42);
+        RankingResponse entry = new RankingResponse(1, UUID.randomUUID(), "De Watervlooien", "Snelle en wendbare vlettenvaarders", 42);
         when(gameService.findById(gameId)).thenReturn(Optional.of(g));
         when(rankingService.buildRanking(gameId)).thenReturn(List.of(entry));
 
@@ -82,7 +82,7 @@ class PublicRankingResourceTest {
 
     @Test
     void rankingsForLatestGame_returnsCachedRanking() {
-        RankingResponse entry = new RankingResponse(1, UUID.randomUUID(), "De Watervlooien", 42);
+        RankingResponse entry = new RankingResponse(1, UUID.randomUUID(), "De Watervlooien", "Snelle en wendbare vlettenvaarders", 42);
         when(rankingCache.latestPublishedRanking()).thenReturn(List.of(entry));
 
         Response response = resource.rankingsForLatestGame();

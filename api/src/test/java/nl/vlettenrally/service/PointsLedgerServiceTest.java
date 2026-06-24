@@ -373,7 +373,7 @@ class PointsLedgerServiceTest {
         Game published = game(Game.GameStatus.COMPLETED);
         published.setRankingsPublished(true);
         when(gameService.findById(gameId)).thenReturn(Optional.of(published));
-        List<RankingResponse> full = List.of(new RankingResponse(1, teamId, "Test team", 150));
+        List<RankingResponse> full = List.of(new RankingResponse(1, teamId, "Test team", null, 150));
         when(rankingService.buildRanking(gameId)).thenReturn(full);
 
         ledger.createEntry(teamId, gameId, PointEntryType.CHECKPOINT_VERIFICATION,
