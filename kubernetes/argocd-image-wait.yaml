@@ -32,7 +32,7 @@ spec:
           args:
             - |
               set -u
-              IMAGES="ghcr.io/joostvanviegen/vlettenrally-api:2026-06-24-3-native ghcr.io/joostvanviegen/vlettenrally-frontend:2026-06-24-3"
+              IMAGES="ghcr.io/joostvanviegen/vlettenrally-api:2026-06-24-4-native ghcr.io/joostvanviegen/vlettenrally-frontend:2026-06-24-4"
               for img in $IMAGES; do
                 echo "Waiting for $img ..."
                 until crane manifest "$img" >/dev/null 2>&1; do
