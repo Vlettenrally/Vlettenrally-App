@@ -30,6 +30,7 @@ jobs:
           DATE=$(date +%Y-%m-%d)
           VERSION_FILE="VERSION"
           DEPLOYMENT_FILE="kubernetes/deployments.yml"
+          HOOK_FILE="kubernetes/argocd-image-wait.yaml"
           CURRENT_VERSION=""
           COUNTER=1
 
@@ -50,8 +51,12 @@ jobs:
 
           printf '%s\n' "$VERSION" > "$VERSION_FILE"
 
-          sed -E -i "s|(ghcr.io/joostvanviegen/vlettenrally-api:)[0-9.-]+-native|\\1${VERSION}-native|g" "$DEPLOYMENT_FILE"
-          sed -E -i "s|(ghcr.io/joostvanviegen/vlettenrally-frontend:)[0-9.-]+|\\1${VERSION}|g" "$DEPLOYMENT_FILE"
+          # Stamp the new tags into both the Deployments and the ArgoCD
+          # PreSync image-wait hook, so the hook waits for this exact build.
+          for f in "$DEPLOYMENT_FILE" "$HOOK_FILE"; do
+            sed -E -i "s|(ghcr.io/joostvanviegen/vlettenrally-api:)[0-9.-]+-native|\\1${VERSION}-native|g" "$f"
+            sed -E -i "s|(ghcr.io/joostvanviegen/vlettenrally-frontend:)[0-9.-]+|\\1${VERSION}|g" "$f"
+          done
 
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
@@ -60,7 +65,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          if git diff --quiet -- VERSION kubernetes/deployments.yml; then
+          if git diff --quiet -- VERSION kubernetes/deployments.yml kubernetes/argocd-image-wait.yaml; then
             echo "No version changes detected"
             exit 0
           fi
@@ -68,7 +73,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add VERSION kubernetes/deployments.yml
+          git add VERSION kubernetes/deployments.yml kubernetes/argocd-image-wait.yaml
           git commit -m "Version bump."
           git push
 

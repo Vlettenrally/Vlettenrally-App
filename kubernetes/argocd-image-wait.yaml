@@ -1,0 +1,66 @@
+# ArgoCD PreSync hook: hold the rollout until the freshly-bumped images are
+# actually pullable from ghcr. The version-bump workflow commits the new image
+# tags here (same as deployments.yml) before the build has finished, so without
+# this gate ArgoCD would update the Deployments immediately and hit
+# ImagePullBackOff. This Job runs in the PreSync phase and must succeed before
+# the Deployments are applied; on a sync where the images already exist it
+# returns within seconds.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: argocd-image-wait
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    # Recreate each sync; delete on success so the next sync starts clean.
+    # On failure the Job is left behind for inspection.
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
+spec:
+  backoffLimit: 0
+  # Hard cap (~25 min): if the build never publishes the images the hook fails,
+  # which fails the sync instead of rolling out a broken/missing image.
+  activeDeadlineSeconds: 1500
+  template:
+    spec:
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: ghcr-creds
+      containers:
+        - name: wait-for-images
+          # Consider pinning to a digest/tag for reproducibility.
+          image: gcr.io/go-containerregistry/crane:debug
+          command: ["/busybox/sh", "-c"]
+          args:
+            - |
+              set -u
+              IMAGES="ghcr.io/joostvanviegen/vlettenrally-api:2026-06-24-2-native ghcr.io/joostvanviegen/vlettenrally-frontend:2026-06-24-2"
+              for img in $IMAGES; do
+                echo "Waiting for $img ..."
+                until crane manifest "$img" >/dev/null 2>&1; do
+                  echo "  not available yet, retrying in 15s"
+                  sleep 15
+                done
+                echo "  found $img"
+              done
+              echo "All images available; allowing sync to proceed."
+          env:
+            # crane reads <DOCKER_CONFIG>/config.json for registry auth.
+            - name: DOCKER_CONFIG
+              value: /docker
+          volumeMounts:
+            - name: docker-config
+              mountPath: /docker
+              readOnly: true
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "10m"
+            limits:
+              memory: "64Mi"
+              cpu: "100m"
+      volumes:
+        - name: docker-config
+          secret:
+            secretName: ghcr-creds
+            items:
+              - key: .dockerconfigjson
+                path: config.json
