@@ -47,12 +47,6 @@ public class AuthResource {
     @Inject
     AuthService authService;
 
-    @Inject
-    TeamService teamService;
-
-    @ConfigProperty(name = "vlettenrally.mock.enabled", defaultValue = "false")
-    boolean mockEnabled;
-
     @ConfigProperty(name = "vlettenrally.jwt.access-token-expiry-minutes", defaultValue = "60")
     int accessTokenExpiryMinutes;
 
