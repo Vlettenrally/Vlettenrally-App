@@ -11,6 +11,7 @@ import type {
   GameRequest,
   ExternalEvent,
   TeamImportResult,
+  TrackerAssignResult,
   LocationTestResult,
   TeamLocation,
   Checkpoint,
@@ -511,6 +512,11 @@ class ApiService {
     return this.put(`/teams/${teamId}`, data);
   }
 
+  // Assign a tracker from the game's pool to a team, or clear it (trackerId null).
+  async assignTeamTracker(teamId: string, trackerId: string | null) : Promise<ApiResponse<AdminTeam>> {
+    return this.put(`/teams/${teamId}/tracker`, { trackerId });
+  }
+
   async createTeam(data: Partial<AdminTeam> & { gameId: string }) : Promise<ApiResponse<AdminTeam>> {
     return this.post('/teams', {
       gameId: data.gameId,
@@ -561,6 +567,31 @@ async getGames() : Promise<ApiResponse<Game[]>> {
 
   async importTeams(gameId: string) : Promise<ApiResponse<TeamImportResult>> {
     return this.post(`/games/${gameId}/import-teams`);
+  }
+
+  async assignTrackers(gameId: string, trackerIds: string[]) : Promise<ApiResponse<TrackerAssignResult>> {
+    return this.post(`/games/${gameId}/assign-trackers`, { trackerIds });
+  }
+
+  // Tracker IDs in the game's pool not yet assigned to any team (picker options).
+  async getAvailableTrackers(gameId: string) : Promise<ApiResponse<string[]>> {
+    return this.get(`/games/${gameId}/trackers/available`);
+  }
+
+  // Returns the raw CSV text (not the JSON envelope); the caller triggers the download.
+  async exportTrackers(gameId: string): Promise<{ csv?: string; error?: string }> {
+    const token = storage.getAuthToken();
+    try {
+      const response = await fetch(`${API_BASE_URL}/games/${gameId}/trackers/export`, {
+        headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+      });
+      if (!response.ok) {
+        return { error: `Export mislukt (${response.status})` };
+      }
+      return { csv: await response.text() };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : 'Network error' };
+    }
   }
 
   async testLocationEndpoint(gameId: string) : Promise<ApiResponse<LocationTestResult>> {

@@ -43,7 +43,10 @@ public class Team {
     // when tracking is first enabled and kept across enable/disable toggles.
     private boolean traccarEnabled;
     private String traccarIdentifier;
-    
+    // Physical GPS tracker ID from the external provider, auto-assigned in bulk
+    // and exported back to them. Independent of traccarIdentifier above.
+    private String trackerId;
+
     @Setter(AccessLevel.NONE)
     private List<String> emergencyPhoneNumbers;
     

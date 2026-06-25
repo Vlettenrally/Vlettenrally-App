@@ -13,10 +13,15 @@ import {
   FormControlLabel,
   Checkbox,
   Stack,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import { useCallback, useState, useEffect } from 'react';
 import type { AdminTeam, CheckInDevice } from '../types/entities';
 import { teamService } from '../services/teamService';
+import { gameService } from '../services/gameService';
 
 interface TeamDetailDialogProps {
   open: boolean;
@@ -45,7 +50,8 @@ export default function TeamDetailDialog({
   const [deviceError, setDeviceError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  
+  const [availableTrackers, setAvailableTrackers] = useState<string[]>([]);
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -57,6 +63,7 @@ export default function TeamDetailDialog({
     traccarEnabled: false,
     finished: false,
     totalPoints: 0,
+    trackerId: '',
   });
 
   const isCreateMode = !team;
@@ -74,9 +81,19 @@ export default function TeamDetailDialog({
         traccarEnabled: team.traccarEnabled,
         finished: team.finished,
         totalPoints: team.totalPoints,
+        trackerId: team.trackerId ?? '',
       });
       setIsEditing(false);
-      
+
+      // Load the pool of unassigned trackers for the picker.
+      gameService
+        .getAvailableTrackers(team.gameId)
+        .then(setAvailableTrackers)
+        .catch((err) => {
+          console.error('Failed to load available trackers:', err);
+          setAvailableTrackers([]);
+        });
+
       // Load rival teams
       if (team.rivals && team.rivals.length > 0) {
         setLoadingRivals(true);
@@ -121,9 +138,11 @@ export default function TeamDetailDialog({
         traccarEnabled: false,
         finished: false,
         totalPoints: 0,
+        trackerId: '',
       });
       setIsEditing(true);
       setRivalTeams([]);
+      setAvailableTrackers([]);
       setDevices([]);
       setConfirmReset(false);
       setDeviceError(null);
@@ -219,6 +238,7 @@ export default function TeamDetailDialog({
           traccarEnabled: team.traccarEnabled,
           finished: team.finished,
           totalPoints: team.totalPoints,
+          trackerId: team.trackerId ?? '',
         });
       }
       setError(null);
@@ -260,6 +280,19 @@ export default function TeamDetailDialog({
         });
       } else if (team) {
         await teamService.updateTeam(team.id, teamData);
+
+        // Tracker assignment goes through its own endpoint (pool validation). Only
+        // call it when the selection actually changed.
+        if (formData.trackerId !== (team.trackerId ?? '')) {
+          const { error: trackerError } = await teamService.assignTracker(
+            team.id,
+            formData.trackerId || null,
+          );
+          if (trackerError) {
+            setError(trackerError);
+            return;
+          }
+        }
       }
 
       setIsEditing(false);
@@ -488,6 +521,44 @@ export default function TeamDetailDialog({
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1, wordBreak: 'break-all' }}>
                     Apparaat-ID: {team.traccarIdentifier}
                   </Typography>
+                )}
+              </Box>
+
+              <Box>
+                <Typography variant="subtitle2" gutterBottom>
+                  GPS-tracker
+                </Typography>
+                {isEditing ? (
+                  <FormControl fullWidth size="small">
+                    <InputLabel id="tracker-select-label">Tracker</InputLabel>
+                    <Select
+                      labelId="tracker-select-label"
+                      label="Tracker"
+                      value={formData.trackerId}
+                      onChange={(e) =>
+                        setFormData((prev) => ({ ...prev, trackerId: e.target.value }))
+                      }
+                    >
+                      <MenuItem value="">
+                        <em>Geen tracker</em>
+                      </MenuItem>
+                      {/* Current tracker first (it's excluded from the available pool), then the pool. */}
+                      {team.trackerId && (
+                        <MenuItem value={team.trackerId}>{team.trackerId}</MenuItem>
+                      )}
+                      {availableTrackers.map((id) => (
+                        <MenuItem key={id} value={id}>
+                          {id}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                ) : (
+                  <Chip
+                    label={team.trackerId ? team.trackerId : 'Geen tracker toegewezen'}
+                    color={team.trackerId ? 'success' : 'default'}
+                    size="small"
+                  />
                 )}
               </Box>
 

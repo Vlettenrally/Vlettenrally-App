@@ -18,6 +18,7 @@ public record TeamResponse(
     boolean finished,
     boolean traccarEnabled,
     String traccarIdentifier,
+    String trackerId,
     int totalPoints,
     List<UUID> rivals,
     String notes,

@@ -1,5 +1,5 @@
-import { Box, Typography, Button, Card, CardContent, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, CircularProgress, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
-import { Upload as ImportIcon, Link as LinkIcon, Add as AddIcon, CheckCircle as SuccessIcon, Error as ErrorIcon } from '@mui/icons-material';
+import { Box, Typography, Button, Card, CardContent, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, CircularProgress, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, TextField } from '@mui/material';
+import { Upload as ImportIcon, Link as LinkIcon, Add as AddIcon, CheckCircle as SuccessIcon, Error as ErrorIcon, GpsFixed as TrackerIcon, Download as DownloadIcon } from '@mui/icons-material';
 import { useCallback, useEffect, useState } from 'react';
 import { useGameStore } from '../../store/useGameStore';
 import { useAdminResync } from '../../hooks/useAdminSync';
@@ -7,7 +7,7 @@ import { teamService } from '../../services/teamService';
 import { gameService } from '../../services/gameService';
 import { websocket } from '../../services/websocket';
 import TeamDetailDialog from '../../components/TeamDetailDialog';
-import type { AdminTeam, Game, TeamImportResult, ParticipantLinkResult } from '../../types/entities';
+import type { AdminTeam, Game, TeamImportResult, TrackerAssignResult, ParticipantLinkResult } from '../../types/entities';
 
 type DetailDialog = { title: string; items: string[] };
 
@@ -27,6 +27,14 @@ export default function Teams() {
   const [linking, setLinking] = useState(false);
   const [linkResult, setLinkResult] = useState<ParticipantLinkResult | null>(null);
   const [linkError, setLinkError] = useState<string | null>(null);
+
+  // Tracker assignment state
+  const [trackerDialogOpen, setTrackerDialogOpen] = useState(false);
+  const [trackerInput, setTrackerInput] = useState('');
+  const [assigning, setAssigning] = useState(false);
+  const [assignResult, setAssignResult] = useState<TrackerAssignResult | null>(null);
+  const [assignError, setAssignError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   // Shared detail dialog for clickable result chips (import + linking)
   const [detail, setDetail] = useState<DetailDialog | null>(null);
@@ -139,6 +147,56 @@ export default function Teams() {
     }
   };
 
+  const handleAssignTrackers = async () => {
+    if (!selectedGameId) return;
+
+    // Split the pasted blob into individual tracker IDs (one per line, also
+    // tolerating commas/whitespace between IDs); the backend de-dupes and trims.
+    const trackerIds = trackerInput
+      .split(/[\s,;]+/)
+      .map((id) => id.trim())
+      .filter((id) => id.length > 0);
+
+    setAssigning(true);
+    setAssignResult(null);
+    setAssignError(null);
+
+    try {
+      const result = await gameService.assignTrackers(selectedGameId, trackerIds);
+      setAssignResult(result);
+      setTrackerDialogOpen(false);
+      setTrackerInput('');
+      // Refresh teams so the assigned tracker IDs show up.
+      teamService.getTeamsByGame(selectedGameId).then(setTeams);
+    } catch (err) {
+      setAssignError(err instanceof Error ? err.message : 'Toewijzen mislukt');
+    } finally {
+      setAssigning(false);
+    }
+  };
+
+  const handleExportTrackers = async () => {
+    if (!selectedGameId) return;
+
+    setExporting(true);
+    try {
+      const csv = await gameService.exportTrackers(selectedGameId);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `trackers-${selectedGameId}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setAssignError(err instanceof Error ? err.message : 'Export mislukt');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   // Open the shared detail dialog for a result chip. No-op when there's nothing to show.
   const openDetail = (title: string, items: string[]) => {
     if (items.length === 0) return;
@@ -236,6 +294,44 @@ export default function Teams() {
               icon={<ErrorIcon />}
             />
           )}
+          {assignResult && (
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Chip
+                label={`${assignResult.assigned} toegewezen`}
+                color="success"
+                size="small"
+                icon={<SuccessIcon />}
+                clickable={assignResult.assignedPairs.length > 0}
+                onClick={() => openDetail('Toegewezen trackers', assignResult.assignedPairs)}
+              />
+              {assignResult.teamsWithoutTracker > 0 && (
+                <Chip
+                  label={`${assignResult.teamsWithoutTracker} zonder tracker`}
+                  color="warning"
+                  size="small"
+                  clickable={assignResult.teamsWithoutTrackerNames.length > 0}
+                  onClick={() => openDetail('Teams zonder tracker', assignResult.teamsWithoutTrackerNames)}
+                />
+              )}
+              {assignResult.unused > 0 && (
+                <Chip
+                  label={`${assignResult.unused} ongebruikt`}
+                  color="info"
+                  size="small"
+                  clickable={assignResult.unusedTrackers.length > 0}
+                  onClick={() => openDetail('Ongebruikte trackers', assignResult.unusedTrackers)}
+                />
+              )}
+            </Box>
+          )}
+          {assignError && (
+            <Chip
+              label={assignError}
+              color="error"
+              size="small"
+              icon={<ErrorIcon />}
+            />
+          )}
           {game?.externalEventId && (
             <Tooltip
               title={isCompleted ? "Teams importeren is niet mogelijk nadat de wedstrijd is afgelopen" : ""}
@@ -263,6 +359,24 @@ export default function Teams() {
               {linking ? 'Koppelen...' : 'Koppel deelnemers'}
             </Button>
           )}
+          <Button
+            variant="outlined"
+            startIcon={<TrackerIcon />}
+            onClick={() => {
+              setAssignError(null);
+              setTrackerDialogOpen(true);
+            }}
+          >
+            Trackers toewijzen
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={exporting ? <CircularProgress size={20} /> : <DownloadIcon />}
+            onClick={handleExportTrackers}
+            disabled={exporting}
+          >
+            Export trackers
+          </Button>
           <Button variant="contained" startIcon={<AddIcon />} onClick={handleNewTeam}>
             New Team
           </Button>
@@ -279,6 +393,7 @@ export default function Teams() {
                 <TableRow>
                   <TableCell><strong>Team Name</strong></TableCell>
                   <TableCell><strong>Description</strong></TableCell>
+                  <TableCell><strong>Tracker</strong></TableCell>
                   <TableCell align="right"><strong>Points</strong></TableCell>
                   <TableCell align="center"><strong>Checked In</strong></TableCell>
                   <TableCell align="center"><strong>Digital</strong></TableCell>
@@ -295,6 +410,7 @@ export default function Teams() {
                   >
                     <TableCell>{team.name}</TableCell>
                     <TableCell>{team.description}</TableCell>
+                    <TableCell>{team.trackerId || '—'}</TableCell>
                     <TableCell align="right">{team.totalPoints}</TableCell>
                     <TableCell align="center">
                       <Chip 
@@ -333,6 +449,37 @@ export default function Teams() {
         gameId={selectedGameId || ''}
         onSave={handleSave}
       />
+
+      <Dialog open={trackerDialogOpen} onClose={() => setTrackerDialogOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Trackers toewijzen</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Plak de tracker-ID's (één per regel). Ze worden automatisch verdeeld over teams die nog
+            geen tracker hebben. Al toegewezen ID's worden overgeslagen.
+          </Typography>
+          <TextField
+            label="Tracker-ID's"
+            value={trackerInput}
+            onChange={(e) => setTrackerInput(e.target.value)}
+            multiline
+            rows={10}
+            fullWidth
+            autoFocus
+            placeholder={'860123456789012\n860123456789013\n860123456789014'}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTrackerDialogOpen(false)}>Annuleren</Button>
+          <Button
+            variant="contained"
+            onClick={handleAssignTrackers}
+            disabled={assigning || trackerInput.trim().length === 0}
+            startIcon={assigning ? <CircularProgress size={20} /> : <TrackerIcon />}
+          >
+            {assigning ? 'Toewijzen...' : 'Toewijzen'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={detail !== null} onClose={handleCloseDetail} fullWidth maxWidth="sm">
         <DialogTitle>{detail?.title}</DialogTitle>

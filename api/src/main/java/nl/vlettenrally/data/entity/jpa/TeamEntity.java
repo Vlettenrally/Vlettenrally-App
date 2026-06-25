@@ -80,6 +80,11 @@ public class TeamEntity {
     @Column(name = "traccar_identifier", length = 64)
     private String traccarIdentifier;
 
+    // Physical GPS tracker ID from the external provider, assigned in bulk and
+    // exported back to them. Unrelated to traccarIdentifier above.
+    @Column(name = "tracker_id", length = 64)
+    private String trackerId;
+
     @Column(name = "total_points", nullable = false)
     private int totalPoints = 0;
 

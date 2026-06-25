@@ -30,6 +30,8 @@ import nl.vlettenrally.data.dto.game.GameRequest;
 import nl.vlettenrally.data.dto.game.GameResponse;
 import nl.vlettenrally.data.dto.game.LocationTestResponse;
 import nl.vlettenrally.data.dto.game.TeamImportResponse;
+import nl.vlettenrally.data.dto.game.AssignTrackersRequest;
+import nl.vlettenrally.data.dto.game.AssignTrackersResponse;
 import nl.vlettenrally.data.converter.TeamConverter;
 import nl.vlettenrally.data.domain.Checkpoint;
 import nl.vlettenrally.data.domain.CircleCheckpoint;
@@ -46,6 +48,8 @@ import nl.vlettenrally.service.CheckpointService;
 import nl.vlettenrally.service.EventDetailsService;
 import nl.vlettenrally.service.ImportResult;
 import nl.vlettenrally.service.TeamImportResult;
+import nl.vlettenrally.service.TrackerAssignmentResult;
+import nl.vlettenrally.service.TrackerAssignmentService;
 import nl.vlettenrally.service.ParticipantLinkResult;
 import nl.vlettenrally.service.AuthService;
 import nl.vlettenrally.service.TeamService;
@@ -100,6 +104,9 @@ public class GameResource {
 
     @Inject
     TeamImportService teamImportService;
+
+    @Inject
+    TrackerAssignmentService trackerAssignmentService;
 
     @Inject
     EventDetailsService eventDetailsService;
@@ -426,6 +433,62 @@ public class GameResource {
                 }
             })
             .orElse(gameNotFoundResponse());
+    }
+
+    /**
+     * Auto-assign a pasted batch of physical tracker IDs to this game's teams.
+     * Trackers are handed out to teams without one yet; re-pasting is a no-op for
+     * IDs already in use.
+     */
+    @POST
+    @Path("/{gameId}/assign-trackers")
+    @RolesAllowed("admin")
+    public Response assignTrackers(@PathParam("gameId") UUID gameId, AssignTrackersRequest request) {
+        return gameService.findById(gameId)
+            .map(game -> {
+                TrackerAssignmentResult result = trackerAssignmentService.assignTrackers(
+                    gameId, request != null ? request.trackerIds() : List.of());
+                return Response.ok(new AssignTrackersResponse(
+                    result.assigned(),
+                    result.teamsWithoutTracker(),
+                    result.unused(),
+                    result.assignedPairs(),
+                    result.teamsWithoutTrackerNames(),
+                    result.unusedTrackers()
+                )).build();
+            })
+            .orElse(gameNotFoundResponse());
+    }
+
+    /**
+     * Tracker IDs in the game's pool that are not yet assigned to any team — the
+     * options for the per-team tracker picker.
+     */
+    @GET
+    @Path("/{gameId}/trackers/available")
+    @RolesAllowed("admin")
+    public Response availableTrackers(@PathParam("gameId") UUID gameId) {
+        if (gameService.findById(gameId).isEmpty()) {
+            return gameNotFoundResponse();
+        }
+        return Response.ok(trackerAssignmentService.availableTrackers(gameId)).build();
+    }
+
+    /**
+     * Export the current tracker -> boat mapping as CSV to send to the provider.
+     */
+    @GET
+    @Path("/{gameId}/trackers/export")
+    @RolesAllowed("admin")
+    @Produces("text/csv")
+    public Response exportTrackers(@PathParam("gameId") UUID gameId) {
+        if (gameService.findById(gameId).isEmpty()) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+        String csv = trackerAssignmentService.exportCsv(gameId);
+        return Response.ok(csv)
+            .header("Content-Disposition", "attachment; filename=\"trackers-" + gameId + ".csv\"")
+            .build();
     }
 
     /**

@@ -35,6 +35,7 @@ public class TeamConverter {
                 domain.isFinished(),
                 domain.isTraccarEnabled(),
                 domain.getTraccarIdentifier(),
+                domain.getTrackerId(),
                 domain.getTotalPoints(),
                 domain.getRivals(),
                 domain.getNotes(),

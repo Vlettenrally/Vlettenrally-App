@@ -29,9 +29,11 @@ import nl.vlettenrally.data.dto.team.ParticipantsUpdateRequest;
 import nl.vlettenrally.data.dto.team.RivalsUpdateRequest;
 import nl.vlettenrally.data.dto.team.TeamCreateRequest;
 import nl.vlettenrally.data.dto.team.TeamUpdateRequest;
+import nl.vlettenrally.data.dto.team.AssignTrackerRequest;
 import nl.vlettenrally.data.repository.DeviceRegistrationRepository;
 import nl.vlettenrally.service.CheckInCoordinationService;
 import nl.vlettenrally.service.TeamService;
+import nl.vlettenrally.service.TrackerAssignmentService;
 import nl.vlettenrally.websockets.WebSocketEventTypes;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 
@@ -72,6 +74,9 @@ public class TeamResource {
 
     @Inject
     DeviceRegistrationRepository deviceRegistrationRepository;
+
+    @Inject
+    TrackerAssignmentService trackerAssignmentService;
 
     /**
      * Get all teams
@@ -327,6 +332,40 @@ public class TeamResource {
             }
 
             return Response.ok(teamConverter.toDto(updatedTeam)).build();
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse(e.getMessage()))
+                .build();
+        }
+    }
+
+    /**
+     * Admin: assign a tracker from the game's pool to a team, or clear it (blank
+     * trackerId). Broadcasts the update so admin dashboards refresh live.
+     */
+    @PUT
+    @Path("/teams/{teamId}/tracker")
+    public Response assignTracker(@PathParam("teamId") UUID teamId, AssignTrackerRequest request) {
+        if (teamService.findById(teamId).isEmpty()) {
+            return Response.status(Response.Status.NOT_FOUND)
+                .entity(new ErrorResponse("Team not found"))
+                .build();
+        }
+        try {
+            Team updatedTeam = trackerAssignmentService.assignToTeam(
+                teamId, request != null ? request.trackerId() : null);
+
+            webSocketPublisher.broadcastToGame(
+                updatedTeam.getGameId(),
+                "team:updated",
+                teamConverter.toDto(updatedTeam)
+            );
+
+            return Response.ok(teamConverter.toDto(updatedTeam)).build();
+        } catch (IllegalStateException e) {
+            return Response.status(Response.Status.CONFLICT)
+                .entity(new ErrorResponse(e.getMessage()))
+                .build();
         } catch (IllegalArgumentException e) {
             return Response.status(Response.Status.BAD_REQUEST)
                 .entity(new ErrorResponse(e.getMessage()))

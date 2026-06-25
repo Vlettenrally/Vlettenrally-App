@@ -83,6 +83,11 @@ export const teamService = {
     return response.data ?? null;
   },
 
+  assignTracker: async (teamId: string, trackerId: string | null): Promise<{ team: AdminTeam | null; error: string | null }> => {
+    const response = await api.assignTeamTracker(teamId, trackerId);
+    return { team: response.data ?? null, error: response.error ?? null };
+  },
+
   updateEmergencyPhones: async (teamId: string, phoneNumbers: string[]): Promise<AdminTeam | null> => {
     const response = await api.updateEmergencyPhones(teamId, phoneNumbers);
     return response.data ?? null;

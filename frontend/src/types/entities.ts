@@ -64,6 +64,18 @@ export interface TeamImportResult {
 }
 
 /**
+ * Result of auto-assigning a pasted batch of tracker IDs to a game's teams.
+ */
+export interface TrackerAssignResult {
+  assigned: number;
+  teamsWithoutTracker: number;
+  unused: number;
+  assignedPairs: string[];
+  teamsWithoutTrackerNames: string[];
+  unusedTrackers: string[];
+}
+
+/**
  * Result of location endpoint test
  */
 export interface LocationTestResult {
@@ -167,6 +179,7 @@ export interface AdminTeam extends TeamBase {
   finished: boolean;
   traccarEnabled: boolean;
   traccarIdentifier?: string | null;
+  trackerId?: string | null;
   rivals: string[];
   notes?: string;
   emergencyPhoneNumbers?: string[];
