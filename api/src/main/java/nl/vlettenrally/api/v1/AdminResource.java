@@ -8,6 +8,7 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
+import nl.vlettenrally.api.security.SecurityRoles;
 import nl.vlettenrally.data.domain.Admin;
 import nl.vlettenrally.data.dto.admin.AdminUserResponse;
 import nl.vlettenrally.data.dto.admin.CreateAdminRequest;
@@ -23,14 +24,14 @@ import java.util.stream.Collectors;
 /**
  * REST Resource for Admin User Management
  * Only accessible by users with SUPER_ADMIN role
- *
+ * <p>
  * Endpoints:
  * - GET /api/v1/admins - List all admin users
  * - POST /api/v1/admins - Create a new admin user
  * - PUT /api/v1/admins/{id}/roles - Update admin roles
  * - PUT /api/v1/admins/{id}/reset-password - Reset admin password
  * - DELETE /api/v1/admins/{id} - Deactivate admin user
- *
+ * <p>
  * TODO: Add @RolesAllowed("CHECKPOINT_MANAGER") to achievement verification endpoints
  */
 @Path("/api/v1/admins")
@@ -46,7 +47,7 @@ public class AdminResource {
      * List all admin users
      */
     @GET
-    @RolesAllowed("super_admin")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.SUPER_ADMIN})
     public Response listAdmins(@Context SecurityContext securityContext) {
         List<AdminUserResponse> admins = adminService.getAllAdmins().stream()
             .map(this::toResponse)
@@ -62,7 +63,7 @@ public class AdminResource {
      * Create a new admin user
      */
     @POST
-    @RolesAllowed("super_admin")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.SUPER_ADMIN})
     public Response createAdmin(CreateAdminRequest request, @Context SecurityContext securityContext) {
         try {
             Admin savedAdmin = adminService.createAdmin(
@@ -97,7 +98,7 @@ public class AdminResource {
      */
     @PUT
     @Path("/{id}/roles")
-    @RolesAllowed("super_admin")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.SUPER_ADMIN})
     public Response updateRoles(
             @PathParam("id") UUID adminId,
             UpdateAdminRolesRequest request,
@@ -129,7 +130,7 @@ public class AdminResource {
      */
     @PUT
     @Path("/{id}/reset-password")
-    @RolesAllowed("super_admin")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.SUPER_ADMIN})
     public Response resetPassword(@PathParam("id") UUID adminId, @Context SecurityContext securityContext) {
         try {
             String tempPassword = adminService.resetAdminPassword(adminId);
@@ -150,7 +151,7 @@ public class AdminResource {
      */
     @DELETE
     @Path("/{id}")
-    @RolesAllowed("super_admin")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.SUPER_ADMIN})
     public Response deactivateAdmin(@PathParam("id") UUID adminId, @Context SecurityContext securityContext) {
         try {
             UUID currentUserId = getAdminId(securityContext);

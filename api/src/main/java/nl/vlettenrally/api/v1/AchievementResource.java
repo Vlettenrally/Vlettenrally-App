@@ -12,6 +12,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.SecurityContext;
+import nl.vlettenrally.api.security.SecurityRoles;
 import nl.vlettenrally.api.security.TeamScopedOrAdmin;
 import nl.vlettenrally.data.domain.Achievement;
 import nl.vlettenrally.data.dto.achievement.AchievementResponse;
@@ -52,7 +53,7 @@ public class AchievementResource {
      */
     @GET
     @Path("/teams/{teamId}/achievements")
-    @RolesAllowed({"admin", "team"})
+    @RolesAllowed({SecurityRoles.STAFF, SecurityRoles.TEAM})
     @TeamScopedOrAdmin
     public Response getTeamAchievements(@PathParam("teamId") UUID teamId) {
         List<Achievement> achievements = achievementService.findByTeamId(teamId);
@@ -64,7 +65,7 @@ public class AchievementResource {
      */
     @GET
     @Path("/teams/{teamId}/achievements/verified")
-    @RolesAllowed({"admin", "team"})
+    @RolesAllowed({SecurityRoles.STAFF, SecurityRoles.TEAM})
     @TeamScopedOrAdmin
     public Response getTeamVerifiedAchievements(@PathParam("teamId") UUID teamId) {
         List<Achievement> achievements = achievementService.findByTeamId(teamId).stream()
@@ -79,7 +80,7 @@ public class AchievementResource {
      * Get all pending achievements (for game master dashboard)
      */
     @GET
-    @RolesAllowed("admin")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.CHECKPOINT_MANAGER})
     @Path("/achievements/pending")
     public Response getAllPendingAchievements() {
         List<Achievement> pending = achievementService.findAllPending();
@@ -90,7 +91,7 @@ public class AchievementResource {
      * Get pending achievements for a specific checkpoint (for game masters at that location)
      */
     @GET
-    @RolesAllowed({"admin", "checkpoint_manager"})
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.CHECKPOINT_MANAGER})
     @Path("/checkpoints/{checkpointId}/achievements/pending")
     public Response getPendingAchievementsForCheckpoint(@PathParam("checkpointId") UUID checkpointId) {
         List<Achievement> pending = achievementService.findPendingByCheckpointId(checkpointId);
@@ -102,7 +103,7 @@ public class AchievementResource {
      * This awards points to the team.
      */
     @POST
-    @RolesAllowed({"admin", "checkpoint_manager"})
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.CHECKPOINT_MANAGER})
     @Path("/achievements/{achievementId}/verify")
     public Response verifyAchievement(
             @PathParam("achievementId") UUID achievementId,
@@ -124,7 +125,7 @@ public class AchievementResource {
      * No points are awarded.
      */
     @POST
-    @RolesAllowed({"admin", "checkpoint_manager"})
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.CHECKPOINT_MANAGER})
     @Path("/achievements/{achievementId}/reject")
     public Response rejectAchievement(
             @PathParam("achievementId") UUID achievementId,
@@ -153,7 +154,7 @@ public class AchievementResource {
      * points ledger as a MANUAL_ADJUSTMENT.
      */
     @POST
-    @RolesAllowed({"admin", "checkpoint_manager"})
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.CHECKPOINT_MANAGER})
     @Path("/achievements/{achievementId}/bonus-points")
     public Response adjustBonusPoints(
             @PathParam("achievementId") UUID achievementId,
@@ -182,7 +183,7 @@ public class AchievementResource {
      * polling, so verify/reject can proceed. Notifies game masters.
      */
     @POST
-    @RolesAllowed({"admin", "checkpoint_manager"})
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.CHECKPOINT_MANAGER})
     @Path("/achievements/detect")
     public Response detectProximity(ProximityDetectionRequest request) {
         if (request.teamId() == null || request.checkpointId() == null) {

@@ -12,6 +12,7 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
+import nl.vlettenrally.api.security.SecurityRoles;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
 import nl.vlettenrally.data.dto.device.FcmTokenRequest;
 import nl.vlettenrally.data.dto.device.FcmTokenResponse;
@@ -23,7 +24,7 @@ import io.quarkus.logging.Log;
 
 /**
  * REST Resource for FCM Token operations
- * 
+ * <p>
  * Endpoints:
  * - POST /api/v1/fcm-tokens - Register an FCM token for the authenticated user (team or admin)
  * - DELETE /api/v1/fcm-tokens/{token} - Unregister an FCM token
@@ -31,7 +32,7 @@ import io.quarkus.logging.Log;
 @Path("/api/v1/fcm-tokens")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
-@RolesAllowed({"team", "admin"})
+@RolesAllowed({SecurityRoles.TEAM, SecurityRoles.STAFF})
 public class FcmTokenResource {
 
     @Inject
@@ -45,7 +46,7 @@ public class FcmTokenResource {
     public Response registerFcmToken(
             FcmTokenRequest request,
             @Context SecurityContext securityContext) {
-        
+
         if (request == null || request.token() == null || request.token().isBlank()) {
             return Response.status(Response.Status.BAD_REQUEST)
                 .entity(new ErrorResponse("FCM token is required"))
@@ -54,12 +55,12 @@ public class FcmTokenResource {
 
         try {
             UUID userId = UUID.fromString(securityContext.getUserPrincipal().getName());
-            boolean isAdmin = securityContext.isUserInRole("admin");
-            
+            boolean isAdmin = securityContext.isUserInRole(SecurityRoles.STAFF);
+
             UUID deviceId = fcmTokenService.registerToken(userId, isAdmin, request.token(), request.deviceId(), request.nickname());
 
             return Response.ok(FcmTokenResponse.ok(deviceId)).build();
-            
+
         } catch (IllegalArgumentException e) {
             Log.error("Invalid user ID in security context", e);
             return Response.status(Response.Status.UNAUTHORIZED)
@@ -82,7 +83,7 @@ public class FcmTokenResource {
     public Response unregisterFcmToken(
             @PathParam("token") String token,
             @Context SecurityContext securityContext) {
-        
+
         if (token == null || token.isBlank()) {
             return Response.status(Response.Status.BAD_REQUEST)
                 .entity(new ErrorResponse("FCM token is required"))
@@ -91,12 +92,12 @@ public class FcmTokenResource {
 
         try {
             UUID userId = UUID.fromString(securityContext.getUserPrincipal().getName());
-            boolean isAdmin = securityContext.isUserInRole("admin");
-            
+            boolean isAdmin = securityContext.isUserInRole(SecurityRoles.STAFF);
+
             fcmTokenService.unregisterToken(userId, isAdmin);
 
             return Response.ok(FcmTokenResponse.ok("FCM token unregistered")).build();
-            
+
         } catch (IllegalArgumentException e) {
             Log.error("Invalid user ID in security context", e);
             return Response.status(Response.Status.UNAUTHORIZED)

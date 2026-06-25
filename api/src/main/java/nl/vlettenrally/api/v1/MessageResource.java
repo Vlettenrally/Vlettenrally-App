@@ -16,6 +16,7 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
+import nl.vlettenrally.api.security.SecurityRoles;
 import nl.vlettenrally.api.security.TeamScoped;
 import nl.vlettenrally.data.domain.AdminNotification;
 import nl.vlettenrally.data.domain.Message;
@@ -54,7 +55,7 @@ import java.util.stream.Collectors;
  * - DELETE /api/v1/messages/admin/templates/{templateId} - Delete template
  */
 @Path("/api/v1/messages")
-@RolesAllowed({"team", "admin"})
+@RolesAllowed({SecurityRoles.TEAM, SecurityRoles.STAFF})
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class MessageResource {
@@ -76,7 +77,7 @@ public class MessageResource {
      * Get a single message by ID
      */
     @GET
-    @RolesAllowed("team")
+    @RolesAllowed(SecurityRoles.TEAM)
     @Path("/{messageId}")
     public Response getMessage(@PathParam("messageId") UUID messageId) {
         Optional<Message> message = messageService.findById(messageId);
@@ -90,7 +91,7 @@ public class MessageResource {
      * Get all messages for a team
      */
     @GET
-    @RolesAllowed("team")
+    @RolesAllowed(SecurityRoles.TEAM)
     @TeamScoped
     @Path("/team/{teamId}")
     public Response getMessagesForTeam(@PathParam("teamId") UUID teamId) {
@@ -103,7 +104,7 @@ public class MessageResource {
      * Get unread messages count for a team
      */
     @GET
-    @RolesAllowed("team")
+    @RolesAllowed(SecurityRoles.TEAM)
     @TeamScoped
     @Path("/team/{teamId}/unread")
     public Response getUnreadCount(
@@ -117,7 +118,7 @@ public class MessageResource {
      * Mark a message as read
      */
     @PUT
-    @RolesAllowed("team")
+    @RolesAllowed(SecurityRoles.TEAM)
     @Path("/{messageId}/read")
     public Response markAsRead(
             @PathParam("messageId") UUID messageId) {
@@ -130,7 +131,7 @@ public class MessageResource {
      * Mark multiple messages as read (batch operation)
      */
     @POST
-    @RolesAllowed("team")
+    @RolesAllowed(SecurityRoles.TEAM)
     @Path("/mark-read")
     public Response markMultipleAsRead(MarkMessagesReadRequest request) {
         if (request == null || request.ids() == null || request.ids().isEmpty()) {
@@ -146,7 +147,7 @@ public class MessageResource {
      * Mark all messages as read for a team
      */
     @PUT
-    @RolesAllowed("team")
+    @RolesAllowed(SecurityRoles.TEAM)
     @TeamScoped
     @Path("/team/{teamId}/read-all")
     public Response markAllAsRead(
@@ -175,7 +176,7 @@ public class MessageResource {
      * Send an admin message to teams
      */
     @POST
-    @RolesAllowed("admin")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.MESSAGE_SENDER})
     @Path("/admin")
     public Response sendAdminMessage(SendAdminMessageRequest request, @Context SecurityContext securityContext) {
         MessageType type;
@@ -216,7 +217,7 @@ public class MessageResource {
      * Get admin messages for a game with pagination
      */
     @GET
-    @RolesAllowed("admin")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.MESSAGE_SENDER})
     @Path("/admin/games/{gameId}")
     public Response getAdminMessagesForGame(
             @PathParam("gameId") UUID gameId,
@@ -241,7 +242,7 @@ public class MessageResource {
      * Retry failed deliveries for a specific batch
      */
     @POST
-    @RolesAllowed("admin")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.MESSAGE_SENDER})
     @Path("/admin/{batchId}/retry")
     public Response retryFailedDeliveries(@PathParam("batchId") UUID batchId) {
         List<Message> failedBefore = messageService.getMessagesInBatch(batchId).stream()
@@ -261,7 +262,7 @@ public class MessageResource {
      * Retry all failed deliveries for a game
      */
     @POST
-    @RolesAllowed("admin")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.MESSAGE_SENDER})
     @Path("/admin/games/{gameId}/retry-all-failed")
     public Response retryAllFailedDeliveries(@PathParam("gameId") UUID gameId) {
         // Count failed before retry
@@ -285,7 +286,7 @@ public class MessageResource {
      * Get all message templates
      */
     @GET
-    @RolesAllowed("admin")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.MESSAGE_SENDER})
     @Path("/admin/templates")
     public Response getTemplates() {
         List<MessageTemplate> templates = messageTemplateService.findAll();
@@ -299,7 +300,7 @@ public class MessageResource {
      * Create a new message template
      */
     @POST
-    @RolesAllowed("admin")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.MESSAGE_SENDER})
     @Path("/admin/templates")
     public Response createTemplate(MessageTemplateRequest request) {
         MessageType type;
@@ -325,7 +326,7 @@ public class MessageResource {
      * Update a message template
      */
     @PUT
-    @RolesAllowed("admin")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.MESSAGE_SENDER})
     @Path("/admin/templates/{templateId}")
     public Response updateTemplate(@PathParam("templateId") UUID templateId, MessageTemplateRequest request) {
         MessageType type;
@@ -355,7 +356,7 @@ public class MessageResource {
      * Delete a message template
      */
     @DELETE
-    @RolesAllowed("admin")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.MESSAGE_SENDER})
     @Path("/admin/templates/{templateId}")
     public Response deleteTemplate(@PathParam("templateId") UUID templateId) {
         messageTemplateService.delete(templateId);
@@ -365,7 +366,7 @@ public class MessageResource {
     // ==================== Admin Inbox Endpoints ====================
 
     @GET
-    @RolesAllowed("admin")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.MESSAGE_SENDER})
     @Path("/admin/inbox/games/{gameId}")
     public Response getAdminInboxByGame(
         @PathParam("gameId") UUID gameId,
@@ -383,7 +384,7 @@ public class MessageResource {
     }
 
     @PUT
-    @RolesAllowed("admin")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.MESSAGE_SENDER})
     @Path("/admin/inbox/{notificationId}/read")
     public Response markAdminInboxNotificationAsRead(
         @PathParam("notificationId") UUID notificationId,
@@ -394,7 +395,7 @@ public class MessageResource {
     }
 
     @PUT
-    @RolesAllowed("admin")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.MESSAGE_SENDER})
     @Path("/admin/inbox/games/{gameId}/read-all")
     public Response markAllAdminInboxNotificationsAsRead(
         @PathParam("gameId") UUID gameId,

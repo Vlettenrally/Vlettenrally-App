@@ -14,6 +14,7 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import nl.vlettenrally.api.security.SecurityRoles;
 import nl.vlettenrally.data.dto.auth.WebSocketTokenResponse;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
 import nl.vlettenrally.websockets.WebSocketTokenResult;
@@ -47,7 +48,7 @@ public class WebSocketTokenResource {
      */
     @GET
     @Path("/admin")
-    @RolesAllowed("admin")
+    @RolesAllowed(SecurityRoles.STAFF)
     public Uni<Response> getAdminToken() {
         String userId = securityIdentity.getPrincipal().getName();
         String userName = securityIdentity.getAttribute("name");
@@ -74,7 +75,7 @@ public class WebSocketTokenResource {
      */
     @GET
     @Path("/team/{gameId}/{teamId}")
-    @RolesAllowed({"team"})
+    @RolesAllowed({SecurityRoles.TEAM, SecurityRoles.STAFF})
     public Uni<Response> getTeamToken(
             @PathParam("gameId") String gameIdStr,
             @PathParam("teamId") String teamIdStr) {
@@ -93,7 +94,7 @@ public class WebSocketTokenResource {
         }
 
         String userId = securityIdentity.getPrincipal().getName();
-        boolean isAdmin = securityIdentity.hasRole("admin");
+        boolean isAdmin = securityIdentity.hasRole(SecurityRoles.STAFF);
 
         // Check authorization: admins can get tokens for any team, teams only for themselves
         if (!isAdmin && !userId.equals(teamIdStr)) {

@@ -19,7 +19,7 @@ import java.util.UUID;
  * <p>
  * This filter is triggered by the {@link TeamScopedOrAdmin} annotation and verifies
  * that either:
- * - The authenticated user has the "admin" role, OR
+ * - The authenticated user is an admin/staff user (has the synthetic "staff" role), OR
  * - The authenticated team's ID matches the "teamId" path parameter
  * Priority is set to AUTHORIZATION (2000) to run after authentication.
  */
@@ -29,14 +29,13 @@ import java.util.UUID;
 public class TeamScopedOrAdminFilter implements ContainerRequestFilter {
 
     private static final String TEAM_ID_PARAM = "teamId";
-    private static final String ADMIN_ROLE = "admin";
 
     @Override
     public void filter(ContainerRequestContext requestContext) {
         SecurityContext securityContext = requestContext.getSecurityContext();
 
-        // Allow admins to bypass team verification
-        if (securityContext.isUserInRole(ADMIN_ROLE)) {
+        // Allow any admin/staff user to bypass team verification
+        if (securityContext.isUserInRole(SecurityRoles.STAFF)) {
             return;
         }
 

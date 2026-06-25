@@ -19,6 +19,7 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
+import nl.vlettenrally.api.security.SecurityRoles;
 import nl.vlettenrally.data.converter.AutomationConverter;
 import nl.vlettenrally.data.domain.AutomationExecution;
 import nl.vlettenrally.data.domain.AutomationRule;
@@ -44,7 +45,7 @@ import java.util.stream.Collectors;
  * Admin CRUD for a game's automation rules plus their execution log.
  */
 @Path("/api/v1/games/{gameId}/automations")
-@RolesAllowed("admin")
+@RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class AutomationResource {

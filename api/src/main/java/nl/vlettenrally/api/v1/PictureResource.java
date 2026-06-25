@@ -14,6 +14,7 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
+import nl.vlettenrally.api.security.SecurityRoles;
 import nl.vlettenrally.api.security.TeamScoped;
 import nl.vlettenrally.api.security.TeamScopedOrAdmin;
 import nl.vlettenrally.data.domain.Picture;
@@ -100,7 +101,7 @@ public class PictureResource {
      */
     @GET
     @Path("/teams/{teamId}/pictures")
-    @RolesAllowed({"admin", "team"})
+    @RolesAllowed({SecurityRoles.STAFF, SecurityRoles.TEAM})
     @TeamScopedOrAdmin
     public Response getTeamPictures(@PathParam("teamId") UUID teamId) {
         return Response.ok(pictureService.findByTeamId(teamId).stream().map(this::toDto).toList()).build();
@@ -129,7 +130,7 @@ public class PictureResource {
      */
     @GET
     @Path("/pictures/pending")
-    @RolesAllowed("admin")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
     public Response getPendingPictures() {
         return Response.ok(pictureService.findReadyForModeration().stream().map(this::toDto).toList()).build();
     }
@@ -139,7 +140,7 @@ public class PictureResource {
      */
     @GET
     @Path("/pictures")
-    @RolesAllowed("admin")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
     public Response getAllPictures(@QueryParam("status") String status) {
         List<Picture> pictures;
         if (status != null && !status.isBlank()) {
@@ -163,7 +164,7 @@ public class PictureResource {
      */
     @POST
     @Path("/pictures/{pictureId}/approve")
-    @RolesAllowed("admin")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
     public Response approvePicture(@PathParam("pictureId") UUID pictureId, @Context SecurityContext securityContext) {
         try {
             return Response.ok(toDto(pictureService.approve(pictureId, adminId(securityContext)))).build();
@@ -177,7 +178,7 @@ public class PictureResource {
      */
     @POST
     @Path("/pictures/{pictureId}/reject")
-    @RolesAllowed("admin")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
     public Response rejectPicture(@PathParam("pictureId") UUID pictureId, PictureRejectRequest request,
                                   @Context SecurityContext securityContext) {
         String notes = request != null ? request.notes() : null;

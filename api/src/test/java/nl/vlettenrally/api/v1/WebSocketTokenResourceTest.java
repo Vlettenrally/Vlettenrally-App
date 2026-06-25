@@ -109,7 +109,7 @@ class WebSocketTokenResourceTest {
     void getTeamToken_asTeam_success_returnsToken() {
         when(securityIdentity.getPrincipal()).thenReturn(principal);
         when(principal.getName()).thenReturn(teamId.toString());
-        when(securityIdentity.hasRole("admin")).thenReturn(false);
+        when(securityIdentity.hasRole(nl.vlettenrally.api.security.SecurityRoles.STAFF)).thenReturn(false);
         when(tokenService.generateTeamToken(teamId, gameId))
             .thenReturn(Uni.createFrom().item(new WebSocketTokenResult.Success("team-token-123", 30)));
 
@@ -128,7 +128,7 @@ class WebSocketTokenResourceTest {
     void getTeamToken_asAdmin_success_returnsToken() {
         when(securityIdentity.getPrincipal()).thenReturn(principal);
         when(principal.getName()).thenReturn(adminId.toString());
-        when(securityIdentity.hasRole("admin")).thenReturn(true);
+        when(securityIdentity.hasRole(nl.vlettenrally.api.security.SecurityRoles.STAFF)).thenReturn(true);
         when(tokenService.generateTeamToken(teamId, gameId))
             .thenReturn(Uni.createFrom().item(new WebSocketTokenResult.Success("team-token-456", 30)));
 
@@ -147,7 +147,7 @@ class WebSocketTokenResourceTest {
         UUID otherTeamId = UUID.randomUUID();
         when(securityIdentity.getPrincipal()).thenReturn(principal);
         when(principal.getName()).thenReturn(teamId.toString());
-        when(securityIdentity.hasRole("admin")).thenReturn(false);
+        when(securityIdentity.hasRole(nl.vlettenrally.api.security.SecurityRoles.STAFF)).thenReturn(false);
 
         ErrorResponse error;
         try (Response response = resource.getTeamToken(gameId.toString(), otherTeamId.toString())
@@ -187,7 +187,7 @@ class WebSocketTokenResourceTest {
     void getTeamToken_teamNotFound_returns404() {
         when(securityIdentity.getPrincipal()).thenReturn(principal);
         when(principal.getName()).thenReturn(teamId.toString());
-        when(securityIdentity.hasRole("admin")).thenReturn(false);
+        when(securityIdentity.hasRole(nl.vlettenrally.api.security.SecurityRoles.STAFF)).thenReturn(false);
         when(tokenService.generateTeamToken(teamId, gameId))
             .thenReturn(Uni.createFrom().item(new WebSocketTokenResult.TeamNotFound()));
 
@@ -205,7 +205,7 @@ class WebSocketTokenResourceTest {
     void getTeamToken_teamGameMismatch_returns400() {
         when(securityIdentity.getPrincipal()).thenReturn(principal);
         when(principal.getName()).thenReturn(teamId.toString());
-        when(securityIdentity.hasRole("admin")).thenReturn(false);
+        when(securityIdentity.hasRole(nl.vlettenrally.api.security.SecurityRoles.STAFF)).thenReturn(false);
         when(tokenService.generateTeamToken(teamId, gameId))
             .thenReturn(Uni.createFrom().item(new WebSocketTokenResult.TeamGameMismatch()));
 
@@ -223,7 +223,7 @@ class WebSocketTokenResourceTest {
     void getTeamToken_serviceError_returns500() {
         when(securityIdentity.getPrincipal()).thenReturn(principal);
         when(principal.getName()).thenReturn(teamId.toString());
-        when(securityIdentity.hasRole("admin")).thenReturn(false);
+        when(securityIdentity.hasRole(nl.vlettenrally.api.security.SecurityRoles.STAFF)).thenReturn(false);
         when(tokenService.generateTeamToken(teamId, gameId))
             .thenReturn(Uni.createFrom().item(new WebSocketTokenResult.Error("Internal error")));
 
@@ -241,7 +241,7 @@ class WebSocketTokenResourceTest {
     void getTeamToken_uniFailure_returns500() {
         when(securityIdentity.getPrincipal()).thenReturn(principal);
         when(principal.getName()).thenReturn(teamId.toString());
-        when(securityIdentity.hasRole("admin")).thenReturn(false);
+        when(securityIdentity.hasRole(nl.vlettenrally.api.security.SecurityRoles.STAFF)).thenReturn(false);
         when(tokenService.generateTeamToken(teamId, gameId))
             .thenReturn(Uni.createFrom().failure(new RuntimeException("Unexpected error")));
 

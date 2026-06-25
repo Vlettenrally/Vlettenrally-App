@@ -3,17 +3,14 @@ package nl.vlettenrally.api.v1;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
-import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import nl.vlettenrally.api.security.SecurityRoles;
 import nl.vlettenrally.data.dto.auth.AdminLoginRequest;
 import nl.vlettenrally.data.dto.auth.AuthTokenResponse;
-import nl.vlettenrally.data.dto.auth.MockLoginRequest;
-import nl.vlettenrally.data.dto.auth.MockLoginResponse;
-import nl.vlettenrally.data.dto.auth.MockUserResponse;
 import nl.vlettenrally.data.dto.auth.RefreshTokenRequest;
 import nl.vlettenrally.data.dto.auth.RegistrationResult;
 import nl.vlettenrally.data.dto.auth.RegistrationTokenResponse;
@@ -200,7 +197,7 @@ public class AuthResource {
      */
     @POST
     @Path("/admin/update-password")
-    @RolesAllowed("admin")
+    @RolesAllowed(SecurityRoles.STAFF)
     public Response updatePassword(
         UpdatePasswordRequest request,
         @jakarta.ws.rs.core.Context jakarta.ws.rs.core.SecurityContext securityContext
@@ -254,7 +251,7 @@ public class AuthResource {
      */
     @POST
     @Path("/logout")
-    @jakarta.annotation.security.RolesAllowed({"admin", "team"})
+    @jakarta.annotation.security.RolesAllowed({SecurityRoles.STAFF, SecurityRoles.TEAM})
     public Response logout(@jakarta.ws.rs.core.Context jakarta.ws.rs.core.SecurityContext securityContext) {
         try {
             String userId = securityContext.getUserPrincipal().getName();

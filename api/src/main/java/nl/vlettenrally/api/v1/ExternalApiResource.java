@@ -7,6 +7,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import nl.vlettenrally.api.security.SecurityRoles;
 import nl.vlettenrally.client.PreRegistrationApiClient;
 import nl.vlettenrally.client.dto.ExternalEvent;
 import nl.vlettenrally.client.exception.PreRegistrationApiException;
@@ -18,12 +19,12 @@ import java.util.List;
 
 /**
  * REST Resource for external API integration
- * 
+ * <p>
  * Endpoints:
  * - GET /api/v1/external/events - Get available events from pre-registration system
  */
 @Path("/api/v1/external")
-@RolesAllowed("admin")
+@RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
 @Produces(MediaType.APPLICATION_JSON)
 public class ExternalApiResource {
 
@@ -38,7 +39,7 @@ public class ExternalApiResource {
     public Response getExternalEvents() {
         try {
             List<ExternalEvent> events = preRegistrationClient.fetchEvents();
-            
+
             // Map to response DTOs
             List<ExternalEventResponse> response = events.stream()
                     .map(e -> new ExternalEventResponse(
@@ -47,9 +48,9 @@ public class ExternalApiResource {
                             e.getBookingCount()
                     ))
                     .toList();
-            
+
             return Response.ok(response).build();
-            
+
         } catch (PreRegistrationApiException e) {
             return Response.status(Response.Status.BAD_GATEWAY)
                     .entity(new ErrorResponse("Failed to fetch external events: " + e.getMessage()))
@@ -64,7 +65,7 @@ public class ExternalApiResource {
     @Path("/test")
     public Response testConnection() {
         boolean connected = preRegistrationClient.testConnection();
-        
+
         if (connected) {
             return Response.ok(new ConnectionTestResponse(true, "Connection successful")).build();
         } else {

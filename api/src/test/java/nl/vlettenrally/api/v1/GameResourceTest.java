@@ -132,7 +132,7 @@ class GameResourceTest {
 
     private SecurityContext ctxWithRole(boolean admin) {
         SecurityContext ctx = mock(SecurityContext.class);
-        when(ctx.isUserInRole("admin")).thenReturn(admin);
+        when(ctx.isUserInRole(nl.vlettenrally.api.security.SecurityRoles.STAFF)).thenReturn(admin);
         return ctx;
     }
 

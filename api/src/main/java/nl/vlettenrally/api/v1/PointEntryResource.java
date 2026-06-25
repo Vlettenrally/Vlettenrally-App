@@ -7,6 +7,7 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
+import nl.vlettenrally.api.security.SecurityRoles;
 import nl.vlettenrally.data.converter.PointEntryConverter;
 import nl.vlettenrally.data.domain.PointEntry;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
@@ -22,13 +23,13 @@ import java.util.UUID;
 
 /**
  * Admin endpoints for the points ledger.
- *
+ * <p>
  * - GET /api/v1/admin/point-entries?gameId=&teamId=&entryType=&page=&pageSize= — paginated list
  * - POST /api/v1/admin/point-entries                                          — manual adjustment
  * - PATCH /api/v1/admin/point-entries/{id}                                    — edit amount
  */
 @Path("/api/v1/admin/point-entries")
-@RolesAllowed("admin")
+@RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.CHECKPOINT_MANAGER})
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class PointEntryResource {
@@ -69,7 +70,7 @@ public class PointEntryResource {
 
         List<PointEntry> entries = pointEntryRepository.findByGame(gameId, teamId, entryType, page, pageSize);
         long total = pointEntryRepository.countByGame(gameId, teamId, entryType);
-        int totalPages = pageSize > 0 ? (int) Math.ceil((double) total / pageSize) : 0;
+        int totalPages = (int) Math.ceil((double) total / pageSize);
 
         return Response.ok(new PointEntryListResponse(
             entries.stream().map(pointEntryConverter::toResponse).toList(),

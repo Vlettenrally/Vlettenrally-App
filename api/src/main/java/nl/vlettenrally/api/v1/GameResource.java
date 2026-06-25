@@ -14,6 +14,7 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
+import nl.vlettenrally.api.security.SecurityRoles;
 import nl.vlettenrally.client.LocationApiClient;
 import nl.vlettenrally.client.dto.TestConnectionResult;
 import nl.vlettenrally.client.exception.LocationApiException;
@@ -80,7 +81,7 @@ import org.locationtech.jts.geom.Polygon;
  * - POST /api/v1/games/{gameId}/link-participants - Link teams to tracker participants
  */
 @Path("/api/v1/games")
-@RolesAllowed({"admin", "team"})
+@RolesAllowed({SecurityRoles.STAFF, SecurityRoles.TEAM})
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class GameResource {
@@ -176,7 +177,7 @@ public class GameResource {
         }
 
         // Hidden zones drive automations but must not appear on teams' map.
-        boolean isAdmin = ctx.isUserInRole("admin");
+        boolean isAdmin = ctx.isUserInRole(SecurityRoles.STAFF);
         List<Checkpoint> checkpoints = checkpointService.findByGameId(gameId);
         return Response.ok(checkpoints.stream()
             .filter(cp -> isAdmin || !cp.isHidden())
@@ -186,7 +187,7 @@ public class GameResource {
 
     /** Teams near a checkpoint: GPS within zone + any existing achievement */
     @GET
-    @RolesAllowed({"admin", "checkpoint_manager"})
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.CHECKPOINT_MANAGER})
     @Path("/{gameId}/checkpoints/{checkpointId}/teams/nearby")
     public Response getTeamsNearCheckpoint(
             @PathParam("gameId") UUID gameId,
@@ -218,7 +219,7 @@ public class GameResource {
      */
     @POST
     @Path("/{gameId}/check-in-link")
-    @RolesAllowed({"admin"})
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
     public Response generateCheckInLink(@PathParam("gameId") UUID gameId) {
         try {
             GameCheckInLinkResponse response = authService.generateGameCheckInLink(gameId);
@@ -251,7 +252,7 @@ public class GameResource {
             return gameNotFoundResponse();
         }
 
-        if (!ctx.isUserInRole("admin") && !Boolean.TRUE.equals(game.get().getRankingsPublished())) {
+        if (!ctx.isUserInRole(SecurityRoles.STAFF) && !Boolean.TRUE.equals(game.get().getRankingsPublished())) {
             return Response.status(Response.Status.FORBIDDEN)
                 .entity(new ErrorResponse("Rankings have not been published yet"))
                 .build();
@@ -270,7 +271,7 @@ public class GameResource {
      */
     @POST
     @Path("/{gameId}/rankings/publish")
-    @RolesAllowed("admin")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
     public Response publishRankings(@PathParam("gameId") UUID gameId) {
         return gameService.findById(gameId)
             .map(game -> {
@@ -289,7 +290,7 @@ public class GameResource {
      * Create a new game
      */
     @POST
-    @RolesAllowed("admin")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
     public Response createGame(GameRequest request) {
         if (request.name() == null || request.name().isBlank()) {
             return Response.status(Response.Status.BAD_REQUEST)
@@ -333,7 +334,7 @@ public class GameResource {
      */
     @PUT
     @Path("/{gameId}")
-    @RolesAllowed("admin")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
     public Response updateGame(@PathParam("gameId") UUID gameId, GameRequest request) {
         return gameService.findById(gameId)
             .map(game -> {
@@ -375,7 +376,7 @@ public class GameResource {
      */
     @DELETE
     @Path("/{gameId}")
-    @RolesAllowed("admin")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
     public Response deleteGame(@PathParam("gameId") UUID gameId) {
         if (gameService.findById(gameId).isEmpty()) {
             return gameNotFoundResponse();
@@ -390,7 +391,7 @@ public class GameResource {
      */
     @POST
     @Path("/{gameId}/import-teams")
-    @RolesAllowed("admin")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
     public Response importTeams(@PathParam("gameId") UUID gameId) {
         return gameService.findById(gameId)
             .map(game -> {
@@ -432,7 +433,7 @@ public class GameResource {
      */
     @POST
     @Path("/{gameId}/test-location-endpoint")
-    @RolesAllowed("admin")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
     public Response testLocationEndpoint(@PathParam("gameId") UUID gameId) {
         return gameService.findById(gameId)
             .map(game -> {
@@ -468,7 +469,7 @@ public class GameResource {
      */
     @POST
     @Path("/{gameId}/checkpoints")
-    @RolesAllowed("admin")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
     public Response createCheckpoint(@PathParam("gameId") UUID gameId, CheckpointRequest request) {
         if (gameService.findById(gameId).isEmpty()) {
             return gameNotFoundResponse();
@@ -489,7 +490,7 @@ public class GameResource {
      */
     @PUT
     @Path("/{gameId}/checkpoints/{checkpointId}")
-    @RolesAllowed("admin")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
     public Response updateCheckpoint(
             @PathParam("gameId") UUID gameId,
             @PathParam("checkpointId") UUID checkpointId,
@@ -507,7 +508,7 @@ public class GameResource {
      */
     @DELETE
     @Path("/{gameId}/checkpoints/{checkpointId}")
-    @RolesAllowed("admin")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
     public Response deleteCheckpoint(
             @PathParam("gameId") UUID gameId,
             @PathParam("checkpointId") UUID checkpointId) {
@@ -529,7 +530,7 @@ public class GameResource {
      */
     @POST
     @Path("/{gameId}/copy-checkpoints")
-    @RolesAllowed("admin")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
     public Response copyCheckpoints(@PathParam("gameId") UUID gameId, CopyCheckpointsRequest request) {
         if (request == null || request.sourceGameId() == null) {
             return Response.status(Response.Status.BAD_REQUEST)
@@ -546,7 +547,7 @@ public class GameResource {
      */
     @POST
     @Path("/{gameId}/import-checkpoints")
-    @RolesAllowed("admin")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
     public Response importCheckpoints(@PathParam("gameId") UUID gameId) {
         return gameService.findById(gameId)
             .map(game -> {
@@ -579,7 +580,7 @@ public class GameResource {
      */
     @POST
     @Path("/{gameId}/link-participants")
-    @RolesAllowed("admin")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
     public Response linkParticipants(@PathParam("gameId") UUID gameId) {
         return gameService.findById(gameId)
             .map(game -> {

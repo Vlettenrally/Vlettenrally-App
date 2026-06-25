@@ -14,6 +14,7 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
+import nl.vlettenrally.api.security.SecurityRoles;
 import nl.vlettenrally.api.security.TeamScoped;
 import nl.vlettenrally.api.security.TeamScopedOrAdmin;
 import nl.vlettenrally.data.converter.TeamConverter;
@@ -54,7 +55,7 @@ import java.util.UUID;
 @Path("/api/v1")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
-@RolesAllowed("admin")
+@RolesAllowed(SecurityRoles.STAFF)
 public class TeamResource {
 
     @Inject
@@ -99,7 +100,7 @@ public class TeamResource {
      * Get rival teams for a team
      */
     @GET
-    @RolesAllowed({"admin", "team"})
+    @RolesAllowed({SecurityRoles.STAFF, SecurityRoles.TEAM})
     @TeamScopedOrAdmin
     @Path("/teams/{teamId}/rivals")
     public Response getRivalTeams(@PathParam("teamId") UUID teamId) {
@@ -243,6 +244,7 @@ public class TeamResource {
      */
     @PUT
     @Path("/teams/{teamId}")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
     public Response updateTeam(
             @PathParam("teamId") UUID teamId,
             TeamUpdateRequest request) {
@@ -337,6 +339,7 @@ public class TeamResource {
      */
     @POST
     @Path("/teams")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
     public Response createTeam(TeamCreateRequest request) {
         try {
             // Validate required fields
@@ -384,6 +387,7 @@ public class TeamResource {
      */
     @DELETE
     @Path("/teams/{teamId}")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
     public Response deleteTeam(@PathParam("teamId") UUID teamId) {
         Optional<Team> teamOpt = teamService.findById(teamId);
         if (teamOpt.isEmpty()) {
@@ -433,6 +437,7 @@ public class TeamResource {
      */
     @PUT
     @Path("/teams/{teamId}/devices/main")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
     public Response setMainDevice(@PathParam("teamId") UUID teamId, SetMainDeviceRequest request) {
         if (request == null || request.deviceId() == null) {
             return Response.status(Response.Status.BAD_REQUEST)
@@ -456,6 +461,7 @@ public class TeamResource {
      */
     @DELETE
     @Path("/teams/{teamId}/devices")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
     public Response resetTeamDevices(@PathParam("teamId") UUID teamId) {
         try {
             coordinationService.resetTeam(teamId);
@@ -473,6 +479,7 @@ public class TeamResource {
      */
     @DELETE
     @Path("/teams/{teamId}/devices/{deviceId}")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
     public Response removeTeamDevice(@PathParam("teamId") UUID teamId, @PathParam("deviceId") UUID deviceId) {
         try {
             coordinationService.removeDevice(teamId, deviceId);

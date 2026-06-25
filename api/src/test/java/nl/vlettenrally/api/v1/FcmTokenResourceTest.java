@@ -58,7 +58,7 @@ class FcmTokenResourceTest {
         // Arrange
         setupSecurityContext();
         FcmTokenRequest request = new FcmTokenRequest(fcmToken);
-        when(securityContext.isUserInRole("admin")).thenReturn(false);
+        when(securityContext.isUserInRole(nl.vlettenrally.api.security.SecurityRoles.STAFF)).thenReturn(false);
         when(fcmTokenService.registerToken(userId, false, fcmToken, null, null)).thenReturn(UUID.randomUUID());
 
         // Act & Assert
@@ -73,7 +73,7 @@ class FcmTokenResourceTest {
         // Arrange
         setupSecurityContext();
         FcmTokenRequest request = new FcmTokenRequest(fcmToken);
-        when(securityContext.isUserInRole("admin")).thenReturn(true);
+        when(securityContext.isUserInRole(nl.vlettenrally.api.security.SecurityRoles.STAFF)).thenReturn(true);
         when(fcmTokenService.registerToken(userId, true, fcmToken, null, null)).thenReturn(UUID.randomUUID());
 
         // Act & Assert
@@ -133,7 +133,7 @@ class FcmTokenResourceTest {
         // Arrange
         setupSecurityContext();
         FcmTokenRequest request = new FcmTokenRequest(fcmToken);
-        when(securityContext.isUserInRole("admin")).thenReturn(false);
+        when(securityContext.isUserInRole(nl.vlettenrally.api.security.SecurityRoles.STAFF)).thenReturn(false);
         when(fcmTokenService.registerToken(any(), anyBoolean(), anyString(), any(), any())).thenThrow(new RuntimeException("DB error"));
 
         // Act & Assert
@@ -146,7 +146,7 @@ class FcmTokenResourceTest {
     void unregisterFcmToken_teamUserValidInput_returnsOk() {
         // Arrange
         setupSecurityContext();
-        when(securityContext.isUserInRole("admin")).thenReturn(false);
+        when(securityContext.isUserInRole(nl.vlettenrally.api.security.SecurityRoles.STAFF)).thenReturn(false);
         doNothing().when(fcmTokenService).unregisterToken(userId, false);
 
         // Act & Assert
@@ -160,7 +160,7 @@ class FcmTokenResourceTest {
     void unregisterFcmToken_adminUserValidInput_returnsOk() {
         // Arrange
         setupSecurityContext();
-        when(securityContext.isUserInRole("admin")).thenReturn(true);
+        when(securityContext.isUserInRole(nl.vlettenrally.api.security.SecurityRoles.STAFF)).thenReturn(true);
         doNothing().when(fcmTokenService).unregisterToken(userId, true);
 
         // Act & Assert
@@ -202,7 +202,7 @@ class FcmTokenResourceTest {
     void unregisterFcmToken_serviceException_returnsInternalServerError() {
         // Arrange
         setupSecurityContext();
-        when(securityContext.isUserInRole("admin")).thenReturn(false);
+        when(securityContext.isUserInRole(nl.vlettenrally.api.security.SecurityRoles.STAFF)).thenReturn(false);
         doThrow(new RuntimeException("DB error")).when(fcmTokenService).unregisterToken(any(), anyBoolean());
 
         // Act & Assert

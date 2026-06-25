@@ -14,6 +14,7 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
+import nl.vlettenrally.api.security.SecurityRoles;
 import nl.vlettenrally.data.domain.DeviceRegistration;
 import nl.vlettenrally.data.dto.auth.DeviceResponse;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
@@ -27,12 +28,12 @@ import java.util.UUID;
 
 /**
  * Self-service device management for the authenticated admin.
- *
- * Endpoints (require role "admin"):
+ * <p>
+ * Endpoints (require any admin/staff role):
  * - GET    /api/v1/admin/me/devices           - list the admin's registered devices
  * - PATCH  /api/v1/admin/me/devices/{id}      - rename a device
  * - DELETE /api/v1/admin/me/devices/{id}      - remove a device (also drops its FCM token)
- *
+ * <p>
  * Each row in {@code device_registrations} owned by the admin represents one browser
  * profile that has registered for push notifications. Removing a device here is the
  * admin equivalent of revoking push for that browser; subsequent FCM messages won't
@@ -41,7 +42,7 @@ import java.util.UUID;
 @Path("/api/v1/admin/me/devices")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
-@RolesAllowed("admin")
+@RolesAllowed(SecurityRoles.STAFF)
 public class AdminDeviceResource {
 
     @Inject
