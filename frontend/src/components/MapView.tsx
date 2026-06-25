@@ -4,7 +4,7 @@
  * Renders a MapLibre GL map with support for team location markers
  * and checkpoint markers. Uses self-hosted vector tiles via Martin.
  */
-import { useEffect, useRef, useCallback } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { resolveMapStyle, DEFAULT_CENTER } from '../utils/mapStyle';
@@ -38,6 +38,31 @@ export interface MapTrack {
   points: Array<[number, number]>;
 }
 
+/** Imperative camera controls exposed to parents via a ref. */
+export interface MapViewHandle {
+  /** Frame the game area: checkpoints if present, otherwise team markers. No-op when empty. */
+  fitToContent: () => void;
+  /** Fly the camera to a single point. */
+  flyToPoint: (lng: number, lat: number, zoom?: number) => void;
+}
+
+/**
+ * Build bounds that frame the "game area". Prefers checkpoint markers (the
+ * fixed game geography); falls back to team markers when a game has none.
+ * Returns null when there is nothing to frame.
+ */
+function computeFitBounds(markers: MapMarker[]): maplibregl.LngLatBounds | null {
+  const checkpoints = markers.filter(m => m.type === 'checkpoint');
+  const source = checkpoints.length > 0 ? checkpoints : markers.filter(m => m.type === 'team');
+  if (source.length === 0) return null;
+
+  const bounds = new maplibregl.LngLatBounds();
+  for (const m of source) {
+    bounds.extend([m.lng, m.lat]);
+  }
+  return bounds;
+}
+
 interface MapViewProps {
   markers: MapMarker[];
   center?: [number, number]; // [lng, lat]
@@ -58,12 +83,55 @@ const PIN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="44" 
 </svg>`;
 const PIN_IMAGE_ID = 'team-pin';
 
-export function MapView({ markers, center, zoom, className, teamLocation, tracks, markerStyle = 'circle' }: MapViewProps) {
+export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
+  { markers, center, zoom, className, teamLocation, tracks, markerStyle = 'circle' },
+  ref,
+) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersSourceRef = useRef<boolean>(false);
   const teamLocationRef = useRef(teamLocation);
   teamLocationRef.current = teamLocation;
+  // Latest markers, kept in a ref so the fit control and imperative handle read
+  // current data without being re-created (mirrors teamLocationRef above).
+  const markersRef = useRef(markers);
+  markersRef.current = markers;
+  // True once the map has auto-fit; reset to false whenever markers go empty so
+  // the next non-empty batch (initial load, or admin game switch) re-fits.
+  const hasContentRef = useRef(false);
+
+  const fitToContent = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const bounds = computeFitBounds(markersRef.current);
+    if (!bounds) return;
+    map.fitBounds(bounds, { padding: 60, maxZoom: 15, duration: 600 });
+  }, []);
+
+  const flyToPoint = useCallback((lng: number, lat: number, zoomLevel = 15) => {
+    mapRef.current?.flyTo({ center: [lng, lat], zoom: zoomLevel });
+  }, []);
+
+  useImperativeHandle(ref, () => ({ fitToContent, flyToPoint }), [fitToContent, flyToPoint]);
+
+  // Ref to the latest fitToContent so the (once-created) control button can call it.
+  const fitToContentRef = useRef(fitToContent);
+  fitToContentRef.current = fitToContent;
+
+  // Auto-fit once each time markers go from empty to non-empty: initial load, and
+  // (on the admin map) when the selected game changes and markers repopulate.
+  const maybeAutoFit = useCallback(() => {
+    if (!markersSourceRef.current) return;
+    if (markersRef.current.length === 0) {
+      hasContentRef.current = false;
+      return;
+    }
+    if (hasContentRef.current) return;
+    hasContentRef.current = true;
+    fitToContent();
+  }, [fitToContent]);
+  const maybeAutoFitRef = useRef(maybeAutoFit);
+  maybeAutoFitRef.current = maybeAutoFit;
 
   const updateMarkers = useCallback(() => {
     const map = mapRef.current;
@@ -196,6 +264,39 @@ export function MapView({ markers, center, zoom, className, teamLocation, tracks
         map.touchZoomRotate.disableRotation();
 
         map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+
+        // Custom control that re-frames the game area (checkpoints, else teams).
+        class FitToAreaControl implements maplibregl.IControl {
+          private _container: HTMLDivElement | undefined;
+
+          onAdd() {
+            this._container = document.createElement('div');
+            this._container.className = 'maplibregl-ctrl maplibregl-ctrl-group';
+
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.title = 'Pas op spelgebied';
+            button.setAttribute('aria-label', 'Pas op spelgebied');
+            button.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8V5a2 2 0 0 1 2-2h3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M21 16v3a2 2 0 0 1-2 2h-3"/></svg>';
+            button.style.display = 'flex';
+            button.style.alignItems = 'center';
+            button.style.justifyContent = 'center';
+            button.style.cursor = 'pointer';
+
+            button.addEventListener('click', () => {
+              fitToContentRef.current();
+            });
+
+            this._container.appendChild(button);
+            return this._container;
+          }
+
+          onRemove() {
+            this._container?.parentNode?.removeChild(this._container);
+          }
+        }
+
+        map.addControl(new FitToAreaControl(), 'top-right');
 
         if (teamLocation) {
           // Custom locate button that flies to the team's last known tracker location
@@ -419,6 +520,7 @@ export function MapView({ markers, center, zoom, className, teamLocation, tracks
           markersSourceRef.current = true;
           updateMarkers();
           updateTracks();
+          maybeAutoFitRef.current();
         });
 
         // Popup on team marker click (works for both circle and pin layers)
@@ -475,7 +577,8 @@ export function MapView({ markers, center, zoom, className, teamLocation, tracks
   // Update markers when they change
   useEffect(() => {
     updateMarkers();
-  }, [updateMarkers]);
+    maybeAutoFit();
+  }, [updateMarkers, maybeAutoFit]);
 
   useEffect(() => {
     updateTracks();
@@ -488,6 +591,6 @@ export function MapView({ markers, center, zoom, className, teamLocation, tracks
       style={{ width: '100%', height: '100%', minHeight: 400 }}
     />
   );
-}
+});
 
 export default MapView;

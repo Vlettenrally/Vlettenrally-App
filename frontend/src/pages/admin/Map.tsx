@@ -9,7 +9,7 @@
  */
 import {lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Alert, Box, ButtonBase, CircularProgress, Typography} from '@mui/material';
-import type {MapMarker, MapTrack} from '../../components/MapView';
+import type {MapMarker, MapTrack, MapViewHandle} from '../../components/MapView';
 import type {Checkpoint, TeamLocation} from '../../types/entities';
 import {useGameStore} from '../../store/useGameStore';
 import {useAdminWebSocket} from '../../hooks/useWebSocket';
@@ -53,6 +53,7 @@ export default function AdminMap() {
   windowMinutesRef.current = windowMinutes;
 
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mapRef = useRef<MapViewHandle>(null);
 
   // Send MAP_HEARTBEAT to backend so it streams location updates to this session
   useEffect(() => {
@@ -216,7 +217,11 @@ export default function AdminMap() {
   );
 
   const legendCheckpoints = useMemo(
-    () => checkpoints.map(cp => ({ id: cp.id, name: cp.name })),
+    () => checkpoints.map(cp => ({
+      id: cp.id,
+      name: cp.name,
+      hasLocation: cp.latitude != null && cp.longitude != null,
+    })),
     [checkpoints],
   );
 
@@ -272,6 +277,18 @@ export default function AdminMap() {
       return next;
     });
   }, []);
+
+  const handleZoomTeam = useCallback((id: string) => {
+    const loc = teamLocations.find(l => l.teamId === id);
+    if (loc) mapRef.current?.flyToPoint(loc.longitude, loc.latitude);
+  }, [teamLocations]);
+
+  const handleZoomCheckpoint = useCallback((id: string) => {
+    const cp = checkpoints.find(c => c.id === id);
+    if (cp?.latitude != null && cp?.longitude != null) {
+      mapRef.current?.flyToPoint(cp.longitude, cp.latitude);
+    }
+  }, [checkpoints]);
 
   const handleToggleTrack = useCallback((id: string) => {
     setTrackTeamIds(prev => {
@@ -339,6 +356,7 @@ export default function AdminMap() {
         >
           <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1, height: '100%' }}><CircularProgress /></Box>}>
             <MapView
+              ref={mapRef}
               markers={markers}
               tracks={tracks}
               zoom={10}
@@ -394,6 +412,8 @@ export default function AdminMap() {
             onSetTeamsHidden={handleSetTeamsHidden}
             onSetCheckpointsHidden={handleSetCheckpointsHidden}
             onWindowChange={setWindowMinutes}
+            onZoomTeam={handleZoomTeam}
+            onZoomCheckpoint={handleZoomCheckpoint}
           />
         </Box>
       )}

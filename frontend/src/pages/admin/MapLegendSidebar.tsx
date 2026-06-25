@@ -21,6 +21,7 @@ import type { SelectChangeEvent } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import PushPinIcon from '@mui/icons-material/PushPin';
 import PushPinOutlinedIcon from '@mui/icons-material/PushPinOutlined';
+import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
 import { RelativeTime } from '../../components/RelativeTime';
 import { STALE_AFTER_MS } from './mapConstants';
 
@@ -37,6 +38,8 @@ export interface LegendTeam {
 export interface LegendCheckpoint {
   id: string;
   name: string;
+  /** Whether the checkpoint has coordinates — controls the zoom-to button. */
+  hasLocation: boolean;
 }
 
 interface MapLegendSidebarProps {
@@ -58,6 +61,10 @@ interface MapLegendSidebarProps {
   onSetTeamsHidden: (ids: string[], hidden: boolean) => void;
   onSetCheckpointsHidden: (ids: string[], hidden: boolean) => void;
   onWindowChange: (mins: TrackWindowMinutes) => void;
+  /** Fly the map camera to a team's current position. */
+  onZoomTeam: (id: string) => void;
+  /** Fly the map camera to a checkpoint's position. */
+  onZoomCheckpoint: (id: string) => void;
 }
 
 const WINDOW_OPTIONS: { value: TrackWindowMinutes; label: string }[] = [
@@ -100,6 +107,8 @@ export function MapLegendSidebar({
   onSetTeamsHidden,
   onSetCheckpointsHidden,
   onWindowChange,
+  onZoomTeam,
+  onZoomCheckpoint,
 }: MapLegendSidebarProps) {
   const [teamQuery, setTeamQuery] = useState('');
 
@@ -214,18 +223,30 @@ export function MapLegendSidebar({
                     disableGutters
                     sx={{ py: 0.25 }}
                     secondaryAction={
-                      <FormControlLabel
-                        sx={{ mr: 0 }}
-                        control={
-                          <Checkbox
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Tooltip title="Zoom naar locatie">
+                          <IconButton
                             size="small"
-                            checked={trackOn}
-                            disabled={!visible}
-                            onChange={() => onToggleTrack(team.id)}
-                          />
-                        }
-                        label={<Typography variant="caption">spoor</Typography>}
-                      />
+                            edge={false}
+                            onClick={() => onZoomTeam(team.id)}
+                            aria-label="Zoom naar locatie"
+                          >
+                            <CenterFocusStrongIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <FormControlLabel
+                          sx={{ mr: 0 }}
+                          control={
+                            <Checkbox
+                              size="small"
+                              checked={trackOn}
+                              disabled={!visible}
+                              onChange={() => onToggleTrack(team.id)}
+                            />
+                          }
+                          label={<Typography variant="caption">spoor</Typography>}
+                        />
+                      </Box>
                     }
                   >
                     <Checkbox
@@ -287,7 +308,26 @@ export function MapLegendSidebar({
                   {checkpoints.map(cp => {
                     const visible = !hiddenCheckpointIds.has(cp.id);
                     return (
-                      <ListItem key={cp.id} disableGutters sx={{ py: 0.25 }}>
+                      <ListItem
+                        key={cp.id}
+                        disableGutters
+                        sx={{ py: 0.25 }}
+                        secondaryAction={
+                          <Tooltip title="Zoom naar locatie">
+                            <span>
+                              <IconButton
+                                size="small"
+                                edge={false}
+                                disabled={!cp.hasLocation}
+                                onClick={() => onZoomCheckpoint(cp.id)}
+                                aria-label="Zoom naar locatie"
+                              >
+                                <CenterFocusStrongIcon fontSize="small" />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        }
+                      >
                         <Checkbox
                           size="small"
                           checked={visible}

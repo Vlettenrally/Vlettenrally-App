@@ -16,6 +16,7 @@ import {useGameStore} from '../../store/useGameStore';
 import {useTeamWebSocket} from '../../hooks/useWebSocket';
 import {storage} from '../../services/storage';
 import api from '../../services/api';
+import {DEFAULT_CENTER, DEFAULT_ZOOM} from '../../utils/mapStyle';
 
 const MapView = lazy(() => import('../../components/MapView'));
 
@@ -105,11 +106,6 @@ export default function ParticipantMap() {
       })),
   ];
 
-  // Center on team location if available, otherwise center of Netherlands
-  const center: [number, number] = myLocation
-    ? [myLocation.longitude, myLocation.latitude]
-    : [5.2913, 52.1326];
-
   return (
     <Box sx={{ height: 'calc(100vh - 56px)', display: 'flex', flexDirection: 'column' }}>
       {error && (
@@ -129,10 +125,11 @@ export default function ParticipantMap() {
       ) : (
         <Box sx={{ flex: 1, position: 'relative' }}>
           <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1, height: '100%' }}><CircularProgress /></Box>}>
+            {/* Stable initial camera; auto-fit frames checkpoints (or own location) on load. */}
             <MapView
               markers={markers}
-              center={center}
-              zoom={myLocation ? 14 : 8}
+              center={DEFAULT_CENTER}
+              zoom={DEFAULT_ZOOM}
             />
           </Suspense>
           {/* Status indicator */}
