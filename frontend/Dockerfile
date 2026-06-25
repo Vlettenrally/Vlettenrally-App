@@ -1,25 +1,13 @@
-# Build stage
-FROM node:20-alpine AS builder
-
-WORKDIR /app
-
-# Copy package files
-COPY package*.json ./
-
-# Install dependencies
-RUN npm ci
-
-# Copy source code
-COPY . .
-
-# Build the application with production environment variables
-RUN npm run build
-
-# Production stage
+# Runtime image — serves the prebuilt frontend assets.
+#
+# This image does NOT build the app. The `dist/` directory must already exist
+# in the build context. In CI it is built once in the `test-frontend` job and
+# handed to the `build-frontend` job as an artifact (see .github/workflows/build.yml).
+# For a local image build, run `npm run build` first to produce `dist/`.
 FROM nginx:alpine
 
-# Copy built assets from builder stage
-COPY --from=builder /app/dist /usr/share/nginx/html
+# Copy prebuilt assets from the build context
+COPY dist /usr/share/nginx/html
 
 # Copy nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
