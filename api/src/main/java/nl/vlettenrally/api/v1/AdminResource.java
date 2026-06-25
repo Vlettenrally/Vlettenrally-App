@@ -32,12 +32,11 @@ import java.util.stream.Collectors;
  * - PUT /api/v1/admins/{id}/reset-password - Reset admin password
  * - DELETE /api/v1/admins/{id} - Deactivate admin user
  * <p>
- * TODO: Add @RolesAllowed("CHECKPOINT_MANAGER") to achievement verification endpoints
  */
 @Path("/api/v1/admins")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
-@RolesAllowed("super_admin")
+@RolesAllowed(SecurityRoles.SUPER_ADMIN)
 public class AdminResource {
 
     @Inject
@@ -47,7 +46,7 @@ public class AdminResource {
      * List all admin users
      */
     @GET
-    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.SUPER_ADMIN})
+    @RolesAllowed(SecurityRoles.SUPER_ADMIN)
     public Response listAdmins(@Context SecurityContext securityContext) {
         List<AdminUserResponse> admins = adminService.getAllAdmins().stream()
             .map(this::toResponse)
@@ -63,7 +62,7 @@ public class AdminResource {
      * Create a new admin user
      */
     @POST
-    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.SUPER_ADMIN})
+    @RolesAllowed(SecurityRoles.SUPER_ADMIN)
     public Response createAdmin(CreateAdminRequest request, @Context SecurityContext securityContext) {
         try {
             Admin savedAdmin = adminService.createAdmin(
@@ -98,7 +97,7 @@ public class AdminResource {
      */
     @PUT
     @Path("/{id}/roles")
-    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.SUPER_ADMIN})
+    @RolesAllowed(SecurityRoles.SUPER_ADMIN)
     public Response updateRoles(
             @PathParam("id") UUID adminId,
             UpdateAdminRolesRequest request,
@@ -130,7 +129,7 @@ public class AdminResource {
      */
     @PUT
     @Path("/{id}/reset-password")
-    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.SUPER_ADMIN})
+    @RolesAllowed(SecurityRoles.SUPER_ADMIN)
     public Response resetPassword(@PathParam("id") UUID adminId, @Context SecurityContext securityContext) {
         try {
             String tempPassword = adminService.resetAdminPassword(adminId);
@@ -151,7 +150,7 @@ public class AdminResource {
      */
     @DELETE
     @Path("/{id}")
-    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.SUPER_ADMIN})
+    @RolesAllowed(SecurityRoles.SUPER_ADMIN)
     public Response deactivateAdmin(@PathParam("id") UUID adminId, @Context SecurityContext securityContext) {
         try {
             UUID currentUserId = getAdminId(securityContext);
