@@ -72,7 +72,7 @@ jobs:
         run: ./mvnw -B -ntp verify
 
   test-frontend:
-    name: Test Frontend
+    name: Build/Test Frontend
     runs-on: arc-runner-set-vlettenrally
     container:
       image: ubuntu:latest
