@@ -25,7 +25,7 @@ import java.util.UUID;
  * - GET /api/v1/games/{gameId}/locations/team/{teamId}/history - Get a team's recent location history (admin-only)
  */
 @Path("/api/v1/games/{gameId}/locations")
-@RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
+@RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER, SecurityRoles.VIEWER})
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class LocationResource {

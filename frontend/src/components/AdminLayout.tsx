@@ -54,7 +54,7 @@ import { useGameStore } from '../store/useGameStore';
 import { useConnectionStatus } from '../hooks/useConnectionStatus';
 import { useAdminWebSocket } from '../hooks/useWebSocket';
 import { useAdminSync, useAdminResync } from '../hooks/useAdminSync';
-import { isSuperAdmin } from '../services/auth';
+import { canAccessAdminPath } from '../services/auth';
 import api from '../services/api';
 import {
   ActiveGamesWidget,
@@ -75,14 +75,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const location = useLocation();
   const theme = useTheme();
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
-  
+
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => storage.getSidebarCollapsed());
-  
-  // Check if user is super admin
+
   const token = storage.getAuthToken();
-  const isSuperAdminUser = token ? isSuperAdmin(token) : false;
-  
+
   // Use game store instead of local state
   const { games, selectedGameId, setSelectedGameId, fetchGames } = useGameStore();
   const { showDisconnected } = useConnectionStatus();
@@ -112,13 +110,14 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     storage.setSidebarCollapsed(sidebarCollapsed);
   }, [sidebarCollapsed]);
 
-  const menuItems = [
+  const allMenuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/admin/dashboard' },
     { text: 'Kaart', icon: <MapIcon />, path: '/admin/map' },
     { text: 'Games', icon: <GamesIcon />, path: '/admin/games' },
     { text: 'Teams', icon: <TeamsIcon />, path: '/admin/teams' },
     { text: 'Puntenbeheer', icon: <ScoreboardIcon />, path: '/admin/points-management' },
     { text: 'Zones', icon: <PlaceIcon />, path: '/admin/zones' },
+    { text: 'Admin Users', icon: <ManageAccountsIcon />, path: '/admin/admin-users' },
     { text: 'Checkpoint Beheer', icon: <FlagIcon />, path: '/admin/checkpoint-station' },
     { text: 'Berichten', icon: <MessageIcon />, path: '/admin/messages' },
     { text: 'Inbox', icon: <InboxIcon />, path: '/admin/inbox' },
@@ -127,10 +126,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { text: 'Instellingen', icon: <SettingsIcon />, path: '/admin/settings' },
   ];
 
-  // Add Admin Users menu item for super admins only
-  if (isSuperAdminUser) {
-    menuItems.splice(6, 0, { text: 'Admin Users', icon: <ManageAccountsIcon />, path: '/admin/admin-users' });
-  }
+  // Only show menu items the current user's role(s) are allowed to access.
+  const menuItems = token
+    ? allMenuItems.filter((item) => canAccessAdminPath(token, item.path))
+    : allMenuItems;
 
   const handleNavigate = (path: string) => {
     navigate(path);
@@ -144,7 +143,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     } catch (error) {
       console.warn('Logout API call failed:', error);
     }
-    
+
     // Clear cached app data and session
     storage.clearCache();
     storage.clearSession();
@@ -194,7 +193,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         ))}
       </List>
       <Divider />
-      
+
       {/* Widgets section - only shown on desktop when not collapsed */}
       {isDesktop && !sidebarCollapsed && (
         <Box sx={{ p: 2, flexGrow: 1, overflowY: 'auto' }}>
@@ -207,7 +206,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           <SpeedAlertsWidget collapsed={sidebarCollapsed} />
         </Box>
       )}
-      
+
       {/* Collapsed widgets - icon only */}
       {isDesktop && sidebarCollapsed && (
         <Box sx={{ py: 2, flexGrow: 1 }}>
@@ -217,13 +216,13 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           <SpeedAlertsWidget collapsed />
         </Box>
       )}
-      
+
       <Box sx={{ mt: 'auto' }}>
         <Divider />
         <List>
           <ListItem disablePadding>
             <Tooltip title={sidebarCollapsed ? 'Uitloggen' : ''} placement="right">
-              <ListItemButton 
+              <ListItemButton
                 onClick={handleLogout}
                 sx={{ justifyContent: sidebarCollapsed ? 'center' : 'flex-start', px: sidebarCollapsed ? 1 : 2 }}
               >
@@ -331,8 +330,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </AppBar>
 
         {showDisconnected && (
-          <Alert 
-            severity="warning" 
+          <Alert
+            severity="warning"
             icon={<WifiOffIcon />}
             sx={{ borderRadius: 0 }}
           >

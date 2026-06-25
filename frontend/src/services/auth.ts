@@ -6,6 +6,39 @@ import { AdminRole } from '../types/entities';
 
 export type UserRole = 'team' | 'admin';
 
+/**
+ * All admin-type role strings. Holding any of these makes a user "admin"/staff.
+ * Mirrors the backend SecurityRoles.ADMIN_ROLES set.
+ */
+export const ADMIN_ROLE_VALUES: string[] = [
+  AdminRole.ADMIN,
+  AdminRole.SUPER_ADMIN,
+  AdminRole.VIEWER,
+  AdminRole.GAME_MASTER,
+  AdminRole.MESSAGE_SENDER,
+  AdminRole.CHECKPOINT_MANAGER,
+];
+
+/**
+ * Maps admin route paths to the roles allowed to access them. `admin` implicitly grants
+ * access to every page (handled in canAccessAdminPath), so it is not listed here.
+ * Paths that are not present are considered accessible to any staff user.
+ * Mirrors the backend @RolesAllowed gating on the corresponding resources.
+ */
+export const ADMIN_PAGE_ROLES: Record<string, string[]> = {
+  '/admin/map': [AdminRole.GAME_MASTER, AdminRole.VIEWER],
+  '/admin/games': [AdminRole.GAME_MASTER],
+  '/admin/teams': [AdminRole.GAME_MASTER],
+  '/admin/zones': [AdminRole.GAME_MASTER],
+  '/admin/automations': [AdminRole.GAME_MASTER],
+  '/admin/settings': [AdminRole.GAME_MASTER],
+  '/admin/pictures': [AdminRole.GAME_MASTER],
+  '/admin/messages': [AdminRole.MESSAGE_SENDER],
+  '/admin/points-management': [AdminRole.CHECKPOINT_MANAGER],
+  '/admin/checkpoint-station': [AdminRole.CHECKPOINT_MANAGER],
+  '/admin/admin-users': [AdminRole.SUPER_ADMIN],
+};
+
 interface JwtPayload {
   sub: string;
   name?: string;
@@ -41,8 +74,7 @@ export function parseJwtPayload(token: string): JwtPayload | null {
  * Returns 'admin' if any admin role is present, 'team' if team role is present, null otherwise
  */
 export function getUserRoleFromRoles(roles: string[]): UserRole | null {
-  const adminRoles = ['admin', 'super_admin', 'viewer', 'game_master', 'message_sender', 'checkpoint_manager'];
-  if (roles.some(role => adminRoles.includes(role))) {
+  if (roles.some(role => ADMIN_ROLE_VALUES.includes(role))) {
     return 'admin';
   }
   if (roles.includes('team')) {
@@ -138,6 +170,42 @@ export function isSuperAdmin(token: string): boolean {
  */
 export function isAdmin(token: string): boolean {
   const roles = getRolesFromToken(token);
-  const adminRoleValues = ['admin', 'super_admin', 'viewer', 'game_master', 'message_sender', 'checkpoint_manager'];
-  return roles.some(role => adminRoleValues.includes(role));
+  return roles.some(role => ADMIN_ROLE_VALUES.includes(role));
+}
+
+/**
+ * Get the admin-type roles held by the user (intersection with ADMIN_ROLE_VALUES)
+ */
+export function getAdminRoles(token: string): string[] {
+  const roles = getRolesFromToken(token);
+  return roles.filter(role => ADMIN_ROLE_VALUES.includes(role));
+}
+
+/**
+ * Check if the user holds at least one of the given roles
+ */
+export function hasAnyRole(token: string, roles: string[]): boolean {
+  const userRoles = getRolesFromToken(token);
+  return roles.some(role => userRoles.includes(role));
+}
+
+/**
+ * Check if the user may access a given admin route path.
+ * A full `admin` always has access. Otherwise the user must hold one of the roles
+ * listed for the path in ADMIN_PAGE_ROLES. Unmapped paths are open to any staff user.
+ */
+export function canAccessAdminPath(token: string, path: string): boolean {
+  const allowed = ADMIN_PAGE_ROLES[path];
+  if (!allowed) {
+    return true;
+  }
+  if (hasAnyRole(token, allowed)) {
+    return true;
+  }
+  // A full `admin` implicitly holds every capability role EXCEPT super_admin:
+  // admin-user management is super_admin-only, matching the backend gating.
+  if (hasRole(token, AdminRole.ADMIN)) {
+    return allowed.some((role) => role !== AdminRole.SUPER_ADMIN);
+  }
+  return false;
 }

@@ -3,7 +3,7 @@
  */
 import type {ReactNode} from 'react';
 import {lazy, Suspense, useCallback, useEffect, useState} from 'react';
-import {BrowserRouter, Navigate, Route, Routes, useNavigate} from 'react-router-dom';
+import {BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate} from 'react-router-dom';
 import {Alert, Box, Button, CircularProgress, Container, createTheme, CssBaseline, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Paper, Snackbar, Stack, ThemeProvider, Typography} from '@mui/material';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import {TeamLayout} from './components/TeamLayout';
@@ -13,7 +13,7 @@ import {config} from './config';
 import {seedMockAdminSession, seedMockTeamSession} from './services/mockSession';
 import {useGameStore} from './store/useGameStore';
 import {useTeamStore} from './store/useTeamStore';
-import {getRolesFromToken, getUserRoleFromRoles} from './services/auth';
+import {canAccessAdminPath, getRolesFromToken, getUserRoleFromRoles} from './services/auth';
 import {
   getNotificationPermission,
   initializePushNotifications,
@@ -242,6 +242,7 @@ function RivalsRoute({ children }: { children: ReactNode }) {
 function AdminRoute({ children }: { children: ReactNode }) {
   const token = storage.getAuthToken();
   const role = storage.getUserRole();
+  const location = useLocation();
 
   // If no token, redirect to admin login
   if (!token) {
@@ -266,6 +267,12 @@ function AdminRoute({ children }: { children: ReactNode }) {
     }
   } else if (role !== 'admin') {
     return <Navigate to="/dashboard" replace />;
+  }
+
+  // Capability check: redirect staff to the dashboard if their role(s) can't access this page.
+  // The dashboard itself has no role restriction, so this never loops.
+  if (!canAccessAdminPath(token, location.pathname)) {
+    return <Navigate to="/admin/dashboard" replace />;
   }
 
   return <>{children}</>;
