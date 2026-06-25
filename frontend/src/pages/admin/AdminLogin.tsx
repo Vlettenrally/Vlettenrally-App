@@ -72,8 +72,8 @@ export function AdminLogin() {
         }
       }
 
-      // Navigate to admin dashboard
-      navigate('/admin/dashboard', { replace: true });
+      // Navigate to admin map (default admin landing page)
+      navigate('/admin/map', { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {

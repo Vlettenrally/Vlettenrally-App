@@ -26,7 +26,6 @@ export const ADMIN_ROLE_VALUES: string[] = [
  * Mirrors the backend @RolesAllowed gating on the corresponding resources.
  */
 export const ADMIN_PAGE_ROLES: Record<string, string[]> = {
-  '/admin/map': [AdminRole.GAME_MASTER, AdminRole.VIEWER],
   '/admin/games': [AdminRole.GAME_MASTER],
   '/admin/teams': [AdminRole.GAME_MASTER],
   '/admin/zones': [AdminRole.GAME_MASTER],

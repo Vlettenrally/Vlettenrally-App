@@ -41,7 +41,6 @@ const PicturesPage = lazy(() => import('./pages/participant/Pictures'));
 
 // Lazy-loaded admin pages
 const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'));
-const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
 const AdminMap = lazy(() => import('./pages/admin/Map'));
 const AdminMessages = lazy(() => import('./pages/admin/Messages'));
 const AdminInbox = lazy(() => import('./pages/admin/Inbox'));
@@ -183,7 +182,7 @@ function MockModeLauncher() {
             <Typography variant="body2" color="text.secondary">
               Kies welke interface je wilt openen. Beide openen in een nieuw tabblad.
             </Typography>
-            <Button variant="contained" onClick={openInterface(seedMockAdminSession, '/admin/dashboard')}>
+            <Button variant="contained" onClick={openInterface(seedMockAdminSession, '/admin/map')}>
               Open admin interface
             </Button>
             <Button variant="outlined" onClick={openInterface(seedMockTeamSession, '/dashboard')}>
@@ -269,10 +268,10 @@ function AdminRoute({ children }: { children: ReactNode }) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  // Capability check: redirect staff to the dashboard if their role(s) can't access this page.
-  // The dashboard itself has no role restriction, so this never loops.
+  // Capability check: redirect staff to the map if their role(s) can't access this page.
+  // The map is accessible to every staff role, so this never loops.
   if (!canAccessAdminPath(token, location.pathname)) {
-    return <Navigate to="/admin/dashboard" replace />;
+    return <Navigate to="/admin/map" replace />;
   }
 
   return <>{children}</>;
@@ -307,7 +306,7 @@ function RootRedirect() {
     }
 
     if (role === 'admin') {
-      navigate('/admin/dashboard', { replace: true });
+      navigate('/admin/map', { replace: true });
     } else if (storage.isCheckedIn()) {
       navigate('/dashboard', { replace: true });
     } else {
@@ -570,19 +569,7 @@ function App() {
             path="/admin/login"
             element={import.meta.env.DEV && config.useMocks ? <MockModeLauncher /> : <Suspense fallback={<PageLoader />}><AdminLogin /></Suspense>}
           />
-          <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
-          <Route
-            path="/admin/dashboard"
-            element={
-              <AdminRoute>
-                <AdminLayout>
-                  <Suspense fallback={<PageLoader />}>
-                    <AdminDashboard />
-                  </Suspense>
-                </AdminLayout>
-              </AdminRoute>
-            }
-          />
+          <Route path="/admin" element={<Navigate to="/admin/map" replace />} />
           <Route
             path="/admin/map"
             element={
