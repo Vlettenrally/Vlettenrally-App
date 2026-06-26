@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Box,
   Button,
   Chip,
@@ -15,16 +18,56 @@ import {
   Typography,
   Alert,
   Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
 } from '@mui/material';
 import { DataGrid, type GridColDef, type GridRenderCellParams } from '@mui/x-data-grid';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import LockResetIcon from '@mui/icons-material/LockReset';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import api from '../../services/api';
+import { ADMIN_PAGE_ROLES } from '../../services/auth';
 import type { AdminUser } from '../../types/entities';
 import { AdminRole } from '../../types/entities';
+
+const PAGE_LABELS: Record<string, string> = {
+  '/admin/map':                'Kaart',
+  '/admin/inbox':              'Inbox',
+  '/admin/games':              'Games',
+  '/admin/teams':              'Teams',
+  '/admin/check-in':           'Inchecken',
+  '/admin/zones':              'Zones',
+  '/admin/automations':        'Automations',
+  '/admin/settings':           'Instellingen',
+  '/admin/pictures':           "Foto's",
+  '/admin/messages':           'Berichten',
+  '/admin/points-management':  'Puntenbeheer',
+  '/admin/checkpoint-station': 'Checkpoint Beheer',
+  '/admin/admin-users':        'Admin Users',
+};
+
+const ALWAYS_ACCESSIBLE = ['/admin/map', '/admin/inbox'];
+
+function getRolePages(role: AdminRole): string[] {
+  if (role === AdminRole.ADMIN) {
+    return Object.entries(PAGE_LABELS)
+      .filter(([path]) => path !== '/admin/admin-users')
+      .map(([, label]) => label);
+  }
+  const paths = [
+    ...ALWAYS_ACCESSIBLE,
+    ...Object.entries(ADMIN_PAGE_ROLES)
+      .filter(([, roles]) => roles.includes(role))
+      .map(([path]) => path),
+  ];
+  return [...new Set(paths)].map((p) => PAGE_LABELS[p]).filter(Boolean);
+}
 
 export default function AdminUsersPage() {
   const [admins, setAdmins] = useState<AdminUser[]>([]);
@@ -333,6 +376,32 @@ export default function AdminUsersPage() {
         />
       </Paper>
 
+      <Accordion sx={{ mt: 2 }}>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Typography variant="subtitle1">Role Reference</Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Role</TableCell>
+                <TableCell>Pages</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {Object.values(AdminRole).map((role) => (
+                <TableRow key={role}>
+                  <TableCell sx={{ whiteSpace: 'nowrap', fontWeight: 500 }}>
+                    {role.replace(/_/g, ' ')}
+                  </TableCell>
+                  <TableCell>{getRolePages(role).join(', ')}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </AccordionDetails>
+      </Accordion>
+
       {/* Create Admin Dialog */}
       <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Create Admin User</DialogTitle>
@@ -368,7 +437,15 @@ export default function AdminUsersPage() {
                     onChange={() => toggleCreateRole(role)}
                   />
                 }
-                label={role.replace('_', ' ')}
+                label={
+                  <Box>
+                    <Typography variant="body2">{role.replace(/_/g, ' ')}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {getRolePages(role).join(', ')}
+                    </Typography>
+                  </Box>
+                }
+                sx={{ alignItems: 'flex-start', mb: 0.5 }}
               />
             ))}
           </FormGroup>
@@ -396,7 +473,15 @@ export default function AdminUsersPage() {
                     onChange={() => toggleEditRole(role)}
                   />
                 }
-                label={role.replace('_', ' ')}
+                label={
+                  <Box>
+                    <Typography variant="body2">{role.replace(/_/g, ' ')}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {getRolePages(role).join(', ')}
+                    </Typography>
+                  </Box>
+                }
+                sx={{ alignItems: 'flex-start', mb: 0.5 }}
               />
             ))}
           </FormGroup>
