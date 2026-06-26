@@ -17,6 +17,7 @@ export const ADMIN_ROLE_VALUES: string[] = [
   AdminRole.GAME_MASTER,
   AdminRole.MESSAGE_SENDER,
   AdminRole.CHECKPOINT_MANAGER,
+  AdminRole.RALLY_DESK,
 ];
 
 /**
@@ -27,14 +28,14 @@ export const ADMIN_ROLE_VALUES: string[] = [
  */
 export const ADMIN_PAGE_ROLES: Record<string, string[]> = {
   '/admin/games': [AdminRole.GAME_MASTER],
-  '/admin/teams': [AdminRole.GAME_MASTER],
-  '/admin/check-in': [AdminRole.GAME_MASTER],
+  '/admin/teams': [AdminRole.GAME_MASTER, AdminRole.RALLY_DESK],
+  '/admin/check-in': [AdminRole.GAME_MASTER, AdminRole.RALLY_DESK],
   '/admin/zones': [AdminRole.GAME_MASTER],
   '/admin/automations': [AdminRole.GAME_MASTER],
   '/admin/settings': [AdminRole.GAME_MASTER],
-  '/admin/pictures': [AdminRole.GAME_MASTER],
-  '/admin/messages': [AdminRole.MESSAGE_SENDER],
-  '/admin/points-management': [AdminRole.CHECKPOINT_MANAGER],
+  '/admin/pictures': [AdminRole.GAME_MASTER, AdminRole.RALLY_DESK],
+  '/admin/messages': [AdminRole.MESSAGE_SENDER, AdminRole.RALLY_DESK],
+  '/admin/points-management': [AdminRole.CHECKPOINT_MANAGER, AdminRole.RALLY_DESK],
   '/admin/checkpoint-station': [AdminRole.CHECKPOINT_MANAGER],
   '/admin/admin-users': [AdminRole.SUPER_ADMIN],
 };

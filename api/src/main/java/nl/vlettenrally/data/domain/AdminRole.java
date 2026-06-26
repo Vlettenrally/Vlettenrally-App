@@ -36,7 +36,12 @@ public enum AdminRole {
     /**
      * Can validate checkpoint attendance and award extra points
      */
-    CHECKPOINT_MANAGER;
+    CHECKPOINT_MANAGER,
+
+    /**
+     * Can manage team check-in, team details, and send messages
+     */
+    RALLY_DESK;
     
     /**
      * Serialize to lowercase for JSON output

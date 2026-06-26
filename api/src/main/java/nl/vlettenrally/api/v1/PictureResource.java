@@ -130,7 +130,7 @@ public class PictureResource {
      */
     @GET
     @Path("/pictures/pending")
-    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER, SecurityRoles.RALLY_DESK})
     public Response getPendingPictures() {
         return Response.ok(pictureService.findReadyForModeration().stream().map(this::toDto).toList()).build();
     }
@@ -140,7 +140,7 @@ public class PictureResource {
      */
     @GET
     @Path("/pictures")
-    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER, SecurityRoles.RALLY_DESK})
     public Response getAllPictures(@QueryParam("status") String status) {
         List<Picture> pictures;
         if (status != null && !status.isBlank()) {
@@ -164,7 +164,7 @@ public class PictureResource {
      */
     @POST
     @Path("/pictures/{pictureId}/approve")
-    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER, SecurityRoles.RALLY_DESK})
     public Response approvePicture(@PathParam("pictureId") UUID pictureId, @Context SecurityContext securityContext) {
         try {
             return Response.ok(toDto(pictureService.approve(pictureId, adminId(securityContext)))).build();
@@ -178,7 +178,7 @@ public class PictureResource {
      */
     @POST
     @Path("/pictures/{pictureId}/reject")
-    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER, SecurityRoles.RALLY_DESK})
     public Response rejectPicture(@PathParam("pictureId") UUID pictureId, PictureRejectRequest request,
                                   @Context SecurityContext securityContext) {
         String notes = request != null ? request.notes() : null;
