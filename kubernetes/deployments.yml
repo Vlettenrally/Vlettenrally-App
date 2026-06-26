@@ -32,6 +32,9 @@ spec:
                 - ondemand
       imagePullSecrets:
         - name: ghcr-creds
+      # Must exceed quarkus.shutdown.delay (15s) + quarkus.shutdown.timeout (30s) so the graceful
+      # drain and PollingLeader lock release complete before k8s sends SIGKILL.
+      terminationGracePeriodSeconds: 60
       containers:
         - name: vlettenrally-api
           image: ghcr.io/joostvanviegen/vlettenrally-api:2026-06-26-1-native

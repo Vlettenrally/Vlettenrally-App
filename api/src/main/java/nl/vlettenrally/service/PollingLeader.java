@@ -5,7 +5,7 @@ import io.quarkus.redis.datasource.RedisDataSource;
 import io.quarkus.redis.datasource.keys.KeyCommands;
 import io.quarkus.redis.datasource.value.SetArgs;
 import io.quarkus.redis.datasource.value.ValueCommands;
-import jakarta.annotation.PreDestroy;
+import io.quarkus.runtime.ShutdownDelayInitiated;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -61,7 +61,17 @@ public class PollingLeader {
         }
     }
 
-    @PreDestroy
+    /**
+     * Release the lock as soon as graceful shutdown is initiated. The {@link ShutdownDelayInitiated}
+     * phase runs while readiness probes already report DOWN (so k8s has stopped routing traffic) but
+     * the application — including the Redis client — is still fully up. Deleting the lease here lets
+     * another instance take over immediately instead of waiting out the TTL, and avoids the
+     * "Client is closed" race that occurs when releasing during late bean destruction.
+     * <p>
+     * Requires {@code quarkus.shutdown.delay-enabled=true}. The {@code isClientClosed} fallback
+     * remains for non-graceful teardown. The method must be non-private, non-static and no-arg.
+     */
+    @ShutdownDelayInitiated
     void release() {
         if (!lockEnabled) {
             return;
@@ -75,11 +85,43 @@ public class PollingLeader {
                 Log.infof("Polling leader %s released the lock", ownerId);
             }
         } catch (Exception e) {
-            Log.warnf("Failed to release polling leader lock: %s", e.getMessage());
+            // During shutdown the Redis client may already be closed (bean destruction
+            // ordering is not guaranteed). This is harmless — the lock expires on its own
+            // within LOCK_TTL_SECONDS — so don't raise it to WARN.
+            if (isClientClosed(e)) {
+                Log.debugf("Skipping leader lock release; Redis client already closed during shutdown. "
+                        + "Lock will expire within %ds.", LOCK_TTL_SECONDS);
+            } else {
+                Log.warnf("Failed to release polling leader lock: %s", e.getMessage());
+            }
         }
     }
 
     String getOwnerId() {
         return ownerId;
+    }
+
+    /**
+     * True if the failure is the Redis client being shut down. The connect failure surfaces
+     * as a {@code RedisConnectException} whose per-endpoint "Client is closed" errors are
+     * attached as suppressed exceptions rather than as the cause chain, so check both.
+     */
+    private static boolean isClientClosed(Throwable e) {
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            if (mentionsClientClosed(t)) {
+                return true;
+            }
+            for (Throwable suppressed : t.getSuppressed()) {
+                if (mentionsClientClosed(suppressed)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean mentionsClientClosed(Throwable t) {
+        String msg = t.getMessage();
+        return msg != null && msg.contains("Client is closed");
     }
 }
