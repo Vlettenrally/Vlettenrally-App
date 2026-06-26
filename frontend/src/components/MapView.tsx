@@ -282,6 +282,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
             button.style.alignItems = 'center';
             button.style.justifyContent = 'center';
             button.style.cursor = 'pointer';
+            button.style.color = 'black'
 
             button.addEventListener('click', () => {
               fitToContentRef.current();

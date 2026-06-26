@@ -28,6 +28,7 @@ export const ADMIN_ROLE_VALUES: string[] = [
 export const ADMIN_PAGE_ROLES: Record<string, string[]> = {
   '/admin/games': [AdminRole.GAME_MASTER],
   '/admin/teams': [AdminRole.GAME_MASTER],
+  '/admin/check-in': [AdminRole.GAME_MASTER],
   '/admin/zones': [AdminRole.GAME_MASTER],
   '/admin/automations': [AdminRole.GAME_MASTER],
   '/admin/settings': [AdminRole.GAME_MASTER],
