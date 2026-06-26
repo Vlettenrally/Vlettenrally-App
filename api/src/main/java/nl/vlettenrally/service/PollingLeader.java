@@ -31,6 +31,15 @@ public class PollingLeader {
 
     private final String ownerId = UUID.randomUUID().toString();
 
+    /**
+     * Set once graceful shutdown is initiated. Scheduler ticks may still fire during the
+     * shutdown-delay window and into bean destruction; touching the synthetic
+     * {@code redisDataSource} bean then fails with "Error creating synthetic bean ...
+     * NullPointerException". Short-circuiting here keeps that noise out of the logs and
+     * avoids any work while we are going down.
+     */
+    private volatile boolean shuttingDown = false;
+
     @Inject
     RedisDataSource redisDataSource;
 
@@ -40,6 +49,9 @@ public class PollingLeader {
     public boolean tryAcquireOrRenew() {
         if (!lockEnabled) {
             return true;
+        }
+        if (shuttingDown) {
+            return false;
         }
         try {
             ValueCommands<String, String> values = redisDataSource.value(String.class);
@@ -73,6 +85,8 @@ public class PollingLeader {
      */
     @ShutdownDelayInitiated
     void release() {
+        // Stop all subsequent ticks from touching Redis for the rest of the lifecycle.
+        shuttingDown = true;
         if (!lockEnabled) {
             return;
         }

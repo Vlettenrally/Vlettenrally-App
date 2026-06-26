@@ -125,6 +125,21 @@ class PollingLeaderTest {
     }
 
     @Test
+    void skipsTickAfterShutdownInitiated_withoutTouchingRedis() {
+        // release() sets the shutting-down flag. Subsequent ticks must stand down without
+        // dereferencing the synthetic redisDataSource bean, which fails once teardown begins.
+        when(values.get(PollingLeader.LOCK_KEY)).thenReturn("other-instance-id"); // not ours: no del
+        leader.release();
+
+        org.mockito.Mockito.clearInvocations(redisDataSource, values);
+
+        assertFalse(leader.tryAcquireOrRenew(),
+            "must skip the tick once shutdown has been initiated");
+        verify(redisDataSource, never()).value(String.class);
+        verify(values, never()).setAndChanged(any(), any(), any());
+    }
+
+    @Test
     void lockKey_isStableAcrossInstances() {
         // Documenting the constant — changing it would silently bypass the lock for already-running instances.
         assertEquals("vlettenrally:scheduler:location-polling:leader", PollingLeader.LOCK_KEY);
