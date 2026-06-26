@@ -135,6 +135,7 @@ class FcmTokenServiceImplTest {
         when(deviceRegistrationRepository.findByTeamIdAndId(teamId, deviceRegistrationId)).thenReturn(Optional.of(existingDevice));
         when(deviceRegistrationRepository.save(any(DeviceRegistration.class))).thenReturn(existingDevice);
         when(fcmTokenRepository.findByToken(fcmToken)).thenReturn(Optional.of(existingFcmToken));
+        when(fcmTokenRepository.findByDeviceRegistrationId(deviceRegistrationId)).thenReturn(Optional.empty());
         when(fcmTokenRepository.save(any(FcmToken.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // Act
@@ -145,6 +146,64 @@ class FcmTokenServiceImplTest {
         verify(fcmTokenRepository).save(tokenCaptor.capture());
         assertEquals(deviceRegistrationId, tokenCaptor.getValue().getDeviceRegistrationId());
         assertEquals(fcmToken, tokenCaptor.getValue().getToken());
+        // Target device had no token, so nothing to clean up.
+        verify(fcmTokenRepository, never()).delete(any());
+    }
+
+    @Test
+    void registerToken_reassign_deletesStaleTokenOnTargetDevice() {
+        // Arrange — the incoming stable token belongs to a different device (the
+        // previous team/admin on this physical device), while the target device
+        // already holds a different, stale token.
+        UUID otherDeviceId = UUID.randomUUID();
+        DeviceRegistration targetDevice = createDeviceRegistration(teamId, null);
+        FcmToken tokenOnOtherDevice = createFcmToken(fcmToken, otherDeviceId);
+        FcmToken staleTokenOnTarget = createFcmToken("stale-token", deviceRegistrationId);
+
+        when(deviceRegistrationRepository.findByTeamIdAndId(teamId, deviceRegistrationId)).thenReturn(Optional.of(targetDevice));
+        when(deviceRegistrationRepository.save(any(DeviceRegistration.class))).thenReturn(targetDevice);
+        when(fcmTokenRepository.findByToken(fcmToken)).thenReturn(Optional.of(tokenOnOtherDevice));
+        when(fcmTokenRepository.findByDeviceRegistrationId(deviceRegistrationId)).thenReturn(Optional.of(staleTokenOnTarget));
+        when(fcmTokenRepository.save(any(FcmToken.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        fcmTokenService.registerToken(teamId, false, fcmToken, deviceRegistrationId, null);
+
+        // Assert — stale token freed, incoming token reassigned to the target device.
+        verify(fcmTokenRepository).delete(staleTokenOnTarget.getId());
+        ArgumentCaptor<FcmToken> tokenCaptor = ArgumentCaptor.forClass(FcmToken.class);
+        verify(fcmTokenRepository).save(tokenCaptor.capture());
+        assertEquals(tokenOnOtherDevice.getId(), tokenCaptor.getValue().getId());
+        assertEquals(deviceRegistrationId, tokenCaptor.getValue().getDeviceRegistrationId());
+    }
+
+    @Test
+    void registerToken_constraintViolationOnInsert_recoversViaReassign() {
+        // Arrange — a concurrent registration of the same token wins the race: our
+        // first INSERT trips the unique constraint, after which the competing row is
+        // visible and we recover by reassigning it to our (same) device.
+        DeviceRegistration targetDevice = createDeviceRegistration(teamId, null);
+        FcmToken racedToken = createFcmToken(fcmToken, deviceRegistrationId);
+
+        when(deviceRegistrationRepository.findByTeamIdAndId(teamId, deviceRegistrationId)).thenReturn(Optional.of(targetDevice));
+        when(deviceRegistrationRepository.save(any(DeviceRegistration.class))).thenReturn(targetDevice);
+        // First pass: token absent, device empty -> attempt insert. Second pass: the
+        // competitor's row is now visible.
+        when(fcmTokenRepository.findByToken(fcmToken))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(racedToken));
+        when(fcmTokenRepository.findByDeviceRegistrationId(deviceRegistrationId)).thenReturn(Optional.empty());
+        when(fcmTokenRepository.save(any(FcmToken.class)))
+                .thenThrow(new org.hibernate.exception.ConstraintViolationException(
+                        "duplicate key", new java.sql.SQLException("dup", "23505"), "uq_fcm_tokens_token"))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act — must not throw.
+        UUID result = fcmTokenService.registerToken(teamId, false, fcmToken, deviceRegistrationId, null);
+
+        // Assert — recovered: save attempted twice (failed insert, then touch).
+        assertEquals(deviceRegistrationId, result);
+        verify(fcmTokenRepository, times(2)).save(any(FcmToken.class));
     }
 
     @Test
