@@ -622,8 +622,6 @@ export type AutomationTriggerType =
   | 'RIVAL_OVERTAKE'
   | 'DISTANCE_TRAVELED';
 
-export type AutomationActionType = 'SEND_MESSAGE' | 'AWARD_POINTS' | 'NOTIFY_ADMINS' | 'FINISH_TEAM' | 'SET_RANKINGS_PUBLISHED' | 'SET_PUBLIC_RANKINGS_ENABLED';
-
 /**
  * Flat config; which fields apply depends on the rule's trigger type.
  * For CHECKPOINT_ENTRY, `comparison` plus the mode/time fields restrict firing
@@ -642,23 +640,48 @@ export interface AutomationTriggerConfig {
   comparison?: 'BEFORE' | 'AFTER' | null;
 }
 
-/**
- * Flat action; which fields apply depends on `type`. Text supports {team},
- * {checkpoint} and {rival} placeholders (which apply depends on the trigger).
- * A SEND_MESSAGE action may reference a reusable template via messageTemplateId.
- */
-export interface AutomationAction {
-  type: AutomationActionType;
+export interface SendMessageAction {
+  type: 'SEND_MESSAGE';
   messageContent?: string | null;
   messageType?: string | null;
   messageIcon?: string | null;
   messageTemplateId?: string | null;
+}
+
+export interface AwardPointsAction {
+  type: 'AWARD_POINTS';
   points?: number | null;
   pointsDescription?: string | null;
+}
+
+export interface NotifyAdminsAction {
+  type: 'NOTIFY_ADMINS';
   adminNotification?: string | null;
+}
+
+export interface FinishTeamAction {
+  type: 'FINISH_TEAM';
+}
+
+export interface SetRankingsPublishedAction {
+  type: 'SET_RANKINGS_PUBLISHED';
   rankingsPublished?: boolean | null;
+}
+
+export interface SetPublicRankingsEnabledAction {
+  type: 'SET_PUBLIC_RANKINGS_ENABLED';
   publicRankingsEnabled?: boolean | null;
 }
+
+export type AutomationAction =
+  | SendMessageAction
+  | AwardPointsAction
+  | NotifyAdminsAction
+  | FinishTeamAction
+  | SetRankingsPublishedAction
+  | SetPublicRankingsEnabledAction;
+
+export type AutomationActionType = AutomationAction['type'];
 
 export interface AutomationRule {
   id: string;

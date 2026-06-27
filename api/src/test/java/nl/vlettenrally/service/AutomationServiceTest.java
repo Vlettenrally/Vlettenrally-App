@@ -32,7 +32,6 @@ import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.domain.automation.AutomationAction;
 import nl.vlettenrally.data.domain.automation.AutomationTriggerConfig;
 import nl.vlettenrally.data.dto.automation.CopyAutomationsResult;
-import nl.vlettenrally.data.enums.AutomationActionType;
 import nl.vlettenrally.data.enums.AutomationTriggerType;
 import nl.vlettenrally.data.repository.AutomationExecutionRepository;
 import nl.vlettenrally.data.repository.AutomationRuleRepository;
@@ -71,8 +70,7 @@ class AutomationServiceTest {
         draft.setName("Felicitatie");
         draft.setTriggerType(AutomationTriggerType.CHECKPOINT_ENTRY);
         draft.setTriggerConfig(new AutomationTriggerConfig(null, null, null, null, null, null, null, null, null));
-        draft.setActions(List.of(new AutomationAction(
-            AutomationActionType.SEND_MESSAGE, "Goed bezig!", null, null, null, null, null, null, null, null)));
+        draft.setActions(List.of(new AutomationAction.SendMessage("Goed bezig!", null, null, null)));
         return draft;
     }
 
@@ -91,8 +89,7 @@ class AutomationServiceTest {
     @Test
     void createRule_acceptsFinishTeamAction() {
         AutomationRule draft = validDraft();
-        draft.setActions(List.of(new AutomationAction(
-            AutomationActionType.FINISH_TEAM, null, null, null, null, null, null, null, null, null)));
+        draft.setActions(List.of(new AutomationAction.FinishTeam()));
 
         AutomationRule created = service.createRule(gameId, draft, adminId);
 
@@ -224,12 +221,11 @@ class AutomationServiceTest {
             new nl.vlettenrally.data.domain.MessageTemplate(templateId, "T",
                 nl.vlettenrally.data.enums.MessageType.GENERAL, "Hoi {team}", null)));
         AutomationRule draft = validDraft();
-        draft.setActions(List.of(new AutomationAction(
-            AutomationActionType.SEND_MESSAGE, null, null, null, templateId, null, null, null, null, null)));
+        draft.setActions(List.of(new AutomationAction.SendMessage(null, null, null, templateId)));
 
         AutomationRule created = service.createRule(gameId, draft, adminId);
 
-        assertEquals(templateId, created.getActions().getFirst().messageTemplateId());
+        assertEquals(templateId, ((AutomationAction.SendMessage) created.getActions().getFirst()).messageTemplateId());
     }
 
     @Test
@@ -237,8 +233,7 @@ class AutomationServiceTest {
         UUID templateId = UUID.randomUUID();
         when(messageTemplateService.findById(templateId)).thenReturn(Optional.empty());
         AutomationRule draft = validDraft();
-        draft.setActions(List.of(new AutomationAction(
-            AutomationActionType.SEND_MESSAGE, null, null, null, templateId, null, null, null, null, null)));
+        draft.setActions(List.of(new AutomationAction.SendMessage(null, null, null, templateId)));
 
         assertThrows(BadRequestException.class, () -> service.createRule(gameId, draft, adminId));
     }
@@ -246,8 +241,7 @@ class AutomationServiceTest {
     @Test
     void createRule_rejectsSendMessageWithNeitherTemplateNorContent() {
         AutomationRule draft = validDraft();
-        draft.setActions(List.of(new AutomationAction(
-            AutomationActionType.SEND_MESSAGE, "  ", null, null, null, null, null, null, null, null)));
+        draft.setActions(List.of(new AutomationAction.SendMessage("  ", null, null, null)));
 
         assertThrows(BadRequestException.class, () -> service.createRule(gameId, draft, adminId));
     }
@@ -255,8 +249,7 @@ class AutomationServiceTest {
     @Test
     void createRule_rejectsZeroPointsAction() {
         AutomationRule draft = validDraft();
-        draft.setActions(List.of(new AutomationAction(
-            AutomationActionType.AWARD_POINTS, null, null, null, null, 0, null, null, null, null)));
+        draft.setActions(List.of(new AutomationAction.AwardPoints(0, null)));
 
         assertThrows(BadRequestException.class, () -> service.createRule(gameId, draft, adminId));
     }
@@ -264,19 +257,17 @@ class AutomationServiceTest {
     @Test
     void createRule_acceptsSetRankingsPublished_withExplicitValue() {
         AutomationRule draft = validDraft();
-        draft.setActions(List.of(new AutomationAction(
-            AutomationActionType.SET_RANKINGS_PUBLISHED, null, null, null, null, null, null, null, true, null)));
+        draft.setActions(List.of(new AutomationAction.SetRankingsPublished(true)));
 
         AutomationRule created = service.createRule(gameId, draft, adminId);
 
-        assertTrue(created.getActions().getFirst().rankingsPublished());
+        assertTrue(((AutomationAction.SetRankingsPublished) created.getActions().getFirst()).rankingsPublished());
     }
 
     @Test
     void createRule_rejectsSetRankingsPublished_withoutValue() {
         AutomationRule draft = validDraft();
-        draft.setActions(List.of(new AutomationAction(
-            AutomationActionType.SET_RANKINGS_PUBLISHED, null, null, null, null, null, null, null, null, null)));
+        draft.setActions(List.of(new AutomationAction.SetRankingsPublished(null)));
 
         assertThrows(BadRequestException.class, () -> service.createRule(gameId, draft, adminId));
     }
@@ -284,19 +275,17 @@ class AutomationServiceTest {
     @Test
     void createRule_acceptsSetPublicRankingsEnabled_withExplicitValue() {
         AutomationRule draft = validDraft();
-        draft.setActions(List.of(new AutomationAction(
-            AutomationActionType.SET_PUBLIC_RANKINGS_ENABLED, null, null, null, null, null, null, null, null, true)));
+        draft.setActions(List.of(new AutomationAction.SetPublicRankingsEnabled(true)));
 
         AutomationRule created = service.createRule(gameId, draft, adminId);
 
-        assertTrue(created.getActions().getFirst().publicRankingsEnabled());
+        assertTrue(((AutomationAction.SetPublicRankingsEnabled) created.getActions().getFirst()).publicRankingsEnabled());
     }
 
     @Test
     void createRule_rejectsSetPublicRankingsEnabled_withoutValue() {
         AutomationRule draft = validDraft();
-        draft.setActions(List.of(new AutomationAction(
-            AutomationActionType.SET_PUBLIC_RANKINGS_ENABLED, null, null, null, null, null, null, null, null, null)));
+        draft.setActions(List.of(new AutomationAction.SetPublicRankingsEnabled(null)));
 
         assertThrows(BadRequestException.class, () -> service.createRule(gameId, draft, adminId));
     }
@@ -459,8 +448,7 @@ class AutomationServiceTest {
         rule.setName(name);
         rule.setTriggerType(type);
         rule.setTriggerConfig(config);
-        rule.setActions(List.of(new AutomationAction(
-            AutomationActionType.SEND_MESSAGE, "Hoi {team}", null, null, null, null, null, null, null, null)));
+        rule.setActions(List.of(new AutomationAction.SendMessage("Hoi {team}", null, null, null)));
         return rule;
     }
 

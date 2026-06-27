@@ -9,6 +9,7 @@ import nl.vlettenrally.data.domain.automation.AutomationAction;
 import nl.vlettenrally.data.domain.automation.AutomationTriggerConfig;
 import nl.vlettenrally.data.dto.automation.CopyAutomationsResult;
 import nl.vlettenrally.data.enums.AutomationTriggerType;
+
 import nl.vlettenrally.data.repository.AutomationExecutionRepository;
 import nl.vlettenrally.data.repository.AutomationRuleRepository;
 import nl.vlettenrally.data.repository.CheckpointRepository;
@@ -413,40 +414,36 @@ public class AutomationService {
             throw new BadRequestException("At least one action is required");
         }
         for (AutomationAction action : rule.getActions()) {
-            if (action.type() == null) {
-                throw new BadRequestException("Every action needs a type");
-            }
-            switch (action.type()) {
-                case SEND_MESSAGE -> {
-                    boolean hasContent = action.messageContent() != null && !action.messageContent().isBlank();
-                    if (action.messageTemplateId() != null) {
-                        if (messageTemplateService.findById(action.messageTemplateId()).isEmpty()) {
+            switch (action) {
+                case AutomationAction.SendMessage a -> {
+                    if (a.messageTemplateId() != null) {
+                        if (messageTemplateService.findById(a.messageTemplateId()).isEmpty()) {
                             throw new BadRequestException(
-                                "Message template not found: " + action.messageTemplateId());
+                                "Message template not found: " + a.messageTemplateId());
                         }
-                    } else if (!hasContent) {
+                    } else if (a.messageContent() == null || a.messageContent().isBlank()) {
                         throw new BadRequestException("Message actions need content or a template");
                     }
                 }
-                case AWARD_POINTS -> {
-                    if (action.points() == null || action.points() == 0) {
+                case AutomationAction.AwardPoints a -> {
+                    if (a.points() == null || a.points() == 0) {
                         throw new BadRequestException("Point actions need a non-zero amount");
                     }
                 }
-                case NOTIFY_ADMINS -> {
-                    if (action.adminNotification() == null || action.adminNotification().isBlank()) {
+                case AutomationAction.NotifyAdmins a -> {
+                    if (a.adminNotification() == null || a.adminNotification().isBlank()) {
                         throw new BadRequestException("Admin notification actions need a text");
                     }
                 }
-                case FINISH_TEAM -> { /* no config: marks the affected team(s) finished */ }
-                case SET_RANKINGS_PUBLISHED -> {
-                    if (action.rankingsPublished() == null) {
+                case AutomationAction.FinishTeam a -> {}
+                case AutomationAction.SetRankingsPublished a -> {
+                    if (a.rankingsPublished() == null) {
                         throw new BadRequestException(
                             "SET_RANKINGS_PUBLISHED actions need a rankingsPublished value (true or false)");
                     }
                 }
-                case SET_PUBLIC_RANKINGS_ENABLED -> {
-                    if (action.publicRankingsEnabled() == null) {
+                case AutomationAction.SetPublicRankingsEnabled a -> {
+                    if (a.publicRankingsEnabled() == null) {
                         throw new BadRequestException(
                             "SET_PUBLIC_RANKINGS_ENABLED actions need a publicRankingsEnabled value (true or false)");
                     }

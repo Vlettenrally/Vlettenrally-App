@@ -38,7 +38,6 @@ import nl.vlettenrally.data.dto.common.ErrorResponse;
 import nl.vlettenrally.data.enums.AutomationExecutionStatus;
 import nl.vlettenrally.data.enums.AutomationTriggerType;
 import nl.vlettenrally.data.enums.MessageType;
-import nl.vlettenrally.data.enums.AutomationActionType;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.service.AutomationService;
 
@@ -68,8 +67,7 @@ class AutomationResourceTest {
         rule.setName("Felicitatie");
         rule.setTriggerType(AutomationTriggerType.CHECKPOINT_ENTRY);
         rule.setTriggerConfig(new AutomationTriggerConfig(null, null, null, null, null, null, null, null, null));
-        rule.setActions(List.of(new AutomationAction(
-            AutomationActionType.SEND_MESSAGE, "Goed bezig!", MessageType.GENERAL, null, null, null, null, null, null, null)));
+        rule.setActions(List.of(new AutomationAction.SendMessage("Goed bezig!", MessageType.GENERAL, null, null)));
         ruleId = rule.getId();
 
         lenient().when(automationService.lastFiredAt(any())).thenReturn(Map.of());
@@ -78,8 +76,7 @@ class AutomationResourceTest {
     private AutomationRuleRequest request() {
         return new AutomationRuleRequest("Felicitatie", true, AutomationTriggerType.CHECKPOINT_ENTRY,
             new AutomationTriggerConfig(null, null, null, null, null, null, null, null, null),
-            List.of(new AutomationAction(
-                AutomationActionType.SEND_MESSAGE, "Goed bezig!", MessageType.GENERAL, null, null, null, null, null, null, null)),
+            List.of(new AutomationAction.SendMessage("Goed bezig!", MessageType.GENERAL, null, null)),
             null, true, null);
     }
 

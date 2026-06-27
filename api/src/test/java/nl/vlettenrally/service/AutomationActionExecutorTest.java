@@ -30,7 +30,6 @@ import nl.vlettenrally.data.domain.AdminNotification;
 import nl.vlettenrally.data.domain.MessageTemplate;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.domain.automation.AutomationAction;
-import nl.vlettenrally.data.enums.AutomationActionType;
 import nl.vlettenrally.data.enums.AutomationExecutionStatus;
 import nl.vlettenrally.data.enums.AutomationTriggerType;
 import nl.vlettenrally.data.enums.MessageType;
@@ -82,31 +81,31 @@ class AutomationActionExecutorTest {
     }
 
     private static AutomationAction message(String content, MessageType type, String icon) {
-        return new AutomationAction(AutomationActionType.SEND_MESSAGE, content, type, icon, null, null, null, null, null, null);
+        return new AutomationAction.SendMessage(content, type, icon, null);
     }
 
     private static AutomationAction templateMessage(UUID templateId, String fallback) {
-        return new AutomationAction(AutomationActionType.SEND_MESSAGE, fallback, null, null, templateId, null, null, null, null, null);
+        return new AutomationAction.SendMessage(fallback, null, null, templateId);
     }
 
     private static AutomationAction points(int amount, String description) {
-        return new AutomationAction(AutomationActionType.AWARD_POINTS, null, null, null, null, amount, description, null, null, null);
+        return new AutomationAction.AwardPoints(amount, description);
     }
 
     private static AutomationAction notify(String text) {
-        return new AutomationAction(AutomationActionType.NOTIFY_ADMINS, null, null, null, null, null, null, text, null, null);
+        return new AutomationAction.NotifyAdmins(text);
     }
 
     private static AutomationAction finish() {
-        return new AutomationAction(AutomationActionType.FINISH_TEAM, null, null, null, null, null, null, null, null, null);
+        return new AutomationAction.FinishTeam();
     }
 
     private static AutomationAction setRankingsPublished(boolean publish) {
-        return new AutomationAction(AutomationActionType.SET_RANKINGS_PUBLISHED, null, null, null, null, null, null, null, publish, null);
+        return new AutomationAction.SetRankingsPublished(publish);
     }
 
     private static AutomationAction setPublicRankingsEnabled(boolean enable) {
-        return new AutomationAction(AutomationActionType.SET_PUBLIC_RANKINGS_ENABLED, null, null, null, null, null, null, null, null, enable);
+        return new AutomationAction.SetPublicRankingsEnabled(enable);
     }
 
     @Test

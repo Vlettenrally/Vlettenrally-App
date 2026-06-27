@@ -6,7 +6,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 import nl.vlettenrally.data.domain.AutomationRule;
 import nl.vlettenrally.data.domain.automation.AutomationAction;
 import nl.vlettenrally.data.domain.automation.AutomationTriggerConfig;
-import nl.vlettenrally.data.enums.AutomationActionType;
 import nl.vlettenrally.data.enums.AutomationTriggerType;
 import nl.vlettenrally.data.enums.MessageType;
 import nl.vlettenrally.data.repository.AutomationRuleRepository;
@@ -60,10 +59,8 @@ public class MockAutomationRuleRepository implements AutomationRuleRepository {
         checkpointMessage.setName("Felicitatie bij checkpoint");
         checkpointMessage.setTriggerType(AutomationTriggerType.CHECKPOINT_ENTRY);
         checkpointMessage.setTriggerConfig(new AutomationTriggerConfig(null, null, null, null, null, null, null, null, null));
-        checkpointMessage.setActions(List.of(new AutomationAction(
-            AutomationActionType.SEND_MESSAGE,
-            "Goed bezig {team}, checkpoint bereikt!", MessageType.GENERAL, "🎉",
-            null, null, null, null, null, null)));
+        checkpointMessage.setActions(List.of(
+            new AutomationAction.SendMessage("Goed bezig {team}, checkpoint bereikt!", MessageType.GENERAL, "🎉", null)));
         rules.put(checkpointMessage.getId(), checkpointMessage);
 
         AutomationRule inactivityAlert = new AutomationRule();
@@ -72,10 +69,8 @@ public class MockAutomationRuleRepository implements AutomationRuleRepository {
         inactivityAlert.setName("Stilstand-melding");
         inactivityAlert.setTriggerType(AutomationTriggerType.TEAM_INACTIVITY);
         inactivityAlert.setTriggerConfig(new AutomationTriggerConfig(null, null, null, null, null, null, 30, null, null));
-        inactivityAlert.setActions(List.of(new AutomationAction(
-            AutomationActionType.NOTIFY_ADMINS,
-            null, null, null, null, null, null,
-            "{team} heeft al 30 minuten geen locatie doorgegeven", null, null)));
+        inactivityAlert.setActions(List.of(
+            new AutomationAction.NotifyAdmins("{team} heeft al 30 minuten geen locatie doorgegeven")));
         inactivityAlert.setFireOnce(false);
         inactivityAlert.setCooldownMinutes(60);
         rules.put(inactivityAlert.getId(), inactivityAlert);
@@ -93,9 +88,8 @@ public class MockAutomationRuleRepository implements AutomationRuleRepository {
             AutomationTriggerConfig.RelativeAnchor.GAME_END, 0,
             null, null, null,
             AutomationTriggerConfig.PassComparison.AFTER));
-        latePenalty.setActions(List.of(new AutomationAction(
-            AutomationActionType.AWARD_POINTS,
-            null, null, null, null, -50, "Strafpunten: na de eindtijd gefinisht", null, null, null)));
+        latePenalty.setActions(List.of(
+            new AutomationAction.AwardPoints(-50, "Strafpunten: na de eindtijd gefinisht")));
         rules.put(latePenalty.getId(), latePenalty);
     }
 

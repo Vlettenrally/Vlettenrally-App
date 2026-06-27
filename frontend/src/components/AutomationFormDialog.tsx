@@ -46,8 +46,15 @@ interface AutomationFormDialogProps {
   onSave?: () => void;
 }
 
-function emptyAction(): AutomationAction {
-  return { type: 'SEND_MESSAGE', messageContent: '', messageType: 'GENERAL' };
+function emptyActionForType(type: AutomationActionType): AutomationAction {
+  switch (type) {
+    case 'SEND_MESSAGE': return { type, messageContent: '', messageType: 'GENERAL' };
+    case 'AWARD_POINTS': return { type };
+    case 'NOTIFY_ADMINS': return { type };
+    case 'FINISH_TEAM': return { type };
+    case 'SET_RANKINGS_PUBLISHED': return { type };
+    case 'SET_PUBLIC_RANKINGS_ENABLED': return { type };
+  }
 }
 
 export default function AutomationFormDialog({
@@ -103,7 +110,7 @@ export default function AutomationFormDialog({
   const [enabled, setEnabled] = useState(true);
   const [triggerType, setTriggerType] = useState<AutomationTriggerType>('CHECKPOINT_ENTRY');
   const [config, setConfig] = useState<AutomationTriggerConfig>({});
-  const [actions, setActions] = useState<AutomationAction[]>([emptyAction()]);
+  const [actions, setActions] = useState<AutomationAction[]>([emptyActionForType('SEND_MESSAGE')]);
   const [targetTeamIds, setTargetTeamIds] = useState<string[]>([]);
   const [fireOnce, setFireOnce] = useState(true);
   const [cooldownMinutes, setCooldownMinutes] = useState<number | ''>('');
@@ -132,7 +139,7 @@ export default function AutomationFormDialog({
       setEnabled(rule.enabled);
       setTriggerType(rule.triggerType);
       setConfig(rule.triggerConfig ?? {});
-      setActions(rule.actions?.length ? rule.actions : rule.system ? [] : [emptyAction()]);
+      setActions(rule.actions?.length ? rule.actions : rule.system ? [] : [emptyActionForType('SEND_MESSAGE')]);
       setTargetTeamIds(rule.targetTeamIds ?? []);
       setFireOnce(rule.fireOnce);
       setCooldownMinutes(rule.cooldownMinutes ?? '');
@@ -141,7 +148,7 @@ export default function AutomationFormDialog({
       setEnabled(true);
       setTriggerType('CHECKPOINT_ENTRY');
       setConfig({});
-      setActions([emptyAction()]);
+      setActions([emptyActionForType('SEND_MESSAGE')]);
       setTargetTeamIds([]);
       setFireOnce(true);
       setCooldownMinutes('');
@@ -169,8 +176,10 @@ export default function AutomationFormDialog({
     }
   };
 
-  const updateAction = (index: number, patch: Partial<AutomationAction>) => {
-    setActions((prev) => prev.map((action, i) => (i === index ? { ...action, ...patch } : action)));
+  const updateAction = (index: number, patch: Record<string, unknown>) => {
+    setActions((prev) =>
+      prev.map((action, i) => (i === index ? ({ ...action, ...patch } as AutomationAction) : action))
+    );
   };
 
   const handleSubmit = async () => {
@@ -617,9 +626,13 @@ export default function AutomationFormDialog({
                         label={t('components.automationForm.actionLabel')}
                         value={action.type}
                         onChange={(e) =>
-                          updateAction(index, {
-                            type: e.target.value as AutomationActionType,
-                          })
+                          setActions((prev) =>
+                            prev.map((a, i) =>
+                              i === index
+                                ? emptyActionForType(e.target.value as AutomationActionType)
+                                : a
+                            )
+                          )
                         }
                       >
                         {ACTION_OPTIONS.map((option) => (
@@ -644,7 +657,7 @@ export default function AutomationFormDialog({
               ))}
               <Button
                 startIcon={<AddIcon />}
-                onClick={() => setActions((prev) => [...prev, emptyAction()])}
+                onClick={() => setActions((prev) => [...prev, emptyActionForType('SEND_MESSAGE')])}
                 sx={{ alignSelf: 'flex-start' }}
               >
                 {t('components.automationForm.addAction')}
