@@ -687,6 +687,7 @@ public class GameResource {
             game.getLocationPollingFrequency(),
             game.getLocationEndpointActive(),
             game.getRankingsPublished() != null && game.getRankingsPublished(),
+            game.getPublicRankingsEnabled() != null && game.getPublicRankingsEnabled(),
             game.getCreatedAt() != null ? game.getCreatedAt().toString() : null,
             game.getUpdatedAt() != null ? game.getUpdatedAt().toString() : null
         );

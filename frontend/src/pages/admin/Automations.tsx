@@ -109,6 +109,10 @@ export default function Automations() {
         return t('components.automationForm.actionNotifyAdmins');
       case 'FINISH_TEAM':
         return t('components.automationForm.actionFinishTeam');
+      case 'SET_RANKINGS_PUBLISHED':
+        return t('components.automationForm.actionSetRankingsPublished');
+      case 'SET_PUBLIC_RANKINGS_ENABLED':
+        return t('components.automationForm.actionSetPublicRankingsEnabled');
     }
   }
 

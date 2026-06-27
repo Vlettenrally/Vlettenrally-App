@@ -79,6 +79,10 @@ public class GameEntity {
     @Column(name = "rankings_published", nullable = false)
     private Boolean rankingsPublished = false;
 
+    // Whether the ranking is visible on the public scoreboard API.
+    @Column(name = "public_rankings_enabled", nullable = false)
+    private Boolean publicRankingsEnabled = false;
+
     public enum GameStatus {
         PLANNED,
         ACTIVE,

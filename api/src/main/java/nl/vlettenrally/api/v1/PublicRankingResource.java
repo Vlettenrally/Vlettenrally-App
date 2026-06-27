@@ -53,7 +53,7 @@ public class PublicRankingResource {
     @Path("/games/{gameId}/rankings")
     public Response rankingsForGame(@PathParam("gameId") UUID gameId) {
         List<RankingResponse> body = gameService.findById(gameId)
-            .filter(g -> Boolean.TRUE.equals(g.getRankingsPublished()))
+            .filter(g -> Boolean.TRUE.equals(g.getPublicRankingsEnabled()) || Boolean.TRUE.equals(g.getRankingsPublished()))
             .map(g -> rankingService.buildRanking(gameId))
             .orElseGet(List::of);
         return Response.ok(body).build();

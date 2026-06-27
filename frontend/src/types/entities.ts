@@ -10,6 +10,8 @@ export interface Game {
   status?: 'planned' | 'active' | 'completed';
   // Whether the final ranking has been revealed to players (admin-triggered at the ceremony).
   rankingsPublished?: boolean;
+  // Whether the ranking is visible on the public scoreboard API (independent of player-app visibility).
+  publicRankingsEnabled?: boolean;
   // External event integration
   externalEventId?: number;
   externalEventName?: string;
@@ -620,7 +622,7 @@ export type AutomationTriggerType =
   | 'RIVAL_OVERTAKE'
   | 'DISTANCE_TRAVELED';
 
-export type AutomationActionType = 'SEND_MESSAGE' | 'AWARD_POINTS' | 'NOTIFY_ADMINS' | 'FINISH_TEAM';
+export type AutomationActionType = 'SEND_MESSAGE' | 'AWARD_POINTS' | 'NOTIFY_ADMINS' | 'FINISH_TEAM' | 'SET_RANKINGS_PUBLISHED' | 'SET_PUBLIC_RANKINGS_ENABLED';
 
 /**
  * Flat config; which fields apply depends on the rule's trigger type.
@@ -654,6 +656,8 @@ export interface AutomationAction {
   points?: number | null;
   pointsDescription?: string | null;
   adminNotification?: string | null;
+  rankingsPublished?: boolean | null;
+  publicRankingsEnabled?: boolean | null;
 }
 
 export interface AutomationRule {

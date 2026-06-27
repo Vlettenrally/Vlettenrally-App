@@ -63,7 +63,7 @@ public class MockAutomationRuleRepository implements AutomationRuleRepository {
         checkpointMessage.setActions(List.of(new AutomationAction(
             AutomationActionType.SEND_MESSAGE,
             "Goed bezig {team}, checkpoint bereikt!", MessageType.GENERAL, "🎉",
-            null, null, null, null)));
+            null, null, null, null, null, null)));
         rules.put(checkpointMessage.getId(), checkpointMessage);
 
         AutomationRule inactivityAlert = new AutomationRule();
@@ -75,7 +75,7 @@ public class MockAutomationRuleRepository implements AutomationRuleRepository {
         inactivityAlert.setActions(List.of(new AutomationAction(
             AutomationActionType.NOTIFY_ADMINS,
             null, null, null, null, null, null,
-            "{team} heeft al 30 minuten geen locatie doorgegeven")));
+            "{team} heeft al 30 minuten geen locatie doorgegeven", null, null)));
         inactivityAlert.setFireOnce(false);
         inactivityAlert.setCooldownMinutes(60);
         rules.put(inactivityAlert.getId(), inactivityAlert);
@@ -95,7 +95,7 @@ public class MockAutomationRuleRepository implements AutomationRuleRepository {
             AutomationTriggerConfig.PassComparison.AFTER));
         latePenalty.setActions(List.of(new AutomationAction(
             AutomationActionType.AWARD_POINTS,
-            null, null, null, null, -50, "Strafpunten: na de eindtijd gefinisht", null)));
+            null, null, null, null, -50, "Strafpunten: na de eindtijd gefinisht", null, null, null)));
         rules.put(latePenalty.getId(), latePenalty);
     }
 

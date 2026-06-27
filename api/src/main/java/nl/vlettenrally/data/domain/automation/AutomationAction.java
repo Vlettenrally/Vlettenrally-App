@@ -33,6 +33,8 @@ public record AutomationAction(
     UUID messageTemplateId,
     Integer points,
     String pointsDescription,
-    String adminNotification
+    String adminNotification,
+    Boolean rankingsPublished,   // SET_RANKINGS_PUBLISHED: true = publish, false = hide
+    Boolean publicRankingsEnabled // SET_PUBLIC_RANKINGS_ENABLED: true = enable, false = disable
 ) {
 }

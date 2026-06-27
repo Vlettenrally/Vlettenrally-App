@@ -43,6 +43,7 @@ public class GameMapper {
         domain.setLocationEndpointActive(entity.getLocationEndpointActive());
 
         domain.setRankingsPublished(entity.getRankingsPublished());
+        domain.setPublicRankingsEnabled(entity.getPublicRankingsEnabled());
 
         return domain;
     }
@@ -78,6 +79,7 @@ public class GameMapper {
         entity.setLocationEndpointActive(domain.getLocationEndpointActive());
 
         entity.setRankingsPublished(domain.getRankingsPublished());
+        entity.setPublicRankingsEnabled(domain.getPublicRankingsEnabled());
 
         return entity;
     }
@@ -110,6 +112,7 @@ public class GameMapper {
         entity.setLocationEndpointActive(domain.getLocationEndpointActive());
 
         entity.setRankingsPublished(domain.getRankingsPublished());
+        entity.setPublicRankingsEnabled(domain.getPublicRankingsEnabled());
     }
 
     private static Game.GameStatus mapStatus(GameEntity.GameStatus status) {

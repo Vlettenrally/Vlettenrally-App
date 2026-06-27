@@ -39,6 +39,9 @@ public class Game {
     /** Whether the final ranking has been revealed to players (admin-triggered at the ceremony). */
     private Boolean rankingsPublished;
 
+    /** Whether the ranking is visible on the public scoreboard API (independent of player-app visibility). */
+    private Boolean publicRankingsEnabled;
+
     public enum GameStatus {
         PLANNED,
         ACTIVE,
@@ -51,6 +54,7 @@ public class Game {
         this.locationPollingFrequency = 30; // Matches Legendstracking 30 s cache
         this.locationEndpointActive = false;
         this.rankingsPublished = false;
+        this.publicRankingsEnabled = false;
         this.createdAt = Instant.now();
         this.updatedAt = Instant.now();
     }

@@ -7,6 +7,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import nl.vlettenrally.data.domain.AdminNotification;
 import nl.vlettenrally.data.domain.AutomationRule;
+import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.MessageTemplate;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.domain.automation.AutomationAction;
@@ -22,6 +23,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.UUID;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -55,6 +57,12 @@ public class AutomationActionExecutor {
     @Inject
     TeamRepository teamRepository;
 
+    @Inject
+    GameService gameService;
+
+    @Inject
+    RankingService rankingService;
+
     /** Outcome of one rule firing: overall status plus per-action detail as JSON. */
     public record Result(AutomationExecutionStatus status, String detail) {}
 
@@ -81,6 +89,8 @@ public class AutomationActionExecutor {
                     case AWARD_POINTS -> awardPoints(rule, action, targets, detail);
                     case NOTIFY_ADMINS -> notifyAdmins(rule, action, targets, ctx);
                     case FINISH_TEAM -> finishTeams(targets, detail);
+                    case SET_RANKINGS_PUBLISHED -> setRankingsPublished(rule, action, detail);
+                    case SET_PUBLIC_RANKINGS_ENABLED -> setPublicRankingsEnabled(rule, action, detail);
                 }
                 detail.put("ok", !Boolean.FALSE.equals(detail.get("ok")));
             } catch (Exception e) {
@@ -182,6 +192,32 @@ public class AutomationActionExecutor {
             detail.put("ok", teamErrors.size() < targets.size());
             detail.put("error", String.join("; ", teamErrors));
         }
+    }
+
+    private void setRankingsPublished(AutomationRule rule, AutomationAction action, Map<String, Object> detail) {
+        UUID gameId = rule.getGameId();
+        Game game = gameService.findById(gameId)
+            .orElseThrow(() -> new IllegalStateException("Game not found: " + gameId));
+        boolean publish = Boolean.TRUE.equals(action.rankingsPublished());
+        game.setRankingsPublished(publish);
+        gameService.save(game);
+        detail.put("rankingsPublished", publish);
+        if (publish) {
+            webSocketPublisher.broadcastToGame(
+                gameId,
+                WebSocketMessageType.RANKING_UPDATE.getValue(),
+                rankingService.buildRanking(gameId));
+        }
+    }
+
+    private void setPublicRankingsEnabled(AutomationRule rule, AutomationAction action, Map<String, Object> detail) {
+        UUID gameId = rule.getGameId();
+        Game game = gameService.findById(gameId)
+            .orElseThrow(() -> new IllegalStateException("Game not found: " + gameId));
+        boolean enable = Boolean.TRUE.equals(action.publicRankingsEnabled());
+        game.setPublicRankingsEnabled(enable);
+        gameService.save(game);
+        detail.put("publicRankingsEnabled", enable);
     }
 
     private void notifyAdmins(AutomationRule rule, AutomationAction action, List<Team> targets, ActionContext ctx) {

@@ -74,6 +74,8 @@ export default function AutomationFormDialog({
     { value: 'AWARD_POINTS', label: t('components.automationForm.actionAwardPoints') },
     { value: 'NOTIFY_ADMINS', label: t('components.automationForm.actionNotifyAdmins') },
     { value: 'FINISH_TEAM', label: t('components.automationForm.actionFinishTeam') },
+    { value: 'SET_RANKINGS_PUBLISHED', label: t('components.automationForm.actionSetRankingsPublished') },
+    { value: 'SET_PUBLIC_RANKINGS_ENABLED', label: t('components.automationForm.actionSetPublicRankingsEnabled') },
   ];
 
   const MESSAGE_TYPE_OPTIONS = [
@@ -505,6 +507,44 @@ export default function AutomationFormDialog({
           <FormHelperText>
             {t('components.automationForm.finishTeamHint')}
           </FormHelperText>
+        );
+      case 'SET_RANKINGS_PUBLISHED':
+        return (
+          <>
+            <FormControl fullWidth>
+              <InputLabel>{t('components.automationForm.setRankingsPublishedLabel')}</InputLabel>
+              <Select
+                label={t('components.automationForm.setRankingsPublishedLabel')}
+                value={action.rankingsPublished === true ? 'true' : action.rankingsPublished === false ? 'false' : ''}
+                onChange={(e) =>
+                  updateAction(index, { rankingsPublished: e.target.value === 'true' })
+                }
+              >
+                <MenuItem value="true">{t('components.automationForm.setRankingsPublishedPublish')}</MenuItem>
+                <MenuItem value="false">{t('components.automationForm.setRankingsPublishedHide')}</MenuItem>
+              </Select>
+            </FormControl>
+            <FormHelperText>{t('components.automationForm.setRankingsPublishedHint')}</FormHelperText>
+          </>
+        );
+      case 'SET_PUBLIC_RANKINGS_ENABLED':
+        return (
+          <>
+            <FormControl fullWidth>
+              <InputLabel>{t('components.automationForm.setPublicRankingsEnabledLabel')}</InputLabel>
+              <Select
+                label={t('components.automationForm.setPublicRankingsEnabledLabel')}
+                value={action.publicRankingsEnabled === true ? 'true' : action.publicRankingsEnabled === false ? 'false' : ''}
+                onChange={(e) =>
+                  updateAction(index, { publicRankingsEnabled: e.target.value === 'true' })
+                }
+              >
+                <MenuItem value="true">{t('components.automationForm.setPublicRankingsEnabledEnable')}</MenuItem>
+                <MenuItem value="false">{t('components.automationForm.setPublicRankingsEnabledDisable')}</MenuItem>
+              </Select>
+            </FormControl>
+            <FormHelperText>{t('components.automationForm.setPublicRankingsEnabledHint')}</FormHelperText>
+          </>
         );
     }
   };

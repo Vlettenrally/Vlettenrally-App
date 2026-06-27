@@ -69,7 +69,7 @@ class AutomationResourceTest {
         rule.setTriggerType(AutomationTriggerType.CHECKPOINT_ENTRY);
         rule.setTriggerConfig(new AutomationTriggerConfig(null, null, null, null, null, null, null, null, null));
         rule.setActions(List.of(new AutomationAction(
-            AutomationActionType.SEND_MESSAGE, "Goed bezig!", MessageType.GENERAL, null, null, null, null, null)));
+            AutomationActionType.SEND_MESSAGE, "Goed bezig!", MessageType.GENERAL, null, null, null, null, null, null, null)));
         ruleId = rule.getId();
 
         lenient().when(automationService.lastFiredAt(any())).thenReturn(Map.of());
@@ -79,7 +79,7 @@ class AutomationResourceTest {
         return new AutomationRuleRequest("Felicitatie", true, AutomationTriggerType.CHECKPOINT_ENTRY,
             new AutomationTriggerConfig(null, null, null, null, null, null, null, null, null),
             List.of(new AutomationAction(
-                AutomationActionType.SEND_MESSAGE, "Goed bezig!", MessageType.GENERAL, null, null, null, null, null)),
+                AutomationActionType.SEND_MESSAGE, "Goed bezig!", MessageType.GENERAL, null, null, null, null, null, null, null)),
             null, true, null);
     }
 

@@ -439,6 +439,18 @@ public class AutomationService {
                     }
                 }
                 case FINISH_TEAM -> { /* no config: marks the affected team(s) finished */ }
+                case SET_RANKINGS_PUBLISHED -> {
+                    if (action.rankingsPublished() == null) {
+                        throw new BadRequestException(
+                            "SET_RANKINGS_PUBLISHED actions need a rankingsPublished value (true or false)");
+                    }
+                }
+                case SET_PUBLIC_RANKINGS_ENABLED -> {
+                    if (action.publicRankingsEnabled() == null) {
+                        throw new BadRequestException(
+                            "SET_PUBLIC_RANKINGS_ENABLED actions need a publicRankingsEnabled value (true or false)");
+                    }
+                }
             }
         }
     }
