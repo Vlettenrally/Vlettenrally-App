@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Accordion,
   AccordionDetails,
@@ -36,64 +37,64 @@ import { ADMIN_PAGE_ROLES } from '../../services/auth';
 import type { AdminUser } from '../../types/entities';
 import { AdminRole } from '../../types/entities';
 
-const PAGE_LABELS: Record<string, string> = {
-  '/admin/map':                'Kaart',
-  '/admin/inbox':              'Inbox',
-  '/admin/games':              'Games',
-  '/admin/teams':              'Teams',
-  '/admin/check-in':           'Inchecken',
-  '/admin/zones':              'Zones',
-  '/admin/automations':        'Automations',
-  '/admin/settings':           'Instellingen',
-  '/admin/pictures':           "Foto's",
-  '/admin/messages':           'Berichten',
-  '/admin/points-management':  'Puntenbeheer',
-  '/admin/checkpoint-station': 'Checkpoint Beheer',
-  '/admin/admin-users':        'Admin Users',
+const PAGE_KEYS: Record<string, string> = {
+  '/admin/map':                'admin.layout.map',
+  '/admin/inbox':              'admin.layout.inbox',
+  '/admin/games':              'admin.layout.games',
+  '/admin/teams':              'admin.layout.teams',
+  '/admin/check-in':           'admin.layout.checkIn',
+  '/admin/zones':              'admin.layout.zones',
+  '/admin/automations':        'admin.layout.automations',
+  '/admin/settings':           'admin.layout.settings',
+  '/admin/pictures':           'admin.layout.pictures',
+  '/admin/messages':           'admin.layout.messages',
+  '/admin/points-management':  'admin.layout.pointsManagement',
+  '/admin/checkpoint-station': 'admin.layout.checkpointStation',
+  '/admin/admin-users':        'admin.layout.adminUsers',
 };
 
 const ALWAYS_ACCESSIBLE = ['/admin/map', '/admin/inbox'];
 
-function getRolePages(role: AdminRole): string[] {
-  if (role === AdminRole.ADMIN) {
-    return Object.entries(PAGE_LABELS)
-      .filter(([path]) => path !== '/admin/admin-users')
-      .map(([, label]) => label);
-  }
-  const paths = [
-    ...ALWAYS_ACCESSIBLE,
-    ...Object.entries(ADMIN_PAGE_ROLES)
-      .filter(([, roles]) => roles.includes(role))
-      .map(([path]) => path),
-  ];
-  return [...new Set(paths)].map((p) => PAGE_LABELS[p]).filter(Boolean);
-}
-
 export default function AdminUsersPage() {
+  const { t } = useTranslation();
+
+  const pageLabel = useCallback((path: string) => t(PAGE_KEYS[path] || path, { defaultValue: path }), [t]);
+
+  const getRolePages = useCallback((role: AdminRole): string[] => {
+    if (role === AdminRole.ADMIN) {
+      return Object.entries(PAGE_KEYS)
+        .filter(([path]) => path !== '/admin/admin-users')
+        .map(([path]) => pageLabel(path));
+    }
+    const paths = [
+      ...ALWAYS_ACCESSIBLE,
+      ...Object.entries(ADMIN_PAGE_ROLES)
+        .filter(([, roles]) => roles.includes(role))
+        .map(([path]) => path),
+    ];
+    return [...new Set(paths)].map((p) => pageLabel(p)).filter(Boolean);
+  }, [pageLabel]);
+
   const [admins, setAdmins] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Create dialog state
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createUsername, setCreateUsername] = useState('');
   const [createPassword, setCreatePassword] = useState('');
   const [createRoles, setCreateRoles] = useState<Set<AdminRole>>(new Set([AdminRole.ADMIN]));
   const [createError, setCreateError] = useState<string | null>(null);
 
-  // Edit roles dialog state
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingAdmin, setEditingAdmin] = useState<AdminUser | null>(null);
   const [editRoles, setEditRoles] = useState<Set<AdminRole>>(new Set());
   const [editError, setEditError] = useState<string | null>(null);
 
-  // Reset password dialog state
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [resetAdmin, setResetAdmin] = useState<AdminUser | null>(null);
   const [temporaryPassword, setTemporaryPassword] = useState<string | null>(null);
   const [resetError, setResetError] = useState<string | null>(null);
 
-  // Delete confirmation dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingAdmin, setDeletingAdmin] = useState<AdminUser | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -105,10 +106,10 @@ export default function AdminUsersPage() {
     if (response.data) {
       setAdmins(response.data);
     } else {
-      setError(response.error || 'Failed to load admins');
+      setError(response.error || t('admin.adminUsers.failedToLoad'));
     }
     setLoading(false);
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -118,12 +119,12 @@ export default function AdminUsersPage() {
       if (response.data) {
         setAdmins(response.data);
       } else {
-        setError(response.error || 'Failed to load admins');
+        setError(response.error || t('admin.adminUsers.failedToLoad'));
       }
       setLoading(false);
     };
     void fetchData();
-  }, []);
+  }, [t]);
 
   const handleCreateOpen = () => {
     setCreateUsername('');
@@ -136,23 +137,21 @@ export default function AdminUsersPage() {
   const handleCreateSubmit = async () => {
     setCreateError(null);
 
-    // Validate
     if (!createUsername.trim()) {
-      setCreateError('Username is required');
+      setCreateError(t('admin.adminUsers.usernameRequired'));
       return;
     }
     if (!createPassword) {
-      setCreateError('Password is required');
+      setCreateError(t('admin.adminUsers.passwordRequired'));
       return;
     }
     if (createRoles.size === 0) {
-      setCreateError('At least one role is required');
+      setCreateError(t('admin.adminUsers.roleRequired'));
       return;
     }
 
-    // Check VIEWER combination
     if (createRoles.has(AdminRole.VIEWER) && createRoles.size > 1) {
-      setCreateError('VIEWER role cannot be combined with other roles');
+      setCreateError(t('admin.adminUsers.viewerCombinationError'));
       return;
     }
 
@@ -166,7 +165,7 @@ export default function AdminUsersPage() {
       setCreateDialogOpen(false);
       loadAdmins();
     } else {
-      setCreateError(response.error || 'Failed to create admin');
+      setCreateError(response.error || t('admin.adminUsers.failedToCreate'));
     }
   };
 
@@ -182,13 +181,12 @@ export default function AdminUsersPage() {
     setEditError(null);
 
     if (editRoles.size === 0) {
-      setEditError('At least one role is required');
+      setEditError(t('admin.adminUsers.roleRequired'));
       return;
     }
 
-    // Check VIEWER combination
     if (editRoles.has(AdminRole.VIEWER) && editRoles.size > 1) {
-      setEditError('VIEWER role cannot be combined with other roles');
+      setEditError(t('admin.adminUsers.viewerCombinationError'));
       return;
     }
 
@@ -200,7 +198,7 @@ export default function AdminUsersPage() {
       setEditDialogOpen(false);
       loadAdmins();
     } else {
-      setEditError(response.error || 'Failed to update roles');
+      setEditError(response.error || t('admin.adminUsers.failedToUpdate'));
     }
   };
 
@@ -220,7 +218,7 @@ export default function AdminUsersPage() {
     if (response.data) {
       setTemporaryPassword(response.data.temporaryPassword);
     } else {
-      setResetError(response.error || 'Failed to reset password');
+      setResetError(response.error || t('admin.adminUsers.failedToReset'));
     }
   };
 
@@ -246,7 +244,7 @@ export default function AdminUsersPage() {
       setDeleteDialogOpen(false);
       loadAdmins();
     } else {
-      setDeleteError(response.error || 'Failed to deactivate admin');
+      setDeleteError(response.error || t('admin.adminUsers.failedToDeactivate'));
     }
   };
 
@@ -271,10 +269,10 @@ export default function AdminUsersPage() {
   };
 
   const columns: GridColDef[] = [
-    { field: 'username', headerName: 'Username', flex: 1, minWidth: 150 },
+    { field: 'username', headerName: t('admin.adminUsers.columnUsername'), flex: 1, minWidth: 150 },
     {
       field: 'roles',
-      headerName: 'Roles',
+      headerName: t('admin.adminUsers.columnRoles'),
       flex: 2,
       minWidth: 300,
       renderCell: (params: GridRenderCellParams<AdminUser>) => (
@@ -292,11 +290,11 @@ export default function AdminUsersPage() {
     },
     {
       field: 'active',
-      headerName: 'Status',
+      headerName: t('admin.adminUsers.columnStatus'),
       width: 100,
       renderCell: (params: GridRenderCellParams<AdminUser>) => (
         <Chip
-          label={params.row.active ? 'Active' : 'Inactive'}
+          label={params.row.active ? t('admin.adminUsers.statusActive') : t('admin.adminUsers.statusInactive')}
           size="small"
           color={params.row.active ? 'success' : 'default'}
         />
@@ -304,13 +302,13 @@ export default function AdminUsersPage() {
     },
     {
       field: 'createdAt',
-      headerName: 'Created',
+      headerName: t('admin.adminUsers.columnCreated'),
       width: 180,
-      valueFormatter: (value: string) => new Date(value).toLocaleString(),
+      valueFormatter: (value: string) => new Date(value).toLocaleString(undefined),
     },
     {
       field: 'actions',
-      headerName: 'Actions',
+      headerName: t('admin.adminUsers.columnActions'),
       width: 150,
       sortable: false,
       renderCell: (params: GridRenderCellParams<AdminUser>) => (
@@ -318,21 +316,21 @@ export default function AdminUsersPage() {
           <IconButton
             size="small"
             onClick={() => handleEditOpen(params.row)}
-            title="Edit roles"
+            title={t('admin.adminUsers.tooltipEditRoles')}
           >
             <EditIcon fontSize="small" />
           </IconButton>
           <IconButton
             size="small"
             onClick={() => handleResetOpen(params.row)}
-            title="Reset password"
+            title={t('admin.adminUsers.tooltipResetPassword')}
           >
             <LockResetIcon fontSize="small" />
           </IconButton>
           <IconButton
             size="small"
             onClick={() => handleDeleteOpen(params.row)}
-            title="Deactivate"
+            title={t('admin.adminUsers.tooltipDeactivate')}
             disabled={!params.row.active}
           >
             <DeleteIcon fontSize="small" />
@@ -345,13 +343,13 @@ export default function AdminUsersPage() {
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h4">Admin Users</Typography>
+        <Typography variant="h4">{t('admin.adminUsers.title')}</Typography>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
           onClick={handleCreateOpen}
         >
-          Create Admin
+          {t('admin.adminUsers.createAdmin')}
         </Button>
       </Box>
 
@@ -378,14 +376,14 @@ export default function AdminUsersPage() {
 
       <Accordion sx={{ mt: 2 }}>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="subtitle1">Role Reference</Typography>
+          <Typography variant="subtitle1">{t('admin.adminUsers.roleReference')}</Typography>
         </AccordionSummary>
         <AccordionDetails>
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>Role</TableCell>
-                <TableCell>Pages</TableCell>
+                <TableCell>{t('admin.adminUsers.roleTableRole')}</TableCell>
+                <TableCell>{t('admin.adminUsers.roleTablePages')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -404,11 +402,11 @@ export default function AdminUsersPage() {
 
       {/* Create Admin Dialog */}
       <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Create Admin User</DialogTitle>
+        <DialogTitle>{t('admin.adminUsers.createDialogTitle')}</DialogTitle>
         <DialogContent>
           {createError && <Alert severity="error" sx={{ mb: 2 }}>{createError}</Alert>}
           <TextField
-            label="Username"
+            label={t('admin.adminUsers.usernameLabel')}
             fullWidth
             value={createUsername}
             onChange={(e) => setCreateUsername(e.target.value)}
@@ -416,16 +414,16 @@ export default function AdminUsersPage() {
             autoFocus
           />
           <TextField
-            label="Password"
+            label={t('admin.adminUsers.passwordLabel')}
             type="password"
             fullWidth
             value={createPassword}
             onChange={(e) => setCreatePassword(e.target.value)}
             margin="normal"
-            helperText="Min 8 chars, must contain uppercase, lowercase, and number"
+            helperText={t('admin.adminUsers.passwordHint')}
           />
           <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
-            Roles
+            {t('admin.adminUsers.rolesLabel')}
           </Typography>
           <FormGroup>
             {Object.values(AdminRole).map((role) => (
@@ -451,16 +449,16 @@ export default function AdminUsersPage() {
           </FormGroup>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setCreateDialogOpen(false)}>{t('common.cancel')}</Button>
           <Button onClick={handleCreateSubmit} variant="contained">
-            Create
+            {t('admin.adminUsers.createAdmin')}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Edit Roles Dialog */}
       <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Edit Roles: {editingAdmin?.username}</DialogTitle>
+        <DialogTitle>{t('admin.adminUsers.editDialogTitle', { username: editingAdmin?.username })}</DialogTitle>
         <DialogContent>
           {editError && <Alert severity="error" sx={{ mb: 2 }}>{editError}</Alert>}
           <FormGroup>
@@ -487,31 +485,31 @@ export default function AdminUsersPage() {
           </FormGroup>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setEditDialogOpen(false)}>{t('common.cancel')}</Button>
           <Button onClick={handleEditSubmit} variant="contained">
-            Save
+            {t('common.save')}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Reset Password Dialog */}
       <Dialog open={resetDialogOpen} onClose={() => setResetDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Reset Password: {resetAdmin?.username}</DialogTitle>
+        <DialogTitle>{t('admin.adminUsers.resetDialogTitle', { username: resetAdmin?.username })}</DialogTitle>
         <DialogContent>
           {resetError && <Alert severity="error" sx={{ mb: 2 }}>{resetError}</Alert>}
           {temporaryPassword ? (
             <>
               <Alert severity="success" sx={{ mb: 2 }}>
-                Password reset successfully
+                {t('admin.adminUsers.resetSuccess')}
               </Alert>
               <TextField
-                label="Temporary Password"
+                label={t('admin.adminUsers.temporaryPasswordLabel')}
                 fullWidth
                 value={temporaryPassword}
                 InputProps={{
                   readOnly: true,
                   endAdornment: (
-                    <IconButton onClick={handleCopyPassword} edge="end" title="Copy to clipboard">
+                    <IconButton onClick={handleCopyPassword} edge="end" title={t('common.copy')}>
                       <ContentCopyIcon />
                     </IconButton>
                   ),
@@ -519,22 +517,22 @@ export default function AdminUsersPage() {
                 margin="normal"
               />
               <Typography variant="caption" color="text.secondary">
-                Share this password securely with the user. They should change it immediately after login.
+                {t('admin.adminUsers.shareSecurely')}
               </Typography>
             </>
           ) : (
             <Typography>
-              This will generate a new temporary password for {resetAdmin?.username}. The user will need to change it after logging in.
+              {t('admin.adminUsers.resetConfirmText', { username: resetAdmin?.username })}
             </Typography>
           )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setResetDialogOpen(false)}>
-            {temporaryPassword ? 'Close' : 'Cancel'}
+            {temporaryPassword ? t('common.close') : t('common.cancel')}
           </Button>
           {!temporaryPassword && (
             <Button onClick={handleResetSubmit} variant="contained" color="warning">
-              Reset Password
+              {t('admin.adminUsers.resetPasswordAction')}
             </Button>
           )}
         </DialogActions>
@@ -542,18 +540,17 @@ export default function AdminUsersPage() {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Deactivate Admin User</DialogTitle>
+        <DialogTitle>{t('admin.adminUsers.deactivateDialogTitle')}</DialogTitle>
         <DialogContent>
           {deleteError && <Alert severity="error" sx={{ mb: 2 }}>{deleteError}</Alert>}
           <Typography>
-            Are you sure you want to deactivate <strong>{deletingAdmin?.username}</strong>?
-            They will no longer be able to log in.
+            {t('admin.adminUsers.deactivateConfirmText', { username: deletingAdmin?.username })}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setDeleteDialogOpen(false)}>{t('common.cancel')}</Button>
           <Button onClick={handleDeleteSubmit} variant="contained" color="error">
-            Deactivate
+            {t('admin.adminUsers.deactivateAction')}
           </Button>
         </DialogActions>
       </Dialog>

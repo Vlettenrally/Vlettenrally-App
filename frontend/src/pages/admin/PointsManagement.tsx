@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Autocomplete,
   Box,
@@ -39,15 +40,8 @@ import CreateAdjustmentDialog from '../../components/admin/CreateAdjustmentDialo
 import MapPopupDialog from '../../components/admin/MapPopupDialog';
 import type { AdminTeam, Checkpoint, PointEntry, PointEntryType } from '../../types/entities';
 
-const ENTRY_TYPE_LABELS: Record<PointEntryType, string> = {
-  CHECKPOINT_VERIFICATION: 'Checkpoint',
-  MANUAL_ADJUSTMENT: 'Handmatig',
-  AUTOMATION_BONUS: 'Automatisering',
-  DISTANCE_BONUS: 'Afstand',
-};
-
 function formatTimestamp(iso: string): string {
-  return new Date(iso).toLocaleString('nl-NL', {
+  return new Date(iso).toLocaleString(undefined, {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -57,7 +51,15 @@ function formatTimestamp(iso: string): string {
 }
 
 export default function PointsManagement() {
+  const { t } = useTranslation();
   const selectedGameId = useGameStore((s) => s.selectedGameId);
+
+  const ENTRY_TYPE_LABELS: Record<PointEntryType, string> = {
+    CHECKPOINT_VERIFICATION: t('admin.pointsManagement.typeCheckpoint'),
+    MANUAL_ADJUSTMENT: t('admin.pointsManagement.typeManual'),
+    AUTOMATION_BONUS: t('admin.pointsManagement.typeAutomation'),
+    DISTANCE_BONUS: t('admin.pointsManagement.typeDistance'),
+  };
 
   const entries = usePointEntryStore((s) => s.entries);
   const totalCount = usePointEntryStore((s) => s.totalCount);
@@ -81,7 +83,6 @@ export default function PointsManagement() {
   const [mapTarget, setMapTarget] = useState<PointEntry | null>(null);
   const [reasonPopover, setReasonPopover] = useState<{ anchor: HTMLElement; entry: PointEntry } | null>(null);
 
-  // Load teams + checkpoints when the game changes (used for filters and map overlays)
   useEffect(() => {
     if (!selectedGameId) {
       setTeams([]);
@@ -111,7 +112,7 @@ export default function PointsManagement() {
     });
     setLoading(false);
     if (response.error || !response.data) {
-      setError(response.error || 'Kon ledger niet laden');
+      setError(response.error || t('admin.pointsManagement.failedToLoad'));
       return;
     }
     setEntries(response.data.entries, {
@@ -120,22 +121,19 @@ export default function PointsManagement() {
       totalCount: response.data.totalCount,
       totalPages: response.data.totalPages,
     });
-  }, [selectedGameId, filterTeam, filterType, page, pageSize, setEntries, setLoading, setError]);
+  }, [selectedGameId, filterTeam, filterType, page, pageSize, setEntries, setLoading, setError, t]);
 
-  // Reload when game or filters change
   useEffect(() => {
     if (!selectedGameId) return;
     void loadEntries({ page: 0 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedGameId, filterTeam, filterType]);
 
-  // Reload the ledger on resync (app resume / reconnect) to catch point entries
-  // whose POINT_ENTRY_* events were missed while suspended.
   useAdminResync(() => void loadEntries());
 
   const teamNameById = useMemo(() => {
     const map = new Map<string, string>();
-    teams.forEach((t) => map.set(t.id, t.name));
+    teams.forEach((team) => map.set(team.id, team.name));
     return map;
   }, [teams]);
 
@@ -151,8 +149,8 @@ export default function PointsManagement() {
   if (!selectedGameId) {
     return (
       <Box sx={{ p: { xs: 2, md: 3 } }}>
-        <Typography variant="h4">Puntenbeheer</Typography>
-        <Alert severity="info" sx={{ mt: 2 }}>Kies eerst een spel in de zijbalk.</Alert>
+        <Typography variant="h4">{t('admin.pointsManagement.title')}</Typography>
+        <Alert severity="info" sx={{ mt: 2 }}>{t('admin.pointsManagement.selectGameFirst')}</Alert>
       </Box>
     );
   }
@@ -166,7 +164,7 @@ export default function PointsManagement() {
         justifyContent="space-between"
         sx={{ mb: 2 }}
       >
-        <Typography variant="h4">Puntenbeheer</Typography>
+        <Typography variant="h4">{t('admin.pointsManagement.title')}</Typography>
         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
           <Button
             variant="outlined"
@@ -174,14 +172,14 @@ export default function PointsManagement() {
             onClick={() => void loadEntries()}
             disabled={isLoading}
           >
-            Vernieuwen
+            {t('admin.pointsManagement.refresh')}
           </Button>
           <Button
             variant="contained"
             startIcon={<AddIcon />}
             onClick={() => setCreateOpen(true)}
           >
-            Handmatige correctie
+            {t('admin.pointsManagement.manualAdjustment')}
           </Button>
         </Stack>
       </Stack>
@@ -193,9 +191,15 @@ export default function PointsManagement() {
               value={filterTeam}
               onChange={(_, newValue) => setFilterTeam(newValue)}
               options={teams}
-              getOptionLabel={(t) => t.name}
+              getOptionLabel={(team) => team.name}
               isOptionEqualToValue={(a, b) => a.id === b.id}
-              renderInput={(params) => <TextField {...params} label="Team" placeholder="Alle teams" />}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label={t('common.team')}
+                  placeholder={t('admin.pointsManagement.allTeamsPlaceholder')}
+                />
+              )}
               sx={{ minWidth: { md: 260 }, flex: { xs: 1, md: 'none' } }}
             />
             <TextField
@@ -205,9 +209,9 @@ export default function PointsManagement() {
               onChange={(e) => setFilterType(e.target.value as PointEntryType | '')}
               sx={{ minWidth: { md: 200 } }}
             >
-              <MenuItem value="">Alle</MenuItem>
-              <MenuItem value="CHECKPOINT_VERIFICATION">Checkpoint</MenuItem>
-              <MenuItem value="MANUAL_ADJUSTMENT">Handmatig</MenuItem>
+              <MenuItem value="">{t('admin.pointsManagement.allTypes')}</MenuItem>
+              <MenuItem value="CHECKPOINT_VERIFICATION">{t('admin.pointsManagement.typeCheckpoint')}</MenuItem>
+              <MenuItem value="MANUAL_ADJUSTMENT">{t('admin.pointsManagement.typeManual')}</MenuItem>
             </TextField>
           </Stack>
         </CardContent>
@@ -227,15 +231,15 @@ export default function PointsManagement() {
                 <Table size="small" sx={{ minWidth: 900 }}>
                   <TableHead>
                     <TableRow>
-                      <TableCell><strong>Tijd</strong></TableCell>
-                      <TableCell><strong>Team</strong></TableCell>
-                      <TableCell><strong>Type</strong></TableCell>
-                      <TableCell><strong>Beschrijving</strong></TableCell>
-                      <TableCell align="right"><strong>Origineel</strong></TableCell>
-                      <TableCell align="right"><strong>Aanpassing</strong></TableCell>
-                      <TableCell align="right"><strong>Huidig</strong></TableCell>
-                      <TableCell align="center"><strong>Locatie</strong></TableCell>
-                      <TableCell align="center"><strong>Acties</strong></TableCell>
+                      <TableCell><strong>{t('admin.pointsManagement.columnTime')}</strong></TableCell>
+                      <TableCell><strong>{t('admin.pointsManagement.columnTeam')}</strong></TableCell>
+                      <TableCell><strong>{t('admin.pointsManagement.columnType')}</strong></TableCell>
+                      <TableCell><strong>{t('admin.pointsManagement.columnDescription')}</strong></TableCell>
+                      <TableCell align="right"><strong>{t('admin.pointsManagement.columnOriginal')}</strong></TableCell>
+                      <TableCell align="right"><strong>{t('admin.pointsManagement.columnAdjustment')}</strong></TableCell>
+                      <TableCell align="right"><strong>{t('admin.pointsManagement.columnCurrent')}</strong></TableCell>
+                      <TableCell align="center"><strong>{t('admin.pointsManagement.columnLocation')}</strong></TableCell>
+                      <TableCell align="center"><strong>{t('admin.pointsManagement.columnActions')}</strong></TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -243,7 +247,7 @@ export default function PointsManagement() {
                       <TableRow>
                         <TableCell colSpan={9} align="center">
                           <Typography variant="body2" color="text.secondary">
-                            Geen punten geregistreerd voor deze selectie.
+                            {t('admin.pointsManagement.noEntries')}
                           </Typography>
                         </TableCell>
                       </TableRow>
@@ -286,7 +290,7 @@ export default function PointsManagement() {
                           </TableCell>
                           <TableCell align="center">
                             {entry.lat != null && entry.lng != null ? (
-                              <Tooltip title="Toon op kaart">
+                              <Tooltip title={t('admin.pointsManagement.showOnMap')}>
                                 <IconButton size="small" onClick={() => setMapTarget(entry)}>
                                   <LocationOnIcon fontSize="small" />
                                 </IconButton>
@@ -296,7 +300,7 @@ export default function PointsManagement() {
                             )}
                           </TableCell>
                           <TableCell align="center">
-                            <Tooltip title="Bewerken">
+                            <Tooltip title={t('admin.pointsManagement.edit')}>
                               <IconButton size="small" onClick={() => setEditTarget(entry)}>
                                 <EditIcon fontSize="small" />
                               </IconButton>
@@ -316,7 +320,7 @@ export default function PointsManagement() {
                 rowsPerPage={pageSize}
                 onRowsPerPageChange={handleChangePageSize}
                 rowsPerPageOptions={[10, 25, 50, 100]}
-                labelRowsPerPage="Per pagina"
+                labelRowsPerPage={t('admin.pointsManagement.rowsPerPage')}
               />
             </>
           )}
@@ -333,14 +337,14 @@ export default function PointsManagement() {
         {reasonPopover && (
           <Box sx={{ p: 2, maxWidth: 320 }}>
             <Typography variant="subtitle2" gutterBottom>
-              Reden voor wijziging
+              {t('admin.pointsManagement.editReason')}
             </Typography>
             <Typography variant="body2" sx={{ mb: 1, whiteSpace: 'pre-wrap' }}>
-              {reasonPopover.entry.editReason || '(geen reden opgegeven)'}
+              {reasonPopover.entry.editReason || t('admin.pointsManagement.noReason')}
             </Typography>
             {reasonPopover.entry.editedAt && (
               <Typography variant="caption" color="text.secondary">
-                Bewerkt op {formatTimestamp(reasonPopover.entry.editedAt)}
+                {t('admin.pointsManagement.editedAt', { date: formatTimestamp(reasonPopover.entry.editedAt) })}
               </Typography>
             )}
           </Box>
@@ -368,7 +372,7 @@ export default function PointsManagement() {
           onClose={() => setMapTarget(null)}
           lat={mapTarget.lat}
           lng={mapTarget.lng}
-          label={teamNameById.get(mapTarget.teamId) ?? 'Punt'}
+          label={teamNameById.get(mapTarget.teamId) ?? t('common.unknown')}
           checkpoints={checkpoints}
         />
       )}

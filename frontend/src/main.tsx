@@ -15,6 +15,7 @@ import '@fontsource/roboto/latin-ext-300.css'
 import '@fontsource/roboto/latin-ext-400.css'
 import '@fontsource/roboto/latin-ext-500.css'
 import './index.css'
+import './i18n'
 import App from './App.tsx'
 
 createRoot(document.getElementById('root')!).render(

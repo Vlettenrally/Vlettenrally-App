@@ -34,6 +34,7 @@ import {
   EditNote as ManualIcon,
 } from '@mui/icons-material';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useGameStore } from '../../store/useGameStore';
 import { useAdminResync } from '../../hooks/useAdminSync';
 import { teamService } from '../../services/teamService';
@@ -44,6 +45,7 @@ import type { AdminTeam } from '../../types/entities';
 type Step = 'search' | 'overview' | 'manual';
 
 export default function CheckIn() {
+  const { t } = useTranslation();
   const selectedGameId = useGameStore((s) => s.selectedGameId);
 
   const [teams, setTeams] = useState<AdminTeam[]>([]);
@@ -118,18 +120,16 @@ export default function CheckIn() {
       if (!selectedTeam.checkedIn) {
         const updated = await teamService.updateTeam(selectedTeam.id, { checkedIn: true });
         if (!updated) {
-          setError('Inchecken mislukt. Probeer het opnieuw.');
+          setError(t('admin.checkIn.failedCheckIn'));
           return;
         }
       }
       await reloadTeams();
-      setSuccessMessage(
-        `${selectedTeam.name} kan nu digitaal inchecken op de eigen telefoon.`,
-      );
+      setSuccessMessage(t('admin.checkIn.successDigital', { name: selectedTeam.name }));
       resetToSearch();
     } catch (err) {
       console.error('Digital check-in error:', err);
-      setError('Er ging iets mis tijdens het inchecken.');
+      setError(t('admin.checkIn.errorCheckIn'));
     } finally {
       setSubmitting(false);
     }
@@ -174,7 +174,7 @@ export default function CheckIn() {
       return;
     }
     if (emergencyPhoneNumbers.length === 0) {
-      setError('Voeg minimaal één noodnummer toe.');
+      setError(t('admin.checkIn.addEmergencyPhone'));
       return;
     }
     const invalidPhone = emergencyPhoneNumbers.find((phone) => !isPhoneNumber(phone));
@@ -207,16 +207,16 @@ export default function CheckIn() {
         checkedInDigitally: false,
       });
       if (!updated) {
-        setError('Inchecken mislukt. Probeer het opnieuw.');
+        setError(t('admin.checkIn.failedCheckIn'));
         return;
       }
 
       await reloadTeams();
-      setSuccessMessage(`${selectedTeam.name} is handmatig ingecheckt.`);
+      setSuccessMessage(t('admin.checkIn.successManual', { name: selectedTeam.name }));
       resetToSearch();
     } catch (err) {
       console.error('Manual check-in error:', err);
-      setError('Er ging iets mis tijdens het inchecken.');
+      setError(t('admin.checkIn.errorCheckIn'));
     } finally {
       setSubmitting(false);
     }
@@ -238,10 +238,10 @@ export default function CheckIn() {
       <TrackerIcon color={team.trackerId ? 'primary' : 'disabled'} />
       <Box>
         <Typography variant="overline" color="text.secondary" sx={{ display: 'block', lineHeight: 1.2 }}>
-          Verifieer de tracker-ID in het tasje
+          {t('admin.checkIn.verifyTracker')}
         </Typography>
         <Typography variant="h6" sx={{ wordBreak: 'break-all' }}>
-          {team.trackerId || 'Geen tracker toegewezen'}
+          {team.trackerId || t('admin.checkIn.noTrackerAssigned')}
         </Typography>
       </Box>
     </Box>
@@ -250,15 +250,14 @@ export default function CheckIn() {
   return (
     <Box sx={{ p: 3, maxWidth: 700, mx: 'auto' }}>
       <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold', mb: 1 }}>
-        Inchecken
+        {t('admin.checkIn.title')}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-        Rallydesk check-in: zoek het team, verifieer de tracker, en kies of het team
-        digitaal of handmatig incheckt.
+        {t('admin.checkIn.subtitle')}
       </Typography>
 
       {!selectedGameId && (
-        <Alert severity="info">Kies eerst een game bovenin om teams in te checken.</Alert>
+        <Alert severity="info">{t('admin.checkIn.selectGameFirst')}</Alert>
       )}
 
       {selectedGameId && (
@@ -273,15 +272,16 @@ export default function CheckIn() {
             {/* STEP 1 — SEARCH */}
             {step === 'search' && (
               <Stack spacing={2}>
-                <Typography variant="h6">Zoek het team</Typography>
+                <Typography variant="h6">{t('admin.checkIn.searchTeam')}</Typography>
                 <Autocomplete
                   options={sortedTeams}
                   value={selectedTeam}
                   onChange={(_, value) => handleSelectTeam(value)}
                   getOptionLabel={(option) => option.name}
                   isOptionEqualToValue={(option, val) => option.id === val.id}
-                  renderOption={(props, option) => (
+                  renderOption={({ key, ...props }, option) => (
                     <Box
+                      key={key}
                       component="li"
                       {...props}
                       sx={{ minHeight: 48, display: 'flex', alignItems: 'center', gap: 1 }}
@@ -290,20 +290,20 @@ export default function CheckIn() {
                         {option.name}
                       </Typography>
                       {option.checkedIn ? (
-                        <Chip size="small" color="success" label="Ingecheckt" />
+                        <Chip size="small" color="success" label={t('admin.checkIn.checkedIn')} />
                       ) : (
-                        <Chip size="small" color="default" label="Nog niet" />
+                        <Chip size="small" color="default" label={t('admin.checkIn.notYet')} />
                       )}
                       {option.checkedIn && option.checkedInDigitally && (
-                        <Chip size="small" color="info" variant="outlined" label="Digitaal" />
+                        <Chip size="small" color="info" variant="outlined" label={t('admin.checkIn.digital')} />
                       )}
                     </Box>
                   )}
                   renderInput={(params) => (
                     <TextField
                       {...params}
-                      label="Teamnaam of bootnummer"
-                      placeholder="Begin te typen…"
+                      label={t('admin.checkIn.teamNameOrBoatNumber')}
+                      placeholder={t('admin.checkIn.startTyping')}
                       autoFocus
                       fullWidth
                     />
@@ -324,13 +324,13 @@ export default function CheckIn() {
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
                     <Chip
-                      label={selectedTeam.checkedIn ? 'Ingecheckt' : 'Nog niet ingecheckt'}
+                      label={selectedTeam.checkedIn ? t('admin.checkIn.checkedIn') : t('admin.checkIn.notCheckedIn')}
                       color={selectedTeam.checkedIn ? 'success' : 'default'}
                       size="small"
                     />
                     {selectedTeam.checkedIn && (
                       <Chip
-                        label={selectedTeam.checkedInDigitally ? 'Digitaal' : 'Handmatig'}
+                        label={selectedTeam.checkedInDigitally ? t('admin.checkIn.digital') : t('admin.checkIn.manual')}
                         color={selectedTeam.checkedInDigitally ? 'info' : 'warning'}
                         size="small"
                         variant="outlined"
@@ -343,14 +343,13 @@ export default function CheckIn() {
 
                 {selectedTeam.checkedIn && (
                   <Alert severity="info">
-                    Dit team is al ingecheckt. Je kunt de check-in opnieuw verwerken of de
-                    gegevens bijwerken.
+                    {t('admin.checkIn.alreadyCheckedInNote')}
                   </Alert>
                 )}
 
                 <Box>
                   <Typography variant="subtitle1" sx={{ mb: 1.5 }}>
-                    Hoe checkt dit team in?
+                    {t('admin.checkIn.howDoesTeamCheckIn')}
                   </Typography>
                   <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                     <Button
@@ -362,7 +361,7 @@ export default function CheckIn() {
                       onClick={handleDigitalCheckIn}
                       sx={{ py: 2 }}
                     >
-                      {submitting ? <CircularProgress size={24} /> : 'Team checkt digitaal in'}
+                      {submitting ? <CircularProgress size={24} /> : t('admin.checkIn.teamChecksInDigitally')}
                     </Button>
                     <Button
                       variant="outlined"
@@ -373,17 +372,16 @@ export default function CheckIn() {
                       onClick={handleStartManual}
                       sx={{ py: 2 }}
                     >
-                      Handmatig inchecken
+                      {t('admin.checkIn.manualCheckIn')}
                     </Button>
                   </Stack>
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
-                    Digitaal: het team vult de gegevens zelf in op de eigen telefoon. Handmatig:
-                    jij vult de gegevens nu in namens het team.
+                    {t('admin.checkIn.digitalDescription')}
                   </Typography>
                 </Box>
 
                 <Button startIcon={<BackIcon />} onClick={resetToSearch} sx={{ alignSelf: 'flex-start' }}>
-                  Ander team
+                  {t('admin.checkIn.anotherTeam')}
                 </Button>
               </Stack>
             )}
@@ -391,43 +389,42 @@ export default function CheckIn() {
             {/* STEP 3 — MANUAL DETAILS */}
             {step === 'manual' && selectedTeam && (
               <Stack spacing={2}>
-                <Typography variant="h6">Handmatig inchecken — {selectedTeam.name}</Typography>
+                <Typography variant="h6">{t('admin.checkIn.manualCheckInTitle', { name: selectedTeam.name })}</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Vul de deelnemers en noodnummers in namens het team, verifieer de tracker en
-                  sla op om het team in te checken.
+                  {t('admin.checkIn.digitalDescription')}
                 </Typography>
 
                 {renderTracker(selectedTeam)}
 
                 <TextField
-                  label="Deelnemers"
+                  label={t('admin.checkIn.participants')}
                   value={participantsText}
                   onChange={(e) => setParticipantsText(e.target.value)}
                   multiline
                   minRows={4}
                   fullWidth
-                  helperText="Zet elke deelnemer op een nieuwe regel"
+                  helperText={t('admin.checkIn.participantsHint')}
                 />
                 <TextField
-                  label="Noodnummers"
+                  label={t('admin.checkIn.emergencyPhones')}
                   value={emergencyPhonesText}
                   onChange={(e) => setEmergencyPhonesText(e.target.value)}
                   multiline
                   minRows={3}
                   fullWidth
-                  helperText="Zet elk telefoonnummer op een nieuwe regel"
+                  helperText={t('admin.checkIn.phonesHint')}
                 />
 
                 <FormControl fullWidth size="small">
-                  <InputLabel id="checkin-tracker-label">GPS-tracker</InputLabel>
+                  <InputLabel id="checkin-tracker-label">{t('admin.checkIn.gpsTracker')}</InputLabel>
                   <Select
                     labelId="checkin-tracker-label"
-                    label="GPS-tracker"
+                    label={t('admin.checkIn.gpsTracker')}
                     value={trackerId}
                     onChange={(e) => setTrackerId(e.target.value)}
                   >
                     <MenuItem value="">
-                      <em>Geen tracker</em>
+                      <em>{t('admin.checkIn.noTracker')}</em>
                     </MenuItem>
                     {/* Current tracker first (it's excluded from the available pool), then the pool. */}
                     {selectedTeam.trackerId && (
@@ -442,7 +439,7 @@ export default function CheckIn() {
                 </FormControl>
 
                 <TextField
-                  label="Notities"
+                  label={t('admin.checkIn.notes')}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   multiline
@@ -459,7 +456,7 @@ export default function CheckIn() {
                       setStep('overview');
                     }}
                   >
-                    Terug
+                    {t('common.back')}
                   </Button>
                   <Button
                     variant="contained"
@@ -467,7 +464,7 @@ export default function CheckIn() {
                     disabled={submitting}
                     onClick={handleManualSubmit}
                   >
-                    {submitting ? <CircularProgress size={24} /> : 'Inchecken'}
+                    {submitting ? <CircularProgress size={24} /> : t('admin.checkIn.checkInAction')}
                   </Button>
                 </Stack>
               </Stack>

@@ -1,6 +1,7 @@
 import { Box, Typography, Button, Card, CardContent, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, CircularProgress, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, TextField } from '@mui/material';
 import { Upload as ImportIcon, Link as LinkIcon, Add as AddIcon, CheckCircle as SuccessIcon, Error as ErrorIcon, GpsFixed as TrackerIcon, Download as DownloadIcon } from '@mui/icons-material';
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useGameStore } from '../../store/useGameStore';
 import { useAdminResync } from '../../hooks/useAdminSync';
 import { teamService } from '../../services/teamService';
@@ -12,12 +13,13 @@ import type { AdminTeam, Game, TeamImportResult, TrackerAssignResult, Participan
 type DetailDialog = { title: string; items: string[] };
 
 export default function Teams() {
+  const { t } = useTranslation();
   const selectedGameId = useGameStore((s) => s.selectedGameId);
   const [teams, setTeams] = useState<AdminTeam[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<AdminTeam | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [game, setGame] = useState<Game | null>(null);
-  
+
   // Import state
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<TeamImportResult | null>(null);
@@ -65,11 +67,11 @@ export default function Teams() {
   // Subscribe to WebSocket team events
   useEffect(() => {
     if (!selectedGameId) return;
-    
+
     const refreshTeams = () => {
       teamService.getTeamsByGame(selectedGameId).then(setTeams);
     };
-    
+
     const unsubscribeCreated = websocket.on('team:created', refreshTeams);
     const unsubscribeUpdated = websocket.on('team:updated', refreshTeams);
     const unsubscribeDeleted = websocket.on('team:deleted', refreshTeams);
@@ -110,7 +112,7 @@ export default function Teams() {
 
   const handleImportTeams = async () => {
     if (!selectedGameId) return;
-    
+
     setImporting(true);
     setImportResult(null);
     setImportError(null);
@@ -121,7 +123,7 @@ export default function Teams() {
       // Refresh teams list after import
       teamService.getTeamsByGame(selectedGameId).then(setTeams);
     } catch (err) {
-      setImportError(err instanceof Error ? err.message : 'Importeren mislukt');
+      setImportError(err instanceof Error ? err.message : t('admin.teams.importFailed'));
     } finally {
       setImporting(false);
     }
@@ -141,7 +143,7 @@ export default function Teams() {
       // Refresh teams list to reflect newly linked participants
       teamService.getTeamsByGame(selectedGameId).then(setTeams);
     } catch (err) {
-      setLinkError(err instanceof Error ? err.message : 'Koppelen mislukt');
+      setLinkError(err instanceof Error ? err.message : t('admin.teams.linkFailed'));
     } finally {
       setLinking(false);
     }
@@ -169,7 +171,7 @@ export default function Teams() {
       // Refresh teams so the assigned tracker IDs show up.
       teamService.getTeamsByGame(selectedGameId).then(setTeams);
     } catch (err) {
-      setAssignError(err instanceof Error ? err.message : 'Toewijzen mislukt');
+      setAssignError(err instanceof Error ? err.message : t('admin.teams.assignFailed'));
     } finally {
       setAssigning(false);
     }
@@ -191,7 +193,7 @@ export default function Teams() {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } catch (err) {
-      setAssignError(err instanceof Error ? err.message : 'Export mislukt');
+      setAssignError(err instanceof Error ? err.message : t('admin.teams.exportFailed'));
     } finally {
       setExporting(false);
     }
@@ -216,43 +218,43 @@ export default function Teams() {
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
         <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold' }}>
-          Teams
+          {t('admin.teams.title')}
         </Typography>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
           {importResult && (
             <Box sx={{ display: 'flex', gap: 1 }}>
               <Chip
-                label={`${importResult.created} aangemaakt`}
+                label={t('admin.teams.importCreated', { count: importResult.created })}
                 color="success"
                 size="small"
                 icon={<SuccessIcon />}
                 clickable={importResult.createdTeams.length > 0}
-                onClick={() => openDetail('Aangemaakte teams', importResult.createdTeams)}
+                onClick={() => openDetail(t('admin.teams.createdTeamsTitle'), importResult.createdTeams)}
               />
               <Chip
-                label={`${importResult.updated} bijgewerkt`}
+                label={t('admin.teams.importUpdated', { count: importResult.updated })}
                 color="info"
                 size="small"
                 clickable={importResult.updatedTeams.length > 0}
-                onClick={() => openDetail('Bijgewerkte teams', importResult.updatedTeams)}
+                onClick={() => openDetail(t('admin.teams.updatedTeamsTitle'), importResult.updatedTeams)}
               />
               {importResult.skipped > 0 && (
                 <Chip
-                  label={`${importResult.skipped} overgeslagen`}
+                  label={t('admin.teams.importSkipped', { count: importResult.skipped })}
                   color="warning"
                   size="small"
                   clickable={importResult.skippedDuplicates.length > 0}
-                  onClick={() => openDetail('Overgeslagen (dubbele bootnummers)', importResult.skippedDuplicates)}
+                  onClick={() => openDetail(t('admin.teams.skippedTeamsTitle'), importResult.skippedDuplicates)}
                 />
               )}
               {importResult.errors > 0 && (
                 <Chip
-                  label={`${importResult.errors} fouten`}
+                  label={t('admin.teams.importErrors', { count: importResult.errors })}
                   color="error"
                   size="small"
                   icon={<ErrorIcon />}
                   clickable={importResult.errorDetails.length > 0}
-                  onClick={() => openDetail('Fouten', importResult.errorDetails)}
+                  onClick={() => openDetail(t('admin.teams.errorsTitle'), importResult.errorDetails)}
                 />
               )}
             </Box>
@@ -268,20 +270,20 @@ export default function Teams() {
           {linkResult && (
             <Box sx={{ display: 'flex', gap: 1 }}>
               <Chip
-                label={`${linkResult.linked} gekoppeld`}
+                label={t('admin.teams.linkedCount', { count: linkResult.linked })}
                 color="success"
                 size="small"
                 icon={<SuccessIcon />}
                 clickable={linkedTeams.length > 0}
-                onClick={() => openDetail('Gekoppelde teams', linkedTeams)}
+                onClick={() => openDetail(t('admin.teams.linkedTeamsTitle'), linkedTeams)}
               />
               {linkResult.unmatched > 0 && (
                 <Chip
-                  label={`${linkResult.unmatched} zonder team`}
+                  label={t('admin.teams.linkedWithoutTeam', { count: linkResult.unmatched })}
                   color="warning"
                   size="small"
                   clickable={unmatchedParticipants.length > 0}
-                  onClick={() => openDetail('Deelnemers zonder team', unmatchedParticipants)}
+                  onClick={() => openDetail(t('admin.teams.unmatchedParticipantsTitle'), unmatchedParticipants)}
                 />
               )}
             </Box>
@@ -297,29 +299,29 @@ export default function Teams() {
           {assignResult && (
             <Box sx={{ display: 'flex', gap: 1 }}>
               <Chip
-                label={`${assignResult.assigned} toegewezen`}
+                label={t('admin.teams.assignedCount', { count: assignResult.assigned })}
                 color="success"
                 size="small"
                 icon={<SuccessIcon />}
                 clickable={assignResult.assignedPairs.length > 0}
-                onClick={() => openDetail('Toegewezen trackers', assignResult.assignedPairs)}
+                onClick={() => openDetail(t('admin.teams.assignedTrackersTitle'), assignResult.assignedPairs)}
               />
               {assignResult.teamsWithoutTracker > 0 && (
                 <Chip
-                  label={`${assignResult.teamsWithoutTracker} zonder tracker`}
+                  label={t('admin.teams.withoutTracker', { count: assignResult.teamsWithoutTracker })}
                   color="warning"
                   size="small"
                   clickable={assignResult.teamsWithoutTrackerNames.length > 0}
-                  onClick={() => openDetail('Teams zonder tracker', assignResult.teamsWithoutTrackerNames)}
+                  onClick={() => openDetail(t('admin.teams.noTrackerTeamsTitle'), assignResult.teamsWithoutTrackerNames)}
                 />
               )}
               {assignResult.unused > 0 && (
                 <Chip
-                  label={`${assignResult.unused} ongebruikt`}
+                  label={t('admin.teams.unusedTrackers', { count: assignResult.unused })}
                   color="info"
                   size="small"
                   clickable={assignResult.unusedTrackers.length > 0}
-                  onClick={() => openDetail('Ongebruikte trackers', assignResult.unusedTrackers)}
+                  onClick={() => openDetail(t('admin.teams.unusedTrackersTitle'), assignResult.unusedTrackers)}
                 />
               )}
             </Box>
@@ -334,7 +336,7 @@ export default function Teams() {
           )}
           {game?.externalEventId && (
             <Tooltip
-              title={isCompleted ? "Teams importeren is niet mogelijk nadat de wedstrijd is afgelopen" : ""}
+              title={isCompleted ? t('admin.teams.importDisabledTooltip') : ''}
               arrow
             >
               <span>
@@ -344,7 +346,7 @@ export default function Teams() {
                   onClick={handleImportTeams}
                   disabled={!canImport || importing}
                 >
-                  {importing ? 'Importeren...' : 'Teams Importeren'}
+                  {importing ? t('admin.teams.importing') : t('admin.teams.importTeams')}
                 </Button>
               </span>
             </Tooltip>
@@ -356,7 +358,7 @@ export default function Teams() {
               onClick={handleLinkParticipants}
               disabled={linking}
             >
-              {linking ? 'Koppelen...' : 'Koppel deelnemers'}
+              {linking ? t('admin.teams.linking') : t('admin.teams.linkParticipants')}
             </Button>
           )}
           <Button
@@ -367,7 +369,7 @@ export default function Teams() {
               setTrackerDialogOpen(true);
             }}
           >
-            Trackers toewijzen
+            {t('admin.teams.assignTrackers')}
           </Button>
           <Button
             variant="outlined"
@@ -375,36 +377,36 @@ export default function Teams() {
             onClick={handleExportTrackers}
             disabled={exporting}
           >
-            Export trackers
+            {t('admin.teams.exportTrackers')}
           </Button>
           <Button variant="contained" startIcon={<AddIcon />} onClick={handleNewTeam}>
-            New Team
+            {t('admin.teams.newTeam')}
           </Button>
         </Box>
       </Box>
       <Card>
         <CardContent>
           <Typography variant="h6" sx={{ mb: 2 }}>
-            {teams.length} team{teams.length !== 1 ? 's' : ''} loaded
+            {t('admin.teams.teamsLoaded', { count: teams.length })}
           </Typography>
           <TableContainer>
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell><strong>Team Name</strong></TableCell>
-                  <TableCell><strong>Description</strong></TableCell>
-                  <TableCell><strong>Tracker</strong></TableCell>
-                  <TableCell align="right"><strong>Points</strong></TableCell>
-                  <TableCell align="center"><strong>Checked In</strong></TableCell>
-                  <TableCell align="center"><strong>Digital</strong></TableCell>
-                  <TableCell align="center"><strong>Finish</strong></TableCell>
+                  <TableCell><strong>{t('admin.teams.columnTeamName')}</strong></TableCell>
+                  <TableCell><strong>{t('admin.teams.columnDescription')}</strong></TableCell>
+                  <TableCell><strong>{t('admin.teams.columnTracker')}</strong></TableCell>
+                  <TableCell align="right"><strong>{t('admin.teams.columnPoints')}</strong></TableCell>
+                  <TableCell align="center"><strong>{t('admin.teams.columnCheckedIn')}</strong></TableCell>
+                  <TableCell align="center"><strong>{t('admin.teams.columnDigital')}</strong></TableCell>
+                  <TableCell align="center"><strong>{t('admin.teams.columnFinish')}</strong></TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {teams.map((team) => (
-                  <TableRow 
-                    key={team.id} 
-                    hover 
+                  <TableRow
+                    key={team.id}
+                    hover
                     onClick={() => handleRowClick(team)}
                     sx={{ cursor: 'pointer' }}
                   >
@@ -413,8 +415,8 @@ export default function Teams() {
                     <TableCell>{team.trackerId || '—'}</TableCell>
                     <TableCell align="right">{team.totalPoints}</TableCell>
                     <TableCell align="center">
-                      <Chip 
-                        label={team.checkedIn ? 'Yes' : 'No'} 
+                      <Chip
+                        label={team.checkedIn ? t('common.yes') : t('common.no')}
                         color={team.checkedIn ? 'success' : 'default'}
                         size="small"
                       />
@@ -422,7 +424,7 @@ export default function Teams() {
                     <TableCell align="center">
                       {team.checkedIn && (
                         <Chip
-                          label={team.checkedInDigitally ? 'Yes' : 'No'}
+                          label={team.checkedInDigitally ? t('common.yes') : t('common.no')}
                           color={team.checkedInDigitally ? 'info' : 'warning'}
                           size="small"
                           variant="outlined"
@@ -431,7 +433,7 @@ export default function Teams() {
                     </TableCell>
                     <TableCell align="center">
                       {team.finished && (
-                        <Chip label="Gefinisht" color="success" size="small" />
+                        <Chip label={t('admin.teams.finished')} color="success" size="small" />
                       )}
                     </TableCell>
                   </TableRow>
@@ -451,14 +453,13 @@ export default function Teams() {
       />
 
       <Dialog open={trackerDialogOpen} onClose={() => setTrackerDialogOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Trackers toewijzen</DialogTitle>
+        <DialogTitle>{t('admin.teams.trackerDialogTitle')}</DialogTitle>
         <DialogContent dividers>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Plak de tracker-ID's (één per regel). Ze worden automatisch verdeeld over teams die nog
-            geen tracker hebben. Al toegewezen ID's worden overgeslagen.
+            {t('admin.teams.trackerDialogHint')}
           </Typography>
           <TextField
-            label="Tracker-ID's"
+            label={t('admin.teams.trackerIdsLabel')}
             value={trackerInput}
             onChange={(e) => setTrackerInput(e.target.value)}
             multiline
@@ -469,14 +470,14 @@ export default function Teams() {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setTrackerDialogOpen(false)}>Annuleren</Button>
+          <Button onClick={() => setTrackerDialogOpen(false)}>{t('common.cancel')}</Button>
           <Button
             variant="contained"
             onClick={handleAssignTrackers}
             disabled={assigning || trackerInput.trim().length === 0}
             startIcon={assigning ? <CircularProgress size={20} /> : <TrackerIcon />}
           >
-            {assigning ? 'Toewijzen...' : 'Toewijzen'}
+            {assigning ? t('admin.teams.assigning') : t('admin.teams.assign')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -486,7 +487,7 @@ export default function Teams() {
         <DialogContent dividers>
           {!detail || detail.items.length === 0 ? (
             <Typography variant="body2" color="text.secondary">
-              Geen resultaten.
+              {t('admin.teams.noResults')}
             </Typography>
           ) : (
             <Box component="ul" sx={{ m: 0, pl: 3 }}>
@@ -499,7 +500,7 @@ export default function Teams() {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDetail}>Sluiten</Button>
+          <Button onClick={handleCloseDetail}>{t('common.close')}</Button>
         </DialogActions>
       </Dialog>
     </Box>

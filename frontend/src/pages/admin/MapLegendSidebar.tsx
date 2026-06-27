@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Checkbox,
@@ -67,15 +68,6 @@ interface MapLegendSidebarProps {
   onZoomCheckpoint: (id: string) => void;
 }
 
-const WINDOW_OPTIONS: { value: TrackWindowMinutes; label: string }[] = [
-  { value: 15, label: '15 minuten' },
-  { value: 30, label: '30 minuten' },
-  { value: 60, label: '60 minuten' },
-  { value: 120, label: '120 minuten' },
-  { value: 720, label: '12 uur' },
-  { value: 0, label: 'Alles' },
-];
-
 interface MasterState {
   checked: boolean;
   indeterminate: boolean;
@@ -110,12 +102,22 @@ export function MapLegendSidebar({
   onZoomTeam,
   onZoomCheckpoint,
 }: MapLegendSidebarProps) {
+  const { t } = useTranslation();
   const [teamQuery, setTeamQuery] = useState('');
+
+  const WINDOW_OPTIONS: { value: TrackWindowMinutes; label: string }[] = [
+    { value: 15, label: t('admin.map.window15min') },
+    { value: 30, label: t('admin.map.window30min') },
+    { value: 60, label: t('admin.map.window60min') },
+    { value: 120, label: t('admin.map.window120min') },
+    { value: 720, label: t('admin.map.window12h') },
+    { value: 0, label: t('admin.map.windowAll') },
+  ];
 
   const filteredTeams = useMemo(() => {
     const q = teamQuery.trim().toLowerCase();
     if (!q) return teams;
-    return teams.filter(t => t.name.toLowerCase().includes(q));
+    return teams.filter(team => team.name.toLowerCase().includes(q));
   }, [teams, teamQuery]);
 
   // Master checkboxes operate on the FULL list, ignoring the search filter.
@@ -128,13 +130,15 @@ export function MapLegendSidebar({
 
   const handleTeamsMasterChange = () => {
     const newHidden = teamsMaster.checked;
-    onSetTeamsHidden(teams.map(t => t.id), newHidden);
+    onSetTeamsHidden(teams.map(team => team.id), newHidden);
   };
 
   const handleCheckpointsMasterChange = () => {
     const newHidden = checkpointsMaster.checked;
     onSetCheckpointsHidden(checkpoints.map(c => c.id), newHidden);
   };
+
+  const pinLabel = pinned ? t('admin.map.unpin') : t('admin.map.pin');
 
   return (
     <Slide direction="left" in={open} mountOnEnter unmountOnExit>
@@ -168,15 +172,15 @@ export function MapLegendSidebar({
             zIndex: 1,
           }}
         >
-          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Filters</Typography>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>{t('admin.map.filters')}</Typography>
           <Box>
-            <Tooltip title={pinned ? 'Losmaken' : 'Vastpinnen'}>
-              <IconButton size="small" onClick={onTogglePin} aria-label={pinned ? 'Losmaken' : 'Vastpinnen'}>
+            <Tooltip title={pinLabel}>
+              <IconButton size="small" onClick={onTogglePin} aria-label={pinLabel}>
                 {pinned ? <PushPinIcon fontSize="small" /> : <PushPinOutlinedIcon fontSize="small" />}
               </IconButton>
             </Tooltip>
-            <Tooltip title="Sluiten">
-              <IconButton size="small" onClick={onClose} aria-label="Sluiten">
+            <Tooltip title={t('admin.map.close')}>
+              <IconButton size="small" onClick={onClose} aria-label={t('admin.map.close')}>
                 <CloseIcon fontSize="small" />
               </IconButton>
             </Tooltip>
@@ -195,21 +199,21 @@ export function MapLegendSidebar({
                 onChange={handleTeamsMasterChange}
                 sx={{ p: 0.5 }}
               />
-              <Typography variant="subtitle2">Teams</Typography>
+              <Typography variant="subtitle2">{t('admin.map.teams')}</Typography>
             </Box>
             <TextField
               size="small"
               fullWidth
-              placeholder="Zoek team…"
+              placeholder={t('admin.map.searchTeam')}
               value={teamQuery}
               onChange={(e) => setTeamQuery(e.target.value)}
               sx={{ mb: 1, flexShrink: 0 }}
             />
             <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
               {teams.length === 0 ? (
-                <Typography variant="body2" color="text.secondary">Geen teams</Typography>
+                <Typography variant="body2" color="text.secondary">{t('admin.map.noTeams')}</Typography>
               ) : filteredTeams.length === 0 ? (
-                <Typography variant="body2" color="text.secondary">Geen teams gevonden</Typography>
+                <Typography variant="body2" color="text.secondary">{t('admin.map.noTeamsFound')}</Typography>
               ) : (
                 <List dense disablePadding>
                   {filteredTeams.map(team => {
@@ -224,12 +228,12 @@ export function MapLegendSidebar({
                     sx={{ py: 0.25 }}
                     secondaryAction={
                       <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <Tooltip title="Zoom naar locatie">
+                        <Tooltip title={t('admin.map.zoomToLocation')}>
                           <IconButton
                             size="small"
                             edge={false}
                             onClick={() => onZoomTeam(team.id)}
-                            aria-label="Zoom naar locatie"
+                            aria-label={t('admin.map.zoomToLocation')}
                           >
                             <CenterFocusStrongIcon fontSize="small" />
                           </IconButton>
@@ -244,7 +248,7 @@ export function MapLegendSidebar({
                               onChange={() => onToggleTrack(team.id)}
                             />
                           }
-                          label={<Typography variant="caption">spoor</Typography>}
+                          label={<Typography variant="caption">{t('admin.map.track')}</Typography>}
                         />
                       </Box>
                     }
@@ -287,7 +291,7 @@ export function MapLegendSidebar({
 
           <Divider sx={{ my: 1.5, flexShrink: 0 }} />
 
-          {/* Checkpoints section: shares remaining height with the teams section, scrolls internally */}
+          {/* Checkpoints section */}
           <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5, flexShrink: 0 }}>
               <Checkbox
@@ -298,11 +302,11 @@ export function MapLegendSidebar({
                 onChange={handleCheckpointsMasterChange}
                 sx={{ p: 0.5 }}
               />
-              <Typography variant="subtitle2">Checkpoints</Typography>
+              <Typography variant="subtitle2">{t('admin.map.checkpoints')}</Typography>
             </Box>
             <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
               {checkpoints.length === 0 ? (
-                <Typography variant="body2" color="text.secondary">Geen checkpoints</Typography>
+                <Typography variant="body2" color="text.secondary">{t('admin.map.noCheckpoints')}</Typography>
               ) : (
                 <List dense disablePadding>
                   {checkpoints.map(cp => {
@@ -313,14 +317,14 @@ export function MapLegendSidebar({
                         disableGutters
                         sx={{ py: 0.25 }}
                         secondaryAction={
-                          <Tooltip title="Zoom naar locatie">
+                          <Tooltip title={t('admin.map.zoomToLocation')}>
                             <span>
                               <IconButton
                                 size="small"
                                 edge={false}
                                 disabled={!cp.hasLocation}
                                 onClick={() => onZoomCheckpoint(cp.id)}
-                                aria-label="Zoom naar locatie"
+                                aria-label={t('admin.map.zoomToLocation')}
                               >
                                 <CenterFocusStrongIcon fontSize="small" />
                               </IconButton>
@@ -359,10 +363,10 @@ export function MapLegendSidebar({
           <Divider sx={{ my: 1.5, flexShrink: 0 }} />
 
           <FormControl fullWidth size="small" disabled={trackTeamIds.size === 0} sx={{ flexShrink: 0 }}>
-            <InputLabel id="track-window-label">Spoorvenster</InputLabel>
+            <InputLabel id="track-window-label">{t('admin.map.trackWindow')}</InputLabel>
             <Select
               labelId="track-window-label"
-              label="Spoorvenster"
+              label={t('admin.map.trackWindow')}
               value={windowMinutes}
               onChange={handleWindowChange}
             >

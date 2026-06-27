@@ -2,6 +2,7 @@
  * Admin Login Page - Login form for administrators
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -30,6 +31,7 @@ interface ApiError {
 
 export function AdminLogin() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -97,10 +99,10 @@ export function AdminLogin() {
           <Box sx={{ textAlign: 'center', mb: 3 }}>
             <AdminIcon sx={{ fontSize: 48, color: '#1a237e', mb: 1 }} />
             <Typography variant="h5" component="h1" gutterBottom>
-              Admin Login
+              {t('admin.adminLogin.title')}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Vlettenrally Beheerpaneel
+              {t('admin.adminLogin.subtitle')}
             </Typography>
           </Box>
 
@@ -113,7 +115,7 @@ export function AdminLogin() {
           <form onSubmit={handleSubmit}>
             <TextField
               fullWidth
-              label="Gebruikersnaam"
+              label={t('admin.adminLogin.username')}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               margin="normal"
@@ -123,7 +125,7 @@ export function AdminLogin() {
             />
             <TextField
               fullWidth
-              label="Wachtwoord"
+              label={t('admin.adminLogin.password')}
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -139,7 +141,7 @@ export function AdminLogin() {
               disabled={loading}
               sx={{ mt: 3, mb: 2, bgcolor: '#1a237e', '&:hover': { bgcolor: '#0d1642' } }}
             >
-              {loading ? <CircularProgress size={24} color="inherit" /> : 'Inloggen'}
+              {loading ? <CircularProgress size={24} color="inherit" /> : t('admin.adminLogin.login')}
             </Button>
           </form>
 
@@ -149,7 +151,7 @@ export function AdminLogin() {
               onClick={() => navigate('/check-in')}
               sx={{ textTransform: 'none' }}
             >
-              ← Terug naar team login
+              {t('admin.adminLogin.backToTeamLogin')}
             </Button>
           </Box>
         </CardContent>

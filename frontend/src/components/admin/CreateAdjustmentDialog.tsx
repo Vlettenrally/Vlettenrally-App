@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Dialog,
   DialogTitle,
@@ -27,6 +28,7 @@ interface CreateAdjustmentDialogProps {
  * the entry is meaningful in the audit log.
  */
 export default function CreateAdjustmentDialog({ open, onClose, gameId, teams, onSaved }: CreateAdjustmentDialogProps) {
+  const { t } = useTranslation();
   const [wasOpen, setWasOpen] = useState(false);
   const [team, setTeam] = useState<AdminTeam | null>(null);
   // String-backed so the field can be cleared while typing
@@ -52,19 +54,19 @@ export default function CreateAdjustmentDialog({ open, onClose, gameId, teams, o
 
   const handleSave = async () => {
     if (!team) {
-      setError('Kies een team');
+      setError(t('components.createAdjustment.chooseTeam'));
       return;
     }
     if (!amountIsValid) {
-      setError('Vul een geldig aantal punten in');
+      setError(t('components.createAdjustment.invalidPoints'));
       return;
     }
     if (parsedAmount === 0) {
-      setError('Aantal punten mag niet 0 zijn');
+      setError(t('components.createAdjustment.zeroPoints'));
       return;
     }
     if (!description.trim()) {
-      setError('Reden is verplicht');
+      setError(t('components.createAdjustment.reasonRequired'));
       return;
     }
     setSaving(true);
@@ -86,20 +88,20 @@ export default function CreateAdjustmentDialog({ open, onClose, gameId, teams, o
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Handmatige correctie</DialogTitle>
+      <DialogTitle>{t('components.createAdjustment.title')}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <Autocomplete
             value={team}
             onChange={(_, newValue) => setTeam(newValue)}
             options={teams}
-            getOptionLabel={(t) => t.name}
+            getOptionLabel={(opt) => opt.name}
             isOptionEqualToValue={(a, b) => a.id === b.id}
-            renderInput={(params) => <TextField {...params} label="Team" required />}
+            renderInput={(params) => <TextField {...params} label={t('common.team')} required />}
             fullWidth
           />
           <TextField
-            label="Aantal punten (negatief = aftrek)"
+            label={t('components.createAdjustment.points')}
             type="number"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
@@ -109,10 +111,9 @@ export default function CreateAdjustmentDialog({ open, onClose, gameId, teams, o
             error={!amountIsValid && amount.trim() !== ''}
           />
           <TextField
-            label="Reden"
+            label={t('components.createAdjustment.reason')}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="bv. Bonus voor zelf opgeloste sluiting"
             multiline
             minRows={2}
             required
@@ -122,9 +123,9 @@ export default function CreateAdjustmentDialog({ open, onClose, gameId, teams, o
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={saving}>Annuleren</Button>
+        <Button onClick={onClose} disabled={saving}>{t('common.cancel')}</Button>
         <Button onClick={handleSave} variant="contained" disabled={saving}>
-          {saving ? 'Opslaan…' : 'Toevoegen'}
+          {saving ? t('components.createAdjustment.saving') : t('components.createAdjustment.add')}
         </Button>
       </DialogActions>
     </Dialog>

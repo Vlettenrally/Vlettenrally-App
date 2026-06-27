@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Typography,
@@ -60,6 +61,7 @@ function TabPanel(props: TabPanelProps) {
 }
 
 export default function AdminMessages() {
+  const { t } = useTranslation();
   const selectedGameId = useGameStore((s) => s.selectedGameId);
 
   // Tab state
@@ -93,6 +95,23 @@ export default function AdminMessages() {
   // Retry state
   const [retrying, setRetrying] = useState<string | null>(null);
   const [retryAllLoading, setRetryAllLoading] = useState(false);
+
+  const getMessageTypeLabel = (type: string): string => {
+    const key = `components.sendMessage.type${type.charAt(0).toUpperCase() + type.slice(1)}` as const;
+    return t(key, { defaultValue: type });
+  };
+
+  const getMessageTypeColor = (type: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
+    const colors: Record<string, 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'> = {
+      general: 'default',
+      countdown: 'info',
+      checkpoint: 'success',
+      rallydesk: 'warning',
+      achievement: 'secondary',
+      rival: 'primary',
+    };
+    return colors[type] || 'default';
+  };
 
   // Fetch teams
   const fetchTeams = useCallback(async (gameId: string) => {
@@ -173,7 +192,6 @@ export default function AdminMessages() {
   useEffect(() => {
     if (!selectedGameId) return;
 
-    // Subscribe to delivery updates
     const unsubscribe = websocket.on(WebSocketEventType.MESSAGE_DELIVERY_UPDATE, (wsMessage) => {
       const payload = wsMessage.payload as {
         messageId: string;
@@ -183,19 +201,16 @@ export default function AdminMessages() {
         read: boolean;
       };
 
-      // Update local messages state
       setMessages(prevMessages =>
         prevMessages.map(msg => {
           if (msg.id !== payload.batchId) return msg;
 
-          // Update the specific team's delivery status
           const updatedDeliveries = msg.deliveries.map(delivery =>
             delivery.teamId === payload.teamId
               ? { ...delivery, delivered: payload.delivered }
               : delivery
           );
 
-          // Recalculate counts
           const deliveredCount = updatedDeliveries.filter(d => d.delivered).length;
           const failedCount = updatedDeliveries.length - deliveredCount;
 
@@ -214,7 +229,6 @@ export default function AdminMessages() {
     };
   }, [selectedGameId]);
 
-  // Handle retry single message
   const handleRetry = async (messageId: string) => {
     setRetrying(messageId);
     await api.retryFailedDeliveries(messageId);
@@ -222,7 +236,6 @@ export default function AdminMessages() {
     fetchMessages();
   };
 
-  // Handle retry all failed
   const handleRetryAll = async () => {
     if (!selectedGameId) return;
     setRetryAllLoading(true);
@@ -231,7 +244,6 @@ export default function AdminMessages() {
     fetchMessages();
   };
 
-  // Handle delete template
   const handleDeleteTemplate = async () => {
     if (!templateToDelete) return;
     await api.deleteMessageTemplate(templateToDelete.id);
@@ -240,12 +252,11 @@ export default function AdminMessages() {
     fetchTemplates();
   };
 
-  // Calculate total failed deliveries
   const totalFailedDeliveries = messages.reduce((sum, m) => sum + m.failedCount, 0);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
-    return date.toLocaleString('nl-NL', {
+    return date.toLocaleString(undefined, {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
@@ -254,35 +265,11 @@ export default function AdminMessages() {
     });
   };
 
-  const getMessageTypeLabel = (type: string) => {
-    const labels: Record<string, string> = {
-      general: 'Algemeen',
-      countdown: 'Countdown',
-      checkpoint: 'Checkpoint',
-      rallydesk: 'Rallydesk',
-      achievement: 'Achievement',
-      rival: 'Rivaal',
-    };
-    return labels[type] || type;
-  };
-
-  const getMessageTypeColor = (type: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
-    const colors: Record<string, 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'> = {
-      general: 'default',
-      countdown: 'info',
-      checkpoint: 'success',
-      rallydesk: 'warning',
-      achievement: 'secondary',
-      rival: 'primary',
-    };
-    return colors[type] || 'default';
-  };
-
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
         <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold' }}>
-          Berichten
+          {t('admin.messages.title')}
         </Typography>
         <Button
           variant="contained"
@@ -290,18 +277,18 @@ export default function AdminMessages() {
           onClick={() => setSendDialogOpen(true)}
           disabled={!selectedGameId}
         >
-          Bericht versturen
+          {t('admin.messages.sendMessage')}
         </Button>
       </Box>
 
       {!selectedGameId ? (
-        <Alert severity="info">Selecteer een spel in de header om berichten te beheren.</Alert>
+        <Alert severity="info">{t('admin.messages.selectGame')}</Alert>
       ) : (
         <>
           <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
             <Tabs value={tabValue} onChange={(_, newValue) => setTabValue(newValue)}>
-              <Tab label="Berichten" />
-              <Tab label="Templates" />
+              <Tab label={t('admin.messages.tabMessages')} />
+              <Tab label={t('admin.messages.tabTemplates')} />
             </Tabs>
           </Box>
 
@@ -323,7 +310,7 @@ export default function AdminMessages() {
                   onClick={handleRetryAll}
                   disabled={retryAllLoading}
                 >
-                  Alle mislukte verzendingen opnieuw proberen ({totalFailedDeliveries})
+                  {t('admin.messages.retryAll', { count: totalFailedDeliveries })}
                 </Button>
               </Box>
             )}
@@ -333,11 +320,11 @@ export default function AdminMessages() {
                 <TableHead>
                   <TableRow>
                     <TableCell width={40} />
-                    <TableCell>Tijd</TableCell>
-                    <TableCell>Type</TableCell>
-                    <TableCell>Bericht</TableCell>
-                    <TableCell>Bezorging</TableCell>
-                    <TableCell>Acties</TableCell>
+                    <TableCell>{t('admin.messages.columnTime')}</TableCell>
+                    <TableCell>{t('admin.messages.columnType')}</TableCell>
+                    <TableCell>{t('admin.messages.columnMessage')}</TableCell>
+                    <TableCell>{t('admin.messages.columnDelivery')}</TableCell>
+                    <TableCell>{t('admin.messages.columnActions')}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -351,7 +338,7 @@ export default function AdminMessages() {
                     <TableRow>
                       <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
                         <Typography color="text.secondary">
-                          Nog geen berichten verstuurd
+                          {t('admin.messages.noMessages')}
                         </Typography>
                       </TableCell>
                     </TableRow>
@@ -402,15 +389,15 @@ export default function AdminMessages() {
                           <TableCell>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                               {message.failedCount === 0 ? (
-                                <Tooltip title="Alle bezorgd">
+                                <Tooltip title={t('admin.messages.statusAllDelivered')}>
                                   <CheckCircleIcon color="success" fontSize="small" />
                                 </Tooltip>
                               ) : message.deliveredCount === 0 ? (
-                                <Tooltip title="Geen bezorgd">
+                                <Tooltip title={t('admin.messages.statusNoneDelivered')}>
                                   <ErrorIcon color="error" fontSize="small" />
                                 </Tooltip>
                               ) : (
-                                <Tooltip title="Gedeeltelijk bezorgd">
+                                <Tooltip title={t('admin.messages.statusPartialDelivery')}>
                                   <WarningIcon color="warning" fontSize="small" />
                                 </Tooltip>
                               )}
@@ -421,7 +408,7 @@ export default function AdminMessages() {
                           </TableCell>
                           <TableCell>
                             {message.failedCount > 0 && (
-                              <Tooltip title="Mislukte verzendingen opnieuw proberen">
+                              <Tooltip title={t('admin.messages.retryFailed')}>
                                 <IconButton
                                   size="small"
                                   onClick={() => handleRetry(message.id)}
@@ -444,15 +431,15 @@ export default function AdminMessages() {
                             <Collapse in={expandedMessageId === message.id}>
                               <Box sx={{ py: 2, px: 2, bgcolor: 'grey.50' }}>
                                 <Typography variant="subtitle2" gutterBottom>
-                                  Bezorging details
+                                  {t('admin.messages.deliveryDetails')}
                                 </Typography>
                                 <Table size="small">
                                   <TableHead>
                                     <TableRow>
-                                      <TableCell>Team</TableCell>
-                                      <TableCell>Status</TableCell>
-                                      <TableCell>Kanalen</TableCell>
-                                      <TableCell>Fout</TableCell>
+                                      <TableCell>{t('admin.messages.team')}</TableCell>
+                                      <TableCell>{t('common.status')}</TableCell>
+                                      <TableCell>{t('admin.messages.channels')}</TableCell>
+                                      <TableCell>{t('admin.messages.error')}</TableCell>
                                     </TableRow>
                                   </TableHead>
                                   <TableBody>
@@ -461,9 +448,9 @@ export default function AdminMessages() {
                                         <TableCell>{delivery.teamName}</TableCell>
                                         <TableCell>
                                           {delivery.delivered ? (
-                                            <Chip label="Bezorgd" color="success" size="small" />
+                                            <Chip label={t('admin.messages.statusDelivered')} color="success" size="small" />
                                           ) : (
-                                            <Chip label="Mislukt" color="error" size="small" />
+                                            <Chip label={t('admin.messages.statusFailed')} color="error" size="small" />
                                           )}
                                         </TableCell>
                                         <TableCell>
@@ -508,9 +495,11 @@ export default function AdminMessages() {
                   setPage(0);
                 }}
                 rowsPerPageOptions={[5, 10, 25, 50]}
-                labelRowsPerPage="Rijen per pagina:"
+                labelRowsPerPage={t('admin.messages.rowsPerPage')}
                 labelDisplayedRows={({ from, to, count }) =>
-                  `${from}-${to} van ${count !== -1 ? count : `meer dan ${to}`}`
+                  count !== -1
+                    ? t('admin.messages.paginationRange', { from, to, count })
+                    : t('admin.messages.paginationRange', { from, to, count: t('admin.messages.paginationRangeMore', { to }) })
                 }
               />
             </TableContainer>
@@ -533,7 +522,7 @@ export default function AdminMessages() {
                   setTemplateDialogOpen(true);
                 }}
               >
-                Nieuwe template
+                {t('admin.messages.newTemplate')}
               </Button>
             </Box>
 
@@ -541,10 +530,10 @@ export default function AdminMessages() {
               <Table>
                 <TableHead>
                   <TableRow>
-                    <TableCell>Naam</TableCell>
-                    <TableCell>Type</TableCell>
-                    <TableCell>Bericht</TableCell>
-                    <TableCell>Acties</TableCell>
+                    <TableCell>{t('admin.messages.columnTemplateName')}</TableCell>
+                    <TableCell>{t('admin.messages.columnTemplateType')}</TableCell>
+                    <TableCell>{t('admin.messages.columnTemplateMessage')}</TableCell>
+                    <TableCell>{t('admin.messages.columnTemplateActions')}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -558,7 +547,7 @@ export default function AdminMessages() {
                     <TableRow>
                       <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
                         <Typography color="text.secondary">
-                          Nog geen templates aangemaakt
+                          {t('admin.messages.noTemplates')}
                         </Typography>
                       </TableCell>
                     </TableRow>
@@ -592,7 +581,7 @@ export default function AdminMessages() {
                           </Typography>
                         </TableCell>
                         <TableCell>
-                          <Tooltip title="Bewerken">
+                          <Tooltip title={t('admin.messages.editTemplate')}>
                             <IconButton
                               size="small"
                               onClick={() => {
@@ -603,7 +592,7 @@ export default function AdminMessages() {
                               <EditIcon />
                             </IconButton>
                           </Tooltip>
-                          <Tooltip title="Verwijderen">
+                          <Tooltip title={t('admin.messages.deleteTemplate')}>
                             <IconButton
                               size="small"
                               onClick={() => {
@@ -614,7 +603,7 @@ export default function AdminMessages() {
                               <DeleteIcon />
                             </IconButton>
                           </Tooltip>
-                          <Tooltip title="Gebruiken">
+                          <Tooltip title={t('admin.messages.useTemplate')}>
                             <Button
                               size="small"
                               variant="outlined"
@@ -624,7 +613,7 @@ export default function AdminMessages() {
                               }}
                               sx={{ ml: 1 }}
                             >
-                              Gebruiken
+                              {t('admin.messages.useTemplate')}
                             </Button>
                           </Tooltip>
                         </TableCell>
@@ -674,16 +663,16 @@ export default function AdminMessages() {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)}>
-        <DialogTitle>Template verwijderen?</DialogTitle>
+        <DialogTitle>{t('admin.messages.deleteTemplateTitle')}</DialogTitle>
         <DialogContent>
           <Typography>
-            Weet je zeker dat je de template "{templateToDelete?.name}" wilt verwijderen?
+            {t('admin.messages.deleteTemplateConfirm', { name: templateToDelete?.name })}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteConfirmOpen(false)}>Annuleren</Button>
+          <Button onClick={() => setDeleteConfirmOpen(false)}>{t('common.cancel')}</Button>
           <Button onClick={handleDeleteTemplate} color="error" variant="contained">
-            Verwijderen
+            {t('common.delete')}
           </Button>
         </DialogActions>
       </Dialog>

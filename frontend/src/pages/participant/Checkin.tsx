@@ -8,6 +8,7 @@
  * straight to the nickname step for the pre-resolved team.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Alert,
@@ -115,6 +116,7 @@ function buildTraccarQrConfig(serverUrl: string, identifier: string): string {
 }
 
 export function CheckInPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { setTeam } = useTeamStore();
@@ -160,13 +162,13 @@ export function CheckInPage() {
     setError(null);
     const response = await api.getCheckInGamesToday();
     if (response.error) {
-      setError('Kon vandaag de games niet ophalen: ' + response.error);
+      setError(t('participant.checkin.errorLoadingGames') + ': ' + response.error);
       return;
     }
     const games = response.data ?? [];
     setTodayGames(games);
     if (games.length === 0) {
-      setError('Er zijn vandaag geen rally’s. Neem contact op met de organisatie.');
+      setError(t('participant.checkin.noGamesToday'));
       return;
     }
     if (games.length === 1) {
@@ -182,7 +184,7 @@ export function CheckInPage() {
     setFormError(null);
     const response = await api.getCheckInTeams(gameId);
     if (response.error) {
-      setFormError('Teams ophalen mislukt: ' + response.error);
+      setFormError(t('participant.checkin.errorLoadingTeams') + ': ' + response.error);
       return;
     }
     setTeamOptions(response.data ?? []);
@@ -198,7 +200,7 @@ export function CheckInPage() {
         try {
           const tokenResponse = await api.exchangeToken(token);
           if (tokenResponse.error) {
-            setError('Authenticatie mislukt: ' + tokenResponse.error);
+            setError(t('participant.checkin.authFailed') + ': ' + tokenResponse.error);
             return;
           }
           const data = tokenResponse.data as TokenExchangeResponse;
@@ -222,12 +224,12 @@ export function CheckInPage() {
               setStep('nickname');
               return;
             }
-            setError('Kon teamgegevens niet ophalen.');
+            setError(t('participant.checkin.noTeamData'));
             return;
           }
         } catch (err) {
           console.error('Legacy token flow error:', err);
-          setError('Er ging iets mis tijdens het inloggen.');
+          setError(t('participant.checkin.loginError'));
           return;
         }
       }
@@ -237,7 +239,7 @@ export function CheckInPage() {
 
     init().catch((err) => {
       console.error('Check-in init error:', err);
-      setError('Er ging iets mis. Probeer de pagina opnieuw te laden.');
+      setError(t('participant.checkin.generalError'));
     });
   }, [searchParams, loadTodayGames]);
 
@@ -279,16 +281,13 @@ export function CheckInPage() {
 
   const handleTeamSelection = () => {
     if (!selectedTeam || !selectedGameId) {
-      setFormError('Kies eerst je team.');
+      setFormError(t('participant.checkin.selectTeamFirst'));
       return;
     }
-    
+
     // Validate that team has physically checked in at Rally Desk first
     if (!selectedTeam.checkedIn) {
-      setFormError(
-        'Dit team moet eerst langs de Rallydesk om fysiek in te checken. Hier ontvang je de benodigde spullen voor het spel. ' +
-        'Kom daarna terug om digitaal in te checken.'
-      );
+      setFormError(t('participant.checkin.needsRallyDeskFull'));
       return;
     }
     
@@ -343,12 +342,12 @@ export function CheckInPage() {
 
   const handleNicknameSubmit = async () => {
     if (!resolvedTeam || !selectedGameId) {
-      setFormError('Team gegevens ontbreken. Vraag de organisatie om hulp.');
+      setFormError(t('participant.checkin.missingTeamData'));
       return;
     }
     const trimmed = nicknameInput.trim();
     if (trimmed.length === 0) {
-      setFormError('Geef je telefoon een naam zodat je deze kunt herkennen.');
+      setFormError(t('participant.checkin.nicknameRequired'));
       return;
     }
     setSubmitting(true);
@@ -366,13 +365,13 @@ export function CheckInPage() {
         nickname: trimmed,
       });
       if (response.error || !response.data) {
-        setFormError('Aanmelden van apparaat mislukt: ' + (response.error ?? 'onbekende fout'));
+        setFormError(t('participant.checkin.registerFailed') + ' ' + (response.error ?? t('common.unknown')));
         return;
       }
       await applyRegisterResponse(response.data, resolvedTeam.gameId, resolvedTeam.id);
     } catch (err) {
       console.error('register-device error:', err);
-      setFormError('Er ging iets mis bij het aanmelden van dit apparaat.');
+      setFormError(t('participant.checkin.registerError'));
     } finally {
       setSubmitting(false);
     }
@@ -401,14 +400,14 @@ export function CheckInPage() {
     }
 
     if (emergencyPhones.length === 0) {
-      setFormError('Voeg minimaal één noodnummer toe.');
+      setFormError(t('participant.checkin.emergencyPhoneRequired'));
       setSubmitting(false);
       return;
     }
 
     const invalidPhone = emergencyPhones.find((phone) => !isPhoneNumber(phone));
     if (invalidPhone) {
-      setFormError(`Ongeldig telefoonnummer: ${invalidPhone}`);
+      setFormError(t('participant.checkin.invalidPhone', { phone: invalidPhone }));
       setSubmitting(false);
       return;
     }
@@ -416,17 +415,17 @@ export function CheckInPage() {
     try {
       const updateParticipantsResponse = await api.updateParticipants(resolvedTeam.id, participants);
       if (updateParticipantsResponse.error) {
-        setFormError('Kan deelnemers niet opslaan: ' + updateParticipantsResponse.error);
+        setFormError(t('participant.checkin.saveParticipantsFailed') + ' ' + updateParticipantsResponse.error);
         return;
       }
       const updatePhonesResponse = await api.updateEmergencyPhones(resolvedTeam.id, emergencyPhones);
       if (updatePhonesResponse.error) {
-        setFormError('Kan noodnummers niet opslaan: ' + updatePhonesResponse.error);
+        setFormError(t('participant.checkin.savePhonesFailed') + ' ' + updatePhonesResponse.error);
         return;
       }
       const checkedInTeam = await teamService.checkIn(resolvedTeam.id);
       if (!checkedInTeam) {
-        setFormError('Inchecken mislukt.');
+        setFormError(t('participant.checkin.checkinFailed'));
         return;
       }
       const teamResponse = await api.getMyTeam();
@@ -436,7 +435,7 @@ export function CheckInPage() {
       setStep(traccarSetup ? 'traccar-setup' : 'rivals');
     } catch (err) {
       console.error('details submit error:', err);
-      setFormError('Er is een fout opgetreden tijdens het inchecken.');
+      setFormError(t('participant.checkin.checkinError'));
     } finally {
       setSubmitting(false);
     }
@@ -458,7 +457,7 @@ export function CheckInPage() {
       .catch((err) => {
         if (cancelled) return;
         console.warn('Failed to load eligible rivals', err);
-        setFormError('Kon de teamlijst niet laden.');
+        setFormError(t('participant.checkin.loadRivalsFailed'));
       })
       .finally(() => {
         if (!cancelled) setLoadingRivals(false);
@@ -483,7 +482,7 @@ export function CheckInPage() {
     );
     setSubmitting(false);
     if (result.error) {
-      setFormError('Kan rivalen niet opslaan: ' + result.error);
+      setFormError(t('participant.checkin.saveRivalsFailed') + ' ' + result.error);
       return;
     }
     setStep('permissions');
@@ -571,15 +570,15 @@ export function CheckInPage() {
       if (!result.ok) {
         const message =
           result.reason === 'permission-denied'
-            ? 'Meldingen zijn geweigerd. Je kunt verder zonder meldingen.'
+            ? t('participant.checkin.notificationDenied')
             : result.reason === 'no-token'
-              ? 'Meldingen kunnen niet worden ingesteld op dit apparaat (geen geldige tokenconfiguratie).'
-              : 'Aanmelden van meldingen bij de server is mislukt. Je kunt verder zonder meldingen.';
+              ? t('participant.checkin.notificationNoToken')
+              : t('participant.checkin.notificationServerFailed');
         setNotificationError(message);
       }
     } catch (err) {
       console.error('Notification permission error:', err);
-      setNotificationError('Er is een fout opgetreden bij het inschakelen van meldingen.');
+      setNotificationError(t('participant.checkin.notificationError'));
     } finally {
       setNotificationsDone(true);
     }
@@ -599,16 +598,16 @@ export function CheckInPage() {
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   {step === 'install-app'
-                    ? 'Zet de app eerst op je beginscherm zodat je meldingen kunt ontvangen.'
+                    ? t('participant.checkin.descriptionInstallApp')
                     : step === 'permissions'
-                    ? 'Sta meldingen toe om updates te ontvangen tijdens de rally.'
+                    ? t('participant.checkin.descriptionPermissions')
                     : step === 'rivals'
-                      ? 'Kies welke teams jullie in de gaten willen houden.'
+                      ? t('participant.checkin.descriptionRivals')
                       : step === 'traccar-setup'
-                        ? 'Stel de tracking-app in zodat jullie locatie zichtbaar is.'
+                        ? t('participant.checkin.descriptionTraccar')
                         : step === 'wait'
-                          ? 'Een andere telefoon van jullie team vult op dit moment de gegevens in.'
-                          : 'Volg het spel online en check je team in voor de Vlettenrally.'}
+                          ? t('participant.checkin.descriptionWait')
+                          : t('participant.checkin.descriptionDefault')}
                 </Typography>
               </Box>
             )}
@@ -631,7 +630,7 @@ export function CheckInPage() {
                       <Box
                         component="img"
                         src="/logo.svg"
-                        alt="Vlettenrally logo"
+                        alt={t('participant.checkin.logoAlt')}
                         sx={{
                           width: '85%',
                           maxWidth: 280,
@@ -648,7 +647,7 @@ export function CheckInPage() {
                       <Box sx={{ textAlign: 'center', px: 2 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 2, animation: 'slideInLeft 0.8s ease-out 0.3s both' }}>
                           <Typography variant="h4" sx={{ fontWeight: 700, color: '#165656' }}>
-                            Welkom!
+                            {t('participant.checkin.welcomeSlide1Title')}
                           </Typography>
                         </Box>
                         <Typography 
@@ -661,7 +660,7 @@ export function CheckInPage() {
                             animation: 'slideInRight 0.8s ease-out 0.5s both' 
                           }}
                         >
-                          Tijd om je lelievlet op te tuigen!
+                          {t('participant.checkin.welcomeSlide1Subtitle')}
                         </Typography>
                         <Typography 
                           variant="body1" 
@@ -669,7 +668,7 @@ export function CheckInPage() {
                           color="text.secondary"
                           sx={{ animation: 'slideInUp 0.8s ease-out 0.7s both' }}
                         >
-                          Vaart jouw boot verder dan de rest?
+                          {t('participant.checkin.slide1Body')}
                         </Typography>
                       </Box>
 
@@ -678,7 +677,7 @@ export function CheckInPage() {
                         <Box
                           component="img"
                           src="/boat.svg"
-                          alt="Vlettenrally boot"
+                          alt={t('participant.checkin.boatAlt')}
                           sx={{
                             width: 100,
                             height: 100,
@@ -703,7 +702,7 @@ export function CheckInPage() {
                           pb: 1,
                         }}
                       >
-                        Swipe voor meer →
+                        {t('participant.checkin.swipeHint')}
                       </Typography>
                     </Stack>
                   </SwiperSlide>
@@ -923,22 +922,22 @@ export function CheckInPage() {
                         </Box>
 
                         <Typography variant="h4" align="center" sx={{ fontWeight: 700, color: '#165656', mb: 3 }}>
-                          Ontdek & Win Punten!
+                          {t('participant.checkin.slide2Title')}
                         </Typography>
                       </Box>
                       
                       <Box component="ul" sx={{ pl: 3, '& li': { mb: 1.5 } }}>
                         <Typography component="li" variant="body1" sx={{ fontWeight: 500 }}>
-                          Vaar zoveel mogelijk kilometers
+                          {t('participant.checkin.slide2Bullet1')}
                         </Typography>
                         <Typography component="li" variant="body1" sx={{ fontWeight: 500 }}>
-                          Vind checkpoints op de kaart
+                          {t('participant.checkin.slide2Bullet2')}
                         </Typography>
                         <Typography component="li" variant="body1" sx={{ fontWeight: 500 }}>
-                          Doe mee met pitstop activiteiten
+                          {t('participant.checkin.slide2Bullet3')}
                         </Typography>
                         <Typography component="li" variant="body1" sx={{ fontWeight: 500 }}>
-                          Zoek geheime super-checkpoints
+                          {t('participant.checkin.slide2Bullet4')}
                         </Typography>
                       </Box>
 
@@ -954,7 +953,7 @@ export function CheckInPage() {
                         }}
                       >
                         <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                          Finish voor 23:00u bij de Rallydesk!
+                          {t('participant.checkin.finishTime')}
                         </Typography>
                       </Alert>
                     </Stack>
@@ -966,22 +965,22 @@ export function CheckInPage() {
                       <Box sx={{ textAlign: 'center' }}>
                         <PhoneIcon sx={{ color: '#165656', fontSize: 48, mb: 1 }} />
                         <Typography variant="h4" align="center" sx={{ fontWeight: 700, color: '#165656', mb: 3 }}>
-                          Volg Alles Live!
+                          {t('participant.checkin.slide3Title')}
                         </Typography>
                       </Box>
                       
                       <Box component="ul" sx={{ pl: 3, '& li': { mb: 1.5 } }}>
                         <Typography component="li" variant="body1" sx={{ fontWeight: 500 }}>
-                          Zie je punten en positie
+                          {t('participant.checkin.slide3Bullet1')}
                         </Typography>
                         <Typography component="li" variant="body1" sx={{ fontWeight: 500 }}>
-                          Ontvang berichten van de Rallydesk
+                          {t('participant.checkin.slide3Bullet2')}
                         </Typography>
                         <Typography component="li" variant="body1" sx={{ fontWeight: 500 }}>
-                          Check je rivalen
+                          {t('participant.checkin.slide3Bullet3')}
                         </Typography>
                         <Typography component="li" variant="body1" sx={{ fontWeight: 500 }}>
-                          GPS-tracker volgt je route
+                          {t('participant.checkin.slide3Bullet4')}
                         </Typography>
                       </Box>
 
@@ -997,7 +996,7 @@ export function CheckInPage() {
                         }}
                       >
                         <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                          Blijf online tijdens de rally voor live updates!
+                          {t('participant.checkin.slide3Alert')}
                         </Typography>
                       </Alert>
                     </Stack>
@@ -1009,13 +1008,13 @@ export function CheckInPage() {
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <PartyIcon sx={{ color: '#ffcb0f', fontSize: 40 }} />
                         <Typography variant="h4" align="center" sx={{ fontWeight: 700, color: '#165656' }}>
-                          Klaar voor vertrek?
+                          {t('participant.checkin.readyToGo')}
                         </Typography>
                       </Box>
                       <Box
                         component="img"
                         src="/boat.svg"
-                        alt="Boot"
+                        alt={t('participant.checkin.boatAlt2')}
                         sx={{
                           width: 140,
                           height: 140,
@@ -1049,10 +1048,10 @@ export function CheckInPage() {
                           },
                         }}
                       >
-                        Start Inchecken! 🚀
+                        {t('participant.checkin.startCheckin')}
                       </Button>
                       <Typography variant="caption" color="text.secondary" align="center">
-                        Heb je al ingecheckt? Log opnieuw in via deze pagina.
+                        {t('participant.checkin.alreadyCheckedIn')}
                       </Typography>
                     </Stack>
                   </SwiperSlide>
@@ -1072,7 +1071,7 @@ export function CheckInPage() {
 
             {step === 'select-game' && (
               <Stack spacing={2}>
-                <Typography variant="h6">Kies de rally van vandaag</Typography>
+                <Typography variant="h6">{t('participant.checkin.chooseRally')}</Typography>
                 {todayGames.map((g) => (
                   <Button
                     key={g.id}
@@ -1089,28 +1088,28 @@ export function CheckInPage() {
 
             {step === 'select-team' && (
               <Stack spacing={2}>
-                <Typography variant="h6">Zoek je bootnummer</Typography>
+                <Typography variant="h6">{t('participant.checkin.searchBoatNumber')}</Typography>
                 <Autocomplete
                   options={sortedTeamOptions}
                   value={selectedTeam}
                   onChange={(_, value) => setSelectedTeam(value)}
                   getOptionLabel={(option) => option.name ?? ''}
-                  renderOption={(props, option) => (
-                    <Box component="li" {...props} sx={{ minHeight: 48, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  renderOption={({ key, ...props }, option) => (
+                    <Box key={key} component="li" {...props} sx={{ minHeight: 48, display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Typography variant="body1" sx={{ flexGrow: 1 }}>{option.name}</Typography>
                       {!option.checkedIn && (
-                        <Chip 
-                          size="small" 
-                          color="warning" 
+                        <Chip
+                          size="small"
+                          color="warning"
                           icon={<WarningIcon />}
-                          label="Eerst naar Rally Desk" 
+                          label={t('participant.checkin.needsRallyDeskShort')}
                         />
                       )}
-                      {option.checkedIn && <Chip size="small" color="success" label="Ingecheckt" />}
+                      {option.checkedIn && <Chip size="small" color="success" label={t('participant.checkin.checkedIn')} />}
                     </Box>
                   )}
                   renderInput={(params) => (
-                    <TextField {...params} label="Bijv: 1234" placeholder="Zoek op bootnummer" fullWidth />
+                    <TextField {...params} label={t('participant.checkin.boatNumberPlaceholder')} fullWidth />
                   )}
                   fullWidth
                   autoHighlight
@@ -1124,20 +1123,19 @@ export function CheckInPage() {
                   disabled={!selectedTeam || submitting}
                   onClick={handleTeamSelection}
                 >
-                  Verder
+                  {t('common.next')}
                 </Button>
               </Stack>
             )}
 
             {step === 'nickname' && (
               <Stack spacing={2}>
-                <Typography variant="h6">Naam van deze telefoon</Typography>
+                <Typography variant="h6">{t('participant.checkin.deviceName')}</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Geef je telefoon een naam zodat de organisatie en je teamgenoten dit apparaat kunnen herkennen
-                  (bijv. “Jan’s iPhone”).
+                  {t('participant.checkin.deviceNameHint')}
                 </Typography>
                 <TextField
-                  label="Naam apparaat"
+                  label={t('participant.checkin.deviceNameLabel')}
                   value={nicknameInput}
                   onChange={(e) => setNicknameInput(e.target.value)}
                   fullWidth
@@ -1151,34 +1149,34 @@ export function CheckInPage() {
                   disabled={submitting}
                   onClick={handleNicknameSubmit}
                 >
-                  {submitting ? 'Bezig...' : 'Verder'}
+                  {submitting ? t('participant.checkin.loadingShort') : t('common.next')}
                 </Button>
               </Stack>
             )}
 
             {step === 'details' && (
               <Stack spacing={2}>
-                <Typography variant="h6">Teamgegevens</Typography>
+                <Typography variant="h6">{t('participant.checkin.teamDetails')}</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Vul de namen en noodnummers in voor jullie team. Alleen jij kunt dit invoeren namens iedereen. Andere telefoons die nu inchecken wachten tot je klaar bent.
+                  {t('participant.checkin.teamDetails')}
                 </Typography>
                 <TextField
-                  label="Deelnemers namen"
+                  label={t('participant.checkin.participantNames')}
                   value={participantsText}
                   onChange={(e) => setParticipantsText(e.target.value)}
                   multiline
                   minRows={4}
                   fullWidth
-                  helperText="Zet elke deelnemer op een nieuwe regel"
+                  helperText={t('participant.checkin.participantNamesHint')}
                 />
                 <TextField
-                  label="Telefoonnummers van telefoons aan boord"
+                  label={t('participant.checkin.phonesOnBoard')}
                   value={emergencyPhonesText}
                   onChange={(e) => setEmergencyPhonesText(e.target.value)}
                   multiline
                   minRows={3}
                   fullWidth
-                  helperText="Zet elk noodnummer op een nieuwe regel"
+                  helperText={t('participant.checkin.phonesOnBoardHint')}
                 />
                 {formError && <Alert severity="error">{formError}</Alert>}
                 <Button
@@ -1188,17 +1186,16 @@ export function CheckInPage() {
                   disabled={submitting}
                   onClick={handleDetailsSubmit}
                 >
-                  {submitting ? 'Bezig met inchecken...' : 'Inchecken'}
+                  {submitting ? t('participant.checkin.checkingIn') : t('participant.checkin.checkinAction')}
                 </Button>
               </Stack>
             )}
 
             {step === 'traccar-setup' && traccarSetup && (
               <Stack spacing={2}>
-                <Typography variant="h6">Tracking-app instellen</Typography>
+                <Typography variant="h6">{t('participant.checkin.traccarSetupTitle')}</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Jullie team wordt gevolgd via de gratis <strong>Traccar Client</strong>-app.
-                  Installeer de app eerst en tik daarna op de knop om hem in te stellen.
+                  {t('participant.checkin.traccarDescription')}
                 </Typography>
                 <Stack direction="row" spacing={1}>
                   <Button
@@ -1230,10 +1227,10 @@ export function CheckInPage() {
                   component="a"
                   href={buildTraccarDeepLink(traccarSetup.serverUrl, traccarSetup.identifier)}
                 >
-                  ⚡ Open en configureer de Traccar-app
+                  {t('participant.checkin.traccarOpenButton')}
                 </Button>
                 <Typography variant="caption" color="text.secondary" sx={{ mt: -1 }}>
-                  De app opent met alles ingevuld — daarna hoef je alleen nog de tracking aan te zetten.
+                  {t('participant.checkin.traccarOpenHint')}
                 </Typography>
 
                 <Box
@@ -1247,30 +1244,30 @@ export function CheckInPage() {
                   }}
                 >
                   <Typography variant="subtitle2" gutterBottom>
-                    Trackt een andere telefoon? Scan deze code
+                    {t('participant.checkin.traccarScanTitle')}
                   </Typography>
                   {traccarQr ? (
                     <Box
                       component="img"
                       src={traccarQr}
-                      alt="Traccar configuratie QR-code"
+                      alt={t('participant.checkin.traccarQrAlt')}
                       sx={{ width: 240, height: 240, maxWidth: '100%' }}
                     />
                   ) : (
                     <CircularProgress />
                   )}
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                    Open op de andere telefoon de Traccar Client-app, tik op het QR-icoon rechtsboven en scan deze code.
+                    {t('participant.checkin.traccarScanHint')}
                   </Typography>
                 </Box>
 
                 <Box>
                   <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Lukt het niet? Vul dan handmatig in:
+                    {t('participant.checkin.traccarManualHint')}
                   </Typography>
                   <Stack spacing={1.5} sx={{ mt: 1 }}>
                     <TextField
-                      label="Server-URL"
+                      label={t('participant.checkin.traccarServerUrl')}
                       value={traccarSetup.serverUrl}
                       fullWidth
                       size="small"
@@ -1278,7 +1275,7 @@ export function CheckInPage() {
                       onFocus={(e) => e.target.select()}
                     />
                     <TextField
-                      label="Apparaat-ID"
+                      label={t('participant.checkin.traccarDeviceIdLabel')}
                       value={traccarSetup.identifier}
                       fullWidth
                       size="small"
@@ -1292,7 +1289,7 @@ export function CheckInPage() {
                         navigator.clipboard?.writeText(traccarSetup.identifier).catch(() => {});
                       }}
                     >
-                      Apparaat-ID kopiëren
+                      {t('participant.checkin.traccarCopyDeviceId')}
                     </Button>
                   </Stack>
                 </Box>
@@ -1303,17 +1300,16 @@ export function CheckInPage() {
                   fullWidth
                   onClick={() => setStep('rivals')}
                 >
-                  Klaar, ga verder
+                  {t('participant.checkin.traccarDone')}
                 </Button>
               </Stack>
             )}
 
             {step === 'rivals' && (
               <Stack spacing={2}>
-                <Typography variant="h6">Selecteer jullie rivalen</Typography>
+                <Typography variant="h6">{t('participant.checkin.selectRivals')}</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Kies maximaal {MAX_RIVALS} teams om hun stand bij te houden tijdens de Vlettenrally. Dit kan later nog
-                  aangepast worden via het dashboard.
+                  {t('participant.checkin.selectRivalsDescription', { count: MAX_RIVALS })}
                 </Typography>
                 <Autocomplete
                   multiple
@@ -1322,7 +1318,7 @@ export function CheckInPage() {
                   loading={loadingRivals}
                   onChange={(_, value) => {
                     if (value.length > MAX_RIVALS) {
-                      setFormError(`Je kunt maximaal ${MAX_RIVALS} rivalen kiezen.`);
+                      setFormError(t('participant.checkin.maxRivalsError', { count: MAX_RIVALS }));
                       return;
                     }
                     setFormError(null);
@@ -1338,7 +1334,7 @@ export function CheckInPage() {
                     ))
                   }
                   renderInput={(params) => (
-                    <TextField {...params} label="Zoek een bootnummer" placeholder="Begin te typen…" />
+                    <TextField {...params} label={t('participant.checkin.searchBoatNumberShort')} placeholder={t('participant.checkin.startTyping')} />
                   )}
                 />
                 {formError && <Alert severity="error">{formError}</Alert>}
@@ -1349,7 +1345,7 @@ export function CheckInPage() {
                   disabled={submitting || loadingRivals || rivalSelection.length > MAX_RIVALS}
                   onClick={handleRivalsSubmit}
                 >
-                  {submitting ? 'Bezig...' : 'Verder'}
+                  {submitting ? t('participant.checkin.loadingShort') : t('common.next')}
                 </Button>
                 <Button
                   variant="text"
@@ -1358,7 +1354,7 @@ export function CheckInPage() {
                   disabled={submitting}
                   onClick={() => setStep('permissions')}
                 >
-                  Overslaan
+                  {t('common.skip')}
                 </Button>
               </Stack>
             )}
@@ -1368,20 +1364,20 @@ export function CheckInPage() {
                 <CircularProgress />
                 <Typography variant="body1">
                   {mainDeviceNickname
-                    ? `Wachten op ${mainDeviceNickname} om de teamgegevens in te vullen.`
-                    : 'Wachten op de hoofdtelefoon van jullie team.'}
+                    ? t('participant.checkin.waitingForLeader', { name: mainDeviceNickname })
+                    : t('participant.checkin.waitingForMainPhone')}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Zodra de gegevens zijn ingevuld krijg je hier automatisch de volgende stap.
+                  {t('participant.checkin.waitingDetails')}
                 </Typography>
               </Stack>
             )}
 
             {step === 'permissions' && (
               <Stack spacing={2}>
-                <Typography variant="h6">Meldingen toestaan</Typography>
+                <Typography variant="h6">{t('participant.checkin.allowNotifications')}</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Sta meldingen toe zodat je updates en berichten ontvangt tijdens de rally.
+                  {t('participant.checkin.notificationsDesc')}
                 </Typography>
 
                 {notificationError && <Alert severity="warning">{notificationError}</Alert>}
@@ -1392,7 +1388,7 @@ export function CheckInPage() {
                   disabled={notificationsDone}
                   onClick={handleEnableNotifications}
                 >
-                  {notificationsDone ? 'Meldingen ingesteld' : 'Sta meldingen toe'}
+                  {notificationsDone ? t('participant.checkin.notificationsSet') : t('participant.checkin.grantNotifications')}
                 </Button>
 
                 <Button
@@ -1403,10 +1399,10 @@ export function CheckInPage() {
                   disabled={!notificationsDone}
                   onClick={handleFinishPermissions}
                 >
-                  Naar het dashboard
+                  {t('participant.checkin.toDashboard')}
                 </Button>
                 <Button variant="text" size="small" fullWidth onClick={handleFinishPermissions}>
-                  Overslaan en verder
+                  {t('participant.checkin.skipAndContinue')}
                 </Button>
               </Stack>
             )}

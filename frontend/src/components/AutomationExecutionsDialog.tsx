@@ -17,6 +17,7 @@ import {
   Alert,
 } from '@mui/material';
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import api from '../services/api';
 import type { AutomationExecution, AutomationRule } from '../types/entities';
 
@@ -34,7 +35,7 @@ const STATUS_COLORS: Record<AutomationExecution['status'], 'success' | 'warning'
 };
 
 function formatTimestamp(iso: string): string {
-  return new Date(iso).toLocaleString('nl-NL', {
+  return new Date(iso).toLocaleString(undefined, {
     day: '2-digit',
     month: '2-digit',
     hour: '2-digit',
@@ -49,6 +50,7 @@ export default function AutomationExecutionsDialog({
   rule,
   gameId,
 }: AutomationExecutionsDialogProps) {
+  const { t } = useTranslation();
   const [executions, setExecutions] = useState<AutomationExecution[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
@@ -66,10 +68,10 @@ export default function AutomationExecutionsDialog({
         setExecutions(response.data.executions);
         setTotalCount(response.data.totalCount);
       } else {
-        setError(response.error || 'Historie laden mislukt');
+        setError(response.error || t('components.automationExecutions.loadFailed'));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Historie laden mislukt');
+      setError(err instanceof Error ? err.message : t('components.automationExecutions.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -89,7 +91,7 @@ export default function AutomationExecutionsDialog({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>Historie — {rule?.name}</DialogTitle>
+      <DialogTitle>{t('components.automationExecutions.title', { name: rule?.name })}</DialogTitle>
       <DialogContent>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
@@ -102,24 +104,24 @@ export default function AutomationExecutionsDialog({
           </Box>
         ) : executions.length === 0 ? (
           <Typography color="text.secondary" sx={{ p: 2 }}>
-            Deze automatisering is nog niet uitgevoerd.
+            {t('components.automationExecutions.noExecutions')}
           </Typography>
         ) : (
           <>
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell><strong>Tijdstip</strong></TableCell>
-                  <TableCell><strong>Team</strong></TableCell>
-                  <TableCell><strong>Status</strong></TableCell>
-                  <TableCell><strong>Details</strong></TableCell>
+                  <TableCell><strong>{t('components.automationExecutions.columnTime')}</strong></TableCell>
+                  <TableCell><strong>{t('components.automationExecutions.columnTeam')}</strong></TableCell>
+                  <TableCell><strong>{t('components.automationExecutions.columnStatus')}</strong></TableCell>
+                  <TableCell><strong>{t('components.automationExecutions.columnDetails')}</strong></TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {executions.map((execution) => (
                   <TableRow key={execution.id} hover>
                     <TableCell>{formatTimestamp(execution.firedAt)}</TableCell>
-                    <TableCell>{execution.teamName ?? 'Hele game'}</TableCell>
+                    <TableCell>{execution.teamName ?? t('components.automationExecutions.wholeGame')}</TableCell>
                     <TableCell>
                       <Chip
                         size="small"
@@ -149,13 +151,13 @@ export default function AutomationExecutionsDialog({
                 setPageSize(parseInt(e.target.value, 10));
                 setPage(0);
               }}
-              labelRowsPerPage="Per pagina"
+              labelRowsPerPage={t('components.automationExecutions.perPage')}
             />
           </>
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Sluiten</Button>
+        <Button onClick={onClose}>{t('components.automationExecutions.close')}</Button>
       </DialogActions>
     </Dialog>
   );

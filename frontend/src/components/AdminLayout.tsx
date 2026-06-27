@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Alert,
   AppBar,
@@ -73,6 +74,7 @@ interface AdminLayoutProps {
 export function AdminLayout({ children }: AdminLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation();
   const theme = useTheme();
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
 
@@ -111,19 +113,19 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   }, [sidebarCollapsed]);
 
   const allMenuItems = [
-    { text: 'Kaart', icon: <MapIcon />, path: '/admin/map' },
-    { text: 'Games', icon: <GamesIcon />, path: '/admin/games' },
-    { text: 'Teams', icon: <TeamsIcon />, path: '/admin/teams' },
-    { text: 'Inchecken', icon: <HowToRegIcon />, path: '/admin/check-in' },
-    { text: 'Puntenbeheer', icon: <ScoreboardIcon />, path: '/admin/points-management' },
-    { text: 'Zones', icon: <PlaceIcon />, path: '/admin/zones' },
-    { text: 'Admin Users', icon: <ManageAccountsIcon />, path: '/admin/admin-users' },
-    { text: 'Checkpoint Beheer', icon: <FlagIcon />, path: '/admin/checkpoint-station' },
-    { text: 'Berichten', icon: <MessageIcon />, path: '/admin/messages' },
-    { text: 'Inbox', icon: <InboxIcon />, path: '/admin/inbox' },
-    { text: 'Automations', icon: <AutomationsIcon />, path: '/admin/automations' },
-    { text: 'Foto\'s', icon: <PhotoLibraryIcon />, path: '/admin/pictures' },
-    { text: 'Instellingen', icon: <SettingsIcon />, path: '/admin/settings' },
+    { text: t('admin.layout.map'), icon: <MapIcon />, path: '/admin/map' },
+    { text: t('admin.layout.games'), icon: <GamesIcon />, path: '/admin/games' },
+    { text: t('admin.layout.teams'), icon: <TeamsIcon />, path: '/admin/teams' },
+    { text: t('admin.layout.checkIn'), icon: <HowToRegIcon />, path: '/admin/check-in' },
+    { text: t('admin.layout.pointsManagement'), icon: <ScoreboardIcon />, path: '/admin/points-management' },
+    { text: t('admin.layout.zones'), icon: <PlaceIcon />, path: '/admin/zones' },
+    { text: t('admin.layout.adminUsers'), icon: <ManageAccountsIcon />, path: '/admin/admin-users' },
+    { text: t('admin.layout.checkpointStation'), icon: <FlagIcon />, path: '/admin/checkpoint-station' },
+    { text: t('admin.layout.messages'), icon: <MessageIcon />, path: '/admin/messages' },
+    { text: t('admin.layout.inbox'), icon: <InboxIcon />, path: '/admin/inbox' },
+    { text: t('admin.layout.automations'), icon: <AutomationsIcon />, path: '/admin/automations' },
+    { text: t('admin.layout.pictures'), icon: <PhotoLibraryIcon />, path: '/admin/pictures' },
+    { text: t('admin.layout.settings'), icon: <SettingsIcon />, path: '/admin/settings' },
   ];
 
   // Only show menu items the current user's role(s) are allowed to access.
@@ -162,7 +164,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <Box sx={{ p: 2, bgcolor: '#1a237e', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         {!sidebarCollapsed && (
-          <Typography variant="h6">Admin Panel</Typography>
+          <Typography variant="h6">{t('admin.layout.adminPanel')}</Typography>
         )}
         {isDesktop && (
           <IconButton
@@ -198,7 +200,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       {isDesktop && !sidebarCollapsed && (
         <Box sx={{ p: 2, flexGrow: 1, overflowY: 'auto' }}>
           <Typography variant="overline" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-            Quick Stats
+            {t('admin.layout.quickStats')}
           </Typography>
           <GameClockWidget collapsed={sidebarCollapsed} />
           <ActiveGamesWidget collapsed={sidebarCollapsed} />
@@ -221,7 +223,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         <Divider />
         <List>
           <ListItem disablePadding>
-            <Tooltip title={sidebarCollapsed ? 'Uitloggen' : ''} placement="right">
+            <Tooltip title={sidebarCollapsed ? t('admin.layout.logout') : ''} placement="right">
               <ListItemButton
                 onClick={handleLogout}
                 sx={{ justifyContent: sidebarCollapsed ? 'center' : 'flex-start', px: sidebarCollapsed ? 1 : 2 }}
@@ -229,7 +231,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                 <ListItemIcon sx={{ minWidth: sidebarCollapsed ? 0 : 40, justifyContent: 'center' }}>
                   <LogoutIcon />
                 </ListItemIcon>
-                {!sidebarCollapsed && <ListItemText primary="Uitloggen" />}
+                {!sidebarCollapsed && <ListItemText primary={t('admin.layout.logout')} />}
               </ListItemButton>
             </Tooltip>
           </ListItem>
@@ -292,7 +294,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                 size="large"
                 edge="start"
                 color="inherit"
-                aria-label="menu"
+                aria-label={t('components.teamLayout.menuAriaLabel')}
                 sx={{ mr: 2 }}
                 onClick={() => setDrawerOpen(true)}
               >
@@ -301,15 +303,15 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             )}
             <AdminIcon sx={{ mr: 1 }} />
             <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-              Vlettenrally Admin
+              {t('admin.layout.title')}
             </Typography>
             {games.length > 0 && (
               <FormControl size="small" sx={{ minWidth: 150, mr: 2 }}>
-                <InputLabel id="game-select-label" sx={{ color: 'white' }}>Game</InputLabel>
+                <InputLabel id="game-select-label" sx={{ color: 'white' }}>{t('admin.layout.game')}</InputLabel>
                 <Select
                   labelId="game-select-label"
                   value={selectedGameId || ''}
-                  label="Game"
+                  label={t('admin.layout.game')}
                   onChange={handleGameChange}
                   sx={{
                     color: 'white',
@@ -335,7 +337,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             icon={<WifiOffIcon />}
             sx={{ borderRadius: 0 }}
           >
-            Geen verbinding met server. Sommige gegevens kunnen verouderd zijn.
+            {t('admin.layout.noConnection')}
           </Alert>
         )}
 

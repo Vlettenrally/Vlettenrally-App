@@ -7,6 +7,7 @@
  * - User's device geolocation via MapLibre GeolocateControl
  */
 import {lazy, Suspense, useCallback, useEffect, useState} from 'react';
+import { useTranslation } from 'react-i18next';
 import {Alert, Box, CircularProgress, Typography} from '@mui/material';
 import type {MapMarker} from '../../components/MapView';
 import {getTeamColor} from '../../utils/teamColors';
@@ -22,6 +23,7 @@ const MapView = lazy(() => import('../../components/MapView'));
 
 export default function ParticipantMap() {
   const { team } = useTeamStore();
+  const { t } = useTranslation();
   const gameId = storage.getGameId();
   const teamId = team?.id || storage.getTeamId();
 
@@ -87,7 +89,7 @@ export default function ParticipantMap() {
       id: myLocation.teamId,
       lat: myLocation.latitude,
       lng: myLocation.longitude,
-      label: myLocation.teamName || team?.name || 'Mijn team',
+      label: myLocation.teamName || team?.name || t('participant.map.myTeam'),
       color: getTeamColor(myLocation.teamId),
       type: 'team' as const,
     }] : []),
@@ -120,7 +122,7 @@ export default function ParticipantMap() {
         </Box>
       ) : !gameId ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
-          <Typography color="text.secondary">Geen game geselecteerd</Typography>
+          <Typography color="text.secondary">{t('participant.map.noGame')}</Typography>
         </Box>
       ) : (
         <Box sx={{ flex: 1, position: 'relative' }}>
@@ -157,7 +159,7 @@ export default function ParticipantMap() {
               }}
             />
             <Typography variant="caption" color="text.secondary">
-              {myLocation ? 'Locatie beschikbaar' : 'Wachten op locatie...'}
+              {myLocation ? t('participant.map.locationAvailable') : t('participant.map.waitingForLocation')}
             </Typography>
           </Box>
         </Box>

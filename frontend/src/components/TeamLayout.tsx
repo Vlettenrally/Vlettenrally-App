@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   AppBar,
   Box,
@@ -44,6 +45,7 @@ interface TeamLayoutProps {
 export function TeamLayout({ children }: TeamLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { reset: resetTeam, team, setTeam } = useTeamStore();
   const { reset: resetGame, game, fetchGameById } = useGameStore();
@@ -92,18 +94,18 @@ export function TeamLayout({ children }: TeamLayoutProps) {
   // near the end; the final ranking is only shown after an admin reveals it.
   const rivalsHidden = team?.finished || game?.status === 'completed';
   const menuItems = [
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
+    { text: t('components.teamLayout.dashboard'), icon: <DashboardIcon />, path: '/dashboard' },
     ...(game?.participantInfo
-      ? [{ text: 'Spelinformatie', icon: <DescriptionIcon />, path: '/info' }]
+      ? [{ text: t('components.teamLayout.info'), icon: <DescriptionIcon />, path: '/info' }]
       : []),
-    { text: 'Kaart', icon: <MapIcon />, path: '/map' },
-    { text: 'Foto\'s', icon: <PhotoCameraIcon />, path: '/pictures' },
+    { text: t('components.teamLayout.map'), icon: <MapIcon />, path: '/map' },
+    { text: t('components.teamLayout.pictures'), icon: <PhotoCameraIcon />, path: '/pictures' },
     ...(game?.rankingsPublished
-      ? [{ text: 'Eindstand', icon: <LeaderboardIcon />, path: '/rankings' }]
+      ? [{ text: t('components.teamLayout.rankings'), icon: <LeaderboardIcon />, path: '/rankings' }]
       : []),
     ...(rivalsHidden
       ? []
-      : [{ text: 'Rivaal', icon: <RivalIcon />, path: '/rival' }]),
+      : [{ text: t('components.teamLayout.rivals'), icon: <RivalIcon />, path: '/rival' }]),
   ];
 
   const handleNavigate = (path: string) => {
@@ -135,7 +137,7 @@ export function TeamLayout({ children }: TeamLayoutProps) {
             size="large"
             edge="start"
             color="inherit"
-            aria-label="menu"
+            aria-label={t('components.teamLayout.menuAriaLabel')}
             sx={{ mr: 2 }}
             onClick={() => setDrawerOpen(true)}
           >
@@ -214,7 +216,7 @@ export function TeamLayout({ children }: TeamLayoutProps) {
                 <ListItemIcon>
                   <LogoutIcon />
                 </ListItemIcon>
-                <ListItemText primary="Uitloggen" />
+                <ListItemText primary={t('components.teamLayout.logout')} />
               </ListItemButton>
             </ListItem>
           </List>

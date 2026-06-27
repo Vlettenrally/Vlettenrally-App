@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Alert,
   Box,
@@ -29,6 +30,7 @@ interface AutomationNotificationPayload {
 }
 
 export default function AdminInbox() {
+  const { t } = useTranslation();
   const selectedGameId = useGameStore((s) => s.selectedGameId);
   const [notifications, setNotifications] = useState<AdminInboxNotification[]>([]);
   const [loading, setLoading] = useState(false);
@@ -63,8 +65,6 @@ export default function AdminInbox() {
     return () => window.clearTimeout(timer);
   }, [loadNotifications]);
 
-  // Reload on resync (app resume / reconnect) to catch notifications whose
-  // events were missed while suspended.
   useAdminResync(() => void loadNotifications());
 
   useEffect(() => {
@@ -120,7 +120,7 @@ export default function AdminInbox() {
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold' }}>
-          Inbox
+          {t('admin.inbox.title')}
         </Typography>
         <Button
           variant="outlined"
@@ -128,11 +128,11 @@ export default function AdminInbox() {
           disabled={!selectedGameId || unreadCount === 0 || markingAll}
           onClick={markAllAsRead}
         >
-          Alles als gelezen ({unreadCount})
+          {t('admin.inbox.markAllRead', { count: unreadCount })}
         </Button>
       </Box>
 
-      {!selectedGameId && <Alert severity="info">Selecteer een spel in de header om inboxberichten te zien.</Alert>}
+      {!selectedGameId && <Alert severity="info">{t('admin.inbox.selectGame')}</Alert>}
 
       {selectedGameId && (
         <>
@@ -149,7 +149,7 @@ export default function AdminInbox() {
               </Box>
             ) : notifications.length === 0 ? (
               <Box sx={{ py: 5, textAlign: 'center' }}>
-                <Typography color="text.secondary">Nog geen inboxberichten</Typography>
+                <Typography color="text.secondary">{t('admin.inbox.noNotifications')}</Typography>
               </Box>
             ) : (
               <List disablePadding>
@@ -160,7 +160,7 @@ export default function AdminInbox() {
                     secondaryAction={
                       !notification.read ? (
                         <Button size="small" onClick={() => void markAsRead(notification.id)}>
-                          Gelezen
+                          {t('admin.inbox.markRead')}
                         </Button>
                       ) : undefined
                     }
@@ -174,18 +174,20 @@ export default function AdminInbox() {
                       primary={
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pr: 10 }}>
                           <Typography variant="body1">{notification.content}</Typography>
-                          {!notification.read && <Chip size="small" color="primary" label="Nieuw" />}
+                          {!notification.read && (
+                            <Chip size="small" color="primary" label={t('admin.inbox.new')} />
+                          )}
                         </Box>
                       }
                       secondary={
                         <Box sx={{ display: 'flex', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
                           {notification.teamName && (
                             <Typography variant="caption" color="text.secondary">
-                              Team: {notification.teamName}
+                              {t('common.team')}: {notification.teamName}
                             </Typography>
                           )}
                           <Typography variant="caption" color="text.secondary">
-                            {new Date(notification.createdAt).toLocaleString('nl-NL')}
+                            {new Date(notification.createdAt).toLocaleString(undefined)}
                           </Typography>
                           <Chip size="small" variant="outlined" label={notification.source} />
                         </Box>
@@ -206,7 +208,7 @@ export default function AdminInbox() {
                 setPage(0);
               }}
               rowsPerPageOptions={[10, 20, 50]}
-              labelRowsPerPage="Rijen per pagina:"
+              labelRowsPerPage={t('admin.inbox.rowsPerPage')}
             />
           </Paper>
         </>

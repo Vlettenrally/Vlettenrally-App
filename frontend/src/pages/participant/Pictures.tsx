@@ -6,6 +6,7 @@
  * before they appear in the public slideshow.
  */
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Alert,
   Box,
@@ -36,13 +37,8 @@ const MAX_PICTURES = 5;
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
-const STATUS_LABELS: Record<PictureStatus, { label: string; color: 'default' | 'success' | 'warning' | 'error' }> = {
-  PENDING: { label: 'In behandeling', color: 'warning' },
-  APPROVED: { label: 'Goedgekeurd', color: 'success' },
-  REJECTED: { label: 'Afgewezen', color: 'error' },
-};
-
 export default function Pictures() {
+  const { t } = useTranslation();
   const { team } = useTeamStore();
   const { game } = useGameStore();
   const {
@@ -65,7 +61,7 @@ export default function Pictures() {
       .then((res) => {
         if (res.data) setPictures(res.data as Picture[]);
       })
-      .catch(() => setError('Kon de foto’s niet laden.'))
+      .catch(() => setError(t('participant.pictures.loadError')))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [team]);
@@ -89,11 +85,11 @@ export default function Pictures() {
     if (!file || !team) return;
 
     if (!ALLOWED_TYPES.includes(file.type)) {
-      setError('Alleen JPEG-, PNG- of WebP-afbeeldingen zijn toegestaan.');
+      setError(t('participant.pictures.typeError'));
       return;
     }
     if (file.size > MAX_BYTES) {
-      setError('De afbeelding is te groot (max. 10 MB).');
+      setError(t('participant.pictures.sizeError'));
       return;
     }
 
@@ -108,7 +104,7 @@ export default function Pictures() {
         sizeBytes: file.size,
       });
       if (!reservation.data) {
-        setError(reservation.error || 'Uploaden mislukt.');
+        setError(reservation.error || t('participant.pictures.uploadFailed'));
         return;
       }
 
@@ -117,7 +113,7 @@ export default function Pictures() {
         setUploadProgress(progressKey, p),
       );
       if (!upload.ok) {
-        setError('Uploaden naar de opslag is mislukt.');
+        setError(t('participant.pictures.storageFailed'));
         return;
       }
 
@@ -125,11 +121,11 @@ export default function Pictures() {
       if (confirmed.data) {
         upsertPicture(confirmed.data as Picture);
       } else {
-        setError(confirmed.error || 'Bevestigen van de upload is mislukt.');
+        setError(confirmed.error || t('participant.pictures.confirmFailed'));
       }
     } catch (e) {
       console.warn('Picture upload failed', e);
-      setError('Uploaden mislukt. Probeer het opnieuw.');
+      setError(t('participant.pictures.uploadRetry'));
     } finally {
       clearUploadProgress(progressKey);
       setUploading(false);
@@ -142,26 +138,31 @@ export default function Pictures() {
     if (res.status === 204 || res.status === 200) {
       removePicture(picture.id);
     } else {
-      setError(res.error || 'Verwijderen mislukt.');
+      setError(res.error || t('participant.pictures.deleteFailed'));
     }
   };
 
   if (!team) {
     return (
       <Container maxWidth="md" sx={{ mt: 3 }}>
-        <Typography>Team laden…</Typography>
+        <Typography>{t('participant.pictures.loadingTeam')}</Typography>
       </Container>
     );
   }
 
   const activeProgress = Object.values(uploadProgress);
+  const statusLabels: Record<PictureStatus, { label: string; color: 'default' | 'success' | 'warning' | 'error' }> = {
+    PENDING: { label: t('participant.pictures.pending'), color: 'warning' },
+    APPROVED: { label: t('participant.pictures.approved'), color: 'success' },
+    REJECTED: { label: t('participant.pictures.rejected'), color: 'error' },
+  };
 
   return (
     <Container maxWidth="md" sx={{ mt: 3, mb: 6 }}>
       <Stack spacing={2}>
         <Box display="flex" alignItems="center" justifyContent="space-between">
           <Typography variant="h4" component="h1">
-            Foto&apos;s
+            {t('participant.pictures.title')}
           </Typography>
           <Button
             variant="contained"
@@ -169,23 +170,22 @@ export default function Pictures() {
             onClick={handlePick}
             disabled={uploading || slotsFull || !gameOngoing}
           >
-            Foto toevoegen
+            {t('participant.pictures.addPhoto')}
           </Button>
         </Box>
 
         <Typography variant="body2" color="text.secondary">
-          Je kunt maximaal {MAX_PICTURES} foto&apos;s uploaden ({activeCount}/{MAX_PICTURES} gebruikt).
+          {t('participant.pictures.uploadLimit', { max: MAX_PICTURES, current: activeCount })}
         </Typography>
 
         {!gameOngoing && (
           <Alert severity="warning">
-            Je kunt alleen foto&apos;s uploaden terwijl de rally bezig is.
+            {t('participant.pictures.rallyNotActive')}
           </Alert>
         )}
 
         <Alert severity="info" icon={<PublicIcon />}>
-          Let op: foto&apos;s die je uploadt kunnen na goedkeuring <strong>openbaar zichtbaar</strong> zijn
-          (bijvoorbeeld in de diavoorstelling). Upload geen foto&apos;s die niet iedereen mag zien.
+          {t('participant.pictures.publicWarning')}
         </Alert>
 
         <input
@@ -200,7 +200,7 @@ export default function Pictures() {
 
         {activeProgress.map((percent, i) => (
           <Box key={i}>
-            <Typography variant="caption" color="text.secondary">Uploaden… {percent}%</Typography>
+            <Typography variant="caption" color="text.secondary">{t('participant.pictures.uploading', { percent })}</Typography>
             <LinearProgress variant="determinate" value={percent} />
           </Box>
         ))}
@@ -210,7 +210,7 @@ export default function Pictures() {
             <CircularProgress />
           </Box>
         ) : pictures.length === 0 ? (
-          <Typography color="text.secondary">Nog geen foto&apos;s geüpload.</Typography>
+          <Typography color="text.secondary">{t('participant.pictures.noPhotos')}</Typography>
         ) : (
           <Box
             sx={{
@@ -220,14 +220,14 @@ export default function Pictures() {
             }}
           >
             {pictures.map((picture) => {
-              const status = STATUS_LABELS[picture.status];
+              const status = statusLabels[picture.status];
               return (
                 <Card key={picture.id} sx={{ position: 'relative' }}>
                   {picture.viewUrl ? (
                     <CardMedia
                       component="img"
                       image={picture.viewUrl}
-                      alt="Geüploade foto"
+                      alt={t('participant.pictures.photoAlt')}
                       sx={{ aspectRatio: '3 / 2', objectFit: 'cover' }}
                     />
                   ) : (
@@ -240,7 +240,7 @@ export default function Pictures() {
                   </Box>
                   {picture.status === 'PENDING' && (
                     <Box sx={{ position: 'absolute', top: 4, right: 4 }}>
-                      <Tooltip title="Verwijderen">
+                      <Tooltip title={t('participant.pictures.delete')}>
                         <IconButton
                           size="small"
                           onClick={() => handleDelete(picture)}

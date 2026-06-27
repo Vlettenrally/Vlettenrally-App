@@ -24,6 +24,7 @@ import {
   Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import api from '../services/api';
 import { formatForDateTimeLocalInput } from '../utils/dateTime';
 import type { Checkpoint, CheckpointRequest } from '../types/entities';
@@ -66,6 +67,7 @@ export default function ZoneFormDialog({
   gameId,
   onSave,
 }: ZoneFormDialogProps) {
+  const { t } = useTranslation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
@@ -129,12 +131,12 @@ export default function ZoneFormDialog({
 
   const handleSave = async () => {
     if (!formData.name.trim()) {
-      setError('Naam is verplicht');
+      setError(t('components.zoneForm.nameRequired'));
       return;
     }
 
     if (formData.zoneType === 'polygon' && (!formData.polygonPoints || formData.polygonPoints.length < 3)) {
-      setError('Een polygoon heeft minimaal 3 punten nodig');
+      setError(t('components.zoneForm.polygonMinPoints'));
       return;
     }
 
@@ -172,7 +174,7 @@ export default function ZoneFormDialog({
       }
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Opslaan mislukt');
+      setError(err instanceof Error ? err.message : t('components.zoneForm.saveFailed'));
     } finally {
       setLoading(false);
     }
@@ -236,7 +238,7 @@ export default function ZoneFormDialog({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth fullScreen={isMobile}>
-      <DialogTitle>{isCreateMode ? 'Zone toevoegen' : 'Zone bewerken'}</DialogTitle>
+      <DialogTitle>{isCreateMode ? t('components.zoneForm.addTitle') : t('components.zoneForm.editTitle')}</DialogTitle>
       <DialogContent>
         {error && (
           <Alert severity="error" sx={{ mb: 2, mt: 1 }}>
@@ -245,7 +247,7 @@ export default function ZoneFormDialog({
         )}
 
         <TextField
-          label="Naam"
+          label={t('components.zoneForm.name')}
           fullWidth
           required
           value={formData.name}
@@ -255,7 +257,7 @@ export default function ZoneFormDialog({
         />
 
         <TextField
-          label="Punten"
+          label={t('components.zoneForm.points')}
           fullWidth
           type="number"
           value={formData.points ?? ''}
@@ -268,7 +270,7 @@ export default function ZoneFormDialog({
 
         {/* Zone type & radius config */}
         <Typography variant="subtitle2" sx={{ mt: 2, mb: 0.5 }}>
-          Zone-vorm
+          {t('components.zoneForm.shape')}
         </Typography>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap', mb: 1 }}>
           <ToggleButtonGroup
@@ -278,16 +280,16 @@ export default function ZoneFormDialog({
             size="small"
           >
             <ToggleButton value="circle">
-              <CircleIcon sx={{ mr: 0.5 }} fontSize="small" /> Cirkel
+              <CircleIcon sx={{ mr: 0.5 }} fontSize="small" /> {t('components.zoneForm.circle')}
             </ToggleButton>
             <ToggleButton value="polygon">
-              <PolygonIcon sx={{ mr: 0.5 }} fontSize="small" /> Polygoon
+              <PolygonIcon sx={{ mr: 0.5 }} fontSize="small" /> {t('components.zoneForm.polygon')}
             </ToggleButton>
           </ToggleButtonGroup>
 
           {formData.zoneType === 'circle' && (
             <TextField
-              label="Straal (m)"
+              label={t('components.zoneForm.radius')}
               type="number"
               size="small"
               value={formData.radiusMeters ?? ''}
@@ -303,12 +305,12 @@ export default function ZoneFormDialog({
 
         {formData.zoneType === 'polygon' && (
           <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-            Klik op de kaart om punten toe te voegen (min. 3). Punten kunnen ook handmatig worden aangepast.
+            {t('components.zoneForm.clickMap')}
           </Typography>
         )}
 
         <Typography variant="subtitle2" sx={{ mt: 1, mb: 0.5 }}>
-          Locatie
+          {t('components.zoneForm.location')}
         </Typography>
         <LocationPickerMap
           value={
@@ -337,11 +339,11 @@ export default function ZoneFormDialog({
         {formData.zoneType === 'circle' && (
           <Box sx={{ mt: 1 }}>
             <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-              Coördinaten
+              {t('components.zoneForm.coordinates')}
             </Typography>
             <Box sx={{ display: 'flex', gap: 1 }}>
               <TextField
-                label="Breedtegraad"
+                label={t('components.zoneForm.latitude')}
                 type="number"
                 size="small"
                 fullWidth
@@ -353,7 +355,7 @@ export default function ZoneFormDialog({
                 slotProps={{ htmlInput: { step: 0.00001, lang: 'en' } }}
               />
               <TextField
-                label="Lengtegraad"
+                label={t('components.zoneForm.longitude')}
                 type="number"
                 size="small"
                 fullWidth
@@ -372,10 +374,10 @@ export default function ZoneFormDialog({
           <Box sx={{ mt: 1 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
               <Typography variant="subtitle2">
-                Polygoon-punten ({formData.polygonPoints?.length ?? 0})
+                {t('components.zoneForm.polygonPoints', { count: formData.polygonPoints?.length ?? 0 })}
               </Typography>
               <Button size="small" startIcon={<AddIcon />} onClick={handleAddPolygonPoint}>
-                Punt toevoegen
+                {t('components.zoneForm.addPoint')}
               </Button>
             </Box>
             {(formData.polygonPoints || []).map((point, index) => (
@@ -384,7 +386,7 @@ export default function ZoneFormDialog({
                   {index + 1}.
                 </Typography>
                 <TextField
-                  label="Breedtegraad"
+                  label={t('components.zoneForm.latitude')}
                   type="number"
                   size="small"
                   lang="en"
@@ -394,7 +396,7 @@ export default function ZoneFormDialog({
                   sx={{ flex: 1 }}
                 />
                 <TextField
-                  label="Lengtegraad"
+                  label={t('components.zoneForm.longitude')}
                   type="number"
                   size="small"
                   lang="en"
@@ -403,7 +405,7 @@ export default function ZoneFormDialog({
                   slotProps={{ htmlInput: { step: 0.00001, lang: 'en' } }}
                   sx={{ flex: 1 }}
                 />
-                <IconButton size="small" color="error" onClick={() => handleRemovePolygonPoint(index)} title="Punt verwijderen">
+                <IconButton size="small" color="error" onClick={() => handleRemovePolygonPoint(index)} title={t('components.zoneForm.removePoint')}>
                   <DeleteIcon fontSize="small" />
                 </IconButton>
               </Box>
@@ -413,7 +415,7 @@ export default function ZoneFormDialog({
 
         <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
           <TextField
-            label="Openingstijd"
+            label={t('components.zoneForm.openTime')}
             fullWidth
             type="datetime-local"
             value={formData.openingTime || ''}
@@ -422,7 +424,7 @@ export default function ZoneFormDialog({
             slotProps={{ inputLabel: { shrink: true } }}
           />
           <TextField
-            label="Sluitingstijd"
+            label={t('components.zoneForm.closeTime')}
             fullWidth
             type="datetime-local"
             value={formData.closingTime || ''}
@@ -440,15 +442,15 @@ export default function ZoneFormDialog({
               onChange={(e) => setFormData(prev => ({ ...prev, hidden: e.target.checked }))}
             />
           }
-          label="Verborgen voor teams (triggert nog wel automatiseringen)"
+          label={t('components.zoneForm.hiddenFromTeams')}
         />
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} disabled={loading}>
-          Annuleren
+          {t('common.cancel')}
         </Button>
         <Button onClick={handleSave} variant="contained" disabled={loading}>
-          {loading ? <CircularProgress size={20} /> : isCreateMode ? 'Toevoegen' : 'Opslaan'}
+          {loading ? <CircularProgress size={20} /> : isCreateMode ? t('common.add') : t('common.save')}
         </Button>
       </DialogActions>
     </Dialog>

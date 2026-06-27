@@ -14,6 +14,7 @@ import {
   Box,
 } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import api from '../services/api';
 import { useGameStore } from '../store/useGameStore';
 import type { CopyAutomationsResult } from '../types/entities';
@@ -31,6 +32,7 @@ export default function CopyAutomationsDialog({
   gameId,
   onCopied,
 }: CopyAutomationsDialogProps) {
+  const { t } = useTranslation();
   const games = useGameStore((s) => s.games);
   const fetchGames = useGameStore((s) => s.fetchGames);
 
@@ -66,10 +68,10 @@ export default function CopyAutomationsDialog({
         setResult(response.data);
         onCopied?.();
       } else {
-        setError(response.error || 'Kopiëren mislukt');
+        setError(response.error || t('components.copyAutomations.copyFailed'));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Kopiëren mislukt');
+      setError(err instanceof Error ? err.message : t('components.copyAutomations.copyFailed'));
     } finally {
       setLoading(false);
     }
@@ -77,35 +79,33 @@ export default function CopyAutomationsDialog({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Automatiseringen kopiëren</DialogTitle>
+      <DialogTitle>{t('components.copyAutomations.title')}</DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
           <Typography variant="body2" color="text.secondary">
-            Kopieert alle automatiseringen van een andere game naar deze game. Teamselecties
-            vervallen (gelden dan voor alle teams), checkpoints worden op locatie gematcht en
-            het afstandspunten-tarief wordt overgenomen.
+            {t('components.copyAutomations.description')}
           </Typography>
 
           {error && <Alert severity="error">{error}</Alert>}
 
           {result ? (
             <Alert severity="success">
-              {result.copied} gekopieerd
-              {result.distanceRateCopied && ', afstandstarief overgenomen'}.
+              {t('components.copyAutomations.copied', { count: result.copied })}
+              {result.distanceRateCopied && t('components.copyAutomations.distanceRateCopied')}.
               {result.skippedDuplicate.length > 0 && (
-                <div>Overgeslagen (bestaat al): {result.skippedDuplicate.join(', ')}</div>
+                <div>{t('components.copyAutomations.skippedDuplicate', { names: result.skippedDuplicate.join(', ') })}</div>
               )}
               {result.skippedUnmatchedCheckpoint.length > 0 && (
                 <div>
-                  Overgeslagen (checkpoint niet gevonden): {result.skippedUnmatchedCheckpoint.join(', ')}
+                  {t('components.copyAutomations.skippedUnmatchedCheckpoint', { names: result.skippedUnmatchedCheckpoint.join(', ') })}
                 </div>
               )}
             </Alert>
           ) : (
             <FormControl fullWidth>
-              <InputLabel>Bron-game</InputLabel>
+              <InputLabel>{t('components.copyAutomations.sourceGame')}</InputLabel>
               <Select
-                label="Bron-game"
+                label={t('components.copyAutomations.sourceGame')}
                 value={sourceGameId}
                 onChange={(e) => setSourceGameId(e.target.value)}
               >
@@ -120,10 +120,10 @@ export default function CopyAutomationsDialog({
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>{result ? 'Sluiten' : 'Annuleren'}</Button>
+        <Button onClick={onClose}>{result ? t('components.copyAutomations.close') : t('common.cancel')}</Button>
         {!result && (
           <Button onClick={handleCopy} variant="contained" disabled={loading || !sourceGameId}>
-            {loading ? <CircularProgress size={20} /> : 'Kopiëren'}
+            {loading ? <CircularProgress size={20} /> : t('components.copyAutomations.copy')}
           </Button>
         )}
       </DialogActions>

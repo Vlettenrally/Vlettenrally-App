@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Typography,
@@ -40,65 +41,76 @@ import AutomationExecutionsDialog from '../../components/AutomationExecutionsDia
 import CopyAutomationsDialog from '../../components/CopyAutomationsDialog';
 import type { AutomationAction, AutomationRule } from '../../types/entities';
 
-const TRIGGER_LABELS: Record<AutomationRule['triggerType'], string> = {
-  CHECKPOINT_ENTRY: 'Checkpoint bereikt',
-  SCHEDULED_TIME: 'Tijdstip',
-  GAME_STATUS_CHANGE: 'Game-status',
-  TEAM_INACTIVITY: 'Team inactief',
-  RIVAL_OVERTAKE: 'Rivaal ingehaald',
-  DISTANCE_TRAVELED: 'Afgelegde afstand',
-};
-
-/** "om 17:00" / "bij einde" / "30 min voor start" — the configured boundary or fire-at time. */
-function describeTimeSpec(config: AutomationRule['triggerConfig']): string {
-  if (config.mode === 'RELATIVE') {
-    const anchor = config.relativeTo === 'GAME_END' ? 'einde' : 'start';
-    const offset = config.offsetMinutes ?? 0;
-    if (offset === 0) return `bij ${anchor}`;
-    return `${Math.abs(offset)} min ${offset < 0 ? 'voor' : 'na'} ${anchor}`;
-  }
-  return config.absoluteTime
-    ? new Date(config.absoluteTime).toLocaleString('nl-NL', { dateStyle: 'short', timeStyle: 'short' })
-    : '?';
-}
-
-/** Human summary of the trigger, e.g. "1 punt per 100 m" or "30 min inactief". */
-function describeTrigger(rule: AutomationRule): string {
-  const config = rule.triggerConfig ?? {};
-  switch (rule.triggerType) {
-    case 'DISTANCE_TRAVELED':
-      return `${config.pointsPer100m ?? '?'} punt(en) per 100 m`;
-    case 'TEAM_INACTIVITY':
-      return `${config.inactiveMinutes ?? '?'} min geen locatie`;
-    case 'GAME_STATUS_CHANGE':
-      return config.toStatus === 'COMPLETED' ? 'Game afgerond' : 'Game gestart';
-    case 'SCHEDULED_TIME':
-      return describeTimeSpec(config);
-    case 'CHECKPOINT_ENTRY': {
-      const base = config.checkpointId ? 'Eén checkpoint' : 'Elk checkpoint';
-      if (!config.comparison) return base;
-      return `${base} · ${config.comparison === 'BEFORE' ? 'vóór' : 'na'} ${describeTimeSpec(config)}`;
-    }
-    case 'RIVAL_OVERTAKE':
-      return 'Rivaal voorbij in punten';
-  }
-}
-
-function actionLabel(action: AutomationAction): string {
-  switch (action.type) {
-    case 'SEND_MESSAGE':
-      return 'Bericht';
-    case 'AWARD_POINTS':
-      return `${(action.points ?? 0) > 0 ? '+' : ''}${action.points ?? 0} punten`;
-    case 'NOTIFY_ADMINS':
-      return 'Admin-melding';
-    case 'FINISH_TEAM':
-      return 'Finish';
-  }
-}
-
 export default function Automations() {
+  const { t } = useTranslation();
   const selectedGameId = useGameStore((s) => s.selectedGameId);
+
+  const TRIGGER_LABELS: Record<AutomationRule['triggerType'], string> = {
+    CHECKPOINT_ENTRY: t('components.automationForm.triggerCheckpointEntry'),
+    SCHEDULED_TIME: t('components.automationForm.triggerScheduledTime'),
+    GAME_STATUS_CHANGE: t('components.automationForm.triggerGameStatusChange'),
+    TEAM_INACTIVITY: t('components.automationForm.triggerTeamInactivity'),
+    RIVAL_OVERTAKE: t('components.automationForm.triggerRivalOvertake'),
+    DISTANCE_TRAVELED: t('components.automationForm.triggerDistanceTraveled'),
+  };
+
+  /** "om 17:00" / "bij einde" / "30 min voor start" */
+  function describeTimeSpec(config: AutomationRule['triggerConfig']): string {
+    if (config.mode === 'RELATIVE') {
+      const anchor = config.relativeTo === 'GAME_END'
+        ? t('admin.automations.anchorEnd')
+        : t('admin.automations.anchorStart');
+      const offset = config.offsetMinutes ?? 0;
+      if (offset === 0) return t('admin.automations.timeAtAnchor', { anchor });
+      return offset < 0
+        ? t('admin.automations.timeOffsetBefore', { minutes: Math.abs(offset), anchor })
+        : t('admin.automations.timeOffsetAfter', { minutes: offset, anchor });
+    }
+    return config.absoluteTime
+      ? new Date(config.absoluteTime).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })
+      : '?';
+  }
+
+  /** Human summary of the trigger */
+  function describeTrigger(rule: AutomationRule): string {
+    const config = rule.triggerConfig ?? {};
+    switch (rule.triggerType) {
+      case 'DISTANCE_TRAVELED':
+        return t('admin.automations.descDistanceTraveled', { points: config.pointsPer100m ?? '?' });
+      case 'TEAM_INACTIVITY':
+        return t('admin.automations.descTeamInactivity', { minutes: config.inactiveMinutes ?? '?' });
+      case 'GAME_STATUS_CHANGE':
+        return config.toStatus === 'COMPLETED'
+          ? t('admin.automations.descGameCompleted')
+          : t('admin.automations.descGameStarted');
+      case 'SCHEDULED_TIME':
+        return describeTimeSpec(config);
+      case 'CHECKPOINT_ENTRY': {
+        const base = config.checkpointId
+          ? t('admin.automations.descCheckpointOne')
+          : t('admin.automations.descCheckpointAll');
+        if (!config.comparison) return base;
+        return config.comparison === 'BEFORE'
+          ? t('admin.automations.descCheckpointTimeBefore', { base, time: describeTimeSpec(config) })
+          : t('admin.automations.descCheckpointTimeAfter', { base, time: describeTimeSpec(config) });
+      }
+      case 'RIVAL_OVERTAKE':
+        return t('admin.automations.descRivalOvertake');
+    }
+  }
+
+  function actionLabel(action: AutomationAction): string {
+    switch (action.type) {
+      case 'SEND_MESSAGE':
+        return t('components.automationForm.actionSendMessage');
+      case 'AWARD_POINTS':
+        return `${(action.points ?? 0) > 0 ? '+' : ''}${action.points ?? 0} ${t('common.points').toLowerCase()}`;
+      case 'NOTIFY_ADMINS':
+        return t('components.automationForm.actionNotifyAdmins');
+      case 'FINISH_TEAM':
+        return t('components.automationForm.actionFinishTeam');
+    }
+  }
 
   const [rules, setRules] = useState<AutomationRule[]>([]);
   const [loading, setLoading] = useState(false);
@@ -124,14 +136,14 @@ export default function Automations() {
       if (response.data) {
         setRules(response.data);
       } else {
-        setError(response.error || 'Automatiseringen laden mislukt');
+        setError(response.error || t('admin.automations.loadFailed'));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Automatiseringen laden mislukt');
+      setError(err instanceof Error ? err.message : t('admin.automations.loadFailed'));
     } finally {
       setLoading(false);
     }
-  }, [selectedGameId]);
+  }, [selectedGameId, t]);
 
   useEffect(() => {
     if (selectedGameId) {
@@ -174,7 +186,7 @@ export default function Automations() {
         await fetchRules();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Verwijderen mislukt');
+      setError(err instanceof Error ? err.message : t('admin.automations.deleteFailed'));
     } finally {
       setDeleting(false);
     }
@@ -184,12 +196,12 @@ export default function Automations() {
     return (
       <Box sx={{ p: 3 }}>
         <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold', mb: 4 }}>
-          Automatiseringen
+          {t('admin.automations.title')}
         </Typography>
         <Card>
           <CardContent>
             <Typography color="text.secondary">
-              Selecteer een game in de zijbalk om automatiseringen te beheren.
+              {t('admin.automations.selectGameFirst')}
             </Typography>
           </CardContent>
         </Card>
@@ -201,7 +213,7 @@ export default function Automations() {
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
         <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold' }}>
-          Automatiseringen
+          {t('admin.automations.title')}
         </Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
@@ -209,7 +221,7 @@ export default function Automations() {
             startIcon={<CopyIcon />}
             onClick={() => setCopyDialogOpen(true)}
           >
-            Kopiëren van andere game
+            {t('admin.automations.copyFromGame')}
           </Button>
           <Button
             variant="contained"
@@ -219,7 +231,7 @@ export default function Automations() {
               setFormDialogOpen(true);
             }}
           >
-            Automatisering toevoegen
+            {t('admin.automations.addAutomation')}
           </Button>
         </Box>
       </Box>
@@ -238,7 +250,7 @@ export default function Automations() {
         <Card>
           <CardContent>
             <Typography color="text.secondary">
-              Nog geen automatiseringen. Voeg er een toe om te beginnen.
+              {t('admin.automations.noAutomations')}
             </Typography>
           </CardContent>
         </Card>
@@ -247,13 +259,13 @@ export default function Automations() {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell><strong>Naam</strong></TableCell>
-                <TableCell><strong>Trigger</strong></TableCell>
-                <TableCell><strong>Acties</strong></TableCell>
-                <TableCell><strong>Teams</strong></TableCell>
-                <TableCell><strong>Actief</strong></TableCell>
-                <TableCell><strong>Laatst gevuurd</strong></TableCell>
-                <TableCell align="right"><strong>Beheer</strong></TableCell>
+                <TableCell><strong>{t('admin.automations.columnName')}</strong></TableCell>
+                <TableCell><strong>{t('admin.automations.columnTrigger')}</strong></TableCell>
+                <TableCell><strong>{t('admin.automations.columnActions')}</strong></TableCell>
+                <TableCell><strong>{t('admin.automations.columnTeams')}</strong></TableCell>
+                <TableCell><strong>{t('admin.automations.columnActive')}</strong></TableCell>
+                <TableCell><strong>{t('admin.automations.columnLastFired')}</strong></TableCell>
+                <TableCell align="right"><strong>{t('admin.automations.columnManage')}</strong></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -264,7 +276,7 @@ export default function Automations() {
                       <Typography variant="body1" fontWeight="medium">
                         {rule.name}
                       </Typography>
-                      {rule.system && <Chip size="small" label="Systeem" color="info" />}
+                      {rule.system && <Chip size="small" label={t('admin.automations.systemLabel')} color="info" />}
                     </Box>
                   </TableCell>
                   <TableCell>
@@ -275,7 +287,7 @@ export default function Automations() {
                   </TableCell>
                   <TableCell>
                     {rule.triggerType === 'DISTANCE_TRAVELED' ? (
-                      <Chip size="small" label="Punten per afstand" variant="outlined" />
+                      <Chip size="small" label={t('admin.automations.distanceRateLabel')} variant="outlined" />
                     ) : (
                       <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                         {rule.actions.map((action, index) => (
@@ -286,13 +298,13 @@ export default function Automations() {
                   </TableCell>
                   <TableCell>
                     {rule.targetTeamIds && rule.targetTeamIds.length > 0
-                      ? `${rule.targetTeamIds.length} team(s)`
-                      : 'Alle'}
+                      ? t('admin.automations.teamsCount', { count: rule.targetTeamIds.length })
+                      : t('admin.automations.teamsAll')}
                   </TableCell>
                   <TableCell>
                     {rule.triggerType === 'DISTANCE_TRAVELED' ? (
-                      <Tooltip title="Punten worden automatisch toegekend zolang de game actief is">
-                        <Chip size="small" label="Tijdens de game" variant="outlined" />
+                      <Tooltip title={t('admin.automations.duringGameTooltip')}>
+                        <Chip size="small" label={t('admin.automations.duringGame')} variant="outlined" />
                       </Tooltip>
                     ) : (
                       <Switch
@@ -319,7 +331,7 @@ export default function Automations() {
                       <IconButton
                         size="small"
                         onClick={() => setHistoryRule(rule)}
-                        title="Historie bekijken"
+                        title={t('admin.automations.viewHistory')}
                       >
                         <HistoryIcon />
                       </IconButton>
@@ -330,7 +342,7 @@ export default function Automations() {
                         setSelectedRule(rule);
                         setFormDialogOpen(true);
                       }}
-                      title="Automatisering bewerken"
+                      title={t('admin.automations.editAutomation')}
                     >
                       <EditIcon />
                     </IconButton>
@@ -342,7 +354,7 @@ export default function Automations() {
                           setRuleToDelete(rule);
                           setDeleteDialogOpen(true);
                         }}
-                        title="Automatisering verwijderen"
+                        title={t('admin.automations.deleteAutomation')}
                       >
                         <DeleteIcon />
                       </IconButton>
@@ -381,17 +393,16 @@ export default function Automations() {
       />
 
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
-        <DialogTitle>Automatisering verwijderen</DialogTitle>
+        <DialogTitle>{t('admin.automations.deleteTitle')}</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Weet je zeker dat je "{ruleToDelete?.name}" wilt verwijderen? De historie van deze
-            automatisering wordt ook verwijderd. Deze actie kan niet ongedaan worden gemaakt.
+            {t('admin.automations.deleteConfirm', { name: ruleToDelete?.name })}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>Annuleren</Button>
+          <Button onClick={() => setDeleteDialogOpen(false)}>{t('common.cancel')}</Button>
           <Button onClick={handleDeleteConfirm} color="error" variant="contained" disabled={deleting}>
-            {deleting ? <CircularProgress size={20} /> : 'Verwijderen'}
+            {deleting ? <CircularProgress size={20} /> : t('common.delete')}
           </Button>
         </DialogActions>
       </Dialog>
