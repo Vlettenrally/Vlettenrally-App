@@ -1,0 +1,1 @@
+ALTER TABLE games ADD COLUMN public_rankings_enabled BOOLEAN NOT NULL DEFAULT FALSE;
