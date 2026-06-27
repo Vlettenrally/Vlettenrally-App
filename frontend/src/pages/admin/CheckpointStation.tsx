@@ -46,7 +46,7 @@ import { websocket } from '../../services/websocket';
 import api from '../../services/api';
 import type { WebSocketMessage } from '../../services/websocket';
 import type { AdminTeam, CheckpointTeamStatus } from '../../types/entities';
-import type { Checkpoint } from '../../store/useGameStore';
+import type { Checkpoint } from '../../types/entities.ts';
 
 interface CheckpointDetectionPayload {
   checkpointId: string;

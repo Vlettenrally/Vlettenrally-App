@@ -1,7 +1,6 @@
 package nl.vlettenrally.service;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -293,7 +292,7 @@ class AutomationActionExecutorTest {
         assertEquals(AutomationExecutionStatus.SUCCESS, result.status());
         ArgumentCaptor<Game> captor = ArgumentCaptor.forClass(Game.class);
         verify(gameService).save(captor.capture());
-        assertTrue(!captor.getValue().getPublicRankingsEnabled());
+        assertFalse(captor.getValue().getPublicRankingsEnabled());
     }
 
     @Test
@@ -309,7 +308,7 @@ class AutomationActionExecutorTest {
         assertEquals(AutomationExecutionStatus.SUCCESS, result.status());
         ArgumentCaptor<Game> captor = ArgumentCaptor.forClass(Game.class);
         verify(gameService).save(captor.capture());
-        assertTrue(!captor.getValue().getRankingsPublished());
+        assertFalse(captor.getValue().getRankingsPublished());
         verify(webSocketPublisher, never()).broadcastToGame(any(), any(), any());
     }
 

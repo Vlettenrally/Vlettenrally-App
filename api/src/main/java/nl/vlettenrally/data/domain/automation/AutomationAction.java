@@ -18,7 +18,7 @@ import java.util.UUID;
  * <p>
  * To add a new action type: add a subtype record here, register it in
  * {@link JsonSubTypes}, add a case to {@link nl.vlettenrally.service.AutomationActionExecutor}
- * and {@link nl.vlettenrally.service.AutomationService#validateActions}.
+ * and .
  */
 @RegisterForReflection(targets = {
     AutomationAction.SendMessage.class,

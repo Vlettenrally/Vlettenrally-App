@@ -26,7 +26,6 @@ public final class SecurityRoles {
     public static final String CHECKPOINT_MANAGER = "checkpoint_manager";
     public static final String RALLY_DESK = "rally_desk";
     public static final String TEAM = "team";
-    public static final String CHECKIN = "checkin";
 
     /**
      * Synthetic "any admin-type user" role, added by {@link StaffRoleAugmentor}.

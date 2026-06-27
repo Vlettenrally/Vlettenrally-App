@@ -458,7 +458,7 @@ const Games = () => {
                     label={t('admin.games.checkinLink')}
                     value={checkInLink.url}
                     fullWidth
-                    InputProps={{ readOnly: true }}
+                    slotProps={{input:{ readOnly: true }}}
                   />
                   <Button
                     variant="outlined"

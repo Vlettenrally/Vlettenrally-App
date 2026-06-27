@@ -359,12 +359,11 @@ export default function AdminUsersPage() {
         </Alert>
       )}
 
-      <Paper>
+      <Paper sx={{ display: 'flex', flexDirection: 'column', height: 500 }}>
         <DataGrid
           rows={admins}
           columns={columns}
           loading={loading}
-          autoHeight
           pageSizeOptions={[10, 25, 50]}
           initialState={{
             pagination: { paginationModel: { pageSize: 25 } },
