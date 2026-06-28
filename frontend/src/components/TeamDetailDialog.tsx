@@ -280,6 +280,20 @@ export default function TeamDetailDialog({
           ...teamData,
           gameId: gameId,
         });
+        // useEffect won't re-run after close because team stays null; reset manually
+        setFormData({
+          name: '',
+          description: '',
+          participants: '',
+          emergencyPhoneNumbers: '',
+          notes: '',
+          checkedIn: false,
+          checkedInDigitally: false,
+          traccarEnabled: false,
+          finished: false,
+          totalPoints: 0,
+          trackerId: '',
+        });
       } else if (team) {
         await teamService.updateTeam(team.id, teamData);
 
