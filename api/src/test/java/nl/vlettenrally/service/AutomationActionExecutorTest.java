@@ -1,7 +1,6 @@
 package nl.vlettenrally.service;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -30,11 +29,11 @@ import nl.vlettenrally.data.domain.AdminNotification;
 import nl.vlettenrally.data.domain.MessageTemplate;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.domain.automation.AutomationAction;
-import nl.vlettenrally.data.enums.AutomationActionType;
 import nl.vlettenrally.data.enums.AutomationExecutionStatus;
 import nl.vlettenrally.data.enums.AutomationTriggerType;
 import nl.vlettenrally.data.enums.MessageType;
 import nl.vlettenrally.data.enums.PointEntryType;
+import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 
@@ -52,6 +51,8 @@ class AutomationActionExecutorTest {
     @Mock MessageTemplateService messageTemplateService;
     @Mock AdminInboxService adminInboxService;
     @Mock TeamRepository teamRepository;
+    @Mock GameService gameService;
+    @Mock RankingService rankingService;
 
     @InjectMocks AutomationActionExecutor executor;
 
@@ -79,23 +80,31 @@ class AutomationActionExecutorTest {
     }
 
     private static AutomationAction message(String content, MessageType type, String icon) {
-        return new AutomationAction(AutomationActionType.SEND_MESSAGE, content, type, icon, null, null, null, null);
+        return new AutomationAction.SendMessage(content, type, icon, null);
     }
 
     private static AutomationAction templateMessage(UUID templateId, String fallback) {
-        return new AutomationAction(AutomationActionType.SEND_MESSAGE, fallback, null, null, templateId, null, null, null);
+        return new AutomationAction.SendMessage(fallback, null, null, templateId);
     }
 
     private static AutomationAction points(int amount, String description) {
-        return new AutomationAction(AutomationActionType.AWARD_POINTS, null, null, null, null, amount, description, null);
+        return new AutomationAction.AwardPoints(amount, description);
     }
 
     private static AutomationAction notify(String text) {
-        return new AutomationAction(AutomationActionType.NOTIFY_ADMINS, null, null, null, null, null, null, text);
+        return new AutomationAction.NotifyAdmins(text);
     }
 
     private static AutomationAction finish() {
-        return new AutomationAction(AutomationActionType.FINISH_TEAM, null, null, null, null, null, null, null);
+        return new AutomationAction.FinishTeam();
+    }
+
+    private static AutomationAction setRankingsPublished(boolean publish) {
+        return new AutomationAction.SetRankingsPublished(publish);
+    }
+
+    private static AutomationAction setPublicRankingsEnabled(boolean enable) {
+        return new AutomationAction.SetPublicRankingsEnabled(enable);
     }
 
     @Test
@@ -235,6 +244,72 @@ class AutomationActionExecutorTest {
         AutomationActionExecutor.Result result = executor.execute(rule, List.of(team), EMPTY);
 
         assertEquals(AutomationExecutionStatus.FAILED, result.status());
+    }
+
+    @Test
+    void setRankingsPublished_true_savesGameAndBroadcastsRanking() {
+        rule.setActions(List.of(setRankingsPublished(true)));
+        Game game = new Game();
+        game.setId(gameId);
+        when(gameService.findById(gameId)).thenReturn(Optional.of(game));
+        when(rankingService.buildRanking(gameId)).thenReturn(List.of());
+
+        AutomationActionExecutor.Result result = executor.execute(rule, List.of(), EMPTY);
+
+        assertEquals(AutomationExecutionStatus.SUCCESS, result.status());
+        ArgumentCaptor<Game> captor = ArgumentCaptor.forClass(Game.class);
+        verify(gameService).save(captor.capture());
+        assertTrue(captor.getValue().getRankingsPublished());
+        verify(webSocketPublisher).broadcastToGame(eq(gameId), eq("RANKING_UPDATE"), any());
+    }
+
+    @Test
+    void setPublicRankingsEnabled_true_savesGame() {
+        rule.setActions(List.of(setPublicRankingsEnabled(true)));
+        Game game = new Game();
+        game.setId(gameId);
+        when(gameService.findById(gameId)).thenReturn(Optional.of(game));
+
+        AutomationActionExecutor.Result result = executor.execute(rule, List.of(), EMPTY);
+
+        assertEquals(AutomationExecutionStatus.SUCCESS, result.status());
+        ArgumentCaptor<Game> captor = ArgumentCaptor.forClass(Game.class);
+        verify(gameService).save(captor.capture());
+        assertTrue(captor.getValue().getPublicRankingsEnabled());
+        verify(webSocketPublisher, never()).broadcastToGame(any(), any(), any());
+    }
+
+    @Test
+    void setPublicRankingsEnabled_false_savesGame() {
+        rule.setActions(List.of(setPublicRankingsEnabled(false)));
+        Game game = new Game();
+        game.setId(gameId);
+        game.setPublicRankingsEnabled(true);
+        when(gameService.findById(gameId)).thenReturn(Optional.of(game));
+
+        AutomationActionExecutor.Result result = executor.execute(rule, List.of(), EMPTY);
+
+        assertEquals(AutomationExecutionStatus.SUCCESS, result.status());
+        ArgumentCaptor<Game> captor = ArgumentCaptor.forClass(Game.class);
+        verify(gameService).save(captor.capture());
+        assertFalse(captor.getValue().getPublicRankingsEnabled());
+    }
+
+    @Test
+    void setRankingsPublished_false_savesGameAndDoesNotBroadcast() {
+        rule.setActions(List.of(setRankingsPublished(false)));
+        Game game = new Game();
+        game.setId(gameId);
+        game.setRankingsPublished(true);
+        when(gameService.findById(gameId)).thenReturn(Optional.of(game));
+
+        AutomationActionExecutor.Result result = executor.execute(rule, List.of(), EMPTY);
+
+        assertEquals(AutomationExecutionStatus.SUCCESS, result.status());
+        ArgumentCaptor<Game> captor = ArgumentCaptor.forClass(Game.class);
+        verify(gameService).save(captor.capture());
+        assertFalse(captor.getValue().getRankingsPublished());
+        verify(webSocketPublisher, never()).broadcastToGame(any(), any(), any());
     }
 
     @Test

@@ -14,6 +14,7 @@ import {
   Box,
 } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import api from '../services/api';
 import { useGameStore } from '../store/useGameStore';
 import type { CopyCheckpointsResult } from '../types/entities';
@@ -31,6 +32,7 @@ export default function CopyZonesDialog({
   gameId,
   onCopied,
 }: CopyZonesDialogProps) {
+  const { t } = useTranslation();
   const games = useGameStore((s) => s.games);
   const fetchGames = useGameStore((s) => s.fetchGames);
 
@@ -66,10 +68,10 @@ export default function CopyZonesDialog({
         setResult(response.data);
         onCopied?.();
       } else {
-        setError(response.error || 'Kopiëren mislukt');
+        setError(response.error || t('components.copyZones.copyFailed'));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Kopiëren mislukt');
+      setError(err instanceof Error ? err.message : t('components.copyZones.copyFailed'));
     } finally {
       setLoading(false);
     }
@@ -77,30 +79,27 @@ export default function CopyZonesDialog({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Zones kopiëren</DialogTitle>
+      <DialogTitle>{t('components.copyZones.title')}</DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
           <Typography variant="body2" color="text.secondary">
-            Kopieert alle zones van een andere game naar deze game. Openings- en
-            sluitingstijden worden verschoven naar de tijdlijn van deze game en de
-            "verborgen voor teams"-instelling blijft behouden. Zones met een naam die
-            hier al bestaat, worden overgeslagen.
+            {t('components.copyZones.description')}
           </Typography>
 
           {error && <Alert severity="error">{error}</Alert>}
 
           {result ? (
             <Alert severity="success">
-              {result.copied} gekopieerd.
+              {t('components.copyZones.copied', { count: result.copied })}
               {result.skippedDuplicate.length > 0 && (
-                <div>Overgeslagen (bestaat al): {result.skippedDuplicate.join(', ')}</div>
+                <div>{t('components.copyZones.skippedDuplicate', { names: result.skippedDuplicate.join(', ') })}</div>
               )}
             </Alert>
           ) : (
             <FormControl fullWidth>
-              <InputLabel>Bron-game</InputLabel>
+              <InputLabel>{t('components.copyZones.sourceGame')}</InputLabel>
               <Select
-                label="Bron-game"
+                label={t('components.copyZones.sourceGame')}
                 value={sourceGameId}
                 onChange={(e) => setSourceGameId(e.target.value)}
               >
@@ -115,10 +114,10 @@ export default function CopyZonesDialog({
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>{result ? 'Sluiten' : 'Annuleren'}</Button>
+        <Button onClick={onClose}>{result ? t('common.close') : t('common.cancel')}</Button>
         {!result && (
           <Button onClick={handleCopy} variant="contained" disabled={loading || !sourceGameId}>
-            {loading ? <CircularProgress size={20} /> : 'Kopiëren'}
+            {loading ? <CircularProgress size={20} /> : t('components.copyZones.copy')}
           </Button>
         )}
       </DialogActions>

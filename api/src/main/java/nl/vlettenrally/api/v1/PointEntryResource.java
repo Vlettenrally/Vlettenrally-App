@@ -29,7 +29,7 @@ import java.util.UUID;
  * - PATCH /api/v1/admin/point-entries/{id}                                    — edit amount
  */
 @Path("/api/v1/admin/point-entries")
-@RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.CHECKPOINT_MANAGER})
+@RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.CHECKPOINT_MANAGER, SecurityRoles.RALLY_DESK})
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class PointEntryResource {

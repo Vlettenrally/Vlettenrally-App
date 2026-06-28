@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Typography,
@@ -39,7 +40,7 @@ import CopyZonesDialog from '../../components/CopyZonesDialog';
 const formatDateTime = (dateStr?: string): string => {
   if (!dateStr) return '–';
   try {
-    return new Date(dateStr).toLocaleString('nl-NL', {
+    return new Date(dateStr).toLocaleString(undefined, {
       dateStyle: 'short',
       timeStyle: 'short',
     });
@@ -54,6 +55,7 @@ const formatLocation = (lat?: number, lng?: number): string => {
 };
 
 const Zones = () => {
+  const { t } = useTranslation();
   const { selectedGameId, games } = useGameStore();
   const selectedGame = games.find((g) => g.id === selectedGameId) ?? null;
 
@@ -86,14 +88,14 @@ const Zones = () => {
       if (response.data) {
         setCheckpoints(response.data);
       } else {
-        setError(response.error || 'Zones laden mislukt');
+        setError(response.error || t('admin.zones.loadFailed'));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Zones laden mislukt');
+      setError(err instanceof Error ? err.message : t('admin.zones.loadFailed'));
     } finally {
       setLoading(false);
     }
-  }, [selectedGameId]);
+  }, [selectedGameId, t]);
 
   useEffect(() => {
     if (selectedGameId) {
@@ -131,7 +133,7 @@ const Zones = () => {
         await fetchCheckpoints();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Verwijderen mislukt');
+      setError(err instanceof Error ? err.message : t('admin.zones.deleteFailed'));
     } finally {
       setDeleting(false);
     }
@@ -158,18 +160,18 @@ const Zones = () => {
       } else if (response.data) {
         const { created, updated, errors } = response.data;
         const parts: string[] = [];
-        if (created > 0) parts.push(`${created} zone(s) aangemaakt`);
-        if (updated > 0) parts.push(`${updated} zone(s) bijgewerkt`);
-        if (errors > 0) parts.push(`${errors} fouten`);
+        if (created > 0) parts.push(t('admin.zones.importCreated', { count: created }));
+        if (updated > 0) parts.push(t('admin.zones.importUpdated', { count: updated }));
+        if (errors > 0) parts.push(t('admin.zones.importErrors', { count: errors }));
         setSuccess(
           parts.length > 0
-            ? `Import voltooid: ${parts.join(', ')}`
-            : 'Import voltooid: geen wijzigingen'
+            ? t('admin.zones.importDone', { details: parts.join(', ') })
+            : t('admin.zones.importDoneNoChanges')
         );
         await fetchCheckpoints();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Import mislukt');
+      setError(err instanceof Error ? err.message : t('admin.zones.importFailed'));
     } finally {
       setImporting(false);
     }
@@ -179,12 +181,12 @@ const Zones = () => {
     return (
       <Box sx={{ p: 3 }}>
         <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold', mb: 4 }}>
-          Zones
+          {t('admin.zones.title')}
         </Typography>
         <Card>
           <CardContent>
             <Typography color="text.secondary">
-              Selecteer een game in de zijbalk om zones te beheren.
+              {t('admin.zones.selectGameFirst')}
             </Typography>
           </CardContent>
         </Card>
@@ -196,7 +198,7 @@ const Zones = () => {
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
         <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold' }}>
-          Zones
+          {t('admin.zones.title')}
         </Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
           {selectedGame?.locationEndpointUrl && (
@@ -206,7 +208,7 @@ const Zones = () => {
               onClick={handleImport}
               disabled={importing}
             >
-              Zones importeren uit tracker
+              {importing ? t('admin.zones.importing') : t('admin.zones.importFromTracker')}
             </Button>
           )}
           <Button
@@ -214,10 +216,10 @@ const Zones = () => {
             startIcon={<CopyIcon />}
             onClick={() => setCopyDialogOpen(true)}
           >
-            Zones kopiëren
+            {t('admin.zones.copyZones')}
           </Button>
           <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
-            Zone toevoegen
+            {t('admin.zones.addZone')}
           </Button>
         </Box>
       </Box>
@@ -242,7 +244,7 @@ const Zones = () => {
         <Card>
           <CardContent>
             <Typography color="text.secondary">
-              Nog geen zones. Voeg een zone toe om te beginnen.
+              {t('admin.zones.noZones')}
             </Typography>
           </CardContent>
         </Card>
@@ -251,12 +253,12 @@ const Zones = () => {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell><strong>Naam</strong></TableCell>
-                <TableCell><strong>Punten</strong></TableCell>
-                <TableCell><strong>Locatie</strong></TableCell>
-                <TableCell><strong>Openingstijd</strong></TableCell>
-                <TableCell><strong>Sluitingstijd</strong></TableCell>
-                <TableCell align="right"><strong>Acties</strong></TableCell>
+                <TableCell><strong>{t('admin.zones.columnName')}</strong></TableCell>
+                <TableCell><strong>{t('admin.zones.columnPoints')}</strong></TableCell>
+                <TableCell><strong>{t('admin.zones.columnLocation')}</strong></TableCell>
+                <TableCell><strong>{t('admin.zones.columnOpenTime')}</strong></TableCell>
+                <TableCell><strong>{t('admin.zones.columnCloseTime')}</strong></TableCell>
+                <TableCell align="right"><strong>{t('admin.zones.columnActions')}</strong></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -271,16 +273,16 @@ const Zones = () => {
                         <Chip
                           size="small"
                           icon={<HiddenIcon sx={{ fontSize: 14 }} />}
-                          label="Verborgen"
+                          label={t('admin.zones.hidden')}
                           variant="outlined"
                           color="default"
-                          title="Verborgen voor teams, triggert nog wel automatiseringen"
+                          title={t('admin.zones.hiddenTooltip')}
                         />
                       )}
                     </Box>
                     {cp.externalId && (
                       <Typography variant="caption" color="text.secondary">
-                        Extern: {cp.externalId}
+                        {t('admin.zones.external', { id: cp.externalId })}
                       </Typography>
                     )}
                   </TableCell>
@@ -290,20 +292,22 @@ const Zones = () => {
                       {formatLocation(cp.latitude, cp.longitude)}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {cp.zoneType === 'polygon' ? `⬡ Polygoon (${cp.polygonPoints?.length ?? 0} punten)` : `⊙ ${cp.radiusMeters ?? 50}m`}
+                      {cp.zoneType === 'polygon'
+                        ? t('admin.zones.polygon', { count: cp.polygonPoints?.length ?? 0 })
+                        : t('admin.zones.circle', { radius: cp.radiusMeters ?? 50 })}
                     </Typography>
                   </TableCell>
                   <TableCell>{formatDateTime(cp.openingTime)}</TableCell>
                   <TableCell>{formatDateTime(cp.closingTime)}</TableCell>
                   <TableCell align="right">
-                    <IconButton size="small" onClick={() => handleEdit(cp)} title="Zone bewerken">
+                    <IconButton size="small" onClick={() => handleEdit(cp)} title={t('admin.zones.editZone')}>
                       <EditIcon />
                     </IconButton>
                     <IconButton
                       size="small"
                       onClick={() => handleDeleteClick(cp)}
                       color="error"
-                      title="Zone verwijderen"
+                      title={t('admin.zones.deleteZone')}
                     >
                       <DeleteIcon />
                     </IconButton>
@@ -334,22 +338,21 @@ const Zones = () => {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
-        <DialogTitle>Zone verwijderen</DialogTitle>
+        <DialogTitle>{t('admin.zones.deleteZone')}</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Weet je zeker dat je "{checkpointToDelete?.name}" wilt verwijderen? Deze actie kan niet
-            ongedaan worden gemaakt.
+            {t('admin.zones.deleteConfirm', { name: checkpointToDelete?.name })}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>Annuleren</Button>
+          <Button onClick={() => setDeleteDialogOpen(false)}>{t('common.cancel')}</Button>
           <Button
             onClick={handleDeleteConfirm}
             color="error"
             variant="contained"
             disabled={deleting}
           >
-            {deleting ? <CircularProgress size={20} /> : 'Verwijderen'}
+            {deleting ? <CircularProgress size={20} /> : t('common.delete')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -358,4 +361,3 @@ const Zones = () => {
 };
 
 export default Zones;
-

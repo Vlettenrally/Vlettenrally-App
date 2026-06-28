@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Box, IconButton } from '@mui/material';
 import { Close as CloseIcon } from '@mui/icons-material';
 import MapView, { type MapMarker } from '../MapView';
@@ -23,6 +24,7 @@ interface MapPopupDialogProps {
  * Used by the Points Management page to pinpoint where a ledger entry happened.
  */
 export default function MapPopupDialog({ open, onClose, lat, lng, label, color = '#1976d2', checkpoints = [] }: MapPopupDialogProps) {
+  const { t } = useTranslation();
   const markers = useMemo<MapMarker[]>(() => {
     const teamMarker: MapMarker = { id: 'point-entry', lat, lng, label, color, type: 'team' };
     const checkpointMarkers: MapMarker[] = checkpoints
@@ -44,8 +46,8 @@ export default function MapPopupDialog({ open, onClose, lat, lng, label, color =
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pr: 1 }}>
-        Locatie van punt
-        <IconButton onClick={onClose} size="small" aria-label="Sluiten">
+        {t('components.mapPopup.title')}
+        <IconButton onClick={onClose} size="small" aria-label={t('components.mapPopup.close')}>
           <CloseIcon />
         </IconButton>
       </DialogTitle>
@@ -60,7 +62,7 @@ export default function MapPopupDialog({ open, onClose, lat, lng, label, color =
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Sluiten</Button>
+        <Button onClick={onClose}>{t('components.mapPopup.close')}</Button>
       </DialogActions>
     </Dialog>
   );

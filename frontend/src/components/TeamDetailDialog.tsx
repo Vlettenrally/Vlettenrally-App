@@ -19,6 +19,7 @@ import {
   MenuItem,
 } from '@mui/material';
 import { useCallback, useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { AdminTeam, CheckInDevice } from '../types/entities';
 import { teamService } from '../services/teamService';
 import { gameService } from '../services/gameService';
@@ -66,6 +67,7 @@ export default function TeamDetailDialog({
     trackerId: '',
   });
 
+  const { t } = useTranslation();
   const isCreateMode = !team;
 
   useEffect(() => {
@@ -122,7 +124,7 @@ export default function TeamDetailDialog({
         .then((list) => setDevices(list))
         .catch((err) => {
           console.error('Failed to load devices:', err);
-          setDeviceError('Apparaten ophalen mislukt.');
+          setDeviceError(t('components.teamDetail.devicesLoadFailed'));
           setDevices([]);
         })
         .finally(() => setLoadingDevices(false));
@@ -149,7 +151,7 @@ export default function TeamDetailDialog({
     }
     setConfirmDelete(false);
     setError(null);
-  }, [team, gameId]);
+  }, [team, gameId, t]);
 
   const refreshDevices = useCallback(async () => {
     if (!team) return;
@@ -160,11 +162,11 @@ export default function TeamDetailDialog({
       setDevices(list);
     } catch (err) {
       console.error('Failed to refresh devices:', err);
-      setDeviceError('Apparaten verversen mislukt.');
+      setDeviceError(t('components.teamDetail.devicesRefreshFailed'));
     } finally {
       setLoadingDevices(false);
     }
-  }, [team]);
+  }, [team, t]);
 
   const handleMakeMain = async (deviceId: string) => {
     if (!team) return;
@@ -173,7 +175,7 @@ export default function TeamDetailDialog({
     try {
       const ok = await teamService.setMainDevice(team.id, deviceId);
       if (!ok) {
-        setDeviceError('Wisselen van hoofdtelefoon mislukt.');
+        setDeviceError(t('components.teamDetail.makeMainPhoneFailed'));
         return;
       }
       await refreshDevices();
@@ -189,7 +191,7 @@ export default function TeamDetailDialog({
     try {
       const ok = await teamService.removeDevice(team.id, deviceId);
       if (!ok) {
-        setDeviceError('Apparaat verwijderen mislukt.');
+        setDeviceError(t('components.teamDetail.removeDeviceFailed'));
         return;
       }
       await refreshDevices();
@@ -205,7 +207,7 @@ export default function TeamDetailDialog({
     try {
       const ok = await teamService.resetDevices(team.id);
       if (!ok) {
-        setDeviceError('Resetten van check-in mislukt.');
+        setDeviceError(t('components.teamDetail.resetCheckInFailed'));
         return;
       }
       setConfirmReset(false);
@@ -277,6 +279,20 @@ export default function TeamDetailDialog({
         await teamService.createTeam({
           ...teamData,
           gameId: gameId,
+        });
+        // useEffect won't re-run after close because team stays null; reset manually
+        setFormData({
+          name: '',
+          description: '',
+          participants: '',
+          emergencyPhoneNumbers: '',
+          notes: '',
+          checkedIn: false,
+          checkedInDigitally: false,
+          traccarEnabled: false,
+          finished: false,
+          totalPoints: 0,
+          trackerId: '',
         });
       } else if (team) {
         await teamService.updateTeam(team.id, teamData);
@@ -355,7 +371,7 @@ export default function TeamDetailDialog({
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>
-        {isCreateMode ? 'Create New Team' : isEditing ? 'Edit Team' : 'Team Details'}
+        {isCreateMode ? t('components.teamDetail.createTitle') : isEditing ? t('components.teamDetail.editTitle') : t('components.teamDetail.viewTitle')}
       </DialogTitle>
       <DialogContent>
         {error && (
@@ -376,7 +392,7 @@ export default function TeamDetailDialog({
                   disabled={deleting}
                   onClick={() => setConfirmDelete(false)}
                 >
-                  Annuleer
+                  {t('common.cancel')}
                 </Button>
                 <Button
                   size="small"
@@ -385,18 +401,18 @@ export default function TeamDetailDialog({
                   disabled={deleting}
                   onClick={handleDelete}
                 >
-                  {deleting ? <CircularProgress size={20} /> : 'Verwijder definitief'}
+                  {deleting ? <CircularProgress size={20} /> : t('components.teamDetail.deleteForever')}
                 </Button>
               </Stack>
             }
           >
-            Team "{team.name}" en alle bijbehorende gegevens (punten, foto's, locaties, apparaten) definitief verwijderen?
+            {t('components.teamDetail.deleteConfirmQuestion', { name: team.name })}
           </Alert>
         )}
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
           <TextField
-            label="Team Name"
+            label={t('components.teamDetail.teamName')}
             value={formData.name}
             onChange={handleChange('name')}
             disabled={!isEditing}
@@ -405,7 +421,7 @@ export default function TeamDetailDialog({
           />
 
           <TextField
-            label="Description"
+            label={t('components.teamDetail.description')}
             value={formData.description}
             onChange={handleChange('description')}
             disabled={!isEditing}
@@ -415,29 +431,29 @@ export default function TeamDetailDialog({
           />
 
           <TextField
-            label="Participants"
+            label={t('components.teamDetail.participants')}
             value={formData.participants}
             onChange={handleChange('participants')}
             disabled={!isEditing}
             multiline
             rows={4}
             fullWidth
-            helperText="One participant per line"
-        />
-                  
+            helperText={t('components.teamDetail.participantsHint')}
+          />
+
           <TextField
-            label="Emergency Phone Numbers"
+            label={t('components.teamDetail.emergencyPhones')}
             value={formData.emergencyPhoneNumbers}
             onChange={handleChange('emergencyPhoneNumbers')}
             disabled={!isEditing}
             multiline
             rows={3}
             fullWidth
-            helperText="One phone number per line"
+            helperText={t('components.teamDetail.emergencyPhonesHint')}
           />
 
           <TextField
-            label="Notes"
+            label={t('components.teamDetail.notes')}
             value={formData.notes}
             onChange={handleChange('notes')}
             disabled={!isEditing}
@@ -451,7 +467,7 @@ export default function TeamDetailDialog({
               {isEditing ? (
                 <Box>
                   <Typography variant="subtitle2" gutterBottom>
-                    Check-in Status (Admin Override)
+                    {t('components.teamDetail.checkInStatus')}
                   </Typography>
                   <FormControlLabel
                     control={
@@ -460,7 +476,7 @@ export default function TeamDetailDialog({
                         onChange={handleCheckboxChange('checkedIn')}
                       />
                     }
-                    label="Checked In"
+                    label={t('components.teamDetail.checkedIn')}
                   />
                   <FormControlLabel
                     control={
@@ -470,23 +486,23 @@ export default function TeamDetailDialog({
                         disabled={!formData.checkedIn}
                       />
                     }
-                    label="Checked In Digitally"
+                    label={t('components.teamDetail.checkedInDigitally')}
                   />
                 </Box>
               ) : (
                 <Box>
                   <Typography variant="subtitle2" gutterBottom>
-                    Status
+                    {t('components.teamDetail.status')}
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                     <Chip
-                      label={team.checkedIn ? 'Checked In' : 'Not Checked In'}
+                      label={team.checkedIn ? t('components.teamDetail.checkedIn') : t('components.teamDetail.notCheckedIn')}
                       color={team.checkedIn ? 'success' : 'default'}
                       size="small"
                     />
                     {team.checkedIn && (
                       <Chip
-                        label={team.checkedInDigitally ? 'Digital Check-in' : 'Manual Check-in'}
+                        label={team.checkedInDigitally ? t('components.teamDetail.digitalCheckIn') : t('components.teamDetail.manualCheckIn')}
                         color={team.checkedInDigitally ? 'info' : 'warning'}
                         size="small"
                         variant="outlined"
@@ -498,7 +514,7 @@ export default function TeamDetailDialog({
 
               <Box>
                 <Typography variant="subtitle2" gutterBottom>
-                  Traccar-tracking
+                  {t('components.teamDetail.traccarTracking')}
                 </Typography>
                 {isEditing ? (
                   <FormControlLabel
@@ -508,25 +524,25 @@ export default function TeamDetailDialog({
                         onChange={handleCheckboxChange('traccarEnabled')}
                       />
                     }
-                    label="Traccar-app gebruiken voor locatie"
+                    label={t('components.teamDetail.useTraccar')}
                   />
                 ) : (
                   <Chip
-                    label={team.traccarEnabled ? 'Ingeschakeld' : 'Uit'}
+                    label={team.traccarEnabled ? t('components.teamDetail.enabled') : t('components.teamDetail.disabled')}
                     color={team.traccarEnabled ? 'success' : 'default'}
                     size="small"
                   />
                 )}
                 {team.traccarEnabled && team.traccarIdentifier && (
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1, wordBreak: 'break-all' }}>
-                    Apparaat-ID: {team.traccarIdentifier}
+                    {t('components.teamDetail.traccarDeviceId', { id: team.traccarIdentifier })}
                   </Typography>
                 )}
               </Box>
 
               <Box>
                 <Typography variant="subtitle2" gutterBottom>
-                  GPS-tracker
+                  {t('components.teamDetail.gpsTracker')}
                 </Typography>
                 {isEditing ? (
                   <FormControl fullWidth size="small">
@@ -540,7 +556,7 @@ export default function TeamDetailDialog({
                       }
                     >
                       <MenuItem value="">
-                        <em>Geen tracker</em>
+                        <em>{t('components.teamDetail.noTracker')}</em>
                       </MenuItem>
                       {/* Current tracker first (it's excluded from the available pool), then the pool. */}
                       {team.trackerId && (
@@ -555,7 +571,7 @@ export default function TeamDetailDialog({
                   </FormControl>
                 ) : (
                   <Chip
-                    label={team.trackerId ? team.trackerId : 'Geen tracker toegewezen'}
+                    label={team.trackerId ? team.trackerId : t('components.teamDetail.noTrackerAssigned')}
                     color={team.trackerId ? 'success' : 'default'}
                     size="small"
                   />
@@ -564,7 +580,7 @@ export default function TeamDetailDialog({
 
               <Box>
                 <Typography variant="subtitle2" gutterBottom>
-                  Finish
+                  {t('components.teamDetail.finish')}
                 </Typography>
                 {isEditing ? (
                   <FormControlLabel
@@ -574,11 +590,11 @@ export default function TeamDetailDialog({
                         onChange={handleCheckboxChange('finished')}
                       />
                     }
-                    label="Gefinisht (geen automatische punten meer)"
+                    label={t('components.teamDetail.finishedNoAuto')}
                   />
                 ) : (
                   <Chip
-                    label={team.finished ? 'Gefinisht' : 'Nog onderweg'}
+                    label={team.finished ? t('components.teamDetail.finished') : t('components.teamDetail.stillEnRoute')}
                     color={team.finished ? 'success' : 'default'}
                     size="small"
                   />
@@ -587,7 +603,7 @@ export default function TeamDetailDialog({
 
               <Box>
                 <Typography variant="subtitle2" gutterBottom>
-                  Points
+                  {t('components.teamDetail.points')}
                 </Typography>
                 {isEditing ? (
                   <TextField
@@ -608,7 +624,7 @@ export default function TeamDetailDialog({
 
               <Box>
                 <Typography variant="subtitle2" gutterBottom>
-                  Rival Teams
+                  {t('components.teamDetail.rivalTeams')}
                 </Typography>
                 {loadingRivals ? (
                   <CircularProgress size={20} />
@@ -619,13 +635,13 @@ export default function TeamDetailDialog({
                     ))}
                   </Box>
                 ) : (
-                  <Typography color="text.secondary">No rival teams</Typography>
+                  <Typography color="text.secondary">{t('components.teamDetail.noRivalTeams')}</Typography>
                 )}
               </Box>
 
               <Box>
                 <Typography variant="subtitle2" gutterBottom>
-                  Apparaten
+                  {t('components.teamDetail.devices')}
                 </Typography>
                 {deviceError && (
                   <Alert severity="error" sx={{ mb: 1 }}>{deviceError}</Alert>
@@ -633,7 +649,7 @@ export default function TeamDetailDialog({
                 {loadingDevices ? (
                   <CircularProgress size={20} />
                 ) : devices.length === 0 ? (
-                  <Typography color="text.secondary">Nog geen apparaten ingecheckt.</Typography>
+                  <Typography color="text.secondary">{t('components.teamDetail.noDevices')}</Typography>
                 ) : (
                   <Stack spacing={1}>
                     {devices.map((device) => (
@@ -652,14 +668,14 @@ export default function TeamDetailDialog({
                         <Box sx={{ flexGrow: 1 }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <Typography variant="body2">
-                              {device.nickname && device.nickname.length > 0 ? device.nickname : '(zonder naam)'}
+                              {device.nickname && device.nickname.length > 0 ? device.nickname : t('components.teamDetail.unnamed')}
                             </Typography>
                             {device.isMain && (
-                              <Chip size="small" color="primary" label="Hoofdtelefoon" />
+                              <Chip size="small" color="primary" label={t('components.teamDetail.mainPhone')} />
                             )}
                           </Box>
                           <Typography variant="caption" color="text.secondary">
-                            Laatst gezien: {new Date(device.lastSeen).toLocaleString('nl-NL')}
+                            {t('components.teamDetail.lastSeen', { time: new Date(device.lastSeen).toLocaleString() })}
                           </Typography>
                         </Box>
                         {!device.isMain && (
@@ -669,7 +685,7 @@ export default function TeamDetailDialog({
                             disabled={deviceActionPending}
                             onClick={() => handleMakeMain(device.deviceId)}
                           >
-                            Maak hoofdtelefoon
+                            {t('components.teamDetail.makeMainPhone')}
                           </Button>
                         )}
                         <Button
@@ -679,7 +695,7 @@ export default function TeamDetailDialog({
                           disabled={deviceActionPending}
                           onClick={() => handleRemoveDevice(device.deviceId)}
                         >
-                          Verwijder
+                          {t('components.teamDetail.removeDevice')}
                         </Button>
                       </Box>
                     ))}
@@ -698,7 +714,7 @@ export default function TeamDetailDialog({
                             disabled={deviceActionPending}
                             onClick={() => setConfirmReset(false)}
                           >
-                            Annuleer
+                            {t('common.cancel')}
                           </Button>
                           <Button
                             size="small"
@@ -707,12 +723,12 @@ export default function TeamDetailDialog({
                             disabled={deviceActionPending}
                             onClick={handleResetDevices}
                           >
-                            Reset
+                            {t('components.teamDetail.reset')}
                           </Button>
                         </Stack>
                       }
                     >
-                      Alle apparaten loskoppelen, deelnemers en noodnummers wissen, en check-in resetten?
+                      {t('components.teamDetail.confirmResetMessage')}
                     </Alert>
                   ) : (
                     <Button
@@ -722,7 +738,7 @@ export default function TeamDetailDialog({
                       disabled={deviceActionPending}
                       onClick={() => setConfirmReset(true)}
                     >
-                      Check-in resetten
+                      {t('components.teamDetail.resetCheckIn')}
                     </Button>
                   )}
                 </Box>
@@ -735,14 +751,14 @@ export default function TeamDetailDialog({
         {isEditing ? (
           <>
             <Button onClick={handleCancel} disabled={loading}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               onClick={handleSave}
               variant="contained"
               disabled={loading || !formData.name}
             >
-              {loading ? <CircularProgress size={24} /> : 'Save'}
+              {loading ? <CircularProgress size={24} /> : t('common.save')}
             </Button>
           </>
         ) : (
@@ -753,13 +769,13 @@ export default function TeamDetailDialog({
                 onClick={() => setConfirmDelete(true)}
                 disabled={deleting || confirmDelete}
               >
-                Verwijder team
+                {t('components.teamDetail.deleteTeam')}
               </Button>
             )}
             <Box>
-              <Button onClick={onClose}>Close</Button>
+              <Button onClick={onClose}>{t('common.close')}</Button>
               <Button onClick={handleEdit} variant="contained" sx={{ ml: 1 }}>
-                Edit
+                {t('common.edit')}
               </Button>
             </Box>
           </>

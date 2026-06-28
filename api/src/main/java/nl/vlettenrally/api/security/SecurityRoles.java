@@ -24,8 +24,8 @@ public final class SecurityRoles {
     public static final String GAME_MASTER = "game_master";
     public static final String MESSAGE_SENDER = "message_sender";
     public static final String CHECKPOINT_MANAGER = "checkpoint_manager";
+    public static final String RALLY_DESK = "rally_desk";
     public static final String TEAM = "team";
-    public static final String CHECKIN = "checkin";
 
     /**
      * Synthetic "any admin-type user" role, added by {@link StaffRoleAugmentor}.
@@ -36,6 +36,6 @@ public final class SecurityRoles {
      * All admin-type roles. Holding any of these grants the derived {@link #STAFF} role.
      */
     public static final Set<String> ADMIN_ROLES = Set.of(
-        ADMIN, SUPER_ADMIN, VIEWER, GAME_MASTER, MESSAGE_SENDER, CHECKPOINT_MANAGER
+        ADMIN, SUPER_ADMIN, VIEWER, GAME_MASTER, MESSAGE_SENDER, CHECKPOINT_MANAGER, RALLY_DESK
     );
 }

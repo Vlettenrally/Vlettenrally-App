@@ -2,6 +2,7 @@
  * Admin Settings Page - Change password, manage admin account, manage own devices
  */
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Card,
@@ -34,6 +35,7 @@ interface PasswordForm {
 }
 
 export function Settings() {
+  const { t } = useTranslation();
   const [form, setForm] = useState<PasswordForm>({
     currentPassword: '',
     newPassword: '',
@@ -119,13 +121,13 @@ export function Settings() {
 
     // Validate passwords match
     if (form.newPassword !== form.confirmPassword) {
-      setError('Nieuwe wachtwoorden komen niet overeen');
+      setError(t('admin.settings.passwordMismatch'));
       return;
     }
 
     // Validate password strength
     if (form.newPassword.length < 8) {
-      setError('Nieuw wachtwoord moet minimaal 8 tekens lang zijn');
+      setError(t('admin.settings.passwordTooShort'));
       return;
     }
 
@@ -141,7 +143,7 @@ export function Settings() {
         throw new Error(response.error);
       }
 
-      setSuccess('Wachtwoord succesvol gewijzigd');
+      setSuccess(t('admin.settings.passwordChanged'));
       setForm({
         currentPassword: '',
         newPassword: '',
@@ -166,14 +168,14 @@ export function Settings() {
   return (
     <Box sx={{ maxWidth: 600, mx: 'auto', p: 3 }}>
       <Typography variant="h4" gutterBottom sx={{ mb: 3 }}>
-        Instellingen
+        {t('admin.settings.title')}
       </Typography>
 
       <Card>
         <CardContent sx={{ p: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
             <LockIcon sx={{ fontSize: 32, color: '#1a237e', mr: 2 }} />
-            <Typography variant="h6">Wachtwoord wijzigen</Typography>
+            <Typography variant="h6">{t('admin.settings.changePassword')}</Typography>
           </Box>
 
           {error && (
@@ -191,7 +193,7 @@ export function Settings() {
           <form onSubmit={handleSubmit}>
             <TextField
               fullWidth
-              label="Huidig wachtwoord"
+              label={t('admin.settings.currentPassword')}
               type="password"
               value={form.currentPassword}
               onChange={handleChange('currentPassword')}
@@ -201,18 +203,18 @@ export function Settings() {
             />
             <TextField
               fullWidth
-              label="Nieuw wachtwoord"
+              label={t('admin.settings.newPassword')}
               type="password"
               value={form.newPassword}
               onChange={handleChange('newPassword')}
               margin="normal"
               required
               autoComplete="new-password"
-              helperText="Minimaal 8 tekens"
+              helperText={t('admin.settings.newPasswordHint')}
             />
             <TextField
               fullWidth
-              label="Bevestig nieuw wachtwoord"
+              label={t('admin.settings.confirmPassword')}
               type="password"
               value={form.confirmPassword}
               onChange={handleChange('confirmPassword')}
@@ -235,7 +237,7 @@ export function Settings() {
               {loading ? (
                 <CircularProgress size={24} sx={{ color: 'white' }} />
               ) : (
-                'Wachtwoord wijzigen'
+                t('admin.settings.changePassword')
               )}
             </Button>
           </form>
@@ -246,11 +248,10 @@ export function Settings() {
         <CardContent sx={{ p: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
             <DeviceIcon sx={{ fontSize: 32, color: '#1a237e', mr: 2 }} />
-            <Typography variant="h6">Mijn apparaten</Typography>
+            <Typography variant="h6">{t('admin.settings.myDevices')}</Typography>
           </Box>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Browsers waarop je meldingen hebt ingeschakeld. Verwijder een apparaat om daar geen pushberichten
-            meer naar te sturen.
+            {t('admin.settings.devicesDescription')}
           </Typography>
 
           {devicesError && <Alert severity="error" sx={{ mb: 2 }}>{devicesError}</Alert>}
@@ -259,7 +260,7 @@ export function Settings() {
             <CircularProgress size={24} />
           ) : devices.length === 0 ? (
             <Typography color="text.secondary">
-              Geen apparaten geregistreerd. Sta meldingen toe om dit apparaat toe te voegen.
+              {t('admin.settings.noDevices')}
             </Typography>
           ) : (
             <Stack spacing={1}>
@@ -286,19 +287,19 @@ export function Settings() {
                           fullWidth
                           value={editingNickname}
                           onChange={(e) => setEditingNickname(e.target.value)}
-                          placeholder="Naam van apparaat"
+                          placeholder={t('admin.settings.deviceNamePlaceholder')}
                           autoFocus
                         />
                       ) : (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                           <Typography variant="body2">
-                            {device.nickname && device.nickname.length > 0 ? device.nickname : '(Onbenoemd)'}
+                            {device.nickname && device.nickname.length > 0 ? device.nickname : t('admin.settings.unnamedDevice')}
                           </Typography>
-                          {isCurrent && <Chip size="small" color="primary" label="Dit apparaat" />}
+                          {isCurrent && <Chip size="small" color="primary" label={t('admin.settings.thisDevice')} />}
                         </Box>
                       )}
                       <Typography variant="caption" color="text.secondary">
-                        Laatst gezien: {new Date(device.lastSeen).toLocaleString('nl-NL')}
+                        {t('admin.settings.lastSeen')} {new Date(device.lastSeen).toLocaleString()}
                       </Typography>
                     </Box>
                     {isEditing ? (
@@ -308,7 +309,7 @@ export function Settings() {
                           color="primary"
                           disabled={deviceActionPending}
                           onClick={() => saveRename(device.deviceId)}
-                          aria-label="Opslaan"
+                          aria-label={t('common.save')}
                         >
                           <SaveIcon fontSize="small" />
                         </IconButton>
@@ -316,7 +317,7 @@ export function Settings() {
                           size="small"
                           disabled={deviceActionPending}
                           onClick={cancelRename}
-                          aria-label="Annuleren"
+                          aria-label={t('common.cancel')}
                         >
                           <CloseIcon fontSize="small" />
                         </IconButton>
@@ -327,7 +328,7 @@ export function Settings() {
                           size="small"
                           disabled={deviceActionPending}
                           onClick={() => startRename(device)}
-                          aria-label="Hernoem"
+                          aria-label={t('common.rename')}
                         >
                           <EditIcon fontSize="small" />
                         </IconButton>
@@ -336,7 +337,7 @@ export function Settings() {
                           color="error"
                           disabled={deviceActionPending}
                           onClick={() => removeDevice(device.deviceId)}
-                          aria-label="Verwijder"
+                          aria-label={t('common.remove')}
                         >
                           <DeleteIcon fontSize="small" />
                         </IconButton>

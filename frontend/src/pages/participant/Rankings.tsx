@@ -4,6 +4,7 @@
  * App.tsx's RankingsRoute redirects elsewhere before the reveal.
  */
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Container,
   Paper,
@@ -25,6 +26,7 @@ import type { RankingEntry } from '../../types/entities';
 export default function Rankings() {
   const { team, rankings, setRankings } = useTeamStore();
   const { game } = useGameStore();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -49,10 +51,10 @@ export default function Rankings() {
     <Container maxWidth="md" sx={{ mt: 3, mb: 6 }}>
       <Stack spacing={2}>
         <Typography variant="h4" component="h1">
-          Eindstand
+          {t('participant.rankings.title')}
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          De definitieve ranglijst van {game?.name ?? 'het spel'}.
+          {t('participant.rankings.subtitle', { game: game?.name ?? 'het spel' })}
         </Typography>
 
         <Paper>
@@ -60,16 +62,16 @@ export default function Rankings() {
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell width={60}>#</TableCell>
-                  <TableCell>Team</TableCell>
-                  <TableCell align="right">Punten</TableCell>
+                  <TableCell width={60}>{t('participant.rankings.rank')}</TableCell>
+                  <TableCell>{t('participant.rankings.team')}</TableCell>
+                  <TableCell align="right">{t('participant.rankings.points')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {!loading && rankings.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={3} sx={{ color: 'text.secondary' }}>
-                      Geen ranglijstgegevens beschikbaar.
+                      {t('participant.rankings.noData')}
                     </TableCell>
                   </TableRow>
                 )}
@@ -79,7 +81,7 @@ export default function Rankings() {
                     <TableCell>
                       {row.teamName}
                       {row.teamId === team?.id && (
-                        <Chip size="small" label="Jij" sx={{ ml: 1 }} color="primary" />
+                        <Chip size="small" label={t('participant.rankings.you')} sx={{ ml: 1 }} color="primary" />
                       )}
                     </TableCell>
                     <TableCell align="right">{row.points}</TableCell>

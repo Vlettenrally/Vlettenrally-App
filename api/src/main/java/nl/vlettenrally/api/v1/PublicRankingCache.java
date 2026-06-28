@@ -39,7 +39,7 @@ public class PublicRankingCache {
     @CacheResult(cacheName = "public-latest-ranking")
     public List<RankingResponse> latestPublishedRanking() {
         return gameService.findAll().stream()
-            .filter(g -> Boolean.TRUE.equals(g.getRankingsPublished()))
+            .filter(g -> Boolean.TRUE.equals(g.getPublicRankingsEnabled()) || Boolean.TRUE.equals(g.getRankingsPublished()))
             .max(Comparator.comparing(Game::getStartTime,
                 Comparator.nullsLast(Comparator.naturalOrder())))
             .map(g -> rankingService.buildRanking(g.getId()))

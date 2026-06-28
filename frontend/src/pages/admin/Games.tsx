@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Typography,
@@ -59,20 +60,23 @@ const getStatusColor = (status?: string): 'default' | 'warning' | 'success' | 'e
 const formatDateTime = (date?: string | Date): string => {
   if (!date) return '-';
   try {
+<<<<<<< HEAD
     return formatDateTimeLocal(date);
+=======
+    return date.toLocaleString(undefined, {
+      dateStyle: 'short',
+      timeStyle: 'short',
+    });
+>>>>>>> origin/main
   } catch {
     return '-';
   }
 };
 
-const formatStatus = (status?: string): string => {
-  if (!status) return 'Unknown';
-  return status.charAt(0).toUpperCase() + status.slice(1);
-};
-
 const Games = () => {
+  const { t } = useTranslation();
   const [localError, setLocalError] = useState<string | null>(null);
-  
+
   // Dialog states
   const [formDialogOpen, setFormDialogOpen] = useState(false);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
@@ -133,7 +137,7 @@ const Games = () => {
       setGameToDelete(null);
       await fetchGames();
     } catch (err) {
-      setLocalError(err instanceof Error ? err.message : 'Failed to delete game');
+      setLocalError(err instanceof Error ? err.message : t('admin.games.deleteGameFailed'));
     } finally {
       setDeleting(false);
     }
@@ -155,7 +159,7 @@ const Games = () => {
       setGameToPublish(null);
       await fetchGames();
     } catch (err) {
-      setLocalError(err instanceof Error ? err.message : 'Failed to publish rankings');
+      setLocalError(err instanceof Error ? err.message : t('admin.games.releaseRankingsFailed'));
     } finally {
       setPublishing(false);
     }
@@ -199,7 +203,7 @@ const Games = () => {
 
       setQrDataUrl(canvas.toDataURL('image/png'));
     } catch (err) {
-      setCheckInError(err instanceof Error ? err.message : 'Failed to generate check-in link');
+      setCheckInError(err instanceof Error ? err.message : t('admin.games.generateLinkFailed'));
     } finally {
       setCheckInLoading(false);
     }
@@ -209,9 +213,9 @@ const Games = () => {
     if (!checkInLink?.url) return;
     try {
       await navigator.clipboard.writeText(checkInLink.url);
-      setCopySuccess('Link gekopieerd');
+      setCopySuccess(t('admin.games.linkCopied'));
     } catch {
-      setCheckInError('Kopiëren mislukt. Kopieer de link handmatig.');
+      setCheckInError(t('admin.games.copyLinkFailed'));
     }
   };
 
@@ -233,7 +237,7 @@ const Games = () => {
 
   const formattedExpiry = useMemo(() => {
     if (!checkInLink?.expiresAt) return '-';
-    return new Date(checkInLink.expiresAt * 1000).toLocaleString('nl-NL', {
+    return new Date(checkInLink.expiresAt * 1000).toLocaleString(undefined, {
       dateStyle: 'short',
       timeStyle: 'short',
     });
@@ -262,10 +266,10 @@ const Games = () => {
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
         <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold' }}>
-          Games
+          {t('admin.games.title')}
         </Typography>
         <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreateGame}>
-          Create Game
+          {t('admin.games.createGame')}
         </Button>
       </Box>
 
@@ -279,7 +283,7 @@ const Games = () => {
         <Card>
           <CardContent>
             <Typography color="text.secondary">
-              No games created yet. Click "Create Game" to get started.
+              {t('admin.games.noGames')}
             </Typography>
           </CardContent>
         </Card>
@@ -288,13 +292,13 @@ const Games = () => {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell><strong>Name</strong></TableCell>
-                <TableCell><strong>External Event</strong></TableCell>
-                <TableCell><strong>Status</strong></TableCell>
-                <TableCell><strong>Start Time</strong></TableCell>
-                <TableCell><strong>End Time</strong></TableCell>
-                <TableCell><strong>Location Tracking</strong></TableCell>
-                <TableCell align="right"><strong>Actions</strong></TableCell>
+                <TableCell><strong>{t('admin.games.columns.name')}</strong></TableCell>
+                <TableCell><strong>{t('admin.games.columns.externalEvent')}</strong></TableCell>
+                <TableCell><strong>{t('admin.games.columns.status')}</strong></TableCell>
+                <TableCell><strong>{t('admin.games.columns.startTime')}</strong></TableCell>
+                <TableCell><strong>{t('admin.games.columns.endTime')}</strong></TableCell>
+                <TableCell><strong>{t('admin.games.columns.locationTracking')}</strong></TableCell>
+                <TableCell align="right"><strong>{t('admin.games.columns.actions')}</strong></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -319,7 +323,7 @@ const Games = () => {
                   </TableCell>
                   <TableCell>
                     <Chip
-                      label={formatStatus(game.status)}
+                      label={game.status ? t(`admin.games.gameStatus.${game.status}`, { defaultValue: game.status }) : t('common.unknown')}
                       color={getStatusColor(game.status)}
                       size="small"
                     />
@@ -329,13 +333,13 @@ const Games = () => {
                   <TableCell>
                     {game.locationEndpointUrl ? (
                       <Chip
-                        label={game.locationEndpointActive ? 'Active' : 'Inactive'}
+                        label={game.locationEndpointActive ? t('admin.games.statusActive') : t('admin.games.statusInactive')}
                         color={game.locationEndpointActive ? 'success' : 'default'}
                         size="small"
                         variant="outlined"
                       />
                     ) : (
-                      <Typography variant="body2" color="text.secondary">Not configured</Typography>
+                      <Typography variant="body2" color="text.secondary">{t('admin.games.locationNotConfigured')}</Typography>
                     )}
                   </TableCell>
                   <TableCell align="right">
@@ -345,7 +349,7 @@ const Games = () => {
                         onClick={() => handlePublishClick(game)}
                         disabled={game.rankingsPublished}
                         color={game.rankingsPublished ? 'success' : 'default'}
-                        title={game.rankingsPublished ? 'Eindstand is vrijgegeven' : 'Eindstand vrijgeven aan spelers'}
+                        title={game.rankingsPublished ? t('admin.games.releaseRankingsPublished') : t('admin.games.releaseRankings')}
                       >
                         <LeaderboardIcon />
                       </IconButton>
@@ -353,14 +357,14 @@ const Games = () => {
                     <IconButton
                       size="small"
                       onClick={() => handleGenerateCheckInLink(game)}
-                      title="Generate check-in link"
+                      title={t('admin.games.generateCheckinLink')}
                     >
                       <QrCodeIcon />
                     </IconButton>
                     <IconButton
                       size="small"
                       onClick={() => handleEditGame(game)}
-                      title="Edit game"
+                      title={t('admin.games.editGame')}
                     >
                       <EditIcon />
                     </IconButton>
@@ -368,7 +372,7 @@ const Games = () => {
                       size="small"
                       onClick={() => handleDeleteClick(game)}
                       color="error"
-                      title="Delete game"
+                      title={t('admin.games.deleteGame')}
                     >
                       <DeleteIcon />
                     </IconButton>
@@ -390,15 +394,14 @@ const Games = () => {
 
       {/* Publish Rankings Confirmation Dialog */}
       <Dialog open={publishDialogOpen} onClose={() => setPublishDialogOpen(false)}>
-        <DialogTitle>Eindstand vrijgeven</DialogTitle>
+        <DialogTitle>{t('admin.games.releaseRankings')}</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Weet je zeker dat je de eindstand van "{gameToPublish?.name}" wilt vrijgeven? Alle
-            teams zien dan direct de volledige ranglijst. Doe dit pas tijdens de prijsuitreiking.
+            {t('admin.games.releaseRankingsConfirm', { name: gameToPublish?.name })}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setPublishDialogOpen(false)}>Annuleren</Button>
+          <Button onClick={() => setPublishDialogOpen(false)}>{t('common.cancel')}</Button>
           <Button
             onClick={handlePublishConfirm}
             color="primary"
@@ -406,36 +409,35 @@ const Games = () => {
             disabled={publishing}
             startIcon={publishing ? <CircularProgress size={16} /> : <LeaderboardIcon />}
           >
-            Vrijgeven
+            {t('admin.games.release')}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
-        <DialogTitle>Delete Game</DialogTitle>
+        <DialogTitle>{t('admin.games.deleteGameTitle')}</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Are you sure you want to delete "{gameToDelete?.name}"? This action cannot be undone
-            and will remove all associated data including teams and messages.
+            {t('admin.games.deleteGameConfirm', { name: gameToDelete?.name })}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setDeleteDialogOpen(false)}>{t('common.cancel')}</Button>
           <Button
             onClick={handleDeleteConfirm}
             color="error"
             variant="contained"
             disabled={deleting}
           >
-            {deleting ? <CircularProgress size={20} /> : 'Delete'}
+            {deleting ? <CircularProgress size={20} /> : t('admin.games.deleteGameAction')}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Check-in Link Dialog */}
       <Dialog open={checkInDialogOpen} onClose={() => setCheckInDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Check-in link</DialogTitle>
+        <DialogTitle>{t('admin.games.checkinLink')}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             {checkInLoading && (
@@ -453,22 +455,22 @@ const Games = () => {
                   {checkInLink.expiryReason}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Verloopt op: {formattedExpiry}
+                  {t('admin.games.expiresOn', { expiry: formattedExpiry })}
                 </Typography>
 
                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
                   <TextField
-                    label="Check-in link"
+                    label={t('admin.games.checkinLink')}
                     value={checkInLink.url}
                     fullWidth
-                    InputProps={{ readOnly: true }}
+                    slotProps={{input:{ readOnly: true }}}
                   />
                   <Button
                     variant="outlined"
                     startIcon={<ContentCopyIcon />}
                     onClick={handleCopyLink}
                   >
-                    Kopieer
+                    {t('admin.games.copyLink')}
                   </Button>
                 </Box>
 
@@ -488,7 +490,7 @@ const Games = () => {
                         startIcon={<FileDownloadIcon />}
                         onClick={handleDownloadQr}
                       >
-                        Download QR
+                        {t('admin.games.downloadQR')}
                       </Button>
                     </Box>
                   </Box>
@@ -498,7 +500,7 @@ const Games = () => {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCheckInDialogOpen(false)}>Sluiten</Button>
+          <Button onClick={() => setCheckInDialogOpen(false)}>{t('common.close')}</Button>
         </DialogActions>
       </Dialog>
     </Box>

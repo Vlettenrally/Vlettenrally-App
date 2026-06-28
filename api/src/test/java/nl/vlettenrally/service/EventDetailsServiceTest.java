@@ -5,11 +5,9 @@ import nl.vlettenrally.client.dto.Coordinates;
 import nl.vlettenrally.client.dto.legendstracking.EventCheckpoint;
 import nl.vlettenrally.client.dto.legendstracking.EventDetailsBody;
 import nl.vlettenrally.client.dto.legendstracking.EventDetailsResponse;
-import nl.vlettenrally.client.dto.legendstracking.EventParticipant;
 import nl.vlettenrally.data.domain.Checkpoint;
 import nl.vlettenrally.data.domain.CircleCheckpoint;
 import nl.vlettenrally.data.domain.PolygonCheckpoint;
-import nl.vlettenrally.data.domain.Team;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,9 +35,6 @@ class EventDetailsServiceTest {
 
     @Mock
     CheckpointService checkpointService;
-
-    @Mock
-    TeamService teamService;
 
     @InjectMocks
     EventDetailsService eventDetailsService;
@@ -182,53 +177,9 @@ class EventDetailsServiceTest {
         assertEquals("123", saved.getExternalId());
     }
 
-    @Test
-    void linkParticipants_returnsCountsAndAffectedItems() throws Exception {
-        Team alpha = team("101");
-        Team bravo = team("Bravo");
-        when(teamService.findByGameId(gameId)).thenReturn(List.of(alpha, bravo));
-        when(locationApiClient.fetchDetails("https://tracker/details")).thenReturn(responseWithParticipants(
-            eventParticipant(1001, 101, "Ignored"),
-            eventParticipant(1002, null, "  bravo "),
-            eventParticipant(1003, null, "No team match")
-        ));
-
-        ParticipantLinkResult result = eventDetailsService.linkParticipants(gameId, "https://tracker/details");
-
-        assertEquals(2, result.linked());
-        assertEquals(1, result.unmatched());
-        assertEquals(List.of("101", "Bravo"), result.linkedTeams());
-        assertEquals(List.of("No team match"), result.unmatchedParticipants());
-        verify(teamService, times(2)).save(any(Team.class));
-    }
-
-    @Test
-    void linkParticipants_unmatchedLabelsUseConfiguredFallbackOrder() throws Exception {
-        when(teamService.findByGameId(gameId)).thenReturn(List.<Team>of());
-        when(locationApiClient.fetchDetails("https://tracker/details")).thenReturn(responseWithParticipants(
-            eventParticipant(2001, 88, "  Bib Label  "),
-            eventParticipant(2002, 77, null),
-            eventParticipant(2003, null, "   ")
-        ));
-
-        ParticipantLinkResult result = eventDetailsService.linkParticipants(gameId, "https://tracker/details");
-
-        assertEquals(0, result.linked());
-        assertEquals(3, result.unmatched());
-        assertEquals(List.of("Bib Label", "77", "2003"), result.unmatchedParticipants());
-    }
-
     private static EventDetailsResponse responseWithCheckpoints(EventCheckpoint... checkpoints) {
         EventDetailsBody body = new EventDetailsBody();
         body.setEventCheckpoints(List.of(checkpoints));
-        EventDetailsResponse response = new EventDetailsResponse();
-        response.setEvent(body);
-        return response;
-    }
-
-    private static EventDetailsResponse responseWithParticipants(EventParticipant... participants) {
-        EventDetailsBody body = new EventDetailsBody();
-        body.setEventParticipants(List.of(participants));
         EventDetailsResponse response = new EventDetailsResponse();
         response.setEvent(body);
         return response;
@@ -245,14 +196,6 @@ class EventDetailsServiceTest {
         return cp;
     }
 
-    private Team team(String name) {
-        Team team = new Team();
-        team.setId(UUID.randomUUID());
-        team.setGameId(gameId);
-        team.setName(name);
-        return team;
-    }
-
     private static EventCheckpoint eventCheckpoint(int id, String name, double lat, double lng) {
         EventCheckpoint checkpoint = new EventCheckpoint();
         checkpoint.setId(id);
@@ -264,11 +207,4 @@ class EventDetailsServiceTest {
         return checkpoint;
     }
 
-    private static EventParticipant eventParticipant(int participantId, Integer bib, String bibLabel) {
-        EventParticipant participant = new EventParticipant();
-        participant.setEventParticipantsId(participantId);
-        participant.setBib(bib);
-        participant.setBibLabel(bibLabel);
-        return participant;
-    }
 }

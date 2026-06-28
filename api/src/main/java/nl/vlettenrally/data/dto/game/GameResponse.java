@@ -21,6 +21,7 @@ public record GameResponse(
     Integer locationPollingFrequency,
     Boolean locationEndpointActive,
     Boolean rankingsPublished,
+    Boolean publicRankingsEnabled,
     String createdAt,
     String updatedAt
 ) {}

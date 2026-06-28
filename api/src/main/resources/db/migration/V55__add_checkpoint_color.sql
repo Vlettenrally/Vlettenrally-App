@@ -1,0 +1,1 @@
+ALTER TABLE checkpoints ADD COLUMN color VARCHAR(7);

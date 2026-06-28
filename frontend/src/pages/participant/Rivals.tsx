@@ -3,6 +3,7 @@
  * Editable as long as the game has not yet ended.
  */
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Alert,
   Autocomplete,
@@ -34,6 +35,7 @@ import type { PublicTeam, TeamOption } from '../../types/entities';
 const MAX_RIVALS = 5;
 
 export default function Rivals() {
+  const { t } = useTranslation();
   const { team, rivalTeams, setRivalTeams } = useTeamStore();
   const { game } = useGameStore();
 
@@ -81,7 +83,7 @@ export default function Rivals() {
       );
       setDialogOpen(true);
     } catch (e) {
-      setError('Kon de teamlijst niet laden.');
+      setError(t('participant.rivals.loadEligibleError'));
       console.warn('Failed to load eligible rivals', e);
     } finally {
       setLoadingEligible(false);
@@ -107,7 +109,7 @@ export default function Rivals() {
   if (!team) {
     return (
       <Container maxWidth="md" sx={{ mt: 3 }}>
-        <Typography>Team laden…</Typography>
+        <Typography>{t('participant.rivals.loadingTeam')}</Typography>
       </Container>
     );
   }
@@ -117,7 +119,7 @@ export default function Rivals() {
       <Stack spacing={2}>
         <Box display="flex" alignItems="center" justifyContent="space-between">
           <Typography variant="h4" component="h1">
-            Rivalen
+            {t('participant.rivals.title')}
           </Typography>
           {!isLocked ? (
             <Button
@@ -126,15 +128,15 @@ export default function Rivals() {
               onClick={openDialog}
               disabled={loadingEligible}
             >
-              Rivalen beheren
+              {t('participant.rivals.manage')}
             </Button>
           ) : (
-            <Chip label="Rivaalkeuze is gesloten" color="default" />
+            <Chip label={t('participant.rivals.closed')} color="default" />
           )}
         </Box>
 
         <Typography variant="body2" color="text.secondary">
-          Kies maximaal {MAX_RIVALS} andere teams om hun stand bij te houden.
+          {t('participant.rivals.selectUpToN', { count: MAX_RIVALS })}
         </Typography>
 
         <Paper>
@@ -142,16 +144,16 @@ export default function Rivals() {
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell width={60}>#</TableCell>
-                  <TableCell>Team</TableCell>
-                  <TableCell align="right">Punten</TableCell>
+                  <TableCell width={60}>{t('participant.rivals.rank')}</TableCell>
+                  <TableCell>{t('participant.rivals.team')}</TableCell>
+                  <TableCell align="right">{t('participant.rivals.points')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {leaderboard.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={3} sx={{ color: 'text.secondary' }}>
-                      Nog geen rivalen gekozen.
+                      {t('participant.rivals.noRivals')}
                     </TableCell>
                   </TableRow>
                 )}
@@ -161,7 +163,7 @@ export default function Rivals() {
                     <TableCell>
                       {row.teamName}
                       {row.isMe && (
-                        <Chip size="small" label="Jij" sx={{ ml: 1 }} color="primary" />
+                        <Chip size="small" label={t('participant.rivals.you')} sx={{ ml: 1 }} color="primary" />
                       )}
                     </TableCell>
                     <TableCell align="right">{row.points}</TableCell>
@@ -174,11 +176,11 @@ export default function Rivals() {
       </Stack>
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Rivalen kiezen</DialogTitle>
+        <DialogTitle>{t('participant.rivals.chooseRivals')}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <Typography variant="body2" color="text.secondary">
-              Selecteer maximaal {MAX_RIVALS} teams. Begin te typen om te filteren.
+              {t('participant.rivals.selectInstruction', { count: MAX_RIVALS })}
             </Typography>
             <Autocomplete
               multiple
@@ -186,7 +188,7 @@ export default function Rivals() {
               value={selection}
               onChange={(_, value) => {
                 if (value.length > MAX_RIVALS) {
-                  setError(`Je kunt maximaal ${MAX_RIVALS} rivalen kiezen.`);
+                  setError(t('participant.rivals.maxRivalsError', { count: MAX_RIVALS }));
                   return;
                 }
                 setError(null);
@@ -206,7 +208,7 @@ export default function Rivals() {
                 ))
               }
               renderInput={(params) => (
-                <TextField {...params} label="Zoek een team" placeholder="Begin te typen…" />
+                <TextField {...params} label={t('participant.rivals.searchTeam')} placeholder={t('participant.rivals.startTyping')} />
               )}
             />
             {error && <Alert severity="error">{error}</Alert>}
@@ -214,14 +216,14 @@ export default function Rivals() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)} disabled={submitting}>
-            Annuleren
+            {t('common.cancel')}
           </Button>
           <Button
             variant="contained"
             onClick={handleSave}
             disabled={submitting || selection.length > MAX_RIVALS}
           >
-            Opslaan
+            {t('participant.rivals.save')}
           </Button>
         </DialogActions>
       </Dialog>

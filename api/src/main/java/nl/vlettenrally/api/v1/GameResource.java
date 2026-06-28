@@ -21,7 +21,6 @@ import nl.vlettenrally.client.exception.LocationApiException;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
 import nl.vlettenrally.data.dto.auth.GameCheckInLinkResponse;
 import nl.vlettenrally.data.dto.game.CheckpointImportResponse;
-import nl.vlettenrally.data.dto.game.ParticipantLinkResponse;
 import nl.vlettenrally.data.dto.game.CheckpointRequest;
 import nl.vlettenrally.data.dto.game.CheckpointResponse;
 import nl.vlettenrally.data.dto.game.CopyCheckpointsRequest;
@@ -50,7 +49,6 @@ import nl.vlettenrally.service.ImportResult;
 import nl.vlettenrally.service.TeamImportResult;
 import nl.vlettenrally.service.TrackerAssignmentResult;
 import nl.vlettenrally.service.TrackerAssignmentService;
-import nl.vlettenrally.service.ParticipantLinkResult;
 import nl.vlettenrally.service.AuthService;
 import nl.vlettenrally.service.TeamService;
 import nl.vlettenrally.service.TeamImportService;
@@ -82,7 +80,6 @@ import org.locationtech.jts.geom.Polygon;
  * - PUT /api/v1/games/{gameId}/checkpoints/{checkpointId} - Update a checkpoint
  * - DELETE /api/v1/games/{gameId}/checkpoints/{checkpointId} - Delete a checkpoint
  * - POST /api/v1/games/{gameId}/import-checkpoints - Import checkpoints (zones) from location tracker
- * - POST /api/v1/games/{gameId}/link-participants - Link teams to tracker participants
  */
 @Path("/api/v1/games")
 @RolesAllowed({SecurityRoles.STAFF, SecurityRoles.TEAM})
@@ -636,40 +633,6 @@ public class GameResource {
             .orElse(gameNotFoundResponse());
     }
 
-    /**
-     * Link teams to tracker participants from the Legendstracking /details endpoint.
-     * Sets each team's externalParticipantId by matching the participant bib to
-     * team.name (case-insensitive trimmed; falls back to bib_label).
-     */
-    @POST
-    @Path("/{gameId}/link-participants")
-    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
-    public Response linkParticipants(@PathParam("gameId") UUID gameId) {
-        return gameService.findById(gameId)
-            .map(game -> {
-                if (game.getLocationEndpointUrl() == null || game.getLocationEndpointUrl().isBlank()) {
-                    return Response.status(Response.Status.BAD_REQUEST)
-                        .entity(new ErrorResponse("Game has no location endpoint configured"))
-                        .build();
-                }
-
-                try {
-                    ParticipantLinkResult result = eventDetailsService.linkParticipants(gameId, game.getLocationEndpointUrl());
-                    return Response.ok(new ParticipantLinkResponse(
-                        result.linked(),
-                        result.unmatched(),
-                        result.linkedTeams(),
-                        result.unmatchedParticipants()
-                    )).build();
-                } catch (LocationApiException e) {
-                    return Response.status(Response.Status.BAD_GATEWAY)
-                        .entity(new ErrorResponse("Failed to fetch from location tracker: " + e.getMessage()))
-                        .build();
-                }
-            })
-            .orElse(gameNotFoundResponse());
-    }
-
     private GameResponse toDto(Game game) {
         return new GameResponse(
             game.getId(),
@@ -687,6 +650,7 @@ public class GameResource {
             game.getLocationPollingFrequency(),
             game.getLocationEndpointActive(),
             game.getRankingsPublished() != null && game.getRankingsPublished(),
+            game.getPublicRankingsEnabled() != null && game.getPublicRankingsEnabled(),
             game.getCreatedAt() != null ? game.getCreatedAt().toString() : null,
             game.getUpdatedAt() != null ? game.getUpdatedAt().toString() : null
         );
@@ -715,7 +679,8 @@ public class GameResource {
             checkpoint.getZoneType(),
             radiusMeters,
             polygonPoints,
-            checkpoint.isHidden()
+            checkpoint.isHidden(),
+            checkpoint.getColor()
         );
     }
 

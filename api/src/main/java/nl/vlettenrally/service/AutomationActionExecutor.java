@@ -7,6 +7,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import nl.vlettenrally.data.domain.AdminNotification;
 import nl.vlettenrally.data.domain.AutomationRule;
+import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.MessageTemplate;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.domain.automation.AutomationAction;
@@ -25,6 +26,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Executes the action list of a fired automation rule against the resolved
@@ -55,6 +57,12 @@ public class AutomationActionExecutor {
     @Inject
     TeamRepository teamRepository;
 
+    @Inject
+    GameService gameService;
+
+    @Inject
+    RankingService rankingService;
+
     /** Outcome of one rule firing: overall status plus per-action detail as JSON. */
     public record Result(AutomationExecutionStatus status, String detail) {}
 
@@ -74,17 +82,20 @@ public class AutomationActionExecutor {
 
         for (AutomationAction action : rule.getActions()) {
             Map<String, Object> detail = new HashMap<>();
-            detail.put("action", action.type().name());
+            detail.put("action", action.getClass().getSimpleName());
             try {
-                switch (action.type()) {
-                    case SEND_MESSAGE -> sendMessage(rule, action, targets, ctx);
-                    case AWARD_POINTS -> awardPoints(rule, action, targets, detail);
-                    case NOTIFY_ADMINS -> notifyAdmins(rule, action, targets, ctx);
-                    case FINISH_TEAM -> finishTeams(targets, detail);
+                switch (action) {
+                    case AutomationAction.SendMessage a            -> sendMessage(rule, a, targets, ctx);
+                    case AutomationAction.AwardPoints a            -> awardPoints(rule, a, targets, detail);
+                    case AutomationAction.NotifyAdmins a           -> notifyAdmins(rule, a, targets, ctx);
+                    case AutomationAction.FinishTeam a             -> finishTeams(targets, detail);
+                    case AutomationAction.SetRankingsPublished a   -> setRankingsPublished(rule, a, detail);
+                    case AutomationAction.SetPublicRankingsEnabled a -> setPublicRankingsEnabled(rule, a, detail);
                 }
                 detail.put("ok", !Boolean.FALSE.equals(detail.get("ok")));
             } catch (Exception e) {
-                Log.warnf("Automation %s action %s failed: %s", rule.getId(), action.type(), e.getMessage());
+                Log.warnf("Automation %s action %s failed: %s",
+                    rule.getId(), action.getClass().getSimpleName(), e.getMessage());
                 detail.put("ok", false);
                 detail.put("error", e.getMessage());
             }
@@ -100,7 +111,8 @@ public class AutomationActionExecutor {
         return new Result(status, toJson(details));
     }
 
-    private void sendMessage(AutomationRule rule, AutomationAction action, List<Team> targets, ActionContext ctx) {
+    private void sendMessage(AutomationRule rule, AutomationAction.SendMessage action,
+                             List<Team> targets, ActionContext ctx) {
         String content = action.messageContent();
         MessageType type = action.messageType();
         String icon = action.messageIcon();
@@ -133,8 +145,8 @@ public class AutomationActionExecutor {
             rule.getId());
     }
 
-    private void awardPoints(AutomationRule rule, AutomationAction action, List<Team> targets,
-                             Map<String, Object> detail) {
+    private void awardPoints(AutomationRule rule, AutomationAction.AwardPoints action,
+                             List<Team> targets, Map<String, Object> detail) {
         String description = action.pointsDescription() != null
             ? action.pointsDescription()
             : "Automation: " + rule.getName();
@@ -184,7 +196,36 @@ public class AutomationActionExecutor {
         }
     }
 
-    private void notifyAdmins(AutomationRule rule, AutomationAction action, List<Team> targets, ActionContext ctx) {
+    private void setRankingsPublished(AutomationRule rule, AutomationAction.SetRankingsPublished action,
+                                      Map<String, Object> detail) {
+        UUID gameId = rule.getGameId();
+        Game game = gameService.findById(gameId)
+            .orElseThrow(() -> new IllegalStateException("Game not found: " + gameId));
+        boolean publish = Boolean.TRUE.equals(action.rankingsPublished());
+        game.setRankingsPublished(publish);
+        gameService.save(game);
+        detail.put("rankingsPublished", publish);
+        if (publish) {
+            webSocketPublisher.broadcastToGame(
+                gameId,
+                WebSocketMessageType.RANKING_UPDATE.getValue(),
+                rankingService.buildRanking(gameId));
+        }
+    }
+
+    private void setPublicRankingsEnabled(AutomationRule rule, AutomationAction.SetPublicRankingsEnabled action,
+                                          Map<String, Object> detail) {
+        UUID gameId = rule.getGameId();
+        Game game = gameService.findById(gameId)
+            .orElseThrow(() -> new IllegalStateException("Game not found: " + gameId));
+        boolean enable = Boolean.TRUE.equals(action.publicRankingsEnabled());
+        game.setPublicRankingsEnabled(enable);
+        gameService.save(game);
+        detail.put("publicRankingsEnabled", enable);
+    }
+
+    private void notifyAdmins(AutomationRule rule, AutomationAction.NotifyAdmins action,
+                              List<Team> targets, ActionContext ctx) {
         // One notification per firing; {team} only resolves for single-team firings.
         Team single = targets.size() == 1 ? targets.getFirst() : null;
         Map<String, String> values = firingValues(ctx);

@@ -15,6 +15,7 @@ import {
   Chip,
   Typography,
 } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import {
   Message as MessageIcon,
   Timer as TimerIcon,
@@ -60,14 +61,16 @@ interface MessageListProps {
   emptyText?: string;
 }
 
-export function MessageList({ messages, emptyText = 'Nog geen berichten' }: MessageListProps) {
+export function MessageList({ messages, emptyText }: MessageListProps) {
+  const { t } = useTranslation();
   const { getMessageRef } = useInViewMarkAsRead();
+  const effectiveEmptyText = emptyText ?? t('components.messageList.empty');
 
   if (messages.length === 0) {
     return (
       <Box sx={{ p: 2, textAlign: 'center' }}>
         <Typography variant="body2" color="text.secondary">
-          {emptyText}
+          {effectiveEmptyText}
         </Typography>
       </Box>
     );
@@ -106,7 +109,7 @@ export function MessageList({ messages, emptyText = 'Nog geen berichten' }: Mess
                   <Typography variant="body2" sx={{ fontSize: '0.9rem' }}>
                     {message.content}
                   </Typography>
-                  {!message.read && <Chip label="Nieuw" color="primary" size="small" sx={{ height: 20, fontSize: '0.7rem' }} />}
+                  {!message.read && <Chip label={t('components.messageList.new')} color="primary" size="small" sx={{ height: 20, fontSize: '0.7rem' }} />}
                 </Box>
               }
               secondary={

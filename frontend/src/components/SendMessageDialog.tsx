@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Dialog,
   DialogTitle,
@@ -40,14 +41,6 @@ interface SendMessageDialogProps {
   initialTemplate?: MessageTemplate | null;
 }
 
-const MESSAGE_TYPES: { value: MessageType; label: string; description: string }[] = [
-  { value: 'general', label: 'Algemeen', description: 'Standaard bericht' },
-  { value: 'countdown', label: 'Countdown', description: 'Aftellen/timing updates' },
-  { value: 'checkpoint', label: 'Checkpoint', description: 'Checkpoint gerelateerd' },
-  { value: 'rallydesk', label: 'Rallydesk', description: 'Kritiek bericht - SMS fallback actief' },
-  { value: 'achievement', label: 'Achievement', description: 'Prestatie meldingen' },
-  { value: 'rival', label: 'Rivaal', description: 'Rivaal team updates' },
-];
 
 const SMS_CHAR_LIMIT = 160;
 const SMS_WARN_THRESHOLD = 140;
@@ -61,6 +54,17 @@ export default function SendMessageDialog({
   templates,
   initialTemplate,
 }: SendMessageDialogProps) {
+  const { t } = useTranslation();
+
+  const MESSAGE_TYPES: { value: MessageType; label: string; description: string }[] = [
+    { value: 'general', label: t('components.sendMessage.typeGeneral'), description: t('components.sendMessage.typeGeneral') },
+    { value: 'countdown', label: t('components.sendMessage.typeCountdown'), description: t('components.sendMessage.typeCountdown') },
+    { value: 'checkpoint', label: t('components.sendMessage.typeCheckpoint'), description: t('components.sendMessage.typeCheckpoint') },
+    { value: 'rallydesk', label: t('components.sendMessage.typeRallydesk'), description: t('components.sendMessage.typeRallydesk') },
+    { value: 'achievement', label: t('components.sendMessage.typeAchievement'), description: t('components.sendMessage.typeAchievement') },
+    { value: 'rival', label: t('components.sendMessage.typeRival'), description: t('components.sendMessage.typeRival') },
+  ];
+
   const [sendToAll, setSendToAll] = useState(true);
   const [selectedTeams, setSelectedTeams] = useState<AdminTeam[]>([]);
   const [messageType, setMessageType] = useState<MessageType>('general');
@@ -86,17 +90,17 @@ export default function SendMessageDialog({
   const handleSend = async () => {
     // Validate
     if (!content.trim()) {
-      setError('Bericht inhoud is verplicht');
+      setError(t('components.sendMessage.messageRequired'));
       return;
     }
 
     if (!sendToAll && selectedTeams.length === 0) {
-      setError('Selecteer ten minste één team');
+      setError(t('components.sendMessage.selectTeamRequired'));
       return;
     }
 
     if (saveAsTemplate && !templateName.trim()) {
-      setError('Template naam is verplicht als je wilt opslaan als template');
+      setError(t('components.sendMessage.templateNameRequired'));
       return;
     }
 
@@ -148,21 +152,21 @@ export default function SendMessageDialog({
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>
-        {showRallydeskWarning ? 'Rallydesk bericht bevestigen' : 'Bericht versturen'}
+        {showRallydeskWarning ? t('components.sendMessage.confirmTitle') : t('components.sendMessage.sendTitle')}
       </DialogTitle>
       <DialogContent>
         {showRallydeskWarning ? (
           <Alert severity="warning" sx={{ mt: 1 }}>
             <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-              ⚠️ Let op: SMS fallback actief
+              {t('components.sendMessage.smsWarning')}
             </Typography>
             <Typography variant="body2">
-              Rallydesk berichten worden automatisch via SMS verstuurd naar teams die inactief zijn.
-              Dit kan extra kosten met zich meebrengen.
+              {t('components.sendMessage.smsWarningText')}
             </Typography>
             <Typography variant="body2" sx={{ mt: 1 }}>
-              Weet je zeker dat je dit bericht wilt versturen naar{' '}
-              <strong>{sendToAll ? 'alle teams' : `${selectedTeams.length} geselecteerde teams`}</strong>?
+              {t('components.sendMessage.confirmMessage', {
+                recipients: sendToAll ? t('components.sendMessage.allTeams') : t('components.sendMessage.selectedTeams', { count: selectedTeams.length }),
+              })}
             </Typography>
           </Alert>
         ) : (
@@ -187,7 +191,7 @@ export default function SendMessageDialog({
                 }
               }}
               renderInput={(params) => (
-                <TextField {...params} label="Template (optioneel)" placeholder="Selecteer een template..." />
+                <TextField {...params} label={t('components.sendMessage.template')} placeholder={t('components.sendMessage.selectTemplate')} />
               )}
               renderOption={(props, option) => (
                 <li {...props} key={option.id}>
@@ -215,7 +219,7 @@ export default function SendMessageDialog({
                     }}
                   />
                 }
-                label="Verstuur naar alle teams"
+                label={t('components.sendMessage.sendToAll')}
               />
             </Box>
 
@@ -236,8 +240,8 @@ export default function SendMessageDialog({
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="Teams selecteren"
-                    placeholder="Zoek op teamnaam..."
+                    label={t('components.sendMessage.selectTeams')}
+                    placeholder={t('components.sendMessage.searchTeam')}
                   />
                 )}
                 renderValue={(value, getTagProps) =>
@@ -268,10 +272,10 @@ export default function SendMessageDialog({
 
             {/* Message type */}
             <FormControl fullWidth>
-              <InputLabel>Berichttype</InputLabel>
+              <InputLabel>{t('components.sendMessage.messageType')}</InputLabel>
               <Select
                 value={messageType}
-                label="Berichttype"
+                label={t('components.sendMessage.messageType')}
                 onChange={(e) => setMessageType(e.target.value as MessageType)}
               >
                 {MESSAGE_TYPES.map((type) => (
@@ -292,7 +296,7 @@ export default function SendMessageDialog({
 
             {/* Content */}
             <TextField
-              label="Bericht"
+              label={t('components.sendMessage.message')}
               multiline
               rows={4}
               value={content}
@@ -307,25 +311,25 @@ export default function SendMessageDialog({
                       color: isOverLimit ? 'error.main' : isNearLimit ? 'warning.main' : 'text.secondary',
                     }}
                   >
-                    {charCount}/{SMS_CHAR_LIMIT} tekens
-                    {isOverLimit && ' - Bericht kan worden afgekapt bij SMS verzending'}
-                    {isNearLimit && ' - Bijna bij SMS limiet'}
+                    {t('components.sendMessage.charCount', { count: charCount, max: SMS_CHAR_LIMIT })}
+                    {isOverLimit && ' - ' + t('components.sendMessage.smsTruncation')}
+                    {isNearLimit && ' - ' + t('components.sendMessage.smsLimitWarning')}
                   </Box>
                 ) : undefined
               }
             />
             <Typography variant="caption" color="text.secondary">
-              {'{team}'} wordt vervangen door de naam van het ontvangende team.
+              {t('components.sendMessage.teamPlaceholderHint')}
             </Typography>
 
             {/* Icon */}
             <TextField
-              label="Icoon (optioneel)"
+              label={t('components.sendMessage.icon')}
               value={icon}
               onChange={(e) => setIcon(e.target.value)}
               fullWidth
-              placeholder="Bijv: 📢, 🏁, ⚠️"
-              helperText="Emoji of tekst icoon voor het bericht"
+              placeholder={t('components.sendMessage.iconPlaceholder')}
+              helperText={t('components.sendMessage.iconHint')}
             />
 
             {/* Save as template */}
@@ -337,11 +341,11 @@ export default function SendMessageDialog({
                     onChange={(e) => setSaveAsTemplate(e.target.checked)}
                   />
                 }
-                label="Opslaan als template"
+                label={t('components.sendMessage.saveAsTemplate')}
               />
               {saveAsTemplate && (
                 <TextField
-                  label="Template naam"
+                  label={t('components.sendMessage.templateName')}
                   value={templateName}
                   onChange={(e) => setTemplateName(e.target.value)}
                   fullWidth
@@ -355,12 +359,12 @@ export default function SendMessageDialog({
       </DialogContent>
       <DialogActions>
         <Button onClick={handleCancel}>
-          {showRallydeskWarning ? 'Terug' : 'Annuleren'}
+          {showRallydeskWarning ? t('common.back') : t('common.cancel')}
         </Button>
-        <Tooltip title="Binnenkort beschikbaar" arrow>
+        <Tooltip title={t('components.sendMessage.comingSoon')} arrow>
           <span>
             <Button disabled startIcon={<ScheduleIcon />}>
-              Inplannen
+              {t('components.sendMessage.schedule')}
             </Button>
           </span>
         </Tooltip>
@@ -371,7 +375,7 @@ export default function SendMessageDialog({
           startIcon={loading ? <CircularProgress size={20} /> : showRallydeskWarning ? <WarningIcon /> : <SendIcon />}
           color={showRallydeskWarning ? 'warning' : 'primary'}
         >
-          {loading ? 'Verzenden...' : showRallydeskWarning ? 'Bevestigen en versturen' : 'Versturen'}
+          {loading ? t('components.sendMessage.sending') : showRallydeskWarning ? t('components.sendMessage.confirmAndSend') : t('components.sendMessage.send')}
         </Button>
       </DialogActions>
     </Dialog>

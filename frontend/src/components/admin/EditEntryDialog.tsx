@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Dialog,
   DialogTitle,
@@ -25,6 +26,7 @@ interface EditEntryDialogProps {
  * A reason is mandatory so the audit trail stays meaningful.
  */
 export default function EditEntryDialog({ open, onClose, entry, onSaved }: EditEntryDialogProps) {
+  const { t } = useTranslation();
   const [trackedId, setTrackedId] = useState<string | null>(null);
   // String-backed so the field can be cleared while typing a new value
   const [amount, setAmount] = useState<string>('0');
@@ -47,11 +49,11 @@ export default function EditEntryDialog({ open, onClose, entry, onSaved }: EditE
 
   const handleSave = async () => {
     if (!amountIsValid) {
-      setError('Vul een geldig aantal punten in');
+      setError(t('components.editEntry.invalidPoints'));
       return;
     }
     if (!reason.trim()) {
-      setError('Reden is verplicht');
+      setError(t('components.editEntry.reasonRequired'));
       return;
     }
     setSaving(true);
@@ -70,15 +72,15 @@ export default function EditEntryDialog({ open, onClose, entry, onSaved }: EditE
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Punten aanpassen</DialogTitle>
+      <DialogTitle>{t('components.editEntry.title')}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <Typography variant="body2" color="text.secondary">
-            Origineel: <strong>{entry.originalAmount}</strong> · Huidig: <strong>{entry.currentAmount}</strong>
+            {t('components.editEntry.subtitle', { original: entry.originalAmount, current: entry.currentAmount })}
             {entry.description ? ` · ${entry.description}` : ''}
           </Typography>
           <TextField
-            label="Nieuw aantal punten"
+            label={t('components.editEntry.newPoints')}
             type="number"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
@@ -89,14 +91,13 @@ export default function EditEntryDialog({ open, onClose, entry, onSaved }: EditE
           />
           {delta !== 0 && (
             <Typography variant="caption" color={delta < 0 ? 'error' : 'success.main'}>
-              Wijziging: {delta > 0 ? '+' : ''}{delta}
+              {t('components.editEntry.change')} {delta > 0 ? '+' : ''}{delta}
             </Typography>
           )}
           <TextField
-            label="Reden"
+            label={t('components.editEntry.reason')}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="bv. Onreglementair gevaren tussen checkpoints"
             multiline
             minRows={2}
             required
@@ -106,9 +107,9 @@ export default function EditEntryDialog({ open, onClose, entry, onSaved }: EditE
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={saving}>Annuleren</Button>
+        <Button onClick={onClose} disabled={saving}>{t('common.cancel')}</Button>
         <Button onClick={handleSave} variant="contained" disabled={saving}>
-          {saving ? 'Opslaan…' : 'Opslaan'}
+          {saving ? t('components.editEntry.saving') : t('components.editEntry.save')}
         </Button>
       </DialogActions>
     </Dialog>

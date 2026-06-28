@@ -46,7 +46,12 @@ public enum Role {
     /**
      * Checkin role - used to register a team before starting a game
      */
-    CHECKIN;
+    CHECKIN,
+
+    /**
+     * Can manage team check-in, team details, and send messages
+     */
+    RALLY_DESK;
 
     /**
      * Serialize to lowercase for JSON output

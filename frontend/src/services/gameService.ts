@@ -1,5 +1,5 @@
 import api from './api';
-import { type Game, type GameRequest, type ExternalEvent, type TeamImportResult, type TrackerAssignResult, type ParticipantLinkResult, type LocationTestResult } from '../types/entities';
+import { type Game, type GameRequest, type ExternalEvent, type TeamImportResult, type TrackerAssignResult, type LocationTestResult } from '../types/entities';
 
 // Request deduplication - prevents duplicate in-flight requests
 // Service worker handles caching for offline support
@@ -89,14 +89,6 @@ export const gameService = {
       throw new Error(error ?? 'Export mislukt');
     }
     return csv;
-  },
-
-  linkParticipants: async (gameId: string): Promise<ParticipantLinkResult> => {
-    const response = await api.linkParticipants(gameId);
-    if (response.error) {
-      throw new Error(response.error);
-    }
-    return response.data!;
   },
 
   testLocationEndpoint: async (gameId: string): Promise<LocationTestResult> => {

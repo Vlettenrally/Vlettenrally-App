@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Dialog,
   DialogTitle,
@@ -26,15 +27,6 @@ interface TemplateFormDialogProps {
   template?: MessageTemplate | null; // null for create, template for edit
 }
 
-const MESSAGE_TYPES: { value: MessageType; label: string; description: string }[] = [
-  { value: 'general', label: 'Algemeen', description: 'Standaard bericht' },
-  { value: 'countdown', label: 'Countdown', description: 'Aftellen/timing updates' },
-  { value: 'checkpoint', label: 'Checkpoint', description: 'Checkpoint gerelateerd' },
-  { value: 'rallydesk', label: 'Rallydesk', description: 'Kritiek bericht - SMS fallback actief' },
-  { value: 'achievement', label: 'Achievement', description: 'Prestatie meldingen' },
-  { value: 'rival', label: 'Rivaal', description: 'Rivaal team updates' },
-];
-
 const SMS_CHAR_LIMIT = 160;
 const SMS_WARN_THRESHOLD = 140;
 
@@ -44,6 +36,17 @@ export default function TemplateFormDialog({
   onSuccess,
   template,
 }: TemplateFormDialogProps) {
+  const { t } = useTranslation();
+
+  const MESSAGE_TYPES: { value: MessageType; label: string; description: string }[] = [
+    { value: 'general', label: t('components.sendMessage.typeGeneral'), description: t('components.templateForm.typeGeneralDesc') },
+    { value: 'countdown', label: t('components.sendMessage.typeCountdown'), description: t('components.templateForm.typeCountdownDesc') },
+    { value: 'checkpoint', label: t('components.sendMessage.typeCheckpoint'), description: t('components.templateForm.typeCheckpointDesc') },
+    { value: 'rallydesk', label: t('components.sendMessage.typeRallydesk'), description: t('components.templateForm.typeRallydeskDesc') },
+    { value: 'achievement', label: t('components.sendMessage.typeAchievement'), description: t('components.templateForm.typeAchievementDesc') },
+    { value: 'rival', label: t('components.sendMessage.typeRival'), description: t('components.templateForm.typeRivalDesc') },
+  ];
+
   const [name, setName] = useState('');
   const [messageType, setMessageType] = useState<MessageType>('general');
   const [content, setContent] = useState('');
@@ -66,12 +69,12 @@ export default function TemplateFormDialog({
   const handleSave = async () => {
     // Validate
     if (!name.trim()) {
-      setError('Template naam is verplicht');
+      setError(t('components.templateForm.nameRequired'));
       return;
     }
 
     if (!content.trim()) {
-      setError('Bericht inhoud is verplicht');
+      setError(t('components.templateForm.contentRequired'));
       return;
     }
 
@@ -107,7 +110,7 @@ export default function TemplateFormDialog({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{isEditing ? 'Template bewerken' : 'Nieuwe template'}</DialogTitle>
+      <DialogTitle>{isEditing ? t('components.templateForm.editTitle') : t('components.templateForm.createTitle')}</DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
           {error && (
@@ -118,7 +121,7 @@ export default function TemplateFormDialog({
 
           {/* Template name */}
           <TextField
-            label="Template naam"
+            label={t('components.templateForm.name')}
             value={name}
             onChange={(e) => setName(e.target.value)}
             fullWidth
@@ -127,10 +130,10 @@ export default function TemplateFormDialog({
 
           {/* Message type */}
           <FormControl fullWidth>
-            <InputLabel>Berichttype</InputLabel>
+            <InputLabel>{t('components.templateForm.type')}</InputLabel>
             <Select
               value={messageType}
-              label="Berichttype"
+              label={t('components.templateForm.type')}
               onChange={(e) => setMessageType(e.target.value as MessageType)}
             >
               {MESSAGE_TYPES.map((type) => (
@@ -151,7 +154,7 @@ export default function TemplateFormDialog({
 
           {/* Content */}
           <TextField
-            label="Bericht"
+            label={t('components.templateForm.message')}
             multiline
             rows={4}
             value={content}
@@ -167,35 +170,35 @@ export default function TemplateFormDialog({
                     color: isOverLimit ? 'error.main' : isNearLimit ? 'warning.main' : 'text.secondary',
                   }}
                 >
-                  {charCount}/{SMS_CHAR_LIMIT} tekens
-                  {isOverLimit && ' - Bericht kan worden afgekapt bij SMS verzending'}
-                  {isNearLimit && ' - Bijna bij SMS limiet'}
+                  {t('components.sendMessage.charCount', { count: charCount, max: SMS_CHAR_LIMIT })}
+                  {isOverLimit && ' - ' + t('components.sendMessage.smsTruncation')}
+                  {isNearLimit && ' - ' + t('components.sendMessage.smsLimitWarning')}
                 </Box>
               ) : (
-                'Tip: Gebruik [X] als placeholder voor variabele tekst'
+                t('components.templateForm.contentHint')
               )
             }
           />
 
           {/* Icon */}
           <TextField
-            label="Icoon (optioneel)"
+            label={t('components.templateForm.icon')}
             value={icon}
             onChange={(e) => setIcon(e.target.value)}
             fullWidth
-            placeholder="Bijv: 📢, 🏁, ⚠️"
-            helperText="Emoji of tekst icoon voor het bericht"
+            placeholder={t('components.templateForm.iconPlaceholder')}
+            helperText={t('components.templateForm.iconHint')}
           />
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Annuleren</Button>
+        <Button onClick={onClose}>{t('common.cancel')}</Button>
         <Button
           variant="contained"
           onClick={handleSave}
           disabled={loading}
         >
-          {loading ? <CircularProgress size={24} /> : isEditing ? 'Opslaan' : 'Aanmaken'}
+          {loading ? <CircularProgress size={24} /> : isEditing ? t('common.save') : t('common.create')}
         </Button>
       </DialogActions>
     </Dialog>

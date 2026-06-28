@@ -10,6 +10,8 @@ export interface Game {
   status?: 'planned' | 'active' | 'completed';
   // Whether the final ranking has been revealed to players (admin-triggered at the ceremony).
   rankingsPublished?: boolean;
+  // Whether the ranking is visible on the public scoreboard API (independent of player-app visibility).
+  publicRankingsEnabled?: boolean;
   // External event integration
   externalEventId?: number;
   externalEventName?: string;
@@ -116,6 +118,8 @@ export interface Checkpoint {
   polygonPoints?: number[][];
   /** Hidden from teams' map, but still triggers automations */
   hidden: boolean;
+  /** Hex color for map display, e.g. "#ff9800"; absent means default orange */
+  color?: string;
 }
 
 /**
@@ -134,6 +138,8 @@ export interface CheckpointRequest {
   polygonPoints?: number[][];
   /** Hidden from teams' map, but still triggers automations */
   hidden?: boolean;
+  /** Hex color for map display, e.g. "#ff9800"; absent means default orange */
+  color?: string;
 }
 
 /**
@@ -143,16 +149,6 @@ export interface CheckpointImportResult {
   created: number;
   updated: number;
   errors: number;
-}
-
-/**
- * Result of a link-participants run against the Legendstracking /details endpoint.
- */
-export interface ParticipantLinkResult {
-  linked: number;
-  unmatched: number;
-  linkedTeams: string[];
-  unmatchedParticipants: string[];
 }
 
 /**
@@ -361,6 +357,7 @@ export const AdminRole = {
   GAME_MASTER: 'game_master',
   MESSAGE_SENDER: 'message_sender',
   CHECKPOINT_MANAGER: 'checkpoint_manager',
+  RALLY_DESK: 'rally_desk',
 } as const;
 
 export type AdminRole = (typeof AdminRole)[keyof typeof AdminRole];
@@ -619,8 +616,6 @@ export type AutomationTriggerType =
   | 'RIVAL_OVERTAKE'
   | 'DISTANCE_TRAVELED';
 
-export type AutomationActionType = 'SEND_MESSAGE' | 'AWARD_POINTS' | 'NOTIFY_ADMINS' | 'FINISH_TEAM';
-
 /**
  * Flat config; which fields apply depends on the rule's trigger type.
  * For CHECKPOINT_ENTRY, `comparison` plus the mode/time fields restrict firing
@@ -639,21 +634,48 @@ export interface AutomationTriggerConfig {
   comparison?: 'BEFORE' | 'AFTER' | null;
 }
 
-/**
- * Flat action; which fields apply depends on `type`. Text supports {team},
- * {checkpoint} and {rival} placeholders (which apply depends on the trigger).
- * A SEND_MESSAGE action may reference a reusable template via messageTemplateId.
- */
-export interface AutomationAction {
-  type: AutomationActionType;
+export interface SendMessageAction {
+  type: 'SEND_MESSAGE';
   messageContent?: string | null;
   messageType?: string | null;
   messageIcon?: string | null;
   messageTemplateId?: string | null;
+}
+
+export interface AwardPointsAction {
+  type: 'AWARD_POINTS';
   points?: number | null;
   pointsDescription?: string | null;
+}
+
+export interface NotifyAdminsAction {
+  type: 'NOTIFY_ADMINS';
   adminNotification?: string | null;
 }
+
+export interface FinishTeamAction {
+  type: 'FINISH_TEAM';
+}
+
+export interface SetRankingsPublishedAction {
+  type: 'SET_RANKINGS_PUBLISHED';
+  rankingsPublished?: boolean | null;
+}
+
+export interface SetPublicRankingsEnabledAction {
+  type: 'SET_PUBLIC_RANKINGS_ENABLED';
+  publicRankingsEnabled?: boolean | null;
+}
+
+export type AutomationAction =
+  | SendMessageAction
+  | AwardPointsAction
+  | NotifyAdminsAction
+  | FinishTeamAction
+  | SetRankingsPublishedAction
+  | SetPublicRankingsEnabledAction;
+
+export type AutomationActionType = AutomationAction['type'];
 
 export interface AutomationRule {
   id: string;

@@ -249,7 +249,7 @@ public class TeamResource {
      */
     @PUT
     @Path("/teams/{teamId}")
-    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER, SecurityRoles.RALLY_DESK})
     public Response updateTeam(
             @PathParam("teamId") UUID teamId,
             TeamUpdateRequest request) {
@@ -378,7 +378,7 @@ public class TeamResource {
      */
     @POST
     @Path("/teams")
-    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER, SecurityRoles.RALLY_DESK})
     public Response createTeam(TeamCreateRequest request) {
         try {
             // Validate required fields
@@ -426,7 +426,7 @@ public class TeamResource {
      */
     @DELETE
     @Path("/teams/{teamId}")
-    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER, SecurityRoles.RALLY_DESK})
     public Response deleteTeam(@PathParam("teamId") UUID teamId) {
         Optional<Team> teamOpt = teamService.findById(teamId);
         if (teamOpt.isEmpty()) {
@@ -476,7 +476,7 @@ public class TeamResource {
      */
     @PUT
     @Path("/teams/{teamId}/devices/main")
-    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER, SecurityRoles.RALLY_DESK})
     public Response setMainDevice(@PathParam("teamId") UUID teamId, SetMainDeviceRequest request) {
         if (request == null || request.deviceId() == null) {
             return Response.status(Response.Status.BAD_REQUEST)
@@ -500,7 +500,7 @@ public class TeamResource {
      */
     @DELETE
     @Path("/teams/{teamId}/devices")
-    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER, SecurityRoles.RALLY_DESK})
     public Response resetTeamDevices(@PathParam("teamId") UUID teamId) {
         try {
             coordinationService.resetTeam(teamId);
@@ -518,7 +518,7 @@ public class TeamResource {
      */
     @DELETE
     @Path("/teams/{teamId}/devices/{deviceId}")
-    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER, SecurityRoles.RALLY_DESK})
     public Response removeTeamDevice(@PathParam("teamId") UUID teamId, @PathParam("deviceId") UUID deviceId) {
         try {
             coordinationService.removeDevice(teamId, deviceId);

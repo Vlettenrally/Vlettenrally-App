@@ -1,18 +1,20 @@
 import { Container, Paper, Stack, Typography } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import MarkdownContent from '../../components/MarkdownContent';
 import { useGameStore } from '../../store/useGameStore';
 
 export default function ParticipantInfoPage() {
   const { game } = useGameStore();
+  const { t } = useTranslation();
 
   return (
     <Container maxWidth="md" sx={{ mt: 3, mb: 6 }}>
       <Stack spacing={2}>
         <Typography variant="h4" component="h1">
-          Spelinformatie en regels
+          {t('participant.info.title')}
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Alles wat je team moet weten voor {game?.name ?? 'dit spel'}.
+          {t('participant.info.subtitle', { game: game?.name ?? 'dit spel' })}
         </Typography>
 
         <Paper sx={{ p: 3 }}>
@@ -20,7 +22,7 @@ export default function ParticipantInfoPage() {
             <MarkdownContent>{game.participantInfo}</MarkdownContent>
           ) : (
             <Typography color="text.secondary">
-              Er is nog geen spelinformatie beschikbaar.
+              {t('participant.info.noInfo')}
             </Typography>
           )}
         </Paper>

@@ -26,8 +26,9 @@ public class MockAdminRepository implements AdminRepository {
     
     private final Map<UUID, Admin> admins = new ConcurrentHashMap<>();
     
-    // Well-known UUID for the default admin
+    // Well-known UUIDs for mock admins
     public static final UUID ADMIN_DEFAULT_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
+    public static final UUID RALLY_DESK_ID = UUID.fromString("00000000-0000-0000-0000-000000000002");
     
     @PostConstruct
     void init() {
@@ -45,9 +46,18 @@ public class MockAdminRepository implements AdminRepository {
         defaultAdmin.setRoles(Set.of(Role.ADMIN, Role.SUPER_ADMIN));
         defaultAdmin.setActive(true);
         admins.put(defaultAdmin.getId(), defaultAdmin);
-        
+
+        Admin rallyDeskAdmin = new Admin();
+        rallyDeskAdmin.setId(RALLY_DESK_ID);
+        rallyDeskAdmin.setUsername("rallydesk");
+        rallyDeskAdmin.setPasswordHash(BcryptUtil.bcryptHash("rallydesk123"));
+        rallyDeskAdmin.setRoles(Set.of(Role.RALLY_DESK));
+        rallyDeskAdmin.setActive(true);
+        admins.put(rallyDeskAdmin.getId(), rallyDeskAdmin);
+
         Log.info("🎭 MockAdminRepository initialized with " + admins.size() + " admin(s)");
         Log.info("   Default admin credentials: admin / admin123");
+        Log.info("   Rally desk credentials: rallydesk / rallydesk123");
     }
     
     @Override

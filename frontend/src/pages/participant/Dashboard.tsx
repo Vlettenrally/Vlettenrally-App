@@ -2,6 +2,7 @@
  * Dashboard Page - Main participant view
  */
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Paper,
@@ -39,6 +40,7 @@ const RECENT_MESSAGES_COUNT = 5;
 function GameStatusCard() {
   const { game } = useGameStore();
   const { team } = useTeamStore();
+  const { t } = useTranslation();
   // Tick every second so the countdowns below re-evaluate against the clock.
   const [, setTick] = useState(0);
 
@@ -56,8 +58,8 @@ function GameStatusCard() {
     return (
       <Card sx={{ bgcolor: 'rgba(88, 242, 5, 0.67)', color: 'white', boxShadow: 'none' }}>
         <CardContent sx={{ p: 1, '&:last-child': { pb: 1 }, textAlign: 'center' }}>
-          <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.95rem' }}>De Vlettenrally is afgelopen</Typography>
-          <Typography variant="caption" sx={{ fontSize: '0.8rem', opacity: 0.9 }}>Bedankt voor het meedoen!</Typography>
+          <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.95rem' }}>{t('participant.dashboard.gameOver')}</Typography>
+          <Typography variant="caption" sx={{ fontSize: '0.8rem', opacity: 0.9 }}>{t('participant.dashboard.thankYou')}</Typography>
         </CardContent>
       </Card>
     );
@@ -71,8 +73,8 @@ function GameStatusCard() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <FlagIcon fontSize="large" />
             <Box sx={{ flexGrow: 1 }}>
-              <Typography variant="h6">Jullie zijn gefinisht!</Typography>
-              <Typography variant="body2">Goed gevaren — jullie eindscore staat vast.</Typography>
+              <Typography variant="h6">{t('participant.dashboard.finished')}</Typography>
+              <Typography variant="body2">{t('participant.dashboard.finalScore')}</Typography>
             </Box>
           </Box>
         </CardContent>
@@ -87,7 +89,7 @@ function GameStatusCard() {
       return (
         <Card sx={{ bgcolor: 'rgb(182, 66, 24)', color: 'white', boxShadow: 'none' }}>
           <CardContent sx={{ p: 1, '&:last-child': { pb: 1 } }}>
-            <Typography variant="caption" sx={{ fontSize: '0.7rem', opacity: 0.9 }}>Zorg dat je optijd finisht, de Vlettenrally eindigt over:</Typography>
+            <Typography variant="caption" sx={{ fontSize: '0.7rem', opacity: 0.9 }}>{t('participant.dashboard.endingSoon')}</Typography>
             <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.2rem', my: 0.3 }}>{formatCountdown(secondsToEnd)}</Typography>
           </CardContent>
         </Card>
@@ -96,7 +98,7 @@ function GameStatusCard() {
     return (
         <Card sx={{ bgcolor: 'rgb(3, 177, 0)', color: 'white', boxShadow: 'none' }}>
         <CardContent sx={{ p: 1, '&:last-child': { pb: 1 }, textAlign: 'center' }}>
-          <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.9rem', opacity: 0.9 }}>De Vlettenrally is gestart!</Typography>
+          <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.9rem', opacity: 0.9 }}>{t('participant.dashboard.gameStarted')}</Typography>
         </CardContent>
       </Card>
     );
@@ -109,7 +111,7 @@ function GameStatusCard() {
     return (
       <Card sx={{ bgcolor: 'rgba(252, 172, 0, 0.79)', color: 'white', boxShadow: 'none' }}>
         <CardContent sx={{ p: 1, '&:last-child': { pb: 1 }, textAlign: 'center' }}>
-          <Typography variant="caption" sx={{ fontSize: '1.2rem', opacity: 0.9 }}>De Vlettenrally start over:</Typography>
+          <Typography variant="caption" sx={{ fontSize: '1.2rem', opacity: 0.9 }}>{t('participant.dashboard.startsIn')}</Typography>
           <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.5rem', my: 0.3 }}>{formatCountdown(secondsToStart)}</Typography>
         </CardContent>
       </Card>
@@ -120,8 +122,8 @@ function GameStatusCard() {
   return (
     <Card sx={{ bgcolor: 'rgb(31, 170, 0)', color: 'white', boxShadow: 'none' }}>
       <CardContent sx={{ p: 1, '&:last-child': { pb: 1 }, textAlign: 'center' }}>
-        <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '1.3rem' }}>Bijna van start!</Typography>
-        <Typography variant="caption" sx={{ fontSize: '1rem', opacity: 0.9 }}>Maak je klaar om te starten!</Typography>
+        <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '1.3rem' }}>{t('participant.dashboard.almostStarting')}</Typography>
+        <Typography variant="caption" sx={{ fontSize: '1rem', opacity: 0.9 }}>{t('participant.dashboard.getReady')}</Typography>
       </CardContent>
     </Card>
   );
@@ -131,6 +133,7 @@ export function DashboardPage() {
   const { team, achievements, setAchievements } = useTeamStore();
   const { messages, setMessages } = useMessageStore();
   const { showDisconnected } = useConnectionStatus();
+  const { t } = useTranslation();
   // Checkpoints live in the game store so useTeamSync can refresh them on resume.
   const totalCheckpoints = useGameStore((state) => state.checkpoints.length);
 
@@ -211,17 +214,17 @@ export function DashboardPage() {
                     {team.totalPoints}
                   </Typography>
                   <Typography variant="caption" sx={{ opacity: 0.85, fontSize: '0.9rem' }}>
-                    Punten
+                    {t('participant.dashboard.points')}
                   </Typography>
                 </Box>
               </Box>
             </Grid>
-            
+
             {/* Checkpoints */}
             <Grid size={{ xs: 6, sm: 6 }}>
-              <Box sx={{ 
-                display: 'flex', 
-                alignItems: 'center', 
+              <Box sx={{
+                display: 'flex',
+                alignItems: 'center',
                 justifyContent: 'center',
                 gap: 0.5,
               }}>
@@ -233,7 +236,7 @@ export function DashboardPage() {
                       : reachedCount}
                   </Typography>
                   <Typography variant="caption" sx={{ opacity: 0.85, fontSize: '0.9rem' }}>
-                    Checkpoints
+                    {t('participant.dashboard.checkpoints')}
                   </Typography>
                 </Box>
               </Box>
@@ -256,7 +259,7 @@ export function DashboardPage() {
             borderRadius: 0,
           }}
         >
-          Geen verbinding met server. Sommige gegevens kunnen verouderd zijn.
+          {t('participant.dashboard.noConnection')}
         </Alert>
       )}
 
@@ -272,25 +275,25 @@ export function DashboardPage() {
           <>
             <MessageList
               messages={messages}
-              emptyText="Je ontvangt hier updates tijdens de rally"
+              emptyText={t('participant.dashboard.placeholder')}
             />
             {messages.length > RECENT_MESSAGES_COUNT && (
               <Box sx={{ textAlign: 'center', mt: 2 }}>
                 <Typography variant="caption" color="text.secondary">
-                  {messages.length} berichten geladen
+                  {t('participant.dashboard.messagesLoaded', { count: messages.length })}
                 </Typography>
               </Box>
             )}
           </>
         ) : (
-          <Box sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
+          <Box sx={{
+            display: 'flex',
+            alignItems: 'center',
             justifyContent: 'center',
             height: '100%',
           }}>
             <Typography variant="body2" color="text.secondary">
-              Je ontvangt hier updates tijdens de rally
+              {t('participant.dashboard.placeholder')}
             </Typography>
           </Box>
         )}
@@ -303,7 +306,7 @@ export function DashboardPage() {
         fullWidth
         maxWidth="sm"
       >
-        <DialogTitle>Alle berichten</DialogTitle>
+        <DialogTitle>{t('participant.dashboard.allMessages')}</DialogTitle>
         <DialogContent dividers>
           <MessageList messages={messages} />
         </DialogContent>

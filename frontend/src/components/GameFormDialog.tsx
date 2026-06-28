@@ -23,6 +23,7 @@ import {
   Error as ErrorIcon,
 } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { gameService } from '../services/gameService';
 import { formatForDateTimeLocalInput } from '../utils/dateTime';
 import type { Game, GameRequest, ExternalEvent, LocationTestResult } from '../types/entities';
@@ -34,19 +35,21 @@ interface GameFormDialogProps {
   onSave?: (game: Game) => void;
 }
 
-const POLLING_FREQUENCY_OPTIONS = [
-  { value: 15, label: '15 seconds' },
-  { value: 30, label: '30 seconds' },
-  { value: 60, label: '1 minute' },
-  { value: 300, label: '5 minutes' },
-];
-
 export default function GameFormDialog({
   open,
   onClose,
   game,
   onSave,
 }: GameFormDialogProps) {
+  const { t } = useTranslation();
+
+  const POLLING_FREQUENCY_OPTIONS = [
+    { value: 15, label: t('components.gameForm.polling15s', { defaultValue: '15 seconds' }) },
+    { value: 30, label: t('components.gameForm.polling30s', { defaultValue: '30 seconds' }) },
+    { value: 60, label: t('components.gameForm.polling1m', { defaultValue: '1 minute' }) },
+    { value: 300, label: t('components.gameForm.polling5m', { defaultValue: '5 minutes' }) },
+  ];
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [externalEvents, setExternalEvents] = useState<ExternalEvent[]>([]);
@@ -135,7 +138,7 @@ export default function GameFormDialog({
 
   const handleSave = async () => {
     if (!formData.name.trim()) {
-      setError('Game name is required');
+      setError(t('components.gameForm.gameNameRequired'));
       return;
     }
 
@@ -212,7 +215,7 @@ export default function GameFormDialog({
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>
-        {isCreateMode ? 'Create New Game' : 'Edit Game'}
+        {isCreateMode ? t('components.gameForm.createTitle') : t('components.gameForm.editTitle')}
       </DialogTitle>
       <DialogContent>
         {error && (
@@ -223,10 +226,10 @@ export default function GameFormDialog({
         
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
           {/* Basic Info Section */}
-          <Typography variant="h6" color="primary">Basic Information</Typography>
-          
+          <Typography variant="h6" color="primary">{t('components.gameForm.basicInfo')}</Typography>
+
           <TextField
-            label="Game Name"
+            label={t('components.gameForm.gameName')}
             value={formData.name}
             onChange={handleChange('name')}
             required
@@ -234,7 +237,7 @@ export default function GameFormDialog({
           />
 
           <TextField
-            label="Description"
+            label={t('components.gameForm.description')}
             value={formData.description}
             onChange={handleChange('description')}
             multiline
@@ -243,18 +246,18 @@ export default function GameFormDialog({
           />
 
           <TextField
-            label="Participant Information & Rules"
+            label={t('components.gameForm.participantInfo')}
             value={formData.participantInfo}
             onChange={handleChange('participantInfo')}
             multiline
             rows={6}
             fullWidth
-            helperText="Shown in the participant app for this game. Markdown is supported."
+            helperText={t('components.gameForm.participantInfoHint')}
           />
 
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
             <TextField
-              label="Start Time"
+              label={t('components.gameForm.startTime')}
               type="datetime-local"
               value={formData.startTime}
               onChange={handleChange('startTime')}
@@ -262,7 +265,7 @@ export default function GameFormDialog({
               fullWidth
             />
             <TextField
-              label="End Time"
+              label={t('components.gameForm.endTime')}
               type="datetime-local"
               value={formData.endTime}
               onChange={handleChange('endTime')}
@@ -270,57 +273,57 @@ export default function GameFormDialog({
               fullWidth
             />
             <TextField
-              label="Check-in Start Time"
+              label={t('components.gameForm.checkInStart')}
               type="datetime-local"
               value={formData.checkInStartTime}
               onChange={handleChange('checkInStartTime')}
               slotProps={{ inputLabel: { shrink: true } }}
-              helperText="When the check-in area opens"
+              helperText={t('components.gameForm.checkInStartHint')}
               fullWidth
             />
             <TextField
-              label="Start Signal Time"
+              label={t('components.gameForm.startSignal')}
               type="datetime-local"
               value={formData.startSignalTime}
               onChange={handleChange('startSignalTime')}
               slotProps={{ inputLabel: { shrink: true } }}
-              helperText="When the race starts (auto-activates game)"
+              helperText={t('components.gameForm.startSignalHint')}
               fullWidth
             />
           </Box>
 
           <FormControl fullWidth>
-            <InputLabel>Status</InputLabel>
+            <InputLabel>{t('components.gameForm.status')}</InputLabel>
             <Select
               value={formData.status}
-              label="Status"
+              label={t('components.gameForm.status')}
               onChange={(e) => handleChange('status')({ target: { value: e.target.value } })}
             >
-              <MenuItem value="planned">Planned</MenuItem>
-              <MenuItem value="active">Active</MenuItem>
-              <MenuItem value="completed">Completed</MenuItem>
+              <MenuItem value="planned">{t('components.gameForm.statusPlanned')}</MenuItem>
+              <MenuItem value="active">{t('components.gameForm.statusActive')}</MenuItem>
+              <MenuItem value="completed">{t('components.gameForm.statusCompleted')}</MenuItem>
             </Select>
           </FormControl>
 
           <Divider />
 
           {/* External Event Section */}
-          <Typography variant="h6" color="primary">Team Import Configuration</Typography>
-          
+          <Typography variant="h6" color="primary">{t('components.gameForm.teamImport')}</Typography>
+
           <FormControl fullWidth>
-            <InputLabel>External Event</InputLabel>
+            <InputLabel>{t('components.gameForm.externalEvent')}</InputLabel>
             <Select
               value={formData.externalEventId || ''}
-              label="External Event"
+              label={t('components.gameForm.externalEvent')}
               onChange={(e) => handleExternalEventChange(e.target.value as number)}
               disabled={loadingEvents}
             >
               <MenuItem value="">
-                <em>None</em>
+                <em>{t('components.gameForm.none')}</em>
               </MenuItem>
               {externalEvents.map((event) => (
                 <MenuItem key={event.eventId} value={event.eventId}>
-                  {event.eventName} ({event.bookingCount} registrations)
+                  {event.eventName} ({t('components.gameForm.registrations', { count: event.bookingCount })})
                 </MenuItem>
               ))}
             </Select>
@@ -330,23 +333,23 @@ export default function GameFormDialog({
           <Divider />
 
           {/* Location Tracking Section */}
-          <Typography variant="h6" color="primary">Location Tracking</Typography>
-          
+          <Typography variant="h6" color="primary">{t('components.gameForm.locationTracking')}</Typography>
+
           <TextField
-            label="Tracker Base URL"
+            label={t('components.gameForm.trackerBaseUrl')}
             value={formData.locationEndpointUrl}
             onChange={handleChange('locationEndpointUrl')}
             placeholder="https://host/api/event/3265"
-            helperText="Base URL van het Legendstracking event — zonder trailing slash en zonder /details, /participants_locations of /participants_checkpoints"
+            helperText={t('components.gameForm.trackerBaseUrlHint')}
             fullWidth
           />
 
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
             <FormControl fullWidth>
-              <InputLabel>Polling Frequency</InputLabel>
+              <InputLabel>{t('components.gameForm.pollingFrequency')}</InputLabel>
               <Select
                 value={formData.locationPollingFrequency}
-                label="Polling Frequency"
+                label={t('components.gameForm.pollingFrequency')}
                 onChange={(e) => handleChange('locationPollingFrequency')({ target: { value: e.target.value } })}
               >
                 {POLLING_FREQUENCY_OPTIONS.map((option) => (
@@ -364,7 +367,7 @@ export default function GameFormDialog({
                   onChange={(e) => setFormData(prev => ({ ...prev, locationEndpointActive: e.target.checked }))}
                 />
               }
-              label="Location Tracking Active"
+              label={t('components.gameForm.trackingActive')}
               sx={{ ml: 1 }}
             />
           </Box>
@@ -377,7 +380,7 @@ export default function GameFormDialog({
                 onClick={handleTestLocation}
                 disabled={testingLocation}
               >
-                {testingLocation ? 'Testing...' : 'Test Connection'}
+                {testingLocation ? t('components.gameForm.testing') : t('components.gameForm.testConnection')}
               </Button>
               {locationTestResult && (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -385,14 +388,14 @@ export default function GameFormDialog({
                     <>
                       <SuccessIcon color="success" />
                       <Typography color="success.main">
-                        Connected - {locationTestResult.participantCount} participants found
+                        {t('components.gameForm.connected', { count: locationTestResult.participantCount })}
                       </Typography>
                     </>
                   ) : (
                     <>
                       <ErrorIcon color="error" />
                       <Typography color="error.main">
-                        {locationTestResult.errorMessage || 'Connection failed'}
+                        {locationTestResult.errorMessage || t('components.gameForm.connectionFailed')}
                       </Typography>
                     </>
                   )}
@@ -403,13 +406,13 @@ export default function GameFormDialog({
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{t('common.cancel')}</Button>
         <Button
           onClick={handleSave}
           variant="contained"
           disabled={loading}
         >
-          {loading ? <CircularProgress size={20} /> : isCreateMode ? 'Create' : 'Save'}
+          {loading ? <CircularProgress size={20} /> : isCreateMode ? t('common.create') : t('common.save')}
         </Button>
       </DialogActions>
     </Dialog>

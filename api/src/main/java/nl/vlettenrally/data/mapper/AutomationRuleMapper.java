@@ -82,7 +82,7 @@ public final class AutomationRuleMapper {
         entity.setEnabled(domain.isEnabled());
         entity.setTriggerType(domain.getTriggerType());
         entity.setTriggerConfig(writeJson(domain.getTriggerConfig()));
-        entity.setActions(writeJson(domain.getActions() != null ? domain.getActions() : List.of()));
+        entity.setActions(writeActions(domain.getActions() != null ? domain.getActions() : List.of()));
         entity.setTargetTeamIds(domain.getTargetTeamIds() == null || domain.getTargetTeamIds().isEmpty()
             ? null : writeJson(domain.getTargetTeamIds()));
         entity.setFireOnce(domain.isFireOnce());
@@ -120,6 +120,17 @@ public final class AutomationRuleMapper {
             return JSON.readValue(json, UUID_LIST_TYPE);
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Corrupt automation target_team_ids: " + json, e);
+        }
+    }
+
+    private static String writeActions(List<AutomationAction> actions) {
+        // Use the typed writer so Jackson resolves the element type as AutomationAction
+        // and applies @JsonTypeInfo. writeValueAsString(Object) erases the generic type,
+        // which causes the type discriminator to be silently dropped in native image.
+        try {
+            return JSON.writerFor(ACTIONS_TYPE).writeValueAsString(actions);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Failed to serialize automation actions JSON", e);
         }
     }
 

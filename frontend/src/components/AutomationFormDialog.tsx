@@ -23,6 +23,7 @@ import {
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import api from '../services/api';
 import { formatForDateTimeLocalInput } from '../utils/dateTime';
 import type {
@@ -45,44 +46,15 @@ interface AutomationFormDialogProps {
   onSave?: () => void;
 }
 
-const TRIGGER_OPTIONS: { value: AutomationTriggerType; label: string }[] = [
-  { value: 'CHECKPOINT_ENTRY', label: 'Checkpoint bereikt' },
-  { value: 'SCHEDULED_TIME', label: 'Tijdstip' },
-  { value: 'GAME_STATUS_CHANGE', label: 'Game-status wijziging' },
-  { value: 'TEAM_INACTIVITY', label: 'Team inactief' },
-  { value: 'RIVAL_OVERTAKE', label: 'Rivaal ingehaald' },
-];
-
-const ACTION_OPTIONS: { value: AutomationActionType; label: string }[] = [
-  { value: 'SEND_MESSAGE', label: 'Bericht naar team(s)' },
-  { value: 'AWARD_POINTS', label: 'Punten toekennen' },
-  { value: 'NOTIFY_ADMINS', label: 'Melding aan beheerders' },
-  { value: 'FINISH_TEAM', label: 'Team laten finishen' },
-];
-
-// Backend MessageType enum values
-const MESSAGE_TYPE_OPTIONS = [
-  { value: 'GENERAL', label: 'Algemeen' },
-  { value: 'COUNTDOWN', label: 'Countdown' },
-  { value: 'CHECKPOINT', label: 'Checkpoint' },
-  { value: 'RALLYDESK', label: 'Rallydesk (kritiek, SMS-fallback)' },
-  { value: 'ACHIEVEMENT', label: 'Achievement' },
-  { value: 'RIVAL', label: 'Rivaal' },
-];
-
-const TRIGGER_HELP: Record<AutomationTriggerType, string> = {
-  CHECKPOINT_ENTRY: 'Vuurt zodra een team een checkpoint-zone bereikt (geverifieerde doorkomst).',
-  SCHEDULED_TIME: 'Vuurt op een vast tijdstip of relatief aan het start-/eindsignaal van de game.',
-  GAME_STATUS_CHANGE: 'Vuurt wanneer de game van status wisselt (actief of afgerond).',
-  TEAM_INACTIVITY: 'Vuurt wanneer een team langere tijd geen locatie heeft doorgegeven.',
-  RIVAL_OVERTAKE: 'Vuurt zodra een team in punten over een van zijn rivalen heen gaat.',
-  DISTANCE_TRAVELED:
-    'Systeemregel: teams krijgen automatisch punten per afgelegde afstand. ' +
-    'Alleen het tarief is instelbaar.',
-};
-
-function emptyAction(): AutomationAction {
-  return { type: 'SEND_MESSAGE', messageContent: '', messageType: 'GENERAL' };
+function emptyActionForType(type: AutomationActionType): AutomationAction {
+  switch (type) {
+    case 'SEND_MESSAGE': return { type, messageContent: '', messageType: 'GENERAL' };
+    case 'AWARD_POINTS': return { type };
+    case 'NOTIFY_ADMINS': return { type };
+    case 'FINISH_TEAM': return { type };
+    case 'SET_RANKINGS_PUBLISHED': return { type };
+    case 'SET_PUBLIC_RANKINGS_ENABLED': return { type };
+  }
 }
 
 export default function AutomationFormDialog({
@@ -92,8 +64,44 @@ export default function AutomationFormDialog({
   gameId,
   onSave,
 }: AutomationFormDialogProps) {
+  const { t } = useTranslation();
   const isEdit = rule !== null;
   const isSystem = rule?.system ?? false;
+
+  const TRIGGER_OPTIONS: { value: AutomationTriggerType; label: string }[] = [
+    { value: 'CHECKPOINT_ENTRY', label: t('components.automationForm.triggerCheckpointEntry') },
+    { value: 'SCHEDULED_TIME', label: t('components.automationForm.triggerScheduledTime') },
+    { value: 'GAME_STATUS_CHANGE', label: t('components.automationForm.triggerGameStatusChange') },
+    { value: 'TEAM_INACTIVITY', label: t('components.automationForm.triggerTeamInactivity') },
+    { value: 'RIVAL_OVERTAKE', label: t('components.automationForm.triggerRivalOvertake') },
+  ];
+
+  const ACTION_OPTIONS: { value: AutomationActionType; label: string }[] = [
+    { value: 'SEND_MESSAGE', label: t('components.automationForm.actionSendMessage') },
+    { value: 'AWARD_POINTS', label: t('components.automationForm.actionAwardPoints') },
+    { value: 'NOTIFY_ADMINS', label: t('components.automationForm.actionNotifyAdmins') },
+    { value: 'FINISH_TEAM', label: t('components.automationForm.actionFinishTeam') },
+    { value: 'SET_RANKINGS_PUBLISHED', label: t('components.automationForm.actionSetRankingsPublished') },
+    { value: 'SET_PUBLIC_RANKINGS_ENABLED', label: t('components.automationForm.actionSetPublicRankingsEnabled') },
+  ];
+
+  const MESSAGE_TYPE_OPTIONS = [
+    { value: 'GENERAL', label: t('components.automationForm.typeGeneral') },
+    { value: 'COUNTDOWN', label: t('components.automationForm.typeCountdown') },
+    { value: 'CHECKPOINT', label: t('components.automationForm.typeCheckpoint') },
+    { value: 'RALLYDESK', label: t('components.automationForm.typeRallydesk') },
+    { value: 'ACHIEVEMENT', label: t('components.automationForm.typeAchievement') },
+    { value: 'RIVAL', label: t('components.automationForm.typeRival') },
+  ];
+
+  const TRIGGER_HELP: Record<AutomationTriggerType, string> = {
+    CHECKPOINT_ENTRY: t('components.automationForm.helpCheckpointEntry'),
+    SCHEDULED_TIME: t('components.automationForm.helpScheduledTime'),
+    GAME_STATUS_CHANGE: t('components.automationForm.helpGameStatusChange'),
+    TEAM_INACTIVITY: t('components.automationForm.helpTeamInactivity'),
+    RIVAL_OVERTAKE: t('components.automationForm.helpRivalOvertake'),
+    DISTANCE_TRAVELED: t('components.automationForm.helpDistanceTraveled'),
+  };
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -102,7 +110,7 @@ export default function AutomationFormDialog({
   const [enabled, setEnabled] = useState(true);
   const [triggerType, setTriggerType] = useState<AutomationTriggerType>('CHECKPOINT_ENTRY');
   const [config, setConfig] = useState<AutomationTriggerConfig>({});
-  const [actions, setActions] = useState<AutomationAction[]>([emptyAction()]);
+  const [actions, setActions] = useState<AutomationAction[]>([emptyActionForType('SEND_MESSAGE')]);
   const [targetTeamIds, setTargetTeamIds] = useState<string[]>([]);
   const [fireOnce, setFireOnce] = useState(true);
   const [cooldownMinutes, setCooldownMinutes] = useState<number | ''>('');
@@ -131,7 +139,7 @@ export default function AutomationFormDialog({
       setEnabled(rule.enabled);
       setTriggerType(rule.triggerType);
       setConfig(rule.triggerConfig ?? {});
-      setActions(rule.actions?.length ? rule.actions : rule.system ? [] : [emptyAction()]);
+      setActions(rule.actions?.length ? rule.actions : rule.system ? [] : [emptyActionForType('SEND_MESSAGE')]);
       setTargetTeamIds(rule.targetTeamIds ?? []);
       setFireOnce(rule.fireOnce);
       setCooldownMinutes(rule.cooldownMinutes ?? '');
@@ -140,7 +148,7 @@ export default function AutomationFormDialog({
       setEnabled(true);
       setTriggerType('CHECKPOINT_ENTRY');
       setConfig({});
-      setActions([emptyAction()]);
+      setActions([emptyActionForType('SEND_MESSAGE')]);
       setTargetTeamIds([]);
       setFireOnce(true);
       setCooldownMinutes('');
@@ -151,9 +159,9 @@ export default function AutomationFormDialog({
 
   // Placeholders usable in message/notification text for the selected trigger.
   const placeholderHint =
-    'Voorbeeld: {team}' +
-    (triggerType === 'CHECKPOINT_ENTRY' ? ', {checkpoint}' : '') +
-    (triggerType === 'RIVAL_OVERTAKE' ? ', {rival}' : '');
+    t('components.automationForm.placeholderExample') +
+    (triggerType === 'CHECKPOINT_ENTRY' ? t('components.automationForm.placeholderCheckpoint') : '') +
+    (triggerType === 'RIVAL_OVERTAKE' ? t('components.automationForm.placeholderRival') : '');
 
   const handleTriggerTypeChange = (value: AutomationTriggerType) => {
     setTriggerType(value);
@@ -168,8 +176,10 @@ export default function AutomationFormDialog({
     }
   };
 
-  const updateAction = (index: number, patch: Partial<AutomationAction>) => {
-    setActions((prev) => prev.map((action, i) => (i === index ? { ...action, ...patch } : action)));
+  const updateAction = (index: number, patch: Record<string, unknown>) => {
+    setActions((prev) =>
+      prev.map((action, i) => (i === index ? ({ ...action, ...patch } as AutomationAction) : action))
+    );
   };
 
   const handleSubmit = async () => {
@@ -199,7 +209,7 @@ export default function AutomationFormDialog({
         onClose();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Opslaan mislukt');
+      setError(err instanceof Error ? err.message : t('components.automationForm.saveFailed'));
     } finally {
       setLoading(false);
     }
@@ -210,9 +220,9 @@ export default function AutomationFormDialog({
   const renderTimeSpecFields = () => (
     <>
       <FormControl fullWidth>
-        <InputLabel>Wanneer</InputLabel>
+        <InputLabel>{t('components.automationForm.when')}</InputLabel>
         <Select
-          label="Wanneer"
+          label={t('components.automationForm.when')}
           value={config.mode ?? 'ABSOLUTE'}
           onChange={(e) =>
             setConfig({
@@ -224,15 +234,15 @@ export default function AutomationFormDialog({
             })
           }
         >
-          <MenuItem value="ABSOLUTE">Vast tijdstip</MenuItem>
-          <MenuItem value="RELATIVE">Relatief aan start/einde</MenuItem>
+          <MenuItem value="ABSOLUTE">{t('components.automationForm.absolute')}</MenuItem>
+          <MenuItem value="RELATIVE">{t('components.automationForm.relative')}</MenuItem>
         </Select>
       </FormControl>
       {(config.mode ?? 'ABSOLUTE') === 'ABSOLUTE' ? (
         <TextField
           fullWidth
           type="datetime-local"
-          label="Tijdstip"
+          label={t('components.automationForm.timeField')}
           value={config.absoluteTime ? formatForDateTimeLocalInput(config.absoluteTime) : ''}
           onChange={(e) => setConfig({ ...config, mode: 'ABSOLUTE', absoluteTime: e.target.value })}
           slotProps={{ inputLabel: { shrink: true } }}
@@ -240,9 +250,9 @@ export default function AutomationFormDialog({
       ) : (
         <Box sx={{ display: 'flex', gap: 2 }}>
           <FormControl fullWidth>
-            <InputLabel>Anker</InputLabel>
+            <InputLabel>{t('components.automationForm.anchor')}</InputLabel>
             <Select
-              label="Anker"
+              label={t('components.automationForm.anchor')}
               value={config.relativeTo ?? 'GAME_START'}
               onChange={(e) =>
                 setConfig({
@@ -252,15 +262,15 @@ export default function AutomationFormDialog({
                 })
               }
             >
-              <MenuItem value="GAME_START">Startsignaal</MenuItem>
-              <MenuItem value="GAME_END">Eindtijd</MenuItem>
+              <MenuItem value="GAME_START">{t('components.automationForm.gameStart')}</MenuItem>
+              <MenuItem value="GAME_END">{t('components.automationForm.gameEnd')}</MenuItem>
             </Select>
           </FormControl>
           <TextField
             fullWidth
             type="number"
-            label="Offset (minuten)"
-            helperText="Negatief = ervoor, positief = erna"
+            label={t('components.automationForm.offset')}
+            helperText={t('components.automationForm.offsetHint')}
             value={config.offsetMinutes ?? ''}
             onChange={(e) =>
               setConfig({
@@ -282,27 +292,26 @@ export default function AutomationFormDialog({
         return (
           <>
             <FormControl fullWidth>
-              <InputLabel>Checkpoint</InputLabel>
+              <InputLabel>{t('components.automationForm.checkpoint')}</InputLabel>
               <Select
-                label="Checkpoint"
+                label={t('components.automationForm.checkpoint')}
                 value={config.checkpointId ?? ''}
                 onChange={(e) =>
                   setConfig({
                     ...config,
                     checkpointId: e.target.value || undefined,
-                    // exclusions only apply when firing on any checkpoint
                     excludedCheckpointIds: e.target.value ? undefined : config.excludedCheckpointIds,
                   })
                 }
               >
-                <MenuItem value="">Alle checkpoints</MenuItem>
+                <MenuItem value="">{t('components.automationForm.allCheckpoints')}</MenuItem>
                 {checkpoints.map((cp) => (
                   <MenuItem key={cp.id} value={cp.id}>
                     {cp.name}
                   </MenuItem>
                 ))}
               </Select>
-              <FormHelperText>Leeg = vuurt bij elk checkpoint (één keer per checkpoint per team)</FormHelperText>
+              <FormHelperText>{t('components.automationForm.checkpointHint')}</FormHelperText>
             </FormControl>
             {!config.checkpointId && (
               <Autocomplete
@@ -319,17 +328,17 @@ export default function AutomationFormDialog({
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="Uitgesloten checkpoints"
-                    placeholder="Geen uitsluitingen"
-                    helperText="Deze checkpoints triggeren de automatisering niet"
+                    label={t('components.automationForm.excludedCheckpoints')}
+                    placeholder={t('components.automationForm.noExclusions')}
+                    helperText={t('components.automationForm.excludedHint')}
                   />
                 )}
               />
             )}
             <FormControl fullWidth>
-              <InputLabel>Tijdsvoorwaarde</InputLabel>
+              <InputLabel>{t('components.automationForm.timeCondition')}</InputLabel>
               <Select
-                label="Tijdsvoorwaarde"
+                label={t('components.automationForm.timeCondition')}
                 value={config.comparison ?? ''}
                 onChange={(e) => {
                   const comparison = (e.target.value || undefined) as 'BEFORE' | 'AFTER' | undefined;
@@ -340,13 +349,12 @@ export default function AutomationFormDialog({
                   );
                 }}
               >
-                <MenuItem value="">Geen — elke doorkomst telt</MenuItem>
-                <MenuItem value="BEFORE">Alleen vóór een tijdstip (bijv. finishbonus)</MenuItem>
-                <MenuItem value="AFTER">Alleen na een tijdstip (bijv. te-laat-straf)</MenuItem>
+                <MenuItem value="">{t('components.automationForm.anyPass')}</MenuItem>
+                <MenuItem value="BEFORE">{t('components.automationForm.beforeTime')}</MenuItem>
+                <MenuItem value="AFTER">{t('components.automationForm.afterTime')}</MenuItem>
               </Select>
               <FormHelperText>
-                De doorkomsttijd van het team wordt vergeleken met het tijdstip — combineer met een
-                punten-actie (negatief = straf, positief = bonus)
+                {t('components.automationForm.timeConditionHint')}
               </FormHelperText>
             </FormControl>
             {config.comparison && renderTimeSpecFields()}
@@ -357,14 +365,14 @@ export default function AutomationFormDialog({
       case 'GAME_STATUS_CHANGE':
         return (
           <FormControl fullWidth>
-            <InputLabel>Nieuwe status</InputLabel>
+            <InputLabel>{t('components.automationForm.newStatus')}</InputLabel>
             <Select
-              label="Nieuwe status"
+              label={t('components.automationForm.newStatus')}
               value={config.toStatus ?? ''}
               onChange={(e) => setConfig({ toStatus: e.target.value as 'ACTIVE' | 'COMPLETED' })}
             >
-              <MenuItem value="ACTIVE">Actief (startsignaal)</MenuItem>
-              <MenuItem value="COMPLETED">Afgerond</MenuItem>
+              <MenuItem value="ACTIVE">{t('components.automationForm.statusActive')}</MenuItem>
+              <MenuItem value="COMPLETED">{t('components.automationForm.statusCompleted')}</MenuItem>
             </Select>
           </FormControl>
         );
@@ -373,7 +381,7 @@ export default function AutomationFormDialog({
           <TextField
             fullWidth
             type="number"
-            label="Inactief na (minuten)"
+            label={t('components.automationForm.inactiveAfter')}
             value={config.inactiveMinutes ?? ''}
             onChange={(e) =>
               setConfig({ inactiveMinutes: e.target.value === '' ? undefined : Number(e.target.value) })
@@ -387,12 +395,12 @@ export default function AutomationFormDialog({
           <TextField
             fullWidth
             type="number"
-            label="Punten per 100 meter"
+            label={t('components.automationForm.pointsPer100m')}
             value={config.pointsPer100m ?? ''}
             onChange={(e) =>
               setConfig({ pointsPer100m: e.target.value === '' ? undefined : Number(e.target.value) })
             }
-            helperText="Teams krijgen automatisch dit aantal punten per 100 afgelegde meters"
+            helperText={t('components.automationForm.pointsPer100mHint')}
           />
         );
     }
@@ -401,19 +409,19 @@ export default function AutomationFormDialog({
   const renderActionFields = (action: AutomationAction, index: number) => {
     switch (action.type) {
       case 'SEND_MESSAGE': {
-        const selectedTemplate = templates.find((t) => t.id === action.messageTemplateId) ?? null;
+        const selectedTemplate = templates.find((tmpl) => tmpl.id === action.messageTemplateId) ?? null;
         return (
           <>
             <FormControl fullWidth>
-              <InputLabel>Template (optioneel)</InputLabel>
+              <InputLabel>{t('components.automationForm.template')}</InputLabel>
               <Select
-                label="Template (optioneel)"
+                label={t('components.automationForm.template')}
                 value={action.messageTemplateId ?? ''}
                 onChange={(e) =>
                   updateAction(index, { messageTemplateId: e.target.value || undefined })
                 }
               >
-                <MenuItem value="">Geen — eigen tekst</MenuItem>
+                <MenuItem value="">{t('components.automationForm.noTemplate')}</MenuItem>
                 {templates.map((template) => (
                   <MenuItem key={template.id} value={template.id}>
                     {template.name}
@@ -421,7 +429,7 @@ export default function AutomationFormDialog({
                 ))}
               </Select>
               <FormHelperText>
-                Een template wordt live gebruikt: latere wijzigingen aan de template gelden ook hier.
+                {t('components.automationForm.templateHint')}
               </FormHelperText>
             </FormControl>
 
@@ -430,7 +438,7 @@ export default function AutomationFormDialog({
                 fullWidth
                 multiline
                 minRows={2}
-                label="Templatetekst"
+                label={t('components.automationForm.templateContent')}
                 value={selectedTemplate.content}
                 slotProps={{ input: {readOnly: true } }}
                 helperText={placeholderHint}
@@ -439,9 +447,9 @@ export default function AutomationFormDialog({
               <>
                 <Box sx={{ display: 'flex', gap: 2 }}>
                   <FormControl sx={{ minWidth: 220 }}>
-                    <InputLabel>Berichttype</InputLabel>
+                    <InputLabel>{t('components.automationForm.messageType')}</InputLabel>
                     <Select
-                      label="Berichttype"
+                      label={t('components.automationForm.messageType')}
                       value={action.messageType ?? 'GENERAL'}
                       onChange={(e) => updateAction(index, { messageType: e.target.value })}
                     >
@@ -453,7 +461,7 @@ export default function AutomationFormDialog({
                     </Select>
                   </FormControl>
                   <TextField
-                    label="Icoon (optioneel)"
+                    label={t('components.automationForm.iconOptional')}
                     value={action.messageIcon ?? ''}
                     onChange={(e) => updateAction(index, { messageIcon: e.target.value || undefined })}
                     sx={{ width: 140 }}
@@ -463,7 +471,7 @@ export default function AutomationFormDialog({
                   fullWidth
                   multiline
                   minRows={2}
-                  label="Bericht"
+                  label={t('components.automationForm.message')}
                   value={action.messageContent ?? ''}
                   onChange={(e) => updateAction(index, { messageContent: e.target.value })}
                   helperText={placeholderHint}
@@ -478,7 +486,7 @@ export default function AutomationFormDialog({
           <Box sx={{ display: 'flex', gap: 2 }}>
             <TextField
               type="number"
-              label="Punten"
+              label={t('components.automationForm.points')}
               value={action.points ?? ''}
               onChange={(e) =>
                 updateAction(index, { points: e.target.value === '' ? undefined : Number(e.target.value) })
@@ -487,7 +495,7 @@ export default function AutomationFormDialog({
             />
             <TextField
               fullWidth
-              label="Omschrijving (optioneel)"
+              label={t('components.automationForm.pointsDescription')}
               value={action.pointsDescription ?? ''}
               onChange={(e) => updateAction(index, { pointsDescription: e.target.value || undefined })}
             />
@@ -497,7 +505,7 @@ export default function AutomationFormDialog({
         return (
           <TextField
             fullWidth
-            label="Meldingstekst"
+            label={t('components.automationForm.notificationText')}
             value={action.adminNotification ?? ''}
             onChange={(e) => updateAction(index, { adminNotification: e.target.value })}
             helperText={placeholderHint}
@@ -506,10 +514,46 @@ export default function AutomationFormDialog({
       case 'FINISH_TEAM':
         return (
           <FormHelperText>
-            Het team wordt op finish gezet: het behoudt zijn punten en plaats, maar krijgt
-            geen automatische punten meer (checkpoints en afstand). Combineer met een
-            checkpoint-trigger op de finishzone.
+            {t('components.automationForm.finishTeamHint')}
           </FormHelperText>
+        );
+      case 'SET_RANKINGS_PUBLISHED':
+        return (
+          <>
+            <FormControl fullWidth>
+              <InputLabel>{t('components.automationForm.setRankingsPublishedLabel')}</InputLabel>
+              <Select
+                label={t('components.automationForm.setRankingsPublishedLabel')}
+                value={action.rankingsPublished === true ? 'true' : action.rankingsPublished === false ? 'false' : ''}
+                onChange={(e) =>
+                  updateAction(index, { rankingsPublished: e.target.value === 'true' })
+                }
+              >
+                <MenuItem value="true">{t('components.automationForm.setRankingsPublishedPublish')}</MenuItem>
+                <MenuItem value="false">{t('components.automationForm.setRankingsPublishedHide')}</MenuItem>
+              </Select>
+            </FormControl>
+            <FormHelperText>{t('components.automationForm.setRankingsPublishedHint')}</FormHelperText>
+          </>
+        );
+      case 'SET_PUBLIC_RANKINGS_ENABLED':
+        return (
+          <>
+            <FormControl fullWidth>
+              <InputLabel>{t('components.automationForm.setPublicRankingsEnabledLabel')}</InputLabel>
+              <Select
+                label={t('components.automationForm.setPublicRankingsEnabledLabel')}
+                value={action.publicRankingsEnabled === true ? 'true' : action.publicRankingsEnabled === false ? 'false' : ''}
+                onChange={(e) =>
+                  updateAction(index, { publicRankingsEnabled: e.target.value === 'true' })
+                }
+              >
+                <MenuItem value="true">{t('components.automationForm.setPublicRankingsEnabledEnable')}</MenuItem>
+                <MenuItem value="false">{t('components.automationForm.setPublicRankingsEnabledDisable')}</MenuItem>
+              </Select>
+            </FormControl>
+            <FormHelperText>{t('components.automationForm.setPublicRankingsEnabledHint')}</FormHelperText>
+          </>
         );
     }
   };
@@ -517,7 +561,7 @@ export default function AutomationFormDialog({
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
-        {isEdit ? 'Automatisering bewerken' : 'Automatisering toevoegen'}
+        {isEdit ? t('components.automationForm.editTitle') : t('components.automationForm.addTitle')}
       </DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
@@ -526,7 +570,7 @@ export default function AutomationFormDialog({
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
             <TextField
               fullWidth
-              label="Naam"
+              label={t('components.automationForm.nameLabel')}
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
@@ -534,15 +578,15 @@ export default function AutomationFormDialog({
             {!isDistance && (
               <FormControlLabel
                 control={<Switch checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />}
-                label="Actief"
+                label={t('components.automationForm.active')}
               />
             )}
           </Box>
 
           <FormControl fullWidth disabled={isSystem}>
-            <InputLabel>Trigger</InputLabel>
+            <InputLabel>{t('components.automationForm.triggerLabel')}</InputLabel>
             <Select
-              label="Trigger"
+              label={t('components.automationForm.triggerLabel')}
               value={triggerType}
               onChange={(e) => handleTriggerTypeChange(e.target.value as AutomationTriggerType)}
             >
@@ -551,7 +595,7 @@ export default function AutomationFormDialog({
                   {option.label}
                 </MenuItem>
               ))}
-              {isDistance && <MenuItem value="DISTANCE_TRAVELED">Afgelegde afstand (systeem)</MenuItem>}
+              {isDistance && <MenuItem value="DISTANCE_TRAVELED">{t('components.automationForm.triggerDistanceTraveled')}</MenuItem>}
             </Select>
             <FormHelperText>{TRIGGER_HELP[triggerType]}</FormHelperText>
           </FormControl>
@@ -561,7 +605,7 @@ export default function AutomationFormDialog({
           {!isDistance && (
             <>
               <Divider />
-              <Typography variant="subtitle2">Acties</Typography>
+              <Typography variant="subtitle2">{t('components.automationForm.actionsLabel')}</Typography>
               {actions.map((action, index) => (
                 <Box
                   key={index}
@@ -577,14 +621,18 @@ export default function AutomationFormDialog({
                 >
                   <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                     <FormControl fullWidth size="small">
-                      <InputLabel>Actie</InputLabel>
+                      <InputLabel>{t('components.automationForm.actionLabel')}</InputLabel>
                       <Select
-                        label="Actie"
+                        label={t('components.automationForm.actionLabel')}
                         value={action.type}
                         onChange={(e) =>
-                          updateAction(index, {
-                            type: e.target.value as AutomationActionType,
-                          })
+                          setActions((prev) =>
+                            prev.map((a, i) =>
+                              i === index
+                                ? emptyActionForType(e.target.value as AutomationActionType)
+                                : a
+                            )
+                          )
                         }
                       >
                         {ACTION_OPTIONS.map((option) => (
@@ -599,7 +647,7 @@ export default function AutomationFormDialog({
                       color="error"
                       disabled={actions.length === 1}
                       onClick={() => setActions((prev) => prev.filter((_, i) => i !== index))}
-                      title="Actie verwijderen"
+                      title={t('components.automationForm.removeAction')}
                     >
                       <DeleteIcon />
                     </IconButton>
@@ -609,10 +657,10 @@ export default function AutomationFormDialog({
               ))}
               <Button
                 startIcon={<AddIcon />}
-                onClick={() => setActions((prev) => [...prev, emptyAction()])}
+                onClick={() => setActions((prev) => [...prev, emptyActionForType('SEND_MESSAGE')])}
                 sx={{ alignSelf: 'flex-start' }}
               >
-                Actie toevoegen
+                {t('components.automationForm.addAction')}
               </Button>
 
               <Divider />
@@ -624,7 +672,7 @@ export default function AutomationFormDialog({
                 value={teams.filter((team) => targetTeamIds.includes(team.id))}
                 onChange={(_, value) => setTargetTeamIds(value.map((team) => team.id))}
                 renderInput={(params) => (
-                  <TextField {...params} label="Teams" placeholder="Alle teams" />
+                  <TextField {...params} label={t('components.automationForm.teamsLabel')} placeholder={t('components.automationForm.teamsPlaceholder')} />
                 )}
               />
 
@@ -639,16 +687,15 @@ export default function AutomationFormDialog({
                       }}
                     />
                   }
-                  label="Eénmalig per gebeurtenis"
+                  label={t('components.automationForm.fireOnce')}
                 />
                 <FormHelperText sx={{ ml: 0 }}>
-                  Punten die door een automatisering worden toegekend kunnen geen volgende
-                  automatisering activeren (kettingreacties zijn uitgesloten).
+                  {t('components.automationForm.fireOnceHint')}
                 </FormHelperText>
                 {!fireOnce && (
                   <TextField
                     type="number"
-                    label="Cooldown (minuten)"
+                    label={t('components.automationForm.cooldown')}
                     value={cooldownMinutes}
                     onChange={(e) =>
                       setCooldownMinutes(e.target.value === '' ? '' : Number(e.target.value))
@@ -662,9 +709,9 @@ export default function AutomationFormDialog({
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Annuleren</Button>
+        <Button onClick={onClose}>{t('common.cancel')}</Button>
         <Button onClick={handleSubmit} variant="contained" disabled={loading || !name.trim()}>
-          {loading ? <CircularProgress size={20} /> : 'Opslaan'}
+          {loading ? <CircularProgress size={20} /> : t('components.automationForm.save')}
         </Button>
       </DialogActions>
     </Dialog>
