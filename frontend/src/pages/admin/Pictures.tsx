@@ -31,6 +31,7 @@ import api from '../../services/api';
 import { mockApi } from '../../services/mockApi';
 import { websocket } from '../../services/websocket';
 import { config } from '../../config';
+import { useAdminResync } from '../../hooks/useAdminSync';
 
 type TabKey = 'PENDING' | 'ALL';
 
@@ -78,6 +79,8 @@ export default function AdminPictures() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useAdminResync(load);
 
   useEffect(() => {
     if (config.useMocks) return;
