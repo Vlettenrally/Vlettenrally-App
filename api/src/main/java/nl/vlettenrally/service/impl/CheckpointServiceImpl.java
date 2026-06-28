@@ -93,6 +93,7 @@ public class CheckpointServiceImpl implements CheckpointService {
         checkpoint.setLatitude(request.latitude());
         checkpoint.setLongitude(request.longitude());
         checkpoint.setHidden(request.hidden());
+        checkpoint.setColor(request.color());
 
         if (request.openingTime() != null) {
             checkpoint.setOpeningTime(Instant.parse(request.openingTime()));
@@ -148,6 +149,7 @@ public class CheckpointServiceImpl implements CheckpointService {
         checkpoint.setLatitude(request.latitude());
         checkpoint.setLongitude(request.longitude());
         checkpoint.setHidden(request.hidden());
+        checkpoint.setColor(request.color());
         if (request.openingTime() != null) {
             checkpoint.setOpeningTime(Instant.parse(request.openingTime()));
         }
@@ -202,6 +204,7 @@ public class CheckpointServiceImpl implements CheckpointService {
             copy.setLongitude(source.getLongitude());
             copy.setLocation(source.getLocation());
             copy.setHidden(source.isHidden());
+            copy.setColor(source.getColor());
             // externalId intentionally left null: it is a tracker-sync key unique per game.
             copy.setOpeningTime(GameTimeShifter.adjust(source.getOpeningTime(), sourceGame, targetGame));
             copy.setClosingTime(GameTimeShifter.adjust(source.getClosingTime(), sourceGame, targetGame));
@@ -228,6 +231,7 @@ public class CheckpointServiceImpl implements CheckpointService {
         target.setLocation(source.getLocation());
         target.setExternalId(source.getExternalId());
         target.setHidden(source.isHidden());
+        target.setColor(source.getColor());
         target.setCreatedAt(source.getCreatedAt());
         target.setUpdatedAt(source.getUpdatedAt());
     }

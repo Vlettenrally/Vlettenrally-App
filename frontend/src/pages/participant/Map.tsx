@@ -100,7 +100,7 @@ export default function ParticipantMap() {
         lat: cp.latitude!,
         lng: cp.longitude!,
         label: cp.name,
-        color: '#ff9800',
+        color: cp.color ?? '#ff9800',
         type: 'checkpoint' as const,
         zoneType: cp.zoneType,
         radiusMeters: cp.radiusMeters,

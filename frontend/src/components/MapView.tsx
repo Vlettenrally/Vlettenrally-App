@@ -199,7 +199,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
               type: 'Polygon' as const,
               coordinates: [coords],
             },
-            properties: { id: m.id, label: m.label, hidden: m.hidden ?? false },
+            properties: { id: m.id, label: m.label, hidden: m.hidden ?? false, color: m.color },
           };
         }
         // Default: circle
@@ -208,7 +208,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         return {
           type: 'Feature' as const,
           geometry: circle.geometry,
-          properties: { id: m.id, label: m.label, hidden: m.hidden ?? false },
+          properties: { id: m.id, label: m.label, hidden: m.hidden ?? false, color: m.color },
         };
       });
 
@@ -463,7 +463,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
             type: 'fill',
             source: 'checkpoint-zones',
             paint: {
-              'fill-color': ['case', ['get', 'hidden'], '#9e9e9e', '#ff9800'],
+              'fill-color': ['case', ['get', 'hidden'], '#9e9e9e', ['coalesce', ['get', 'color'], '#ff9800']],
               'fill-opacity': 0.15,
             },
           });
@@ -473,7 +473,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
             type: 'line',
             source: 'checkpoint-zones',
             paint: {
-              'line-color': ['case', ['get', 'hidden'], '#9e9e9e', '#ff9800'],
+              'line-color': ['case', ['get', 'hidden'], '#9e9e9e', ['coalesce', ['get', 'color'], '#ff9800']],
               'line-width': 2,
               'line-opacity': 0.6,
               'line-dasharray': [3, 2],
@@ -492,7 +492,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
             source: 'checkpoint-markers',
             paint: {
               'circle-radius': 10,
-              'circle-color': ['case', ['get', 'hidden'], '#9e9e9e', '#ff9800'],
+              'circle-color': ['case', ['get', 'hidden'], '#9e9e9e', ['coalesce', ['get', 'color'], '#ff9800']],
               'circle-stroke-width': 3,
               'circle-stroke-color': '#ffffff',
               'circle-opacity': 0.9,
@@ -512,7 +512,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
               'text-max-width': 8,
             },
             paint: {
-              'text-color': '#e65100',
+              'text-color': ['coalesce', ['get', 'color'], '#e65100'],
               'text-halo-color': '#ffffff',
               'text-halo-width': 2,
             },

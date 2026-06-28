@@ -838,6 +838,7 @@
       "openTime": "Openingstijd",
       "closeTime": "Sluitingstijd",
       "hiddenFromTeams": "Verborgen voor teams (triggert nog wel automatiseringen)",
+      "color": "Kleur",
       "radius": "Straal (m)",
       "nameRequired": "Naam is verplicht",
       "polygonMinPoints": "Een polygoon heeft minimaal 3 punten nodig",

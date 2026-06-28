@@ -85,6 +85,7 @@ export default function ZoneFormDialog({
     radiusMeters: 50,
     polygonPoints: undefined,
     hidden: false,
+    color: '#ff9800',
   });
 
   const isCreateMode = !checkpoint;
@@ -102,6 +103,7 @@ export default function ZoneFormDialog({
         radiusMeters: checkpoint.radiusMeters ?? 50,
         polygonPoints: checkpoint.polygonPoints,
         hidden: checkpoint.hidden ?? false,
+        color: checkpoint.color ?? '#ff9800',
       });
     } else {
       setFormData({
@@ -115,6 +117,7 @@ export default function ZoneFormDialog({
         radiusMeters: 50,
         polygonPoints: undefined,
         hidden: false,
+        color: '#ff9800',
       });
     }
     setError(null);
@@ -155,6 +158,7 @@ export default function ZoneFormDialog({
         radiusMeters: formData.zoneType === 'circle' ? (formData.radiusMeters ?? 50) : undefined,
         polygonPoints: formData.zoneType === 'polygon' ? formData.polygonPoints : undefined,
         hidden: formData.hidden ?? false,
+        color: formData.color,
       };
 
       let response;
@@ -444,6 +448,30 @@ export default function ZoneFormDialog({
           }
           label={t('components.zoneForm.hiddenFromTeams')}
         />
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 1.5 }}>
+          <Typography variant="body2">{t('components.zoneForm.color')}</Typography>
+          <Box
+            component="input"
+            type="color"
+            value={formData.color ?? '#ff9800'}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              setFormData(prev => ({ ...prev, color: e.target.value }))
+            }
+            sx={{
+              width: 40,
+              height: 40,
+              border: 'none',
+              borderRadius: 1,
+              cursor: 'pointer',
+              padding: 0,
+              backgroundColor: 'transparent',
+            }}
+          />
+          <Typography variant="body2" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+            {formData.color ?? '#ff9800'}
+          </Typography>
+        </Box>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} disabled={loading}>

@@ -838,6 +838,7 @@
       "openTime": "Open time",
       "closeTime": "Close time",
       "hiddenFromTeams": "Hidden from teams (still triggers automations)",
+      "color": "Color",
       "radius": "Radius (m)",
       "nameRequired": "Name is required",
       "polygonMinPoints": "A polygon needs at least 3 points",

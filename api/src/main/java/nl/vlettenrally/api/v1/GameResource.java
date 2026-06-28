@@ -679,7 +679,8 @@ public class GameResource {
             checkpoint.getZoneType(),
             radiusMeters,
             polygonPoints,
-            checkpoint.isHidden()
+            checkpoint.isHidden(),
+            checkpoint.getColor()
         );
     }
 

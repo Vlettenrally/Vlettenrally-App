@@ -83,6 +83,7 @@ public class CheckpointMapper {
         domain.setLocation(entity.getLocation());
         domain.setExternalId(entity.getExternalId());
         domain.setHidden(entity.isHidden());
+        domain.setColor(entity.getColor());
         domain.setCreatedAt(entity.getCreatedAt());
         domain.setUpdatedAt(entity.getUpdatedAt());
     }
@@ -97,6 +98,7 @@ public class CheckpointMapper {
         entity.setLocation(domain.getLocation());
         entity.setExternalId(domain.getExternalId());
         entity.setHidden(domain.isHidden());
+        entity.setColor(domain.getColor());
     }
 
     private static void setZoneSpecificFields(CheckpointEntity entity, Checkpoint domain) {

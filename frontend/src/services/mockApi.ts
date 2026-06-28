@@ -98,9 +98,9 @@ const mockAchievements = [
 
 // Mock checkpoints
 const mockCheckpoints = [
-  { id: 'cp-1', name: 'Huis joost', gameId: MOCK_GAME_ID },
-  { id: 'cp-2', name: 'Waag', gameId: MOCK_GAME_ID },
-  { id: 'cp-3', name: 'Bruggetje', gameId: MOCK_GAME_ID },
+  { id: 'cp-1', name: 'Huis joost', gameId: MOCK_GAME_ID, color: '#e53935' },
+  { id: 'cp-2', name: 'Waag', gameId: MOCK_GAME_ID, color: '#1e88e5' },
+  { id: 'cp-3', name: 'Bruggetje', gameId: MOCK_GAME_ID, color: '#43a047' },
   { id: 'cp-4', name: 'Haven', gameId: MOCK_GAME_ID },
   { id: 'cp-5', name: 'Centrum', gameId: MOCK_GAME_ID },
   { id: 'cp-6', name: 'Park', gameId: MOCK_GAME_ID },

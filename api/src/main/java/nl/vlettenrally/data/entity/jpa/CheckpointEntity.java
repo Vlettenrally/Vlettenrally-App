@@ -58,6 +58,9 @@ public class CheckpointEntity {
     @Column(name = "hidden", nullable = false)
     private boolean hidden = false;
 
+    @Column(name = "color")
+    private String color;
+
     @Column(name = "zone_type", nullable = false)
     private String zoneType = "circle";
 

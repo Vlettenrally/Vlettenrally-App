@@ -23,5 +23,6 @@ public record CheckpointResponse(
     String zoneType,
     double radiusMeters,
     List<List<Double>> polygonPoints,
-    boolean hidden
+    boolean hidden,
+    String color
 ) {}

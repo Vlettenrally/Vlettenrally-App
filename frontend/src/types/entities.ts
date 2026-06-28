@@ -118,6 +118,8 @@ export interface Checkpoint {
   polygonPoints?: number[][];
   /** Hidden from teams' map, but still triggers automations */
   hidden: boolean;
+  /** Hex color for map display, e.g. "#ff9800"; absent means default orange */
+  color?: string;
 }
 
 /**
@@ -136,6 +138,8 @@ export interface CheckpointRequest {
   polygonPoints?: number[][];
   /** Hidden from teams' map, but still triggers automations */
   hidden?: boolean;
+  /** Hex color for map display, e.g. "#ff9800"; absent means default orange */
+  color?: string;
 }
 
 /**
