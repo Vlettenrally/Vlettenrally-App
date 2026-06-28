@@ -6,19 +6,16 @@ import nl.vlettenrally.client.LocationApiClient;
 import nl.vlettenrally.client.dto.legendstracking.EventCheckpoint;
 import nl.vlettenrally.client.dto.legendstracking.EventDetailsBody;
 import nl.vlettenrally.client.dto.legendstracking.EventDetailsResponse;
-import nl.vlettenrally.client.dto.legendstracking.EventParticipant;
 import nl.vlettenrally.client.exception.LocationApiException;
 import nl.vlettenrally.data.domain.Checkpoint;
 import nl.vlettenrally.data.domain.CircleCheckpoint;
 import nl.vlettenrally.data.domain.PolygonCheckpoint;
-import nl.vlettenrally.data.domain.Team;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.geom.PrecisionModel;
 
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -29,19 +26,7 @@ import java.util.UUID;
 
 /**
  * Service for syncing master data from the Legendstracking /details endpoint.
- * <p>
- * Provides two independent operations against the same endpoint:
- * <ul>
- *   <li>{@link #importCheckpoints} — upserts checkpoints (zones) by
- *       externalId ↔ EventCheckpoint.id.</li>
- *   <li>{@link #linkParticipants} — links each team's externalParticipantId by
- *       matching the participant bib to team.name (case-insensitive trimmed;
- *       falls back to bib_label).</li>
- * </ul>
- *
- * Mutations are delegated to {@link CheckpointService}/{@link TeamService}, whose
- * save operations are individually transactional, so a single failing item does
- * not roll back the rest of the batch.
+ * Upserts checkpoints (zones) by externalId ↔ EventCheckpoint.id.
  */
 @ApplicationScoped
 public class EventDetailsService {
@@ -55,9 +40,6 @@ public class EventDetailsService {
 
     @Inject
     CheckpointService checkpointService;
-
-    @Inject
-    TeamService teamService;
 
     /**
      * Import checkpoints (zones) for a game from the tracker /details endpoint.
@@ -135,52 +117,6 @@ public class EventDetailsService {
         return new ImportResult(created, updated, errors);
     }
 
-    /**
-     * Link teams for a game to tracker participants from the /details endpoint.
-     *
-     * @param gameId              the game whose teams to link
-     * @param locationEndpointUrl the tracker /details endpoint URL
-     * @return counts of linked teams and unmatched participants
-     */
-    public ParticipantLinkResult linkParticipants(UUID gameId, String locationEndpointUrl)
-            throws LocationApiException {
-        EventDetailsBody body = fetchDetailsBody(locationEndpointUrl);
-
-        int linked = 0;
-        int unmatched = 0;
-        List<String> linkedTeams = new ArrayList<>();
-        List<String> unmatchedParticipants = new ArrayList<>();
-
-        List<EventParticipant> participants = body.getEventParticipants();
-        if (participants != null && !participants.isEmpty()) {
-            List<Team> teams = teamService.findByGameId(gameId);
-            Map<String, Team> teamsByName = new HashMap<>();
-            for (Team t : teams) {
-                if (t.getName() != null && !t.getName().isBlank()) {
-                    teamsByName.put(t.getName().toLowerCase().trim(), t);
-                }
-            }
-
-            for (EventParticipant p : participants) {
-                Team match = lookupTeamForParticipant(teamsByName, p);
-                if (match == null) {
-                    unmatched++;
-                    unmatchedParticipants.add(participantDisplayLabel(p));
-                    continue;
-                }
-                if (!Integer.valueOf(p.getEventParticipantsId()).equals(match.getExternalParticipantId())) {
-                    match.setExternalParticipantId(p.getEventParticipantsId());
-                    match.setUpdatedAt(Instant.now());
-                    teamService.save(match);
-                }
-                linked++;
-                linkedTeams.add(match.getName());
-            }
-        }
-
-        return new ParticipantLinkResult(linked, unmatched, linkedTeams, unmatchedParticipants);
-    }
-
     /** Fetches the /details event body, throwing if the response is malformed. */
     private EventDetailsBody fetchDetailsBody(String locationEndpointUrl) throws LocationApiException {
         EventDetailsResponse details = locationApiClient.fetchDetails(locationEndpointUrl);
@@ -189,27 +125,6 @@ public class EventDetailsService {
             throw new LocationApiException("Malformed /details response: missing 'event'");
         }
         return body;
-    }
-
-    private static Team lookupTeamForParticipant(Map<String, Team> teamsByName, EventParticipant p) {
-        if (p.getBib() != null) {
-            Team t = teamsByName.get(String.valueOf(p.getBib()).toLowerCase().trim());
-            if (t != null) return t;
-        }
-        if (p.getBibLabel() != null && !p.getBibLabel().isBlank()) {
-            return teamsByName.get(p.getBibLabel().toLowerCase().trim());
-        }
-        return null;
-    }
-
-    private static String participantDisplayLabel(EventParticipant participant) {
-        if (participant.getBibLabel() != null && !participant.getBibLabel().isBlank()) {
-            return participant.getBibLabel().trim();
-        }
-        if (participant.getBib() != null) {
-            return String.valueOf(participant.getBib());
-        }
-        return String.valueOf(participant.getEventParticipantsId());
     }
 
     private static Map<String, Checkpoint> indexByExternalId(List<Checkpoint> checkpoints) {

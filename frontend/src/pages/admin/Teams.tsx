@@ -1,5 +1,5 @@
 import { Box, Typography, Button, Card, CardContent, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, CircularProgress, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, TextField } from '@mui/material';
-import { Upload as ImportIcon, Link as LinkIcon, Add as AddIcon, CheckCircle as SuccessIcon, Error as ErrorIcon, GpsFixed as TrackerIcon, Download as DownloadIcon } from '@mui/icons-material';
+import { Upload as ImportIcon, Add as AddIcon, CheckCircle as SuccessIcon, Error as ErrorIcon, GpsFixed as TrackerIcon, Download as DownloadIcon } from '@mui/icons-material';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useGameStore } from '../../store/useGameStore';
@@ -8,7 +8,7 @@ import { teamService } from '../../services/teamService';
 import { gameService } from '../../services/gameService';
 import { websocket } from '../../services/websocket';
 import TeamDetailDialog from '../../components/TeamDetailDialog';
-import type { AdminTeam, Game, TeamImportResult, TrackerAssignResult, ParticipantLinkResult } from '../../types/entities';
+import type { AdminTeam, Game, TeamImportResult, TrackerAssignResult } from '../../types/entities';
 
 type DetailDialog = { title: string; items: string[] };
 
@@ -24,11 +24,6 @@ export default function Teams() {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<TeamImportResult | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
-
-  // Participant linking state
-  const [linking, setLinking] = useState(false);
-  const [linkResult, setLinkResult] = useState<ParticipantLinkResult | null>(null);
-  const [linkError, setLinkError] = useState<string | null>(null);
 
   // Tracker assignment state
   const [trackerDialogOpen, setTrackerDialogOpen] = useState(false);
@@ -129,26 +124,6 @@ export default function Teams() {
     }
   };
 
-  const handleLinkParticipants = async () => {
-    if (!selectedGameId) return;
-
-    setLinking(true);
-    setLinkResult(null);
-    setLinkError(null);
-    setDetail(null);
-
-    try {
-      const result = await gameService.linkParticipants(selectedGameId);
-      setLinkResult(result);
-      // Refresh teams list to reflect newly linked participants
-      teamService.getTeamsByGame(selectedGameId).then(setTeams);
-    } catch (err) {
-      setLinkError(err instanceof Error ? err.message : t('admin.teams.linkFailed'));
-    } finally {
-      setLinking(false);
-    }
-  };
-
   const handleAssignTrackers = async () => {
     if (!selectedGameId) return;
 
@@ -211,8 +186,6 @@ export default function Teams() {
 
   const isCompleted = game?.status === 'completed';
   const canImport = game?.externalEventId && !isCompleted;
-  const linkedTeams = linkResult?.linkedTeams ?? [];
-  const unmatchedParticipants = linkResult?.unmatchedParticipants ?? [];
 
   return (
     <Box sx={{ p: 3 }}>
@@ -262,35 +235,6 @@ export default function Teams() {
           {importError && (
             <Chip
               label={importError}
-              color="error"
-              size="small"
-              icon={<ErrorIcon />}
-            />
-          )}
-          {linkResult && (
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <Chip
-                label={t('admin.teams.linkedCount', { count: linkResult.linked })}
-                color="success"
-                size="small"
-                icon={<SuccessIcon />}
-                clickable={linkedTeams.length > 0}
-                onClick={() => openDetail(t('admin.teams.linkedTeamsTitle'), linkedTeams)}
-              />
-              {linkResult.unmatched > 0 && (
-                <Chip
-                  label={t('admin.teams.linkedWithoutTeam', { count: linkResult.unmatched })}
-                  color="warning"
-                  size="small"
-                  clickable={unmatchedParticipants.length > 0}
-                  onClick={() => openDetail(t('admin.teams.unmatchedParticipantsTitle'), unmatchedParticipants)}
-                />
-              )}
-            </Box>
-          )}
-          {linkError && (
-            <Chip
-              label={linkError}
               color="error"
               size="small"
               icon={<ErrorIcon />}
@@ -350,16 +294,6 @@ export default function Teams() {
                 </Button>
               </span>
             </Tooltip>
-          )}
-          {game?.locationEndpointUrl && (
-            <Button
-              variant="outlined"
-              startIcon={linking ? <CircularProgress size={20} /> : <LinkIcon />}
-              onClick={handleLinkParticipants}
-              disabled={linking}
-            >
-              {linking ? t('admin.teams.linking') : t('admin.teams.linkParticipants')}
-            </Button>
           )}
           <Button
             variant="outlined"

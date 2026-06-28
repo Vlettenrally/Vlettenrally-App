@@ -35,9 +35,9 @@ import java.util.stream.Collectors;
  * Runs at the configured interval on a single instance at a time — leader election
  * via {@link PollingLeader} (Valkey-backed lease).
  * <p>
- * Teams are matched to participants by Team.externalParticipantId, which is
- * populated during admin-triggered link-participants by joining bib == name.
- * Participant ids without a matching team are silently skipped.
+ * Teams are matched to participants by Team.trackerId (the physical tracker ID
+ * from the external provider). Participant tracker IDs without a matching team
+ * are silently skipped.
  * <p>
  * NOTE: status_id, tracker_id, battery_percentage and is_sos_report from the
  * locations endpoint are not persisted yet — see plan "Out of scope" section.
@@ -88,19 +88,19 @@ public class LocationPollingScheduler {
     }
 
     private void pollGame(Game game) {
-        Map<Integer, Team> teamsByParticipantId = teamRepository.findByGameId(game.getId()).stream()
-            .filter(t -> t.getExternalParticipantId() != null)
-            .collect(Collectors.toMap(Team::getExternalParticipantId, t -> t, (a, b) -> a));
+        Map<String, Team> teamsByTrackerId = teamRepository.findByGameId(game.getId()).stream()
+            .filter(t -> t.getTrackerId() != null && !t.getTrackerId().isBlank())
+            .collect(Collectors.toMap(Team::getTrackerId, t -> t, (a, b) -> a));
 
-        if (teamsByParticipantId.isEmpty()) {
-            Log.warnf("Game %s has no teams with externalParticipantId — run link-participants first", game.getId());
+        if (teamsByTrackerId.isEmpty()) {
+            Log.warnf("Game %s has no teams with trackerId set", game.getId());
             return;
         }
 
-        pollParticipantLocations(game, teamsByParticipantId);
+        pollParticipantLocations(game, teamsByTrackerId);
     }
 
-    private void pollParticipantLocations(Game game, Map<Integer, Team> teamsByParticipantId) {
+    private void pollParticipantLocations(Game game, Map<String, Team> teamsByTrackerId) {
         EventParticipantsLocationsResponse response;
         try {
             response = locationApiClient.fetchParticipantLocations(game.getLocationEndpointUrl());
@@ -122,7 +122,9 @@ public class LocationPollingScheduler {
         for (EventParticipantLocation pl : response.getEvent().getEventParticipantLocations()) {
             if (pl.getLocation() == null) continue;
 
-            Team team = teamsByParticipantId.get(pl.getEventParticipantsId());
+            Team team = pl.getTrackerId() != null
+                ? teamsByTrackerId.get(String.valueOf(pl.getTrackerId()))
+                : null;
             if (team == null) continue;
 
             totalCount++;

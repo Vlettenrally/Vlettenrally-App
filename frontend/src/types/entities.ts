@@ -148,16 +148,6 @@ export interface CheckpointImportResult {
 }
 
 /**
- * Result of a link-participants run against the Legendstracking /details endpoint.
- */
-export interface ParticipantLinkResult {
-  linked: number;
-  unmatched: number;
-  linkedTeams: string[];
-  unmatchedParticipants: string[];
-}
-
-/**
  * Base team fields shared across all team types
  */
 interface TeamBase {

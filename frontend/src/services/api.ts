@@ -17,7 +17,6 @@ import type {
   Checkpoint,
   CheckpointRequest,
   CheckpointImportResult,
-  ParticipantLinkResult,
   AdminTeam,
   PlayerTeam,
   PublicTeam,
@@ -668,10 +667,6 @@ async getGames() : Promise<ApiResponse<Game[]>> {
 
   async copyAutomations(gameId: string, sourceGameId: string): Promise<ApiResponse<CopyAutomationsResult>> {
     return this.post(`/games/${gameId}/automations/copy`, { sourceGameId });
-  }
-
-  async linkParticipants(gameId: string): Promise<ApiResponse<ParticipantLinkResult>> {
-    return this.post(`/games/${gameId}/link-participants`);
   }
 
   // External API endpoints

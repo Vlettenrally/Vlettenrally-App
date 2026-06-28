@@ -43,9 +43,6 @@ public class TeamEntity {
     @Column(name = "external_id")
     private String externalId;
 
-    @Column(name = "external_participant_id")
-    private Integer externalParticipantId;
-
     @ElementCollection
     @CollectionTable(
         name = "team_participants",
