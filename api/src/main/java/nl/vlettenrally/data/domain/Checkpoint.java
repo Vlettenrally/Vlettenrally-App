@@ -42,6 +42,20 @@ public abstract sealed class Checkpoint permits CircleCheckpoint, PolygonCheckpo
     }
 
     /**
+     * Whether the checkpoint is open (scoring/automations active) at the given
+     * instant. Null bounds are open-ended: a null opening time means open from
+     * the start, a null closing time means open until the end, both null means
+     * always open. Boundary instants count as open. A null instant (unknown pass
+     * time) is treated as open so the window never suppresses on missing data.
+     */
+    public boolean isOpenAt(Instant t) {
+        if (t == null) return true;
+        if (openingTime != null && t.isBefore(openingTime)) return false;
+        if (closingTime != null && t.isAfter(closingTime)) return false;
+        return true;
+    }
+
+    /**
      * Returns the zone type discriminator string used for persistence.
      */
     public abstract String getZoneType();

@@ -326,6 +326,19 @@ public class AchievementServiceImpl implements AchievementService {
 
     @Override
     public Optional<Achievement> recordVerifiedPass(UUID teamId, UUID checkpointId, Instant passTime) {
+        Checkpoint checkpoint = checkpointRepository.findById(checkpointId)
+            .orElseThrow(() -> new IllegalArgumentException("Checkpoint not found: " + checkpointId));
+
+        // Automatic geofenced passes are gated by the checkpoint's opening window:
+        // a pass outside that window earns no points and fires no automations, as if
+        // the boat never reached the checkpoint. Manual operator verification is an
+        // override (handled by verifyAchievement) and is deliberately not gated here.
+        if (!checkpoint.isOpenAt(passTime)) {
+            Log.debugf("Skipping out-of-window automatic pass team=%s checkpoint=%s at %s",
+                teamId, checkpointId, passTime);
+            return Optional.empty();
+        }
+
         Optional<Achievement> existing = achievementRepository.findByTeamIdAndCheckpointId(teamId, checkpointId);
         if (existing.isPresent()) {
             Achievement achievement = existing.get();
@@ -337,8 +350,6 @@ public class AchievementServiceImpl implements AchievementService {
             achievement.setVerifiedAt(passTime);
             // Leave verifiedBy null and preserve existing bonusPoints/notes set during proximity detection.
 
-            Checkpoint checkpoint = checkpointRepository.findById(checkpointId)
-                .orElseThrow(() -> new IllegalStateException("Checkpoint not found: " + checkpointId));
             int total = checkpoint.getPoints() + achievement.getBonusPoints();
 
             Achievement saved = achievementRepository.save(achievement);
@@ -361,8 +372,6 @@ public class AchievementServiceImpl implements AchievementService {
         }
 
         // No prior record — create a VERIFIED achievement directly.
-        Checkpoint checkpoint = checkpointRepository.findById(checkpointId)
-            .orElseThrow(() -> new IllegalArgumentException("Checkpoint not found: " + checkpointId));
         Team team = teamRepository.findById(teamId)
             .orElseThrow(() -> new IllegalArgumentException("Team not found: " + teamId));
 

@@ -149,6 +149,7 @@ class AchievementServiceImplTest {
         existing.setVerifiedAt(earlier);
         existing.setBonusPoints(3);
 
+        when(checkpointRepository.findById(checkpointId)).thenReturn(Optional.of(checkpoint));
         when(achievementRepository.findByTeamIdAndCheckpointId(teamId, checkpointId))
             .thenReturn(Optional.of(existing));
 
@@ -167,6 +168,7 @@ class AchievementServiceImplTest {
         rejected.setCheckpointId(checkpointId);
         rejected.setStatus(AchievementStatus.REJECTED);
 
+        when(checkpointRepository.findById(checkpointId)).thenReturn(Optional.of(checkpoint));
         when(achievementRepository.findByTeamIdAndCheckpointId(teamId, checkpointId))
             .thenReturn(Optional.of(rejected));
 
@@ -175,6 +177,45 @@ class AchievementServiceImplTest {
         assertTrue(result.isEmpty());
         verify(achievementRepository, never()).save(any());
         verify(pointsLedgerService, never()).createEntry(any(), any(), any(), anyInt(), any(), any(), any(), any());
+    }
+
+    @Test
+    void recordVerifiedPass_skipsPass_whenCheckpointClosed() {
+        // Pass recorded after the checkpoint's closing time: automatic awarding is
+        // suppressed entirely — no achievement, no points, no automation.
+        checkpoint.setOpeningTime(Instant.parse("2026-03-09T10:00:00Z"));
+        checkpoint.setClosingTime(Instant.parse("2026-03-09T14:00:00Z"));
+        Instant passTime = Instant.parse("2026-03-09T15:30:00Z");
+
+        when(checkpointRepository.findById(checkpointId)).thenReturn(Optional.of(checkpoint));
+
+        Optional<Achievement> result = service.recordVerifiedPass(teamId, checkpointId, passTime);
+
+        assertTrue(result.isEmpty(), "out-of-window automatic pass must not be recorded");
+        verify(achievementRepository, never()).save(any());
+        verify(pointsLedgerService, never()).createEntry(any(), any(), any(), anyInt(), any(), any(), any(), any());
+        verify(automationEngine, never()).onCheckpointPass(any(), any(), any(), any());
+    }
+
+    @Test
+    void recordVerifiedPass_awardsPass_whenWithinWindow() {
+        checkpoint.setOpeningTime(Instant.parse("2026-03-09T10:00:00Z"));
+        checkpoint.setClosingTime(Instant.parse("2026-03-09T14:00:00Z"));
+        Instant passTime = Instant.parse("2026-03-09T12:00:00Z");
+
+        when(checkpointRepository.findById(checkpointId)).thenReturn(Optional.of(checkpoint));
+        when(achievementRepository.findByTeamIdAndCheckpointId(teamId, checkpointId))
+            .thenReturn(Optional.empty());
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+        when(achievementRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Optional<Achievement> result = service.recordVerifiedPass(teamId, checkpointId, passTime);
+
+        assertTrue(result.isPresent());
+        verify(pointsLedgerService).createEntry(
+            eq(teamId), eq(gameId), eq(PointEntryType.CHECKPOINT_VERIFICATION),
+            eq(10), any(), any(), any(), eq(null));
+        verify(automationEngine).onCheckpointPass(eq(gameId), eq(teamId), eq(checkpointId), eq(passTime));
     }
 
     @Test

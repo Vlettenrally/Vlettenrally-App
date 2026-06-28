@@ -60,14 +60,7 @@ const getStatusColor = (status?: string): 'default' | 'warning' | 'success' | 'e
 const formatDateTime = (date?: string | Date): string => {
   if (!date) return '-';
   try {
-<<<<<<< HEAD
     return formatDateTimeLocal(date);
-=======
-    return date.toLocaleString(undefined, {
-      dateStyle: 'short',
-      timeStyle: 'short',
-    });
->>>>>>> origin/main
   } catch {
     return '-';
   }

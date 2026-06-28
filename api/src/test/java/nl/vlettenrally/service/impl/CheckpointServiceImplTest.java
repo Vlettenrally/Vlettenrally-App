@@ -64,7 +64,7 @@ class CheckpointServiceImplTest {
 
     private CheckpointRequest request(String name, String zoneType, Double radiusMeters, List<List<Double>> polygonPoints) {
         return new CheckpointRequest(name, "2026-06-10T08:00:00Z", "2026-06-10T18:00:00Z",
-            25, 52.05, 4.05, zoneType, radiusMeters, polygonPoints, false);
+            25, 52.05, 4.05, zoneType, radiusMeters, polygonPoints, false, null);
     }
 
     private CircleCheckpoint circleCheckpoint() {

@@ -25,7 +25,7 @@ import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../services/api';
-import { formatForDateTimeLocalInput } from '../utils/dateTime';
+import { formatDateTime, formatForDateTimeLocalInput } from '../utils/dateTime';
 import type {
   AdminTeam,
   AutomationAction,
@@ -286,6 +286,43 @@ export default function AutomationFormDialog({
     </>
   );
 
+  // Human-readable opening window of a checkpoint, or null when it is always open.
+  const checkpointWindow = (cp: Checkpoint): string | null => {
+    if (cp.openingTime && cp.closingTime) {
+      return t('components.automationForm.windowRange', {
+        from: formatDateTime(cp.openingTime),
+        to: formatDateTime(cp.closingTime),
+      });
+    }
+    if (cp.openingTime) {
+      return t('components.automationForm.windowOpenFrom', { from: formatDateTime(cp.openingTime) });
+    }
+    if (cp.closingTime) {
+      return t('components.automationForm.windowOpenUntil', { to: formatDateTime(cp.closingTime) });
+    }
+    return null;
+  };
+
+  // Warn that the checkpoint's opening window gates this automation (it only
+  // fires while the checkpoint is open). Shows the concrete window for a specific
+  // checkpoint, or a generic note when firing on any checkpoint.
+  const renderCheckpointWindowNotice = () => {
+    if (config.checkpointId) {
+      const cp = checkpoints.find((c) => c.id === config.checkpointId);
+      const window = cp ? checkpointWindow(cp) : null;
+      if (!window) return null;
+      return (
+        <Alert severity="info">
+          {t('components.automationForm.windowNoticeSpecific', { window })}
+        </Alert>
+      );
+    }
+    if (checkpoints.some((cp) => cp.openingTime || cp.closingTime)) {
+      return <Alert severity="info">{t('components.automationForm.windowNoticeAll')}</Alert>;
+    }
+    return null;
+  };
+
   const renderTriggerConfig = () => {
     switch (triggerType) {
       case 'CHECKPOINT_ENTRY':
@@ -313,6 +350,7 @@ export default function AutomationFormDialog({
               </Select>
               <FormHelperText>{t('components.automationForm.checkpointHint')}</FormHelperText>
             </FormControl>
+            {renderCheckpointWindowNotice()}
             {!config.checkpointId && (
               <Autocomplete
                 multiple
