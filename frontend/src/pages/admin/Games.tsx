@@ -41,6 +41,7 @@ import { useGameStore } from '../../store/useGameStore';
 import { websocket, WebSocketEventType } from '../../services/websocket';
 import type { Game } from '../../types/entities';
 import GameFormDialog from '../../components/GameFormDialog';
+import { formatDateTime as formatDateTimeLocal } from '../../utils/dateTime';
 
 const getStatusColor = (status?: string): 'default' | 'warning' | 'success' | 'error' => {
   switch (status?.toLowerCase()) {
@@ -55,13 +56,10 @@ const getStatusColor = (status?: string): 'default' | 'warning' | 'success' | 'e
   }
 };
 
-const formatDateTime = (date?: Date): string => {
+const formatDateTime = (date?: string | Date): string => {
   if (!date) return '-';
   try {
-    return date.toLocaleString('nl-NL', {
-      dateStyle: 'short',
-      timeStyle: 'short',
-    });
+    return formatDateTimeLocal(date);
   } catch {
     return '-';
   }
