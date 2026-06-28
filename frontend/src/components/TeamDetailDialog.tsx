@@ -151,7 +151,7 @@ export default function TeamDetailDialog({
     }
     setConfirmDelete(false);
     setError(null);
-  }, [team, gameId]);
+  }, [team, gameId, t]);
 
   const refreshDevices = useCallback(async () => {
     if (!team) return;
@@ -166,7 +166,7 @@ export default function TeamDetailDialog({
     } finally {
       setLoadingDevices(false);
     }
-  }, [team]);
+  }, [team, t]);
 
   const handleMakeMain = async (deviceId: string) => {
     if (!team) return;

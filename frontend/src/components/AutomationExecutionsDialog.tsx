@@ -75,7 +75,7 @@ export default function AutomationExecutionsDialog({
     } finally {
       setLoading(false);
     }
-  }, [gameId, rule, page, pageSize]);
+  }, [gameId, rule, page, pageSize, t]);
 
   useEffect(() => {
     if (open) {

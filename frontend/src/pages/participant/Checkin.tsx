@@ -177,7 +177,7 @@ export function CheckInPage() {
     } else {
       setStep('select-game');
     }
-  }, []);
+  }, [t]);
 
   const loadTeamsForGame = useCallback(async (gameId: string) => {
     setError(null);
@@ -188,7 +188,7 @@ export function CheckInPage() {
       return;
     }
     setTeamOptions(response.data ?? []);
-  }, []);
+  }, [t]);
 
   // Runs the actual check-in entry: legacy token shortcut OR public flow.
   const beginCheckIn = useCallback(() => {
@@ -241,7 +241,7 @@ export function CheckInPage() {
       console.error('Check-in init error:', err);
       setError(t('participant.checkin.generalError'));
     });
-  }, [searchParams, loadTodayGames]);
+  }, [searchParams, loadTodayGames, t]);
 
   // Entry: Show welcome screen for first-time users, then proceed to install-app or check-in.
   useEffect(() => {
@@ -466,7 +466,7 @@ export function CheckInPage() {
     return () => {
       cancelled = true;
     };
-  }, [step, resolvedTeam]);
+  }, [step, resolvedTeam, t]);
 
   const handleRivalsSubmit = async () => {
     if (!resolvedTeam) return;

@@ -26,7 +26,7 @@ export const RivalTeams: React.FC<RivalTeamsProps> = ({ teamId }) => {
     };
 
     fetchRivals();
-  }, [teamId]);
+  }, [teamId, t]);
 
   if (loading) return <div>{t('components.rivalTeams.loading')}</div>;
   if (error) return <div>{error}</div>;
