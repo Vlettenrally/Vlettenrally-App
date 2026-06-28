@@ -235,7 +235,7 @@ public class LocationIngestService {
             turnAngleThresholdDegrees, minBearingSegmentMeters, staleFixSeconds);
         TrackOutlierFilter.Decision decision = TrackOutlierFilter.evaluate(prev, last, reading, thresholds);
         if (decision != TrackOutlierFilter.Decision.ACCEPT) {
-            Log.debugf("Dropping location for team %s: %s", reading.getTeamId(), decision);
+            Log.infof("Dropping location for team %s: %s", reading.getTeamId(), decision);
             return false;
         }
         return true;

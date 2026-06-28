@@ -75,6 +75,7 @@ public class LocationPollingScheduler {
             if (!Boolean.TRUE.equals(game.getLocationEndpointActive())
                     || game.getLocationEndpointUrl() == null
                     || game.getLocationEndpointUrl().isBlank()) {
+                Log.infof("Game %s: location polling skipped (endpoint not active or URL not set)", game.getId());
                 continue;
             }
 
@@ -92,7 +93,7 @@ public class LocationPollingScheduler {
             .collect(Collectors.toMap(Team::getExternalParticipantId, t -> t, (a, b) -> a));
 
         if (teamsByParticipantId.isEmpty()) {
-            Log.debugf("Game %s has no teams with externalParticipantId — run link-participants first", game.getId());
+            Log.warnf("Game %s has no teams with externalParticipantId — run link-participants first", game.getId());
             return;
         }
 
@@ -110,18 +111,21 @@ public class LocationPollingScheduler {
 
         if (response == null || response.getEvent() == null
                 || response.getEvent().getEventParticipantLocations() == null) {
+            Log.warnf("Game %s: /participants_locations returned null or empty body", game.getId());
             return;
         }
 
         // Persist + notify each fix through the shared ingest path (guards, distance,
         // per-team WS), collecting the accepted ones for a single admin-map broadcast.
         List<TeamLocationResponse> broadcasts = new ArrayList<>();
+        int totalCount = 0;
         for (EventParticipantLocation pl : response.getEvent().getEventParticipantLocations()) {
             if (pl.getLocation() == null) continue;
 
             Team team = teamsByParticipantId.get(pl.getEventParticipantsId());
             if (team == null) continue;
 
+            totalCount++;
             Point point = GEOMETRY_FACTORY.createPoint(
                 new Coordinate(pl.getLocation().getLongitude(), pl.getLocation().getLatitude()));
 
@@ -138,6 +142,7 @@ public class LocationPollingScheduler {
             locationIngestService.ingest(locationData, team.getName()).ifPresent(broadcasts::add);
         }
 
+        Log.infof("Game %s: polled %d participant locations, accepted %d", game.getId(), totalCount, broadcasts.size());
         locationIngestService.broadcastToMap(game.getId(), broadcasts);
     }
 
