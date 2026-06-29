@@ -161,6 +161,21 @@ export const mockApi = {
   async getCheckpoints() {
     return { data: mockCheckpoints, status: 200 };
   },
+
+  async getMyLatestLocation() {
+    return {
+      data: {
+        teamId: MOCK_TEAM_ID,
+        teamName: 'De Watervlooien',
+        latitude: 52.3580,
+        longitude: 4.9001,
+        speed: 3.5,
+        heading: 120,
+        locationTime: new Date(Date.now() - 60_000).toISOString(),
+      },
+      status: 200,
+    };
+  },
   
   async getGameById() {
     return { data: mockGame, status: 200 };

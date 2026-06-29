@@ -70,10 +70,25 @@ export default function ParticipantMap() {
     return () => { cancelled = true; };
   }, [gameId]);
 
+  // Fetch last known location on mount so the marker appears immediately
+  useEffect(() => {
+    if (!gameId || !teamId) return;
+
+    let cancelled = false;
+
+    api.getMyLatestLocation(gameId, teamId).then((response) => {
+      if (!cancelled && response.data) {
+        setMyLocation(response.data);
+      }
+    });
+
+    return () => { cancelled = true; };
+  }, [gameId, teamId]);
+
   // Subscribe to real-time location updates (team receives only their own location)
   const handleLocationUpdate = useCallback((message: { payload: unknown }) => {
     const payload = message.payload as TeamLocation;
-    if (payload && payload.latitude && payload.longitude) {
+    if (payload && payload.latitude != null && payload.longitude != null) {
       setMyLocation(payload);
     }
   }, []);

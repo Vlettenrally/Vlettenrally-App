@@ -12,6 +12,7 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import nl.vlettenrally.api.security.SecurityRoles;
+import nl.vlettenrally.api.security.TeamScoped;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
 import nl.vlettenrally.service.LocationService;
 
@@ -22,6 +23,7 @@ import java.util.UUID;
  * <p>
  * Endpoints:
  * - GET /api/v1/games/{gameId}/locations/latest - Get latest location per team (admin-only)
+ * - GET /api/v1/games/{gameId}/locations/team/{teamId}/latest - Get own latest location (team or admin)
  * - GET /api/v1/games/{gameId}/locations/team/{teamId}/history - Get a team's recent location history (admin-only)
  */
 @Path("/api/v1/games/{gameId}/locations")
@@ -41,6 +43,19 @@ public class LocationResource {
             .orElseGet(() -> Response.status(Response.Status.NOT_FOUND)
                 .entity(new ErrorResponse("Game not found"))
                 .build());
+    }
+
+    @GET
+    @Path("/team/{teamId}/latest")
+    @RolesAllowed({SecurityRoles.STAFF, SecurityRoles.TEAM})
+    @TeamScoped
+    public Response getLatestTeamLocation(
+        @PathParam("gameId") UUID gameId,
+        @PathParam("teamId") UUID teamId
+    ) {
+        return locationService.getLatestTeamLocation(gameId, teamId)
+            .map(loc -> Response.ok(loc).build())
+            .orElseGet(() -> Response.noContent().build());
     }
 
     @GET

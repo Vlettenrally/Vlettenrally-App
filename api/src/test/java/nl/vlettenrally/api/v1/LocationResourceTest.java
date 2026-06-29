@@ -63,6 +63,28 @@ class LocationResourceTest {
         }
     }
 
+    // ==================== /team/{teamId}/latest ====================
+
+    @Test
+    void getLatestTeamLocation_serviceReturnsValue_returnsOkWithBody() {
+        TeamLocationResponse body = new TeamLocationResponse(teamId, "De Watervlooien", 52.3580, 4.9001, 3.5, 120.0, "2026-05-17T10:00:00Z");
+        when(locationService.getLatestTeamLocation(gameId, teamId)).thenReturn(Optional.of(body));
+
+        try (Response response = locationResource.getLatestTeamLocation(gameId, teamId)) {
+            assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());
+            assertEquals(body, response.getEntity());
+        }
+    }
+
+    @Test
+    void getLatestTeamLocation_noFixRecorded_returns204() {
+        when(locationService.getLatestTeamLocation(gameId, teamId)).thenReturn(Optional.empty());
+
+        try (Response response = locationResource.getLatestTeamLocation(gameId, teamId)) {
+            assertEquals(Response.Status.NO_CONTENT.getStatusCode(), response.getStatus());
+        }
+    }
+
     // ==================== /team/{teamId}/history ====================
 
     @Test

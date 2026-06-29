@@ -53,6 +53,24 @@ public class LocationServiceImpl implements LocationService {
     }
 
     @Override
+    public Optional<TeamLocationResponse> getLatestTeamLocation(UUID gameId, UUID teamId) {
+        if (gameService.findById(gameId).isEmpty()) {
+            return Optional.empty();
+        }
+
+        Team team = teamRepository.findByGameId(gameId).stream()
+            .filter(t -> teamId.equals(t.getId()))
+            .findFirst()
+            .orElse(null);
+        if (team == null) {
+            return Optional.empty();
+        }
+
+        return locationDataRepository.findLatestByTeamId(teamId)
+            .map(loc -> toResponse(loc, team));
+    }
+
+    @Override
     public Optional<List<TeamLocationResponse>> getTeamLocationHistory(UUID gameId, UUID teamId, int windowMinutes) {
         if (gameService.findById(gameId).isEmpty()) {
             return Optional.empty();

@@ -602,6 +602,10 @@ async getGames() : Promise<ApiResponse<Game[]>> {
     return this.get(`/games/${gameId}/locations/latest`);
   }
 
+  async getMyLatestLocation(gameId: string, teamId: string): Promise<ApiResponse<TeamLocation>> {
+    return this.get(`/games/${gameId}/locations/team/${teamId}/latest`);
+  }
+
   async getTeamLocationHistory(
     gameId: string,
     teamId: string,
