@@ -29,6 +29,7 @@ import {
 } from './services/notificationSync';
 import {type Message, useMessageStore} from './store/useMessageStore';
 import api from './services/api';
+import {useTranslation} from 'react-i18next';
 
 // Lazy-loaded participant pages
 const CheckInPage = lazy(() => import('./pages/participant/Checkin'));
@@ -319,7 +320,9 @@ function RootRedirect() {
 }
 
 function App() {
+  const { t } = useTranslation();
   const [notification, setNotification] = useState<{ title: string; body: string } | null>(null);
+  const [updateAvailable, setUpdateAvailable] = useState(false);
   const [showNotificationPrompt, setShowNotificationPrompt] = useState(() => {
     // Initialize based on current permission state (only show if logged in and permission not yet requested)
     const token = storage.getAuthToken();
@@ -412,6 +415,32 @@ function App() {
     return () => {
       navigator.serviceWorker?.removeEventListener('message', handleServiceWorkerMessage);
     };
+  }, []);
+
+  // Proactive SW update detection: poll every 10 minutes and on tab focus
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+
+    let intervalId: ReturnType<typeof setInterval>;
+
+    navigator.serviceWorker.getRegistration().then((reg) => {
+      if (!reg) return;
+
+      const hadController = !!navigator.serviceWorker.controller;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (hadController) setUpdateAvailable(true);
+      });
+
+      const checkForUpdate = () => reg.update().catch(() => {});
+      intervalId = setInterval(checkForUpdate, 600_000);
+
+      const handleVisibility = () => {
+        if (document.visibilityState === 'visible') checkForUpdate();
+      };
+      document.addEventListener('visibilitychange', handleVisibility);
+    });
+
+    return () => clearInterval(intervalId);
   }, []);
 
   // Initialize FCM for already logged-in users and set up foreground message handling
@@ -743,6 +772,20 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
+
+      {/* App update snackbar */}
+      <Snackbar open={updateAvailable} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+        <Alert
+          severity="info"
+          action={
+            <Button color="inherit" size="small" onClick={() => window.location.reload()}>
+              {t('common.reload')}
+            </Button>
+          }
+        >
+          {t('common.updateAvailable')}
+        </Alert>
+      </Snackbar>
 
       {/* Foreground notification snackbar */}
       <Snackbar

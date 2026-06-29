@@ -29,7 +29,9 @@
     "yes": "Ja",
     "no": "Nee",
     "noConnection": "Geen verbinding met server. Sommige gegevens kunnen verouderd zijn.",
-    "logout": "Uitloggen"
+    "logout": "Uitloggen",
+    "updateAvailable": "Nieuwe versie beschikbaar",
+    "reload": "Herladen"
   },
   "participant": {
     "dashboard": {

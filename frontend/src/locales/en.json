@@ -29,7 +29,9 @@
     "yes": "Yes",
     "no": "No",
     "noConnection": "No connection to server. Some data may be outdated.",
-    "logout": "Logout"
+    "logout": "Logout",
+    "updateAvailable": "New version available",
+    "reload": "Reload"
   },
   "participant": {
     "dashboard": {
