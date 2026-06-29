@@ -9,7 +9,6 @@ import {
   Button,
   Card,
   CardActions,
-  CardMedia,
   Chip,
   CircularProgress,
   Container,
@@ -24,6 +23,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import PictureImage from '../../components/PictureImage';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
@@ -65,6 +65,7 @@ export default function AdminPictures() {
   const [error, setError] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<Picture | null>(null);
   const [rejectNotes, setRejectNotes] = useState('');
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   // Upload state
   const [uploading, setUploading] = useState(false);
@@ -256,14 +257,11 @@ export default function AdminPictures() {
           >
             {visiblePictures.map((picture) => (
               <Card key={picture.id} sx={{ position: 'relative' }}>
-                {picture.viewUrl && (
-                  <CardMedia
-                    component="img"
-                    image={picture.viewUrl}
-                    alt={t('admin.pictures.photoAlt')}
-                    sx={{ aspectRatio: '3 / 2', objectFit: 'cover' }}
-                  />
-                )}
+                <PictureImage
+                  src={picture.viewUrl}
+                  alt={t('admin.pictures.photoAlt')}
+                  onClick={() => setLightboxUrl(picture.viewUrl!)}
+                />
                 <Box sx={{ position: 'absolute', top: 8, left: 8 }}>
                   <Chip
                     size="small"
@@ -298,6 +296,21 @@ export default function AdminPictures() {
           </Box>
         )}
       </Stack>
+
+      <Dialog
+        open={!!lightboxUrl}
+        onClose={() => setLightboxUrl(null)}
+        maxWidth={false}
+        PaperProps={{ sx: { bgcolor: 'black', m: 1 } }}
+      >
+        {lightboxUrl && (
+          <img
+            src={lightboxUrl}
+            alt={t('admin.pictures.photoAlt')}
+            style={{ maxWidth: '95vw', maxHeight: '95vh', objectFit: 'contain', display: 'block' }}
+          />
+        )}
+      </Dialog>
 
       <Dialog open={!!rejectTarget} onClose={() => setRejectTarget(null)} fullWidth maxWidth="sm">
         <DialogTitle>{t('admin.pictures.rejectDialogTitle')}</DialogTitle>

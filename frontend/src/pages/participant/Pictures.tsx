@@ -12,16 +12,17 @@ import {
   Box,
   Button,
   Card,
-  CardMedia,
   Chip,
   CircularProgress,
   Container,
+  Dialog,
   IconButton,
   LinearProgress,
   Stack,
   Tooltip,
   Typography,
 } from '@mui/material';
+import PictureImage from '../../components/PictureImage';
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PublicIcon from '@mui/icons-material/Public';
@@ -50,6 +51,7 @@ export default function Pictures() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // mockApi mirrors the picture methods of api; treat it as the same shape.
@@ -231,18 +233,11 @@ export default function Pictures() {
               const status = statusLabels[picture.status];
               return (
                 <Card key={picture.id} sx={{ position: 'relative' }}>
-                  {picture.viewUrl ? (
-                    <CardMedia
-                      component="img"
-                      image={picture.viewUrl}
-                      alt={t('participant.pictures.photoAlt')}
-                      sx={{ aspectRatio: '3 / 2', objectFit: 'cover' }}
-                    />
-                  ) : (
-                    <Box sx={{ aspectRatio: '3 / 2', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'action.hover' }}>
-                      <CircularProgress size={24} />
-                    </Box>
-                  )}
+                  <PictureImage
+                    src={picture.viewUrl}
+                    alt={t('participant.pictures.photoAlt')}
+                    onClick={() => setLightboxUrl(picture.viewUrl!)}
+                  />
                   <Box sx={{ position: 'absolute', top: 8, left: 8 }}>
                     <Chip size="small" label={status.label} color={status.color} />
                   </Box>
@@ -265,6 +260,21 @@ export default function Pictures() {
           </Box>
         )}
       </Stack>
+
+      <Dialog
+        open={!!lightboxUrl}
+        onClose={() => setLightboxUrl(null)}
+        maxWidth={false}
+        PaperProps={{ sx: { bgcolor: 'black', m: 1 } }}
+      >
+        {lightboxUrl && (
+          <img
+            src={lightboxUrl}
+            alt={t('participant.pictures.photoAlt')}
+            style={{ maxWidth: '95vw', maxHeight: '95vh', objectFit: 'contain', display: 'block' }}
+          />
+        )}
+      </Dialog>
     </Container>
   );
 }
