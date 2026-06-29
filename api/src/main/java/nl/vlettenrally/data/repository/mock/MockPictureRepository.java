@@ -108,6 +108,30 @@ public class MockPictureRepository implements PictureRepository {
     }
 
     @Override
+    public List<Picture> findReadyForModerationByGameId(UUID gameId) {
+        return pictures.values().stream()
+                .filter(p -> gameId.equals(p.getGameId()) && p.getStatus() == PictureStatus.PENDING && p.getUploadedAt() != null)
+                .sorted(Comparator.comparing(Picture::getUploadedAt))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Picture> findByStatusAndGameId(PictureStatus status, UUID gameId) {
+        return pictures.values().stream()
+                .filter(p -> gameId.equals(p.getGameId()) && p.getStatus() == status)
+                .sorted(Comparator.comparing(Picture::getCreatedAt).reversed())
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Picture> findAllByGameId(UUID gameId) {
+        return pictures.values().stream()
+                .filter(p -> gameId.equals(p.getGameId()))
+                .sorted(Comparator.comparing(Picture::getCreatedAt).reversed())
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public List<Picture> findApprovedByGameId(UUID gameId) {
         return pictures.values().stream()
                 .filter(p -> gameId.equals(p.getGameId()) && p.getStatus() == PictureStatus.APPROVED)

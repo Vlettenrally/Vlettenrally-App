@@ -71,11 +71,20 @@ public interface PictureService {
     /** Uploaded pictures awaiting moderation. */
     List<Picture> findReadyForModeration();
 
+    /** Uploaded pictures awaiting moderation, scoped to a game. */
+    List<Picture> findReadyForModerationByGame(UUID gameId);
+
     /** Pictures filtered by status (admin). */
     List<Picture> findByStatus(PictureStatus status);
 
+    /** Pictures filtered by status, scoped to a game (admin). */
+    List<Picture> findByStatusAndGame(PictureStatus status, UUID gameId);
+
     /** All pictures (admin). */
     List<Picture> findAll();
+
+    /** All pictures for a game (admin). */
+    List<Picture> findAllByGame(UUID gameId);
 
     /** Approved pictures for a game, newest first (public gallery). */
     List<Picture> findApprovedByGame(UUID gameId);

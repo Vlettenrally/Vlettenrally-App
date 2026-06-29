@@ -232,24 +232,24 @@ export const mockApi = {
     return { data: undefined, status: 204 };
   },
 
-  async getPendingPictures() {
+  async getPendingPictures(gameId?: string) {
     return {
-      data: mockPictures.filter((p) => p.status === 'PENDING' && p.uploadedAt).map((p) => ({ ...p })),
+      data: mockPictures.filter((p) => p.status === 'PENDING' && p.uploadedAt && (!gameId || p.gameId === gameId)).map((p) => ({ ...p })),
       status: 200,
     };
   },
 
-  async getAllPictures(status?: string) {
+  async getAllPictures(status?: string, gameId?: string) {
     const upper = status?.toUpperCase() as PictureStatus | undefined;
     return {
-      data: mockPictures.filter((p) => !upper || p.status === upper).map((p) => ({ ...p })),
+      data: mockPictures.filter((p) => (!upper || p.status === upper) && (!gameId || p.gameId === gameId)).map((p) => ({ ...p })),
       status: 200,
     };
   },
 
-  async getApprovedPictures() {
+  async getApprovedPictures(gameId?: string) {
     return {
-      data: mockPictures.filter((p) => p.status === 'APPROVED').map((p) => ({ ...p })),
+      data: mockPictures.filter((p) => p.status === 'APPROVED' && (!gameId || p.gameId === gameId)).map((p) => ({ ...p })),
       status: 200,
     };
   },

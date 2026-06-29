@@ -72,6 +72,38 @@ public class JpaPictureRepository extends ReadReplicaAwareRepository implements 
     }
 
     @Override
+    public List<Picture> findReadyForModerationByGameId(UUID gameId) {
+        return getReadEntityManager()
+                .createQuery("SELECT p FROM PictureEntity p WHERE p.game.id = :gameId AND p.status = :status AND p.uploadedAt IS NOT NULL ORDER BY p.uploadedAt ASC", PictureEntity.class)
+                .setParameter("gameId", gameId)
+                .setParameter("status", PictureStatus.PENDING)
+                .getResultList().stream()
+                .map(PictureMapper::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Picture> findByStatusAndGameId(PictureStatus status, UUID gameId) {
+        return getReadEntityManager()
+                .createQuery("SELECT p FROM PictureEntity p WHERE p.game.id = :gameId AND p.status = :status ORDER BY p.createdAt DESC", PictureEntity.class)
+                .setParameter("gameId", gameId)
+                .setParameter("status", status)
+                .getResultList().stream()
+                .map(PictureMapper::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Picture> findAllByGameId(UUID gameId) {
+        return getReadEntityManager()
+                .createQuery("SELECT p FROM PictureEntity p WHERE p.game.id = :gameId ORDER BY p.createdAt DESC", PictureEntity.class)
+                .setParameter("gameId", gameId)
+                .getResultList().stream()
+                .map(PictureMapper::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public List<Picture> findApprovedByGameId(UUID gameId) {
         return getReadEntityManager()
                 .createQuery("SELECT p FROM PictureEntity p WHERE p.game.id = :gameId AND p.status = :status ORDER BY p.uploadedAt DESC", PictureEntity.class)

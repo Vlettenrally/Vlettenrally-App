@@ -240,13 +240,28 @@ public class PictureServiceImpl implements PictureService {
     }
 
     @Override
+    public List<Picture> findReadyForModerationByGame(UUID gameId) {
+        return pictureRepository.findReadyForModerationByGameId(gameId);
+    }
+
+    @Override
     public List<Picture> findByStatus(PictureStatus status) {
         return pictureRepository.findByStatus(status);
     }
 
     @Override
+    public List<Picture> findByStatusAndGame(PictureStatus status, UUID gameId) {
+        return pictureRepository.findByStatusAndGameId(status, gameId);
+    }
+
+    @Override
     public List<Picture> findAll() {
         return pictureRepository.findAll();
+    }
+
+    @Override
+    public List<Picture> findAllByGame(UUID gameId) {
+        return pictureRepository.findAllByGameId(gameId);
     }
 
     @Override

@@ -177,8 +177,11 @@ public class PictureResource {
     @GET
     @Path("/pictures/approved")
     @RolesAllowed(SecurityRoles.STAFF)
-    public Response getApprovedPictures() {
-        return Response.ok(pictureService.findByStatus(PictureStatus.APPROVED).stream().map(this::toDto).toList()).build();
+    public Response getApprovedPictures(@QueryParam("gameId") UUID gameId) {
+        List<Picture> pictures = gameId != null
+            ? pictureService.findByStatusAndGame(PictureStatus.APPROVED, gameId)
+            : pictureService.findByStatus(PictureStatus.APPROVED);
+        return Response.ok(pictures.stream().map(this::toDto).toList()).build();
     }
 
     /**
@@ -187,8 +190,11 @@ public class PictureResource {
     @GET
     @Path("/pictures/pending")
     @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER, SecurityRoles.RALLY_DESK})
-    public Response getPendingPictures() {
-        return Response.ok(pictureService.findReadyForModeration().stream().map(this::toDto).toList()).build();
+    public Response getPendingPictures(@QueryParam("gameId") UUID gameId) {
+        List<Picture> pictures = gameId != null
+            ? pictureService.findReadyForModerationByGame(gameId)
+            : pictureService.findReadyForModeration();
+        return Response.ok(pictures.stream().map(this::toDto).toList()).build();
     }
 
     /**
@@ -197,7 +203,7 @@ public class PictureResource {
     @GET
     @Path("/pictures")
     @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER, SecurityRoles.RALLY_DESK})
-    public Response getAllPictures(@QueryParam("status") String status) {
+    public Response getAllPictures(@QueryParam("status") String status, @QueryParam("gameId") UUID gameId) {
         List<Picture> pictures;
         if (status != null && !status.isBlank()) {
             PictureStatus parsed;
@@ -208,9 +214,13 @@ public class PictureResource {
                     .entity(new ErrorResponse("Invalid status: " + status))
                     .build();
             }
-            pictures = pictureService.findByStatus(parsed);
+            pictures = gameId != null
+                ? pictureService.findByStatusAndGame(parsed, gameId)
+                : pictureService.findByStatus(parsed);
         } else {
-            pictures = pictureService.findAll();
+            pictures = gameId != null
+                ? pictureService.findAllByGame(gameId)
+                : pictureService.findAll();
         }
         return Response.ok(pictures.stream().map(this::toDto).toList()).build();
     }

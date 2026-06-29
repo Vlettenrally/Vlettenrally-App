@@ -25,6 +25,15 @@ public interface PictureRepository {
     /** Uploaded pictures still awaiting moderation (uploadedAt set, status PENDING). */
     List<Picture> findReadyForModeration();
 
+    /** Uploaded pictures still awaiting moderation, scoped to a game. */
+    List<Picture> findReadyForModerationByGameId(UUID gameId);
+
+    /** Pictures of a given status scoped to a game. */
+    List<Picture> findByStatusAndGameId(PictureStatus status, UUID gameId);
+
+    /** All pictures for a game, newest first. */
+    List<Picture> findAllByGameId(UUID gameId);
+
     /** Approved pictures for a game (for the future slideshow), newest first. */
     List<Picture> findApprovedByGameId(UUID gameId);
 

@@ -28,6 +28,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
 import { usePictureStore } from '../../store/usePictureStore';
+import { useGameStore } from '../../store/useGameStore';
 import type { Picture, PictureStatus } from '../../types/entities';
 import api from '../../services/api';
 import { mockApi } from '../../services/mockApi';
@@ -51,6 +52,7 @@ const STATUS_COLORS: Record<PictureStatus, 'default' | 'success' | 'warning' | '
 export default function AdminPictures() {
   const { t } = useTranslation();
   const { moderationPictures, setModerationPictures, upsertModerationPicture } = usePictureStore();
+  const selectedGameId = useGameStore((s) => s.selectedGameId);
 
   const token = storage.getAuthToken();
   const canModerate = !!token && hasAnyRole(token, [...PICTURE_MODERATION_ROLES, 'admin']);
@@ -85,10 +87,11 @@ export default function AdminPictures() {
     if (tab === 'UPLOAD') return;
     setLoading(true);
     setError(null);
+    const gameId = selectedGameId ?? undefined;
     const request =
-      tab === 'PENDING'  ? apiToUse.getPendingPictures() :
-      tab === 'APPROVED' ? apiToUse.getApprovedPictures() :
-      apiToUse.getAllPictures();
+      tab === 'PENDING'  ? apiToUse.getPendingPictures(gameId) :
+      tab === 'APPROVED' ? apiToUse.getApprovedPictures(gameId) :
+      apiToUse.getAllPictures(undefined, gameId);
     request
       .then((res) => {
         if (res.data) setModerationPictures(res.data as Picture[]);
@@ -97,7 +100,7 @@ export default function AdminPictures() {
       .catch(() => setError(t('admin.pictures.loadFailed')))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab]);
+  }, [tab, selectedGameId]);
 
   useEffect(() => {
     load();

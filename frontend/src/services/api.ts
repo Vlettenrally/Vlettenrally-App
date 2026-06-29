@@ -919,16 +919,20 @@ async getGames() : Promise<ApiResponse<Game[]>> {
   }
 
   // Admin moderation
-  async getPendingPictures(): Promise<ApiResponse<Picture[]>> {
-    return this.get('/pictures/pending');
+  async getPendingPictures(gameId?: string): Promise<ApiResponse<Picture[]>> {
+    return this.get(gameId ? `/pictures/pending?gameId=${encodeURIComponent(gameId)}` : '/pictures/pending');
   }
 
-  async getAllPictures(status?: string): Promise<ApiResponse<Picture[]>> {
-    return this.get(status ? `/pictures?status=${encodeURIComponent(status)}` : '/pictures');
+  async getAllPictures(status?: string, gameId?: string): Promise<ApiResponse<Picture[]>> {
+    const params = new URLSearchParams();
+    if (status) params.set('status', status);
+    if (gameId) params.set('gameId', gameId);
+    const query = params.toString();
+    return this.get(query ? `/pictures?${query}` : '/pictures');
   }
 
-  async getApprovedPictures(): Promise<ApiResponse<Picture[]>> {
-    return this.get('/pictures/approved');
+  async getApprovedPictures(gameId?: string): Promise<ApiResponse<Picture[]>> {
+    return this.get(gameId ? `/pictures/approved?gameId=${encodeURIComponent(gameId)}` : '/pictures/approved');
   }
 
   async approvePicture(pictureId: string): Promise<ApiResponse<Picture>> {

@@ -136,7 +136,7 @@ class PictureResourceTest {
 
     @Test
     void getAllPictures_invalidStatus_returns400() {
-        Response response = resource.getAllPictures("bogus");
+        Response response = resource.getAllPictures("bogus", null);
         assertEquals(400, response.getStatus());
     }
 
@@ -145,7 +145,7 @@ class PictureResourceTest {
         when(pictureService.findByStatus(PictureStatus.APPROVED))
             .thenReturn(List.of(picture(PictureStatus.APPROVED, Instant.now())));
 
-        Response response = resource.getAllPictures("approved");
+        Response response = resource.getAllPictures("approved", null);
 
         assertEquals(200, response.getStatus());
         List<?> body = assertInstanceOf(List.class, response.getEntity());
@@ -155,7 +155,7 @@ class PictureResourceTest {
     @Test
     void getAllPictures_noStatus_returnsAll() {
         when(pictureService.findAll()).thenReturn(List.of());
-        Response response = resource.getAllPictures(null);
+        Response response = resource.getAllPictures(null, null);
         assertEquals(200, response.getStatus());
     }
 
