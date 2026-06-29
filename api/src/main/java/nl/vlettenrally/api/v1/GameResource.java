@@ -27,6 +27,7 @@ import nl.vlettenrally.data.dto.game.CopyCheckpointsRequest;
 import nl.vlettenrally.data.dto.game.CopyCheckpointsResult;
 import nl.vlettenrally.data.dto.game.GameRequest;
 import nl.vlettenrally.data.dto.game.GameResponse;
+import nl.vlettenrally.data.dto.game.TeamGameResponse;
 import nl.vlettenrally.data.dto.game.LocationTestResponse;
 import nl.vlettenrally.data.dto.game.TeamImportResponse;
 import nl.vlettenrally.data.dto.game.AssignTrackersRequest;
@@ -133,9 +134,12 @@ public class GameResource {
      * Get all games
      */
     @GET
-    public Response getAllGames() {
+    public Response getAllGames(@Context SecurityContext ctx) {
         List<Game> games = gameService.findAll();
-        return Response.ok(games.stream().map(this::toDto).toList()).build();
+        boolean isStaff = ctx.isUserInRole(SecurityRoles.STAFF);
+        return Response.ok(games.stream()
+            .map(g -> isStaff ? toDto(g) : toTeamDto(g))
+            .toList()).build();
     }
 
     /**
@@ -143,9 +147,12 @@ public class GameResource {
      */
     @GET
     @Path("/active")
-    public Response getActiveGames() {
+    public Response getActiveGames(@Context SecurityContext ctx) {
         List<Game> games = gameService.findActiveGames();
-        return Response.ok(games.stream().map(this::toDto).toList()).build();
+        boolean isStaff = ctx.isUserInRole(SecurityRoles.STAFF);
+        return Response.ok(games.stream()
+            .map(g -> isStaff ? toDto(g) : toTeamDto(g))
+            .toList()).build();
     }
 
     /**
@@ -163,9 +170,10 @@ public class GameResource {
      */
     @GET
     @Path("/{gameId}")
-    public Response getGameById(@PathParam("gameId") UUID gameId) {
+    public Response getGameById(@PathParam("gameId") UUID gameId, @Context SecurityContext ctx) {
+        boolean isStaff = ctx.isUserInRole(SecurityRoles.STAFF);
         return gameService.findById(gameId)
-            .map(game -> Response.ok(toDto(game)).build())
+            .map(game -> Response.ok(isStaff ? toDto(game) : toTeamDto(game)).build())
             .orElse(gameNotFoundResponse());
     }
 
@@ -185,7 +193,7 @@ public class GameResource {
         List<Checkpoint> checkpoints = checkpointService.findByGameId(gameId);
         return Response.ok(checkpoints.stream()
             .filter(cp -> isAdmin || !cp.isHidden())
-            .map(this::toCheckpointDto)
+            .map(cp -> toCheckpointDto(cp, isAdmin))
             .toList()).build();
     }
 
@@ -542,7 +550,7 @@ public class GameResource {
         }
 
         Checkpoint saved = checkpointService.create(gameId, request);
-        return Response.status(Response.Status.CREATED).entity(toCheckpointDto(saved)).build();
+        return Response.status(Response.Status.CREATED).entity(toCheckpointDto(saved, true)).build();
     }
 
     /**
@@ -557,7 +565,7 @@ public class GameResource {
             CheckpointRequest request) {
 
         return checkpointService.update(checkpointId, request)
-            .map(saved -> Response.ok(toCheckpointDto(saved)).build())
+            .map(saved -> Response.ok(toCheckpointDto(saved, true)).build())
             .orElse(Response.status(Response.Status.NOT_FOUND)
                 .entity(new ErrorResponse("Checkpoint not found"))
                 .build());
@@ -656,7 +664,7 @@ public class GameResource {
         );
     }
 
-    private CheckpointResponse toCheckpointDto(Checkpoint checkpoint) {
+    private CheckpointResponse toCheckpointDto(Checkpoint checkpoint, boolean isAdmin) {
         double radiusMeters = 0;
         List<List<Double>> polygonPoints = null;
 
@@ -675,12 +683,28 @@ public class GameResource {
             checkpoint.getPoints(),
             checkpoint.getLatitude(),
             checkpoint.getLongitude(),
-            checkpoint.getExternalId(),
+            isAdmin ? checkpoint.getExternalId() : null,
             checkpoint.getZoneType(),
             radiusMeters,
             polygonPoints,
             checkpoint.isHidden(),
             checkpoint.getColor()
+        );
+    }
+
+    private TeamGameResponse toTeamDto(Game game) {
+        return new TeamGameResponse(
+            game.getId(),
+            game.getName(),
+            game.getDescription(),
+            game.getParticipantInfo(),
+            game.getStartTime() != null ? game.getStartTime().toString() : null,
+            game.getEndTime() != null ? game.getEndTime().toString() : null,
+            game.getCheckInStartTime() != null ? game.getCheckInStartTime().toString() : null,
+            game.getStartSignalTime() != null ? game.getStartSignalTime().toString() : null,
+            game.getStatus() != null ? game.getStatus().name().toLowerCase() : null,
+            game.getRankingsPublished() != null && game.getRankingsPublished(),
+            game.getPublicRankingsEnabled() != null && game.getPublicRankingsEnabled()
         );
     }
 

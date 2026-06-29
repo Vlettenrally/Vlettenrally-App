@@ -170,7 +170,7 @@ public class TeamResource {
 
         try {
             Team team = teamService.checkIn(teamId);
-            return Response.ok(teamConverter.toDto(team)).build();
+            return Response.ok(teamConverter.toPlayerResponse(team)).build();
         } catch (IllegalStateException e) {
             return Response.status(Response.Status.CONFLICT)
                 .entity(new ErrorResponse(e.getMessage()))
@@ -204,8 +204,8 @@ public class TeamResource {
             Team team = teamOpt.get();
             team.setEmergencyPhoneNumbers(request.phoneNumbers());
             Team updatedTeam = teamService.save(team);
-            
-            return Response.ok(teamConverter.toDto(updatedTeam)).build();
+
+            return Response.ok(teamConverter.toPlayerResponse(updatedTeam)).build();
         } catch (IllegalArgumentException e) {
             return Response.status(Response.Status.BAD_REQUEST)
                 .entity(new ErrorResponse(e.getMessage()))
@@ -236,7 +236,7 @@ public class TeamResource {
             team.setParticipants(request.participants());
             Team updatedTeam = teamService.save(team);
 
-            return Response.ok(teamConverter.toDto(updatedTeam)).build();
+            return Response.ok(teamConverter.toPlayerResponse(updatedTeam)).build();
         } catch (IllegalArgumentException e) {
             return Response.status(Response.Status.BAD_REQUEST)
                 .entity(new ErrorResponse(e.getMessage()))
