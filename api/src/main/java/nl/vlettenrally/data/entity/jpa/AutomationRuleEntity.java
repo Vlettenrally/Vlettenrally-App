@@ -58,6 +58,9 @@ public class AutomationRuleEntity {
     @Column(name = "cooldown_minutes")
     private Integer cooldownMinutes;
 
+    @Column(name = "trigger_for_finished_teams", nullable = false)
+    private boolean triggerForFinishedTeams = false;
+
     @Column(name = "created_by")
     private UUID createdBy;
 

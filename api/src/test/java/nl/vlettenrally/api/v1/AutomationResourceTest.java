@@ -77,7 +77,7 @@ class AutomationResourceTest {
         return new AutomationRuleRequest("Felicitatie", true, AutomationTriggerType.CHECKPOINT_ENTRY,
             new AutomationTriggerConfig(null, null, null, null, null, null, null, null, null),
             List.of(new AutomationAction.SendMessage("Goed bezig!", MessageType.GENERAL, null, null)),
-            null, true, null);
+            null, true, null, null);
     }
 
     @Test

@@ -889,6 +889,7 @@
       "fireOnce": "Once per event",
       "fireOnceHint": "Points awarded by an automation cannot trigger another automation (chain reactions are excluded).",
       "cooldown": "Cooldown (minutes)",
+      "triggerForFinishedTeams": "Trigger for finished teams",
       "triggerCheckpointEntry": "Checkpoint reached",
       "triggerScheduledTime": "Scheduled time",
       "triggerGameStatusChange": "Game status change",

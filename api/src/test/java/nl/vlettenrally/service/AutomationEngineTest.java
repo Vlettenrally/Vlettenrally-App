@@ -130,6 +130,34 @@ class AutomationEngineTest {
     }
 
     @Test
+    void checkpointPass_skipsFinishedTeam_whenRuleDoesNotOptIn() {
+        team.setFinished(true);
+        AutomationRule rule = rule(AutomationTriggerType.CHECKPOINT_ENTRY, emptyConfig());
+        when(ruleRepository.findByGameIdAndTriggerType(gameId, AutomationTriggerType.CHECKPOINT_ENTRY))
+            .thenReturn(List.of(rule));
+
+        engine.onCheckpointPass(gameId, teamId, checkpointId, Instant.now());
+
+        verifyNoInteractions(actionExecutor);
+        verify(executionRepository, never()).save(any());
+    }
+
+    @Test
+    void checkpointPass_firesForFinishedTeam_whenRuleOptsIn() {
+        team.setFinished(true);
+        AutomationRule rule = rule(AutomationTriggerType.CHECKPOINT_ENTRY, emptyConfig());
+        rule.setTriggerForFinishedTeams(true);
+        when(ruleRepository.findByGameIdAndTriggerType(gameId, AutomationTriggerType.CHECKPOINT_ENTRY))
+            .thenReturn(List.of(rule));
+        when(executionRepository.existsByRuleTeamAndContext(rule.getId(), teamId, checkpointId.toString()))
+            .thenReturn(false);
+
+        engine.onCheckpointPass(gameId, teamId, checkpointId, Instant.now());
+
+        verify(actionExecutor).execute(eq(rule), eq(List.of(team)), any());
+    }
+
+    @Test
     void checkpointPass_skipsDisabledRule() {
         AutomationRule rule = rule(AutomationTriggerType.CHECKPOINT_ENTRY, emptyConfig());
         rule.setEnabled(false);
@@ -665,6 +693,31 @@ class AutomationEngineTest {
         engine.evaluateTimeAndInactivity(now);
 
         verify(actionExecutor).execute(eq(rule), anyList(), any());
+    }
+
+    @Test
+    void scheduled_excludesFinishedTeams_whenRuleDoesNotOptIn() {
+        Instant now = Instant.now();
+        activeGame(null, null);
+        AutomationRule rule = rule(AutomationTriggerType.SCHEDULED_TIME,
+            new AutomationTriggerConfig(null, AutomationTriggerConfig.ScheduleMode.ABSOLUTE,
+                now.minus(Duration.ofMinutes(1)), null, null, null, null, null, null));
+        when(ruleRepository.findEnabledByTriggerType(AutomationTriggerType.SCHEDULED_TIME))
+            .thenReturn(List.of(rule));
+        when(ruleRepository.findEnabledByTriggerType(AutomationTriggerType.TEAM_INACTIVITY))
+            .thenReturn(List.of());
+        when(executionRepository.existsByRuleTeamAndContext(rule.getId(), null, null)).thenReturn(false);
+
+        Team finishedTeam = new Team();
+        finishedTeam.setId(UUID.randomUUID());
+        finishedTeam.setCheckedIn(true);
+        finishedTeam.setFinished(true);
+        when(teamRepository.findByGameId(gameId)).thenReturn(List.of(team, finishedTeam));
+
+        engine.evaluateTimeAndInactivity(now);
+
+        // Only the non-finished team should be in the targets.
+        verify(actionExecutor).execute(eq(rule), eq(List.of(team)), any());
     }
 
     @Test

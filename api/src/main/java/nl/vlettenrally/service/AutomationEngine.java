@@ -366,6 +366,7 @@ public class AutomationEngine {
         if (isDuplicate(rule, teamId, contextKey)) return;
         Team team = teamRepository.findById(teamId).orElse(null);
         if (team == null) return;
+        if (team.isFinished() && !rule.isTriggerForFinishedTeams()) return;
         execute(rule, List.of(team), teamId, contextKey);
     }
 
@@ -377,6 +378,7 @@ public class AutomationEngine {
         if (isDuplicate(rule, null, contextKey)) return;
         List<Team> targets = teamRepository.findByGameId(gameId).stream()
             .filter(Team::isCheckedIn)
+            .filter(team -> rule.isTriggerForFinishedTeams() || !team.isFinished())
             .filter(team -> rule.appliesToTeam(team.getId()))
             .toList();
         if (targets.isEmpty()) return;

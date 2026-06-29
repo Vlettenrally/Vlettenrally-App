@@ -692,6 +692,7 @@ export interface AutomationRule {
   targetTeamIds: string[] | null;
   fireOnce: boolean;
   cooldownMinutes?: number | null;
+  triggerForFinishedTeams: boolean;
   createdAt: string;
   updatedAt: string;
   lastFiredAt?: string | null;
@@ -707,6 +708,7 @@ export interface AutomationRuleRequest {
   targetTeamIds?: string[] | null;
   fireOnce: boolean;
   cooldownMinutes?: number | null;
+  triggerForFinishedTeams?: boolean;
 }
 
 export interface AutomationExecution {

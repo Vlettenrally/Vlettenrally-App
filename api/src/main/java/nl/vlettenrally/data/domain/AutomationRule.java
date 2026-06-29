@@ -15,11 +15,11 @@ import java.util.UUID;
  * Domain model for an automation rule: when {@code triggerType} fires (as
  * configured by {@code triggerConfig}), execute {@code actions} for the
  * targeted teams.
- *
+ * <p>
  * {@code system} rules (the per-game "Afstandspunten" distance rule) cannot be
  * deleted and their trigger type cannot change; admins may rename, re-rate and
  * enable/disable them.
- *
+ * <p>
  * {@code targetTeamIds} empty = rule applies to all teams of the game.
  * {@code fireOnce} = at most one execution per (rule, team, context key);
  * otherwise {@code cooldownMinutes} throttles re-fires.
@@ -38,6 +38,7 @@ public class AutomationRule {
     private List<UUID> targetTeamIds = new ArrayList<>();
     private boolean fireOnce = true;
     private Integer cooldownMinutes;        // nullable; only meaningful when fireOnce = false
+    private boolean triggerForFinishedTeams = false;
     private UUID createdBy;                 // nullable; null for system rules
     private Instant createdAt;
     private Instant updatedAt;

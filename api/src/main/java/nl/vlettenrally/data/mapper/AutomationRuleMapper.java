@@ -16,7 +16,7 @@ import java.util.UUID;
 
 /**
  * Mapper between AutomationRule domain and AutomationRuleEntity (JPA).
- *
+ * <p>
  * The trigger config, actions and target team ids live as JSON text on the
  * entity; all (de)serialization is concentrated here so neither the entity nor
  * the repositories touch JSON.
@@ -48,6 +48,7 @@ public final class AutomationRuleMapper {
         domain.setTargetTeamIds(readUuidList(entity.getTargetTeamIds()));
         domain.setFireOnce(entity.isFireOnce());
         domain.setCooldownMinutes(entity.getCooldownMinutes());
+        domain.setTriggerForFinishedTeams(entity.isTriggerForFinishedTeams());
         domain.setCreatedBy(entity.getCreatedBy());
         domain.setCreatedAt(entity.getCreatedAt());
         domain.setUpdatedAt(entity.getUpdatedAt());
@@ -87,6 +88,7 @@ public final class AutomationRuleMapper {
             ? null : writeJson(domain.getTargetTeamIds()));
         entity.setFireOnce(domain.isFireOnce());
         entity.setCooldownMinutes(domain.getCooldownMinutes());
+        entity.setTriggerForFinishedTeams(domain.isTriggerForFinishedTeams());
         entity.setUpdatedAt(domain.getUpdatedAt());
     }
 

@@ -22,5 +22,6 @@ public record AutomationRuleRequest(
     List<AutomationAction> actions,
     List<UUID> targetTeamIds,
     Boolean fireOnce,
-    Integer cooldownMinutes
+    Integer cooldownMinutes,
+    Boolean triggerForFinishedTeams
 ) {}

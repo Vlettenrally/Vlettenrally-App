@@ -9,7 +9,6 @@ import nl.vlettenrally.data.dto.automation.AutomationRuleResponse;
 
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.List;
 
 @ApplicationScoped
 public class AutomationConverter {
@@ -28,6 +27,7 @@ public class AutomationConverter {
             rule.getTargetTeamIds(),
             rule.isFireOnce(),
             rule.getCooldownMinutes(),
+            rule.isTriggerForFinishedTeams(),
             rule.getCreatedAt(),
             rule.getUpdatedAt(),
             lastFiredAt,
@@ -46,6 +46,7 @@ public class AutomationConverter {
         rule.setTargetTeamIds(request.targetTeamIds() != null ? request.targetTeamIds() : new ArrayList<>());
         rule.setFireOnce(request.fireOnce() == null || request.fireOnce());
         rule.setCooldownMinutes(request.cooldownMinutes());
+        rule.setTriggerForFinishedTeams(Boolean.TRUE.equals(request.triggerForFinishedTeams()));
         return rule;
     }
 

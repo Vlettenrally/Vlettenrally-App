@@ -119,6 +119,7 @@ export default function AutomationFormDialog({
   const [targetTeamIds, setTargetTeamIds] = useState<string[]>([]);
   const [fireOnce, setFireOnce] = useState(true);
   const [cooldownMinutes, setCooldownMinutes] = useState<number | ''>('');
+  const [triggerForFinishedTeams, setTriggerForFinishedTeams] = useState(false);
 
   const [teams, setTeams] = useState<AdminTeam[]>([]);
   const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([]);
@@ -148,6 +149,7 @@ export default function AutomationFormDialog({
       setTargetTeamIds(rule.targetTeamIds ?? []);
       setFireOnce(rule.fireOnce);
       setCooldownMinutes(rule.cooldownMinutes ?? '');
+      setTriggerForFinishedTeams(rule.triggerForFinishedTeams ?? false);
     } else {
       setName('');
       setEnabled(true);
@@ -157,6 +159,7 @@ export default function AutomationFormDialog({
       setTargetTeamIds([]);
       setFireOnce(true);
       setCooldownMinutes('');
+      setTriggerForFinishedTeams(false);
     }
   }, [open, rule, loadOptions]);
 
@@ -205,6 +208,7 @@ export default function AutomationFormDialog({
       targetTeamIds: targetTeamIds.length > 0 ? targetTeamIds : undefined,
       fireOnce,
       cooldownMinutes: !fireOnce && cooldownMinutes !== '' ? Number(cooldownMinutes) : undefined,
+      triggerForFinishedTeams,
     };
     try {
       const response = isEdit
@@ -765,6 +769,16 @@ export default function AutomationFormDialog({
                   />
                 )}
               </Box>
+
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={triggerForFinishedTeams}
+                    onChange={(e) => setTriggerForFinishedTeams(e.target.checked)}
+                  />
+                }
+                label={t('components.automationForm.triggerForFinishedTeams')}
+              />
             </>
           )}
         </Box>

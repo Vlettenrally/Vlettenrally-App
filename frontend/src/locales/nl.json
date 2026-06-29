@@ -889,6 +889,7 @@
       "fireOnce": "Eénmalig per gebeurtenis",
       "fireOnceHint": "Punten die door een automatisering worden toegekend kunnen geen volgende automatisering activeren (kettingreacties zijn uitgesloten).",
       "cooldown": "Cooldown (minuten)",
+      "triggerForFinishedTeams": "Activeer voor gefinishte teams",
       "triggerCheckpointEntry": "Checkpoint bereikt",
       "triggerScheduledTime": "Tijdstip",
       "triggerGameStatusChange": "Game-status wijziging",

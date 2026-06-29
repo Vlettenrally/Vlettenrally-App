@@ -21,6 +21,7 @@ public record AutomationRuleResponse(
     List<UUID> targetTeamIds,
     boolean fireOnce,
     Integer cooldownMinutes,
+    boolean triggerForFinishedTeams,
     Instant createdAt,
     Instant updatedAt,
     Instant lastFiredAt,
