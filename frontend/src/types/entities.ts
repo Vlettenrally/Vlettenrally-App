@@ -615,7 +615,8 @@ export type AutomationTriggerType =
   | 'TEAM_INACTIVITY'
   | 'RIVAL_OVERTAKE'
   | 'DISTANCE_TRAVELED'
-  | 'SPEED_ALERT';
+  | 'SPEED_ALERT'
+  | 'TEAM_CHECK_IN';
 
 /**
  * Flat config; which fields apply depends on the rule's trigger type.

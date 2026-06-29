@@ -5,6 +5,7 @@ import jakarta.inject.Inject;
 import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.repository.TeamRepository;
+import nl.vlettenrally.service.AutomationEngine;
 import nl.vlettenrally.service.GameService;
 import nl.vlettenrally.service.PictureService;
 import nl.vlettenrally.service.TeamService;
@@ -39,6 +40,9 @@ public class TeamServiceImpl implements TeamService {
 
     @Inject
     PictureService pictureService;
+
+    @Inject
+    AutomationEngine automationEngine;
 
     @ConfigProperty(name = "vlettenrally.rivals.max-per-team", defaultValue = "5")
     int maxRivals;
@@ -122,6 +126,7 @@ public class TeamServiceImpl implements TeamService {
                 WebSocketMessageType.CHECKIN_DETAILS_SUBMITTED.getValue(),
                 Map.of("teamId", result.getId().toString())
             );
+            automationEngine.onTeamCheckIn(result.getGameId(), result.getId());
         }
 
         return result;

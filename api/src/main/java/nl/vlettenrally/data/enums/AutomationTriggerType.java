@@ -10,5 +10,6 @@ public enum AutomationTriggerType {
     TEAM_INACTIVITY,        // No location updates for N minutes
     RIVAL_OVERTAKE,         // Team's totalPoints passes one of its rivals'
     DISTANCE_TRAVELED,      // Continuous accrual: 1 point per N meters (system rule only)
-    SPEED_ALERT             // Team's reported GPS speed exceeds a configured threshold
+    SPEED_ALERT,            // Team's reported GPS speed exceeds a configured threshold
+    TEAM_CHECK_IN           // Team completes digital check-in
 }

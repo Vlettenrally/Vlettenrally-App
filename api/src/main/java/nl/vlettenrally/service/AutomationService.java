@@ -384,6 +384,7 @@ public class AutomationService {
                 }
             }
             case RIVAL_OVERTAKE -> { /* no config */ }
+            case TEAM_CHECK_IN -> { /* no config */ }
             case SPEED_ALERT -> {
                 if (config == null || config.speedThresholdKmh() == null || config.speedThresholdKmh() <= 0) {
                     throw new BadRequestException("Speed alert rules need a positive threshold in km/h");

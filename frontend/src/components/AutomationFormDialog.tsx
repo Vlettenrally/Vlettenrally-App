@@ -75,6 +75,7 @@ export default function AutomationFormDialog({
     { value: 'TEAM_INACTIVITY', label: t('components.automationForm.triggerTeamInactivity') },
     { value: 'RIVAL_OVERTAKE', label: t('components.automationForm.triggerRivalOvertake') },
     { value: 'SPEED_ALERT', label: t('components.automationForm.triggerSpeedAlert') },
+    { value: 'TEAM_CHECK_IN', label: t('components.automationForm.triggerTeamCheckIn') },
   ];
 
   const ACTION_OPTIONS: { value: AutomationActionType; label: string }[] = [
@@ -103,6 +104,7 @@ export default function AutomationFormDialog({
     RIVAL_OVERTAKE: t('components.automationForm.helpRivalOvertake'),
     DISTANCE_TRAVELED: t('components.automationForm.helpDistanceTraveled'),
     SPEED_ALERT: t('components.automationForm.helpSpeedAlert'),
+    TEAM_CHECK_IN: t('components.automationForm.helpTeamCheckIn'),
   };
 
   const [loading, setLoading] = useState(false);
@@ -432,6 +434,8 @@ export default function AutomationFormDialog({
           />
         );
       case 'RIVAL_OVERTAKE':
+        return null;
+      case 'TEAM_CHECK_IN':
         return null;
       case 'SPEED_ALERT':
         return (

@@ -208,6 +208,19 @@ public class AutomationEngine {
         }
     }
 
+    /** A team has completed digital check-in. */
+    public void onTeamCheckIn(UUID gameId, UUID teamId) {
+        if (EXECUTING.get()) return;
+        try {
+            for (AutomationRule rule : enabledRules(gameId, AutomationTriggerType.TEAM_CHECK_IN)) {
+                if (!rule.appliesToTeam(teamId)) continue;
+                fireForTeam(rule, teamId, null);
+            }
+        } catch (Exception e) {
+            Log.errorf("Automation check-in hook failed for game %s team %s: %s", gameId, teamId, e.getMessage());
+        }
+    }
+
     /**
      * The location poller reported a team's cumulative traveled distance
      * (meters, on-course + off-course). Credits distance points through the
