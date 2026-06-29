@@ -638,6 +638,7 @@
       "title": "Photo moderation",
       "tabPending": "To review",
       "tabAll": "All",
+      "tabApproved": "Approved",
       "tabUpload": "Upload",
       "addPhoto": "Add photo",
       "uploading": "Uploading… {{percent}}%",

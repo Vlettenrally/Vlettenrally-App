@@ -638,6 +638,7 @@
       "title": "Foto-moderatie",
       "tabPending": "Te beoordelen",
       "tabAll": "Alle",
+      "tabApproved": "Goedgekeurd",
       "tabUpload": "Uploaden",
       "addPhoto": "Foto toevoegen",
       "uploading": "Uploaden… {{percent}}%",

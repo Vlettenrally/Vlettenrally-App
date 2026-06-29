@@ -26,6 +26,15 @@ export const ADMIN_ROLE_VALUES: string[] = [
  * Paths that are not present are considered accessible to any staff user.
  * Mirrors the backend @RolesAllowed gating on the corresponding resources.
  */
+/** Roles that can moderate pictures (PENDING / ALL tabs). */
+export const PICTURE_MODERATION_ROLES: string[] = [AdminRole.GAME_MASTER, AdminRole.RALLY_DESK];
+
+/** Roles that can upload admin pictures; VIEWER is intentionally excluded. */
+export const PICTURE_UPLOAD_ROLES: string[] = [
+  AdminRole.ADMIN, AdminRole.SUPER_ADMIN, AdminRole.GAME_MASTER,
+  AdminRole.MESSAGE_SENDER, AdminRole.CHECKPOINT_MANAGER, AdminRole.RALLY_DESK,
+];
+
 export const ADMIN_PAGE_ROLES: Record<string, string[]> = {
   '/admin/games': [AdminRole.GAME_MASTER],
   '/admin/teams': [AdminRole.GAME_MASTER, AdminRole.RALLY_DESK],
@@ -33,7 +42,6 @@ export const ADMIN_PAGE_ROLES: Record<string, string[]> = {
   '/admin/zones': [AdminRole.GAME_MASTER],
   '/admin/automations': [AdminRole.GAME_MASTER],
   '/admin/settings': [AdminRole.GAME_MASTER],
-  '/admin/pictures': [AdminRole.GAME_MASTER, AdminRole.RALLY_DESK],
   '/admin/messages': [AdminRole.MESSAGE_SENDER, AdminRole.RALLY_DESK],
   '/admin/points-management': [AdminRole.CHECKPOINT_MANAGER, AdminRole.RALLY_DESK],
   '/admin/checkpoint-station': [AdminRole.CHECKPOINT_MANAGER],

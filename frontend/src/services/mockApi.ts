@@ -247,6 +247,13 @@ export const mockApi = {
     };
   },
 
+  async getApprovedPictures() {
+    return {
+      data: mockPictures.filter((p) => p.status === 'APPROVED').map((p) => ({ ...p })),
+      status: 200,
+    };
+  },
+
   async approvePicture(pictureId: string) {
     const picture = mockPictures.find((p) => p.id === pictureId);
     if (!picture) return { error: 'Not found', status: 404 };

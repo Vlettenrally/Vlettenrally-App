@@ -34,8 +34,10 @@ import { mockApi } from '../../services/mockApi';
 import { websocket } from '../../services/websocket';
 import { config } from '../../config';
 import { useAdminResync } from '../../hooks/useAdminSync';
+import { hasAnyRole, PICTURE_MODERATION_ROLES, PICTURE_UPLOAD_ROLES } from '../../services/auth';
+import { storage } from '../../services/storage';
 
-type TabKey = 'PENDING' | 'ALL' | 'UPLOAD';
+type TabKey = 'PENDING' | 'ALL' | 'APPROVED' | 'UPLOAD';
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -49,7 +51,14 @@ const STATUS_COLORS: Record<PictureStatus, 'default' | 'success' | 'warning' | '
 export default function AdminPictures() {
   const { t } = useTranslation();
   const { moderationPictures, setModerationPictures, upsertModerationPicture } = usePictureStore();
-  const [tab, setTab] = useState<TabKey>('PENDING');
+
+  const token = storage.getAuthToken();
+  const canModerate = !!token && hasAnyRole(token, [...PICTURE_MODERATION_ROLES, 'admin']);
+  const canUpload   = !!token && hasAnyRole(token, PICTURE_UPLOAD_ROLES);
+
+  const [tab, setTab] = useState<TabKey>(
+    () => canModerate ? 'PENDING' : canUpload ? 'UPLOAD' : 'APPROVED'
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<Picture | null>(null);
@@ -76,7 +85,10 @@ export default function AdminPictures() {
     if (tab === 'UPLOAD') return;
     setLoading(true);
     setError(null);
-    const request = tab === 'PENDING' ? apiToUse.getPendingPictures() : apiToUse.getAllPictures();
+    const request =
+      tab === 'PENDING'  ? apiToUse.getPendingPictures() :
+      tab === 'APPROVED' ? apiToUse.getApprovedPictures() :
+      apiToUse.getAllPictures();
     request
       .then((res) => {
         if (res.data) setModerationPictures(res.data as Picture[]);
@@ -189,9 +201,10 @@ export default function AdminPictures() {
         <Typography variant="h4" component="h1">{t('admin.pictures.title')}</Typography>
 
         <Tabs value={tab} onChange={(_, value) => setTab(value)}>
-          <Tab label={t('admin.pictures.tabPending')} value="PENDING" />
-          <Tab label={t('admin.pictures.tabAll')} value="ALL" />
-          <Tab label={t('admin.pictures.tabUpload')} value="UPLOAD" />
+          {canModerate && <Tab label={t('admin.pictures.tabPending')} value="PENDING" />}
+          {canModerate && <Tab label={t('admin.pictures.tabAll')} value="ALL" />}
+          <Tab label={t('admin.pictures.tabApproved')} value="APPROVED" />
+          {canUpload && <Tab label={t('admin.pictures.tabUpload')} value="UPLOAD" />}
         </Tabs>
 
         {error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>}
@@ -255,26 +268,28 @@ export default function AdminPictures() {
                     color={STATUS_COLORS[picture.status]}
                   />
                 </Box>
-                <CardActions sx={{ justifyContent: 'space-between' }}>
-                  <Button
-                    size="small"
-                    color="success"
-                    startIcon={<CheckCircleIcon />}
-                    onClick={() => handleApprove(picture)}
-                    disabled={picture.status === 'APPROVED'}
-                  >
-                    {t('admin.pictures.approve')}
-                  </Button>
-                  <Button
-                    size="small"
-                    color="error"
-                    startIcon={<CancelIcon />}
-                    onClick={() => setRejectTarget(picture)}
-                    disabled={picture.status === 'REJECTED'}
-                  >
-                    {t('admin.pictures.reject')}
-                  </Button>
-                </CardActions>
+                {tab !== 'APPROVED' && (
+                  <CardActions sx={{ justifyContent: 'space-between' }}>
+                    <Button
+                      size="small"
+                      color="success"
+                      startIcon={<CheckCircleIcon />}
+                      onClick={() => handleApprove(picture)}
+                      disabled={picture.status === 'APPROVED'}
+                    >
+                      {t('admin.pictures.approve')}
+                    </Button>
+                    <Button
+                      size="small"
+                      color="error"
+                      startIcon={<CancelIcon />}
+                      onClick={() => setRejectTarget(picture)}
+                      disabled={picture.status === 'REJECTED'}
+                    >
+                      {t('admin.pictures.reject')}
+                    </Button>
+                  </CardActions>
+                )}
               </Card>
             ))}
           </Box>

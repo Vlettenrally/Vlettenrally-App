@@ -130,7 +130,8 @@ public class PictureResource {
      */
     @POST
     @Path("/admin/pictures")
-    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER, SecurityRoles.RALLY_DESK})
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.SUPER_ADMIN, SecurityRoles.GAME_MASTER,
+                   SecurityRoles.MESSAGE_SENDER, SecurityRoles.CHECKPOINT_MANAGER, SecurityRoles.RALLY_DESK})
     public Response requestAdminUpload(PictureUploadRequest request, @Context SecurityContext securityContext) {
         if (request == null || request.contentType() == null || request.contentType().isBlank()) {
             return Response.status(Response.Status.BAD_REQUEST)
@@ -160,13 +161,24 @@ public class PictureResource {
      */
     @POST
     @Path("/admin/pictures/{pictureId}/confirm")
-    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER, SecurityRoles.RALLY_DESK})
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.SUPER_ADMIN, SecurityRoles.GAME_MASTER,
+                   SecurityRoles.MESSAGE_SENDER, SecurityRoles.CHECKPOINT_MANAGER, SecurityRoles.RALLY_DESK})
     public Response confirmAdminUpload(@PathParam("pictureId") UUID pictureId, @Context SecurityContext securityContext) {
         try {
             return Response.ok(toDto(pictureService.confirmAdminUpload(pictureId, adminId(securityContext)))).build();
         } catch (PictureException e) {
             return error(e);
         }
+    }
+
+    /**
+     * All approved pictures; visible to every admin role including read-only viewers.
+     */
+    @GET
+    @Path("/pictures/approved")
+    @RolesAllowed(SecurityRoles.STAFF)
+    public Response getApprovedPictures() {
+        return Response.ok(pictureService.findByStatus(PictureStatus.APPROVED).stream().map(this::toDto).toList()).build();
     }
 
     /**

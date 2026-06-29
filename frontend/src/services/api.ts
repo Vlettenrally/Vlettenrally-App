@@ -927,6 +927,10 @@ async getGames() : Promise<ApiResponse<Game[]>> {
     return this.get(status ? `/pictures?status=${encodeURIComponent(status)}` : '/pictures');
   }
 
+  async getApprovedPictures(): Promise<ApiResponse<Picture[]>> {
+    return this.get('/pictures/approved');
+  }
+
   async approvePicture(pictureId: string): Promise<ApiResponse<Picture>> {
     return this.post(`/pictures/${pictureId}/approve`);
   }
