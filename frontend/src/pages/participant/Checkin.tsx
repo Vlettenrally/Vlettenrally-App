@@ -190,6 +190,15 @@ export function CheckInPage() {
     setTeamOptions(response.data ?? []);
   }, [t]);
 
+  // Silent refresh used by the polling loop — does not clear errors so "needs rally desk"
+  // messages stay visible while the team is waiting for physical check-in.
+  const refreshTeamsForGame = useCallback(async (gameId: string) => {
+    const response = await api.getCheckInTeams(gameId);
+    if (!response.error && response.data) {
+      setTeamOptions(response.data);
+    }
+  }, []);
+
   // Runs the actual check-in entry: legacy token shortcut OR public flow.
   const beginCheckIn = useCallback(() => {
     setStep('loading');
@@ -269,6 +278,26 @@ export function CheckInPage() {
       void loadTeamsForGame(selectedGameId);
     }
   }, [step, selectedGameId, teamOptions.length, resolvedTeam, loadTeamsForGame]);
+
+  // Poll the team list every 5 s while on select-team so the physical check-in chip
+  // updates automatically without a manual page reload.
+  useEffect(() => {
+    if (step !== 'select-team' || !selectedGameId) return;
+    const interval = setInterval(() => { void refreshTeamsForGame(selectedGameId); }, POLL_STATE_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [step, selectedGameId, refreshTeamsForGame]);
+
+  // When the polled team list arrives, sync selectedTeam so the chip flips to green
+  // and the "needs rally desk" error clears as soon as physical check-in is recorded.
+  useEffect(() => {
+    if (!selectedTeam) return;
+    const updated = teamOptions.find(t => t.id === selectedTeam.id);
+    if (updated && updated.checkedIn !== selectedTeam.checkedIn) {
+      setSelectedTeam(updated);
+      if (updated.checkedIn) setFormError(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teamOptions]); // intentionally omits selectedTeam to avoid a state-update loop
 
   const sortedTeamOptions = useMemo(() => {
     return [...teamOptions].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '', 'nl', { sensitivity: 'base' }));

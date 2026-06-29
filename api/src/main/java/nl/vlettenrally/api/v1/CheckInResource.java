@@ -23,6 +23,7 @@ import nl.vlettenrally.data.dto.auth.TeamSelectionResponse;
 import nl.vlettenrally.data.dto.auth.TodayGameResponse;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
 import nl.vlettenrally.service.AuthService;
+import nl.vlettenrally.service.CheckInCacheService;
 import nl.vlettenrally.service.CheckInCoordinationService;
 import nl.vlettenrally.service.TeamService;
 
@@ -31,15 +32,15 @@ import java.util.UUID;
 
 /**
  * REST Resource for Check-in operations.
- *
+ * <p>
  * Public (no auth) endpoints power the self-service flow:
  * - GET  /api/v1/check-in/games/today         - games eligible for check-in (start today, or checkInStartTime reached)
  * - GET  /api/v1/check-in/games/{gameId}/teams - team list for a game
  * - POST /api/v1/check-in/register-device      - claim a device + issue team tokens
- *
+ * <p>
  * Team-authenticated endpoints:
  * - GET  /api/v1/check-in/state                - coordination state (used by waiting devices)
- *
+ * <p>
  * Legacy registration-token endpoints (preserved for the WordPress check-in link):
  * - GET  /api/v1/check-in/teams                - team options for a registration-token holder
  * - POST /api/v1/check-in/exchange-token        - exchange registration token for team tokens
@@ -57,6 +58,9 @@ public class CheckInResource {
 
     @Inject
     CheckInCoordinationService coordinationService;
+
+    @Inject
+    CheckInCacheService checkInCacheService;
 
     // ---------------------------------------------------------------------
     // Public self-service endpoints
@@ -76,13 +80,15 @@ public class CheckInResource {
     @PermitAll
     @Path("/games/{gameId}/teams")
     public Response getTeamsForGame(@PathParam("gameId") UUID gameId) {
-        List<TeamOptionResponse> teams = teamService.findByGameId(gameId).stream()
-            .map(team -> new TeamOptionResponse(
-                team.getId(),
-                team.getName(),
-                team.isCheckedIn(),
-                team.getMainDeviceId() != null))
-            .toList();
+        List<TeamOptionResponse> teams = checkInCacheService.getOrLoad(gameId, () ->
+            teamService.findByGameId(gameId).stream()
+                .map(team -> new TeamOptionResponse(
+                    team.getId(),
+                    team.getName(),
+                    team.isCheckedIn(),
+                    team.getMainDeviceId() != null))
+                .toList()
+        );
         return Response.ok(teams).build();
     }
 

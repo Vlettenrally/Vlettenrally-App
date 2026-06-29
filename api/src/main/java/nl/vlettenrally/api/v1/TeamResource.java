@@ -31,6 +31,7 @@ import nl.vlettenrally.data.dto.team.TeamCreateRequest;
 import nl.vlettenrally.data.dto.team.TeamUpdateRequest;
 import nl.vlettenrally.data.dto.team.AssignTrackerRequest;
 import nl.vlettenrally.data.repository.DeviceRegistrationRepository;
+import nl.vlettenrally.service.CheckInCacheService;
 import nl.vlettenrally.service.CheckInCoordinationService;
 import nl.vlettenrally.service.TeamService;
 import nl.vlettenrally.service.TrackerAssignmentService;
@@ -77,6 +78,9 @@ public class TeamResource {
 
     @Inject
     TrackerAssignmentService trackerAssignmentService;
+
+    @Inject
+    CheckInCacheService checkInCacheService;
 
     /**
      * Get all teams
@@ -292,6 +296,7 @@ public class TeamResource {
                     // Reset digital check-in when unchecking
                     team.setCheckedInDigitally(false);
                 }
+                checkInCacheService.invalidate(team.getGameId());
             }
 
             // Allow explicit setting of checkedInDigitally (admin override)
