@@ -74,6 +74,7 @@ export default function AutomationFormDialog({
     { value: 'GAME_STATUS_CHANGE', label: t('components.automationForm.triggerGameStatusChange') },
     { value: 'TEAM_INACTIVITY', label: t('components.automationForm.triggerTeamInactivity') },
     { value: 'RIVAL_OVERTAKE', label: t('components.automationForm.triggerRivalOvertake') },
+    { value: 'SPEED_ALERT', label: t('components.automationForm.triggerSpeedAlert') },
   ];
 
   const ACTION_OPTIONS: { value: AutomationActionType; label: string }[] = [
@@ -101,6 +102,7 @@ export default function AutomationFormDialog({
     TEAM_INACTIVITY: t('components.automationForm.helpTeamInactivity'),
     RIVAL_OVERTAKE: t('components.automationForm.helpRivalOvertake'),
     DISTANCE_TRAVELED: t('components.automationForm.helpDistanceTraveled'),
+    SPEED_ALERT: t('components.automationForm.helpSpeedAlert'),
   };
 
   const [loading, setLoading] = useState(false);
@@ -166,10 +168,13 @@ export default function AutomationFormDialog({
   const handleTriggerTypeChange = (value: AutomationTriggerType) => {
     setTriggerType(value);
     setConfig({});
-    // Inactivity re-fires with a cooldown by default; everything else fires once.
+    // Inactivity and speed alerts re-fire with a cooldown; everything else fires once.
     if (value === 'TEAM_INACTIVITY') {
       setFireOnce(false);
       setCooldownMinutes(60);
+    } else if (value === 'SPEED_ALERT') {
+      setFireOnce(false);
+      setCooldownMinutes(5);
     } else {
       setFireOnce(true);
       setCooldownMinutes('');
@@ -428,6 +433,19 @@ export default function AutomationFormDialog({
         );
       case 'RIVAL_OVERTAKE':
         return null;
+      case 'SPEED_ALERT':
+        return (
+          <TextField
+            fullWidth
+            type="number"
+            label={t('components.automationForm.speedThreshold')}
+            value={config.speedThresholdKmh ?? ''}
+            onChange={(e) =>
+              setConfig({ speedThresholdKmh: e.target.value === '' ? undefined : Number(e.target.value) })
+            }
+            slotProps={{ htmlInput: { min: 1 } }}
+          />
+        );
       case 'DISTANCE_TRAVELED':
         return (
           <TextField

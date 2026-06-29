@@ -30,6 +30,7 @@ import java.util.UUID;
  *   <li>RIVAL_OVERTAKE — no config</li>
  *   <li>DISTANCE_TRAVELED — {@code pointsPer100m} (points credited per whole
  *       100 m traveled)</li>
+ *   <li>SPEED_ALERT — {@code speedThresholdKmh} (fire when reported speed ≥ this)</li>
  * </ul>
  */
 @RegisterForReflection
@@ -44,7 +45,8 @@ public record AutomationTriggerConfig(
     Integer inactiveMinutes,
     Integer pointsPer100m,
     PassComparison comparison,
-    List<UUID> excludedCheckpointIds
+    List<UUID> excludedCheckpointIds,
+    Integer speedThresholdKmh
 ) {
     /**
      * Backwards-compatible constructor for the many call sites that predate the
@@ -54,7 +56,7 @@ public record AutomationTriggerConfig(
             RelativeAnchor relativeTo, Integer offsetMinutes, Game.GameStatus toStatus,
             Integer inactiveMinutes, Integer pointsPer100m, PassComparison comparison) {
         this(checkpointId, mode, absoluteTime, relativeTo, offsetMinutes, toStatus,
-                inactiveMinutes, pointsPer100m, comparison, null);
+                inactiveMinutes, pointsPer100m, comparison, null, null);
     }
 
     public enum ScheduleMode { ABSOLUTE, RELATIVE }

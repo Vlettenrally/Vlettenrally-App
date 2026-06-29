@@ -240,7 +240,8 @@ public class AutomationService {
             draft.setTriggerConfig(config == null ? null : new AutomationTriggerConfig(
                 newCheckpointId, config.mode(), newAbsolute, config.relativeTo(),
                 config.offsetMinutes(), config.toStatus(), config.inactiveMinutes(),
-                config.pointsPer100m(), config.comparison(), newExcludedCheckpointIds));
+                config.pointsPer100m(), config.comparison(), newExcludedCheckpointIds,
+                config.speedThresholdKmh()));
             draft.setActions(new ArrayList<>(source.getActions()));
             draft.setTargetTeamIds(new ArrayList<>()); // team ids are game-specific
             draft.setFireOnce(source.isFireOnce());
@@ -383,6 +384,11 @@ public class AutomationService {
                 }
             }
             case RIVAL_OVERTAKE -> { /* no config */ }
+            case SPEED_ALERT -> {
+                if (config == null || config.speedThresholdKmh() == null || config.speedThresholdKmh() <= 0) {
+                    throw new BadRequestException("Speed alert rules need a positive threshold in km/h");
+                }
+            }
             case DISTANCE_TRAVELED -> {
                 if (config == null || config.pointsPer100m() == null || config.pointsPer100m() <= 0) {
                     throw new BadRequestException("Distance rules need a positive points-per-100m");

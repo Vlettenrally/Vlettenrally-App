@@ -151,6 +151,11 @@ public class LocationIngestService {
         automationEngine.onDistanceUpdate(reading.getGameId(), reading.getTeamId(), cumulativeMeters, active);
 
         if (active) {
+            if (reading.getSpeed() != null) {
+                automationEngine.onSpeedExceeded(
+                    reading.getGameId(), reading.getTeamId(),
+                    reading.getSpeed().doubleValue());
+            }
             detectCheckpointPasses(previous, reading);
         }
 

@@ -614,7 +614,8 @@ export type AutomationTriggerType =
   | 'GAME_STATUS_CHANGE'
   | 'TEAM_INACTIVITY'
   | 'RIVAL_OVERTAKE'
-  | 'DISTANCE_TRAVELED';
+  | 'DISTANCE_TRAVELED'
+  | 'SPEED_ALERT';
 
 /**
  * Flat config; which fields apply depends on the rule's trigger type.
@@ -632,6 +633,7 @@ export interface AutomationTriggerConfig {
   inactiveMinutes?: number | null;
   pointsPer100m?: number | null;
   comparison?: 'BEFORE' | 'AFTER' | null;
+  speedThresholdKmh?: number | null;
 }
 
 export interface SendMessageAction {

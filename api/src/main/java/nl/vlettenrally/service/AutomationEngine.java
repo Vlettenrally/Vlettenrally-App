@@ -192,6 +192,22 @@ public class AutomationEngine {
         }
     }
 
+    /** A team's accepted fix has a reported speed at or above a rule's threshold. */
+    public void onSpeedExceeded(UUID gameId, UUID teamId, double speedKmh) {
+        if (EXECUTING.get()) return;
+        try {
+            for (AutomationRule rule : enabledRules(gameId, AutomationTriggerType.SPEED_ALERT)) {
+                if (!rule.appliesToTeam(teamId)) continue;
+                Integer threshold = rule.getTriggerConfig() != null
+                    ? rule.getTriggerConfig().speedThresholdKmh() : null;
+                if (threshold == null || speedKmh < threshold) continue;
+                fireForTeam(rule, teamId, null);
+            }
+        } catch (Exception e) {
+            Log.errorf("Automation speed hook failed for game %s team %s: %s", gameId, teamId, e.getMessage());
+        }
+    }
+
     /**
      * The location poller reported a team's cumulative traveled distance
      * (meters, on-course + off-course). Credits distance points through the

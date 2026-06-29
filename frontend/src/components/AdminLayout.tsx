@@ -61,7 +61,6 @@ import {
   ActiveGamesWidget,
   CheckInProgressWidget,
   GameClockWidget,
-  SpeedAlertsWidget,
 } from './widgets';
 
 const SIDEBAR_WIDTH = 280;
@@ -205,7 +204,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           <GameClockWidget collapsed={sidebarCollapsed} />
           <ActiveGamesWidget collapsed={sidebarCollapsed} />
           <CheckInProgressWidget collapsed={sidebarCollapsed} />
-          <SpeedAlertsWidget collapsed={sidebarCollapsed} />
         </Box>
       )}
 
@@ -215,7 +213,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           <GameClockWidget collapsed />
           <ActiveGamesWidget collapsed />
           <CheckInProgressWidget collapsed />
-          <SpeedAlertsWidget collapsed />
         </Box>
       )}
 

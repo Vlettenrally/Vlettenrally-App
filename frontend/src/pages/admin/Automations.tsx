@@ -52,6 +52,7 @@ export default function Automations() {
     TEAM_INACTIVITY: t('components.automationForm.triggerTeamInactivity'),
     RIVAL_OVERTAKE: t('components.automationForm.triggerRivalOvertake'),
     DISTANCE_TRAVELED: t('components.automationForm.triggerDistanceTraveled'),
+    SPEED_ALERT: t('components.automationForm.triggerSpeedAlert'),
   };
 
   /** "om 17:00" / "bij einde" / "30 min voor start" */
@@ -96,6 +97,8 @@ export default function Automations() {
       }
       case 'RIVAL_OVERTAKE':
         return t('admin.automations.descRivalOvertake');
+      case 'SPEED_ALERT':
+        return t('admin.automations.descSpeedAlert', { threshold: config.speedThresholdKmh ?? '?' });
     }
   }
 
