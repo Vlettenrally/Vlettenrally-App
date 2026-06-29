@@ -710,6 +710,8 @@
       "typeRallydesk": "Rally desk",
       "typeAchievement": "Achievement",
       "typeRival": "Rival",
+      "typeSpeedWarning": "Speed Warning",
+      "typeSpeedWarningDescription": "Warning about excessive speed",
       "confirmTitle": "Confirm rally desk message",
       "sendTitle": "Send message",
       "smsWarning": "⚠️ Note: SMS fallback active",
@@ -913,6 +915,7 @@
       "typeRallydesk": "Rallydesk (critical, SMS fallback)",
       "typeAchievement": "Achievement",
       "typeRival": "Rival",
+      "typeSpeedWarning": "Speed Warning",
       "when": "When",
       "absolute": "Fixed time",
       "relative": "Relative to start/end",
@@ -1020,7 +1023,8 @@
       "typeCheckpointDesc": "Checkpoint related",
       "typeRallydeskDesc": "Critical message - SMS fallback active",
       "typeAchievementDesc": "Achievement notifications",
-      "typeRivalDesc": "Rival team updates"
+      "typeRivalDesc": "Rival team updates",
+      "typeSpeedWarningDesc": "Speed warning"
     },
     "createAdjustment": {
       "title": "Manual adjustment",

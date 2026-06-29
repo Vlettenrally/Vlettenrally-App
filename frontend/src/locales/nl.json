@@ -710,6 +710,8 @@
       "typeRallydesk": "Rallydesk",
       "typeAchievement": "Achievement",
       "typeRival": "Rivaal",
+      "typeSpeedWarning": "Snelheidsmelding",
+      "typeSpeedWarningDescription": "Waarschuwing over te hoge snelheid",
       "confirmTitle": "Rallydesk bericht bevestigen",
       "sendTitle": "Bericht versturen",
       "smsWarning": "⚠️ Let op: SMS fallback actief",
@@ -913,6 +915,7 @@
       "typeRallydesk": "Rallydesk (kritiek, SMS-fallback)",
       "typeAchievement": "Achievement",
       "typeRival": "Rivaal",
+      "typeSpeedWarning": "Snelheidsmelding",
       "when": "Wanneer",
       "absolute": "Vast tijdstip",
       "relative": "Relatief aan start/einde",
@@ -1020,7 +1023,8 @@
       "typeCheckpointDesc": "Checkpoint gerelateerd",
       "typeRallydeskDesc": "Kritiek bericht - SMS fallback actief",
       "typeAchievementDesc": "Prestatie meldingen",
-      "typeRivalDesc": "Rivaal team updates"
+      "typeRivalDesc": "Rivaal team updates",
+      "typeSpeedWarningDesc": "Snelheidswaarschuwing"
     },
     "createAdjustment": {
       "title": "Handmatige correctie",

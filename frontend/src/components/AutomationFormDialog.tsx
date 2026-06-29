@@ -94,6 +94,7 @@ export default function AutomationFormDialog({
     { value: 'RALLYDESK', label: t('components.automationForm.typeRallydesk') },
     { value: 'ACHIEVEMENT', label: t('components.automationForm.typeAchievement') },
     { value: 'RIVAL', label: t('components.automationForm.typeRival') },
+    { value: 'SPEED_WARNING', label: t('components.automationForm.typeSpeedWarning') },
   ];
 
   const TRIGGER_HELP: Record<AutomationTriggerType, string> = {

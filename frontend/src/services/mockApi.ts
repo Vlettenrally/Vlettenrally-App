@@ -72,6 +72,15 @@ const mockMessages = [
     sentAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
     delivered: true,
     read: false
+  },
+  {
+    id: 'msg-8',
+    teamId: MOCK_TEAM_ID,
+    messageType: 'speed_warning',
+    content: 'Let op! Jullie snelheid is te hoog. Vaar alsjeblieft langzamer.',
+    sentAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+    delivered: true,
+    read: false
   }
 ];
 

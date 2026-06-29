@@ -102,6 +102,7 @@ public class FirebasePushTransmitter implements MessageTransmitter {
             case RALLYDESK -> "📢 Rallydesk";
             case ACHIEVEMENT -> "🏆 Achievement";
             case RIVAL -> "⚔️ Rivaal Update";
+            case SPEED_WARNING -> "⚠️ Snelheidsmelding";
         };
     }
 }

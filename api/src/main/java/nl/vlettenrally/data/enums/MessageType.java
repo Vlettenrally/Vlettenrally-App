@@ -9,12 +9,13 @@ public enum MessageType {
     CHECKPOINT,
     RALLYDESK,
     ACHIEVEMENT,
-    RIVAL;
+    RIVAL,
+    SPEED_WARNING;
 
     /**
      * Check if this message type is critical and should trigger SMS fallback
      * when the team's device is inactive.
-     * 
+     *
      * @return true if this is a critical message type
      */
     public boolean isCritical() {

@@ -221,7 +221,7 @@ export type Team = AdminTeam;
 /**
  * Message types
  */
-export type MessageType = 'general' | 'countdown' | 'checkpoint' | 'rallydesk' | 'achievement' | 'rival';
+export type MessageType = 'general' | 'countdown' | 'checkpoint' | 'rallydesk' | 'achievement' | 'rival' | 'speed_warning';
 
 export interface Message {
   id: string;

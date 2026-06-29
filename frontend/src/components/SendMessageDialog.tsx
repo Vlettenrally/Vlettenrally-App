@@ -63,6 +63,7 @@ export default function SendMessageDialog({
     { value: 'rallydesk', label: t('components.sendMessage.typeRallydesk'), description: t('components.sendMessage.typeRallydesk') },
     { value: 'achievement', label: t('components.sendMessage.typeAchievement'), description: t('components.sendMessage.typeAchievement') },
     { value: 'rival', label: t('components.sendMessage.typeRival'), description: t('components.sendMessage.typeRival') },
+    { value: 'speed_warning', label: t('components.sendMessage.typeSpeedWarning'), description: t('components.sendMessage.typeSpeedWarningDescription') },
   ];
 
   const [sendToAll, setSendToAll] = useState(true);
