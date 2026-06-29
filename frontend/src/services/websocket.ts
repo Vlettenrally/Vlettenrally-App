@@ -83,6 +83,7 @@ class WebSocketService {
   private pongTimeoutCheck: number | null = null;
   private isOnline = true;
   private isConnecting = false;
+  private connectionGeneration = 0;
 
   constructor() {
     // Monitor online/offline status
@@ -104,15 +105,12 @@ class WebSocketService {
     if (document.visibilityState !== 'visible') return;
     if (!this.config || this.isIntentionallyClosed || !this.isOnline) return;
 
-    if (!this.isConnected()) {
-      // Foregrounded with a dropped socket. The backoff timer was throttled while
-      // hidden (or the attempt cap was hit), so the socket can stay dead even though
-      // the network is fine. Force a fresh, immediate reconnect - mirrors handleOnline,
-      // which only fires on real network changes, not on foregrounding.
-      this.resetAndReconnect();
-    } else if (this.lastPongReceived && Date.now() - this.lastPongReceived > this.PONG_TIMEOUT_MS) {
-      // Zombie: socket still reports OPEN but pings were frozen while hidden. Drop and
-      // reconnect now instead of waiting out the watchdog.
+    // Force a fresh connection whether the socket is dead or a zombie (OPEN but stale
+    // pong). forceReconnect() clears isConnecting and increments the generation so any
+    // in-flight buildUrl() from a prior attempt is discarded — this is what prevents
+    // the deadlock when isConnecting is stuck true during a slow token fetch.
+    if (!this.isConnected() ||
+        (this.lastPongReceived && Date.now() - this.lastPongReceived > this.PONG_TIMEOUT_MS)) {
       this.forceReconnect();
     }
   };
@@ -123,7 +121,11 @@ class WebSocketService {
     
     // Immediately attempt reconnection if we were disconnected
     if (this.config && !this.isConnected() && !this.isIntentionallyClosed) {
-      this.reconnectAttempts = 0; // Reset counter when coming back online
+      this.reconnectAttempts = 0;
+      // Discard any in-flight buildUrl() from a prior attempt so it cannot create
+      // an orphaned socket once it eventually resolves, and unblock the isConnecting guard.
+      this.connectionGeneration++;
+      this.isConnecting = false;
       this.createConnection().catch(err => console.error('Reconnection failed:', err));
     }
   };
@@ -249,9 +251,18 @@ class WebSocketService {
       return;
     }
     this.isConnecting = true;
+    // Snapshot the generation so we can detect if disconnect() or forceReconnect()
+    // superseded this attempt while buildUrl() was awaiting the token fetch.
+    const gen = ++this.connectionGeneration;
 
     try {
       const url = await this.buildUrl();
+
+      // A disconnect() or forceReconnect() increments connectionGeneration to signal
+      // that this attempt is stale. Discard the result rather than creating an orphaned
+      // socket that would race with the fresh connection that superseded us.
+      if (gen !== this.connectionGeneration) return;
+
       // Mask token in logs for security
       const maskedUrl = url.replace(/\/[^/]+$/, '/[token]');
       console.log('Connecting to WebSocket:', maskedUrl);
@@ -300,6 +311,7 @@ class WebSocketService {
         }
       };
     } catch (error) {
+      if (gen !== this.connectionGeneration) return; // Stale — a newer attempt took over.
       console.error('Failed to create WebSocket connection:', error);
       this.isConnecting = false;
       this.scheduleReconnect();
@@ -361,6 +373,9 @@ class WebSocketService {
    * isConnected() is true, so this path is needed for zombie sockets after resume.
    */
   private forceReconnect(): void {
+    // Invalidate any in-flight createConnection() so its buildUrl() result is discarded
+    // rather than creating an orphaned socket that races the fresh connection below.
+    this.connectionGeneration++;
     this.stopPing();
     if (this.socket) {
       // Clear handlers so the imminent close() doesn't run scheduleReconnect and
@@ -517,6 +532,7 @@ class WebSocketService {
   disconnect(clearHandlers = true): void {
     this.isIntentionallyClosed = true;
     this.isConnecting = false;
+    this.connectionGeneration++; // Discard any in-flight buildUrl() result.
 
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);

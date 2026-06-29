@@ -8,13 +8,31 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+// Shared deferred token state captured by the mock-factory closure below.
+// Because vi.resetModules() resets the module cache but NOT the test file's own
+// scope, this object is shared between the factory (re-invoked on each fresh import)
+// and the tests that control it. Set `pending = true` before a reconnect to stall
+// the next token fetch; call `resolve?.()` to let it complete.
+const tokenDeferred: { pending: boolean; resolve: (() => void) | null } = {
+  pending: false,
+  resolve: null,
+};
+
 // The service fetches a short-lived WS token before opening the socket. Mock the
 // api module so buildUrl() resolves synchronously without loading the real client.
+// Uses mockImplementation (not mockResolvedValue) so the tokenDeferred closure is
+// live even after vi.resetModules() creates a fresh module instance.
 vi.mock('./api', () => ({
   default: {
-    getTeamWebSocketToken: vi
-      .fn()
-      .mockResolvedValue({ data: { token: 'test-token', expiresInSeconds: 30 } }),
+    getTeamWebSocketToken: vi.fn().mockImplementation(() => {
+      if (tokenDeferred.pending) {
+        tokenDeferred.pending = false; // Only defer the next call.
+        return new Promise<{ data: { token: string } }>((res) => {
+          tokenDeferred.resolve = () => res({ data: { token: 'test-token' } });
+        });
+      }
+      return Promise.resolve({ data: { token: 'test-token', expiresInSeconds: 30 } });
+    }),
     getAdminWebSocketToken: vi
       .fn()
       .mockResolvedValue({ data: { token: 'test-token', expiresInSeconds: 30 } }),
@@ -180,5 +198,119 @@ describe('WebSocket reconnection', () => {
     await flushMicrotasks();
 
     expect(FakeWebSocket.instances.length).toBe(countAfterDrop);
+  });
+});
+
+/**
+ * Tests for the three specific deadlock bugs fixed by the generation counter.
+ *
+ * These tests need a "slow" token fetch so they can observe whether recovery
+ * events bypass a stuck isConnecting flag. The tokenDeferred object is captured
+ * in the vi.mock() factory closure above and survives vi.resetModules(), so
+ * setting tokenDeferred.pending = true stalls the next token fetch for any
+ * fresh websocket instance.
+ */
+describe('reconnection deadlock: generation counter', () => {
+  let ws: WebSocketService;
+
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    FakeWebSocket.instances = [];
+    vi.stubGlobal('WebSocket', FakeWebSocket);
+    setVisibility('visible');
+    tokenDeferred.pending = false;
+    tokenDeferred.resolve = null;
+    ws = await freshWebSocket();
+  });
+
+  afterEach(() => {
+    ws?.destroy();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  async function connectAndOpen(): Promise<FakeWebSocket> {
+    ws.connectAsTeam('game-1', 'team-1');
+    await flushMicrotasks();
+    const socket = FakeWebSocket.instances.at(-1)!;
+    socket.simulateOpen();
+    return socket;
+  }
+
+  it('foregrounding reconnects even when a prior token fetch is stuck in-flight', async () => {
+    await connectAndOpen();
+    FakeWebSocket.instances[0].simulateDrop();
+
+    // Next token fetch will hang until tokenDeferred.resolve() is called.
+    tokenDeferred.pending = true;
+
+    // Fire the 1 s backoff timer → createConnection starts, isConnecting = true, stuck.
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(FakeWebSocket.instances).toHaveLength(1); // no new socket yet
+
+    // User tabs back in. handleVisibilityChange now calls forceReconnect() which
+    // clears isConnecting and increments the generation before starting a fresh attempt.
+    setVisibility('visible');
+    document.dispatchEvent(new Event('visibilitychange'));
+    await flushMicrotasks(); // fresh (non-deferred) token resolves → socket2 opened
+
+    expect(FakeWebSocket.instances).toHaveLength(2); // reconnected
+
+    // The stale token eventually resolves. The generation check must discard it.
+    tokenDeferred.resolve?.();
+    await flushMicrotasks();
+    expect(FakeWebSocket.instances).toHaveLength(2); // no orphaned socket3
+  });
+
+  it('online event reconnects even when a prior token fetch is stuck in-flight', async () => {
+    await connectAndOpen();
+
+    window.dispatchEvent(new Event('offline'));
+    FakeWebSocket.instances[0].simulateDrop();
+
+    // Next token fetch (on first online) will hang.
+    tokenDeferred.pending = true;
+
+    // Network restores → stale token fetch starts, isConnecting = true.
+    window.dispatchEvent(new Event('online'));
+    expect(FakeWebSocket.instances).toHaveLength(1); // no socket yet
+
+    // A second online event (e.g. network switch). handleOnline now clears isConnecting
+    // and increments the generation before creating a fresh connection, so it is not
+    // blocked by the stuck flag from the first event.
+    window.dispatchEvent(new Event('online'));
+    await flushMicrotasks(); // fresh token resolves → socket2 opened
+
+    expect(FakeWebSocket.instances).toHaveLength(2); // reconnected
+
+    // Stale token resolves — generation check discards it.
+    tokenDeferred.resolve?.();
+    await flushMicrotasks();
+    expect(FakeWebSocket.instances).toHaveLength(2); // no orphaned socket3
+  });
+
+  it('stale createConnection() from a page-navigation disconnect is discarded', async () => {
+    await connectAndOpen();
+    FakeWebSocket.instances[0].simulateDrop();
+
+    // Backoff reconnect's token fetch will hang (simulates slow network on reconnect).
+    tokenDeferred.pending = true;
+
+    // Fire the backoff timer → createConnection starts with the slow token fetch.
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(FakeWebSocket.instances).toHaveLength(1); // token still pending
+
+    // Page navigation: old page unmounts (disconnect), new page mounts (connect).
+    // disconnect() increments the generation so the stale continuation is invalidated.
+    ws.disconnect();
+    ws.connectAsTeam('game-1', 'team-1');
+    await flushMicrotasks(); // fresh token resolves → socket2 opened for new page
+
+    expect(FakeWebSocket.instances).toHaveLength(2);
+
+    // Stale token finally resolves — must be discarded, not race to create socket3.
+    tokenDeferred.resolve?.();
+    await flushMicrotasks();
+    expect(FakeWebSocket.instances).toHaveLength(2); // no orphaned socket3
   });
 });
