@@ -105,6 +105,11 @@ public class WebSocketSession {
             return false;
         }
         
+        // Check team-only messages (admin sessions must not receive these)
+        if (message.isTeamOnly() && isAdmin()) {
+            return false;
+        }
+
         // Check admin-only messages
         if (message.isAdminOnly() && !isAdmin()) {
             return false;

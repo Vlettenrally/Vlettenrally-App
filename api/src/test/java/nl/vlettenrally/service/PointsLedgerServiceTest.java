@@ -330,16 +330,16 @@ class PointsLedgerServiceTest {
             .broadcastToGame(eq(gameId), eq(WebSocketMessageType.RANKING_UPDATE.getValue()), any());
 
         // X (own total moved) and A (picked X) each get a RIVAL_UPDATE; B and C do not.
-        verify(webSocketPublisher).sendToTeam(eq(gameId), eq(teamId),
+        verify(webSocketPublisher).sendToTeamOnly(eq(gameId), eq(teamId),
             eq(WebSocketMessageType.RIVAL_UPDATE.getValue()), any());
-        verify(webSocketPublisher, never()).sendToTeam(eq(gameId), eq(b.getId()),
+        verify(webSocketPublisher, never()).sendToTeamOnly(eq(gameId), eq(b.getId()),
             eq(WebSocketMessageType.RIVAL_UPDATE.getValue()), any());
-        verify(webSocketPublisher, never()).sendToTeam(eq(gameId), eq(c.getId()),
+        verify(webSocketPublisher, never()).sendToTeamOnly(eq(gameId), eq(c.getId()),
             eq(WebSocketMessageType.RIVAL_UPDATE.getValue()), any());
 
         // A's payload carries only X, with X's fresh total (100 + 50) — no other scores.
         ArgumentCaptor<Object> payload = ArgumentCaptor.forClass(Object.class);
-        verify(webSocketPublisher).sendToTeam(eq(gameId), eq(a.getId()),
+        verify(webSocketPublisher).sendToTeamOnly(eq(gameId), eq(a.getId()),
             eq(WebSocketMessageType.RIVAL_UPDATE.getValue()), payload.capture());
         List<Map<String, Object>> rivals = (List<Map<String, Object>>) payload.getValue();
         assertEquals(1, rivals.size());
@@ -361,7 +361,7 @@ class PointsLedgerServiceTest {
 
         verify(webSocketPublisher, never()).broadcastToGame(eq(gameId),
             eq(WebSocketMessageType.RANKING_UPDATE.getValue()), any());
-        verify(webSocketPublisher, never()).sendToTeam(any(), any(),
+        verify(webSocketPublisher, never()).sendToTeamOnly(any(), any(),
             eq(WebSocketMessageType.RIVAL_UPDATE.getValue()), any());
     }
 
@@ -382,7 +382,7 @@ class PointsLedgerServiceTest {
 
         verify(webSocketPublisher).broadcastToGame(eq(gameId),
             eq(WebSocketMessageType.RANKING_UPDATE.getValue()), eq(full));
-        verify(webSocketPublisher, never()).sendToTeam(any(), any(),
+        verify(webSocketPublisher, never()).sendToTeamOnly(any(), any(),
             eq(WebSocketMessageType.RIVAL_UPDATE.getValue()), any());
     }
 

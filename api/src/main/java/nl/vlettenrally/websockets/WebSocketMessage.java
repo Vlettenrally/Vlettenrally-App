@@ -21,6 +21,7 @@ public class WebSocketMessage {
     private UUID targetGameId;
     private UUID targetTeamId;
     private boolean adminOnly;
+    private boolean teamOnly;
     private String targetSessionId; // For session-specific messages like PONG
 
     public WebSocketMessage() {
@@ -46,6 +47,11 @@ public class WebSocketMessage {
 
     public WebSocketMessage forAdminOnly() {
         this.adminOnly = true;
+        return this;
+    }
+
+    public WebSocketMessage forTeamOnly() {
+        this.teamOnly = true;
         return this;
     }
     

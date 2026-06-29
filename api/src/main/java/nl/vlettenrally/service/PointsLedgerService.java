@@ -273,7 +273,7 @@ public class PointsLedgerService {
                 if (!affected) {
                     continue;
                 }
-                webSocketPublisher.sendToTeam(
+                webSocketPublisher.sendToTeamOnly(
                     gameId,
                     team.getId(),
                     WebSocketMessageType.RIVAL_UPDATE.getValue(),

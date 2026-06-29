@@ -114,6 +114,7 @@ public class ValkeyPubSubService {
         WebSocketMessage routingMessage = new WebSocketMessage();
         routingMessage.setType(node.has("type") ? node.get("type").asText() : null);
         routingMessage.setAdminOnly(node.has("adminOnly") && node.get("adminOnly").asBoolean());
+        routingMessage.setTeamOnly(node.has("teamOnly") && node.get("teamOnly").asBoolean());
 
         if (node.has("targetGameId") && !node.get("targetGameId").isNull()) {
             routingMessage.setTargetGameId(UUID.fromString(node.get("targetGameId").asText()));

@@ -47,6 +47,17 @@ public class WebSocketPublisher {
     }
     
     /**
+     * Publish a message to a specific team, excluding admin sessions.
+     */
+    public void sendToTeamOnly(UUID gameId, UUID teamId, String type, Object payload) {
+        WebSocketMessage message = new WebSocketMessage(type, payload)
+            .withTargetGame(gameId)
+            .withTargetTeam(teamId)
+            .forTeamOnly();
+        valkeyPubSubService.publish(message);
+    }
+
+    /**
      * Publish a message to admins only for a specific game
      */
     public void sendToAdmins(UUID gameId, String type, Object payload) {
