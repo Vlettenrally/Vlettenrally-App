@@ -146,3 +146,32 @@ export function useWebSocket(options: UseWebSocketOptions) {
     switchGame,
   };
 }
+
+/**
+ * Subscribe to WebSocket events and connection state without affecting the
+ * connection lifecycle. Use in page components that live inside a layout
+ * that already manages the connection (e.g. TeamLayout, AdminLayout).
+ */
+export function useWebSocketSubscription() {
+  const [connected, setConnected] = useState(() => websocket.isConnected());
+
+  useEffect(() => {
+    return websocket.onConnectionChange(setConnected);
+  }, []);
+
+  const subscribe = useCallback((
+    eventType: keyof typeof WebSocketEventType | 'all',
+    handler: MessageHandler
+  ) => {
+    const type = eventType === 'all'
+      ? 'all'
+      : WebSocketEventType[eventType as keyof typeof WebSocketEventType];
+    return websocket.on(type || eventType, handler);
+  }, []);
+
+  const send = useCallback((message: unknown) => {
+    websocket.send(message);
+  }, []);
+
+  return { subscribe, send, connected };
+}

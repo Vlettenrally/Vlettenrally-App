@@ -12,7 +12,7 @@ import {Alert, Box, ButtonBase, CircularProgress, Typography} from '@mui/materia
 import type {MapMarker, MapTrack, MapViewHandle} from '../../components/MapView';
 import type {Checkpoint, TeamLocation} from '../../types/entities';
 import {useGameStore} from '../../store/useGameStore';
-import {useAdminWebSocket} from '../../hooks/useWebSocket';
+import {useWebSocketSubscription} from '../../hooks/useWebSocket';
 import {useAdminResync} from '../../hooks/useAdminSync';
 import api from '../../services/api';
 import MapLegendSidebar, {type TrackWindowMinutes} from './MapLegendSidebar';
@@ -27,7 +27,7 @@ const STALENESS_TICK_MS = 30_000; // 30 seconds
 
 export default function AdminMap() {
   const { selectedGameId } = useGameStore();
-  const { subscribe, send, connected } = useAdminWebSocket(selectedGameId);
+  const { subscribe, send, connected } = useWebSocketSubscription();
 
   const [teamLocations, setTeamLocations] = useState<TeamLocation[]>([]);
   const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([]);

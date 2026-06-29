@@ -16,7 +16,7 @@ export default defineConfig({
         name: 'Vlettenrally App',
         short_name: 'Vlettenrally',
         description: 'Vlettenrally application',
-        theme_color: '#1976d2',
+        theme_color: '#165656',
         background_color: '#ffffff',
         display: 'standalone',
         icons: [

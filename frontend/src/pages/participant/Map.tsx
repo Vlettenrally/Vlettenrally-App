@@ -14,7 +14,7 @@ import {getTeamColor} from '../../utils/teamColors';
 import type {TeamLocation} from '../../types/entities';
 import {useTeamStore} from '../../store/useTeamStore';
 import {useGameStore} from '../../store/useGameStore';
-import {useTeamWebSocket} from '../../hooks/useWebSocket';
+import {useWebSocketSubscription} from '../../hooks/useWebSocket';
 import {storage} from '../../services/storage';
 import api from '../../services/api';
 import {DEFAULT_CENTER, DEFAULT_ZOOM} from '../../utils/mapStyle';
@@ -27,7 +27,7 @@ export default function ParticipantMap() {
   const gameId = storage.getGameId();
   const teamId = team?.id || storage.getTeamId();
 
-  const { subscribe, connected } = useTeamWebSocket(gameId, teamId || null);
+  const { subscribe, connected } = useWebSocketSubscription();
 
   const [myLocation, setMyLocation] = useState<TeamLocation | null>(null);
   // Checkpoints live in the game store so useTeamSync can refresh them on resume.
