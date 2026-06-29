@@ -287,6 +287,45 @@ class AutomationEngineTest {
         verifyNoInteractions(actionExecutor);
     }
 
+    // ==================== Check-in trigger ====================
+
+    @Test
+    void checkIn_fires_ruleForTeam() {
+        AutomationRule rule = rule(AutomationTriggerType.TEAM_CHECK_IN, emptyConfig());
+        when(ruleRepository.findByGameIdAndTriggerType(gameId, AutomationTriggerType.TEAM_CHECK_IN))
+            .thenReturn(List.of(rule));
+        when(executionRepository.existsByRuleTeamAndContext(rule.getId(), teamId, null))
+            .thenReturn(false);
+
+        engine.onTeamCheckIn(gameId, teamId);
+
+        verify(actionExecutor).execute(eq(rule), eq(List.of(team)), any());
+        ArgumentCaptor<AutomationExecution> captor = ArgumentCaptor.forClass(AutomationExecution.class);
+        verify(executionRepository).save(captor.capture());
+        assertEquals(teamId, captor.getValue().getTeamId());
+        assertEquals(AutomationExecutionStatus.SUCCESS, captor.getValue().getStatus());
+    }
+
+    @Test
+    void checkIn_skipsNonTargetedTeam() {
+        AutomationRule rule = rule(AutomationTriggerType.TEAM_CHECK_IN, emptyConfig());
+        rule.setTargetTeamIds(List.of(UUID.randomUUID()));
+        when(ruleRepository.findByGameIdAndTriggerType(gameId, AutomationTriggerType.TEAM_CHECK_IN))
+            .thenReturn(List.of(rule));
+
+        engine.onTeamCheckIn(gameId, teamId);
+
+        verifyNoInteractions(actionExecutor);
+    }
+
+    @Test
+    void checkIn_neverThrows_whenRepositoryFails() {
+        when(ruleRepository.findByGameIdAndTriggerType(any(), any()))
+            .thenThrow(new RuntimeException("boom"));
+
+        assertDoesNotThrow(() -> engine.onTeamCheckIn(gameId, teamId));
+    }
+
     // ==================== Recursion guard ====================
 
     @Test

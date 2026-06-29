@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.eq;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -26,6 +27,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.repository.TeamRepository;
+import nl.vlettenrally.service.AutomationEngine;
 import nl.vlettenrally.service.GameService;
 import nl.vlettenrally.service.PictureService;
 import nl.vlettenrally.websockets.WebSocketPublisher;
@@ -48,6 +50,9 @@ class TeamServiceImplTest {
 
     @Mock
     PictureService pictureService;
+
+    @Mock
+    AutomationEngine automationEngine;
 
     @InjectMocks
     TeamServiceImpl teamService;
@@ -201,6 +206,19 @@ class TeamServiceImplTest {
 
         // Assert
         assertTrue(result.getUpdatedAt().isAfter(beforeCheckIn));
+    }
+
+    @Test
+    void checkIn_triggersAutomationEngine() {
+        Team team = createTeam(false);
+        team.getEmergencyPhoneNumbers().add("+31612345678");
+
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+        when(teamRepository.save(any(Team.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        teamService.checkIn(teamId);
+
+        verify(automationEngine).onTeamCheckIn(eq(gameId), eq(teamId));
     }
 
     @Test

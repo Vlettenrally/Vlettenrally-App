@@ -206,6 +206,18 @@ class AutomationServiceTest {
     }
 
     @Test
+    void createRule_acceptsTeamCheckIn_withNoConfig() {
+        AutomationRule draft = validDraft();
+        draft.setTriggerType(AutomationTriggerType.TEAM_CHECK_IN);
+        draft.setTriggerConfig(new AutomationTriggerConfig(null, null, null, null, null, null, null, null, null));
+
+        AutomationRule created = service.createRule(gameId, draft, adminId);
+
+        assertEquals(AutomationTriggerType.TEAM_CHECK_IN, created.getTriggerType());
+        verify(ruleRepository).save(created);
+    }
+
+    @Test
     void createRule_rejectsInactivityWithoutMinutes() {
         AutomationRule draft = validDraft();
         draft.setTriggerType(AutomationTriggerType.TEAM_INACTIVITY);

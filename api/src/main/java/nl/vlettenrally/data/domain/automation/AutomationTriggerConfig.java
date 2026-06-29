@@ -49,14 +49,25 @@ public record AutomationTriggerConfig(
     Integer speedThresholdKmh
 ) {
     /**
-     * Backwards-compatible constructor for the many call sites that predate the
-     * {@code excludedCheckpointIds} blocklist; delegates with no exclusions.
+     * Backwards-compatible constructor for call sites that predate {@code speedThresholdKmh}.
      */
     public AutomationTriggerConfig(UUID checkpointId, ScheduleMode mode, Instant absoluteTime,
             RelativeAnchor relativeTo, Integer offsetMinutes, Game.GameStatus toStatus,
             Integer inactiveMinutes, Integer pointsPer100m, PassComparison comparison) {
         this(checkpointId, mode, absoluteTime, relativeTo, offsetMinutes, toStatus,
                 inactiveMinutes, pointsPer100m, comparison, null, null);
+    }
+
+    /**
+     * Backwards-compatible constructor for call sites that predate {@code speedThresholdKmh}
+     * but do supply an {@code excludedCheckpointIds} list.
+     */
+    public AutomationTriggerConfig(UUID checkpointId, ScheduleMode mode, Instant absoluteTime,
+            RelativeAnchor relativeTo, Integer offsetMinutes, Game.GameStatus toStatus,
+            Integer inactiveMinutes, Integer pointsPer100m, PassComparison comparison,
+            List<UUID> excludedCheckpointIds) {
+        this(checkpointId, mode, absoluteTime, relativeTo, offsetMinutes, toStatus,
+                inactiveMinutes, pointsPer100m, comparison, excludedCheckpointIds, null);
     }
 
     public enum ScheduleMode { ABSOLUTE, RELATIVE }
