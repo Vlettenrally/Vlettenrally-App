@@ -120,12 +120,18 @@ public class LocationPollingScheduler {
         List<TeamLocationResponse> broadcasts = new ArrayList<>();
         int totalCount = 0;
         for (EventParticipantLocation pl : response.getEvent().getEventParticipantLocations()) {
-            if (pl.getLocation() == null) continue;
+            if (pl.getLocation() == null) {
+                Log.debugf("Game %s: skipping participant with null location (trackerId=%s)", game.getId(), pl.getTrackerId());
+                continue;
+            }
 
             Team team = pl.getTrackerId() != null
                 ? teamsByTrackerId.get(String.valueOf(pl.getTrackerId()))
                 : null;
-            if (team == null) continue;
+            if (team == null) {
+                Log.debugf("Game %s: skipping participant with unmatched trackerId=%s", game.getId(), pl.getTrackerId());
+                continue;
+            }
 
             totalCount++;
             Point point = GEOMETRY_FACTORY.createPoint(

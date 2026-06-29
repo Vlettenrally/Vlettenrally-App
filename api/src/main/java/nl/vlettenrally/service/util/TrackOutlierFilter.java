@@ -35,6 +35,12 @@ public final class TrackOutlierFilter {
         DROP_SPIKE
     }
 
+    /** Decision paired with human-readable diagnostic details for logging. */
+    public record Result(Decision decision, String diagnostics) {
+        static Result accept() { return new Result(Decision.ACCEPT, ""); }
+        static Result drop(Decision d, String diagnostics) { return new Result(d, diagnostics); }
+    }
+
     /**
      * Tunable thresholds, passed in so this class stays free of CDI/config and trivially
      * unit-testable.
@@ -65,15 +71,17 @@ public final class TrackOutlierFilter {
      * @param candidate the incoming fix
      * @param t         tuning thresholds
      */
-    public static Decision evaluate(LocationData prev, LocationData last, LocationData candidate, Thresholds t) {
+    public static Result evaluate(LocationData prev, LocationData last, LocationData candidate, Thresholds t) {
         long dtSeconds = Duration.between(last.getLocationTime(), candidate.getLocationTime()).getSeconds();
         if (dtSeconds < t.minIntervalSeconds()) {
-            return Decision.DROP_THROTTLE;
+            return Result.drop(Decision.DROP_THROTTLE,
+                String.format("dt=%ds (min=%ds)", dtSeconds, t.minIntervalSeconds()));
         }
 
         BigDecimal accuracy = candidate.getAccuracy();
         if (accuracy != null && accuracy.doubleValue() > t.maxAccuracyMeters()) {
-            return Decision.DROP_ACCURACY;
+            return Result.drop(Decision.DROP_ACCURACY,
+                String.format("accuracy=%.0fm (max=%.0fm)", accuracy.doubleValue(), t.maxAccuracyMeters()));
         }
 
         double dist = GeoDistance.haversineMeters(last.getLocation(), candidate.getLocation());
@@ -84,10 +92,12 @@ public final class TrackOutlierFilter {
         boolean stale = dtSeconds > t.staleFixSeconds();
 
         if (impliedKmh > t.maxSpeedKmh()) {
-            return Decision.DROP_TELEPORT;
+            return Result.drop(Decision.DROP_TELEPORT,
+                String.format("implied=%.1fkm/h (max=%.0fkm/h), dist=%.0fm, dt=%ds",
+                    impliedKmh, t.maxSpeedKmh(), dist, dtSeconds));
         }
         if (stale) {
-            return Decision.ACCEPT;
+            return Result.accept();
         }
 
         // Direction-gated spike rejection: only when both legs are long enough for a meaningful
@@ -102,11 +112,13 @@ public final class TrackOutlierFilter {
                 double bearingOut = GeoDistance.bearingDegrees(pLast, pCand);
                 double turn = GeoDistance.turnAngleDegrees(bearingIn, bearingOut);
                 if (turn > t.turnAngleThresholdDegrees() && impliedKmh > t.boatMaxSpeedKmh()) {
-                    return Decision.DROP_SPIKE;
+                    return Result.drop(Decision.DROP_SPIKE,
+                        String.format("turn=%.0f° (threshold=%.0f°), implied=%.1fkm/h (boat_max=%.0fkm/h), dist=%.0fm",
+                            turn, t.turnAngleThresholdDegrees(), impliedKmh, t.boatMaxSpeedKmh(), dist));
                 }
             }
         }
 
-        return Decision.ACCEPT;
+        return Result.accept();
     }
 }

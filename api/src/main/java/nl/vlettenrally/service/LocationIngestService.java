@@ -210,18 +210,19 @@ public class LocationIngestService {
     private boolean isValid(LocationData reading) {
         Point p = reading.getLocation();
         if (p == null) {
+            Log.infof("Dropping location for team %s: location point is null", reading.getTeamId());
             return false;
         }
         double lon = p.getX();
         double lat = p.getY();
         if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-            Log.debugf("Dropping location for team %s: out-of-range lat/lon %f,%f",
+            Log.infof("Dropping location for team %s: out-of-range lat/lon %f,%f",
                 reading.getTeamId(), lat, lon);
             return false;
         }
         if (reading.getLocationTime() == null
                 || reading.getLocationTime().isAfter(Instant.now().plusSeconds(MAX_FUTURE_SKEW_SECONDS))) {
-            Log.debugf("Dropping location for team %s: missing or future timestamp %s",
+            Log.infof("Dropping location for team %s: missing or future timestamp %s",
                 reading.getTeamId(), reading.getLocationTime());
             return false;
         }
@@ -238,9 +239,10 @@ public class LocationIngestService {
         TrackOutlierFilter.Thresholds thresholds = new TrackOutlierFilter.Thresholds(
             minIntervalSeconds, maxAccuracyMeters, maxSpeedKmh, boatMaxSpeedKmh,
             turnAngleThresholdDegrees, minBearingSegmentMeters, staleFixSeconds);
-        TrackOutlierFilter.Decision decision = TrackOutlierFilter.evaluate(prev, last, reading, thresholds);
-        if (decision != TrackOutlierFilter.Decision.ACCEPT) {
-            Log.infof("Dropping location for team %s: %s", reading.getTeamId(), decision);
+        TrackOutlierFilter.Result result = TrackOutlierFilter.evaluate(prev, last, reading, thresholds);
+        if (result.decision() != TrackOutlierFilter.Decision.ACCEPT) {
+            Log.infof("Dropping location for team %s [%s]: %s",
+                reading.getTeamId(), result.decision(), result.diagnostics());
             return false;
         }
         return true;

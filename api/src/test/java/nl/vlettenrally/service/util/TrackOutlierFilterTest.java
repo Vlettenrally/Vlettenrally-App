@@ -103,7 +103,7 @@ class TrackOutlierFilterTest {
     }
 
     private static TrackOutlierFilter.Decision evaluate(LocationData prev, LocationData last, LocationData cand) {
-        return TrackOutlierFilter.evaluate(prev, last, cand, THRESHOLDS);
+        return TrackOutlierFilter.evaluate(prev, last, cand, THRESHOLDS).decision();
     }
 
     private static LocationData at(double lat, double lon, long secondsFromT0) {
