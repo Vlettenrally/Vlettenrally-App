@@ -57,6 +57,7 @@ class PictureServiceImplTest {
     void setUp() {
         // @ConfigProperty fields are package-private; set them directly for the unit test.
         service.maxPerTeam = 5;
+        service.maxAttemptsPerTeam = 20;
         service.maxBytes = 10 * 1024 * 1024;
         service.allowedContentTypes = List.of("image/jpeg", "image/png", "image/webp");
         service.uploadUrlTtl = Duration.ofMinutes(15);
@@ -324,6 +325,29 @@ class PictureServiceImplTest {
         game.setId(gameId);
         game.setStatus(status);
         return game;
+    }
+
+    // ==================== game-scoped listing ====================
+
+    @Test
+    void findReadyForModerationByGame_delegatesToRepository() {
+        List<Picture> expected = List.of(uploaded());
+        when(pictureRepository.findReadyForModerationByGameId(gameId)).thenReturn(expected);
+        assertEquals(expected, service.findReadyForModerationByGame(gameId));
+    }
+
+    @Test
+    void findByStatusAndGame_delegatesToRepository() {
+        List<Picture> expected = List.of(uploaded());
+        when(pictureRepository.findByStatusAndGameId(PictureStatus.APPROVED, gameId)).thenReturn(expected);
+        assertEquals(expected, service.findByStatusAndGame(PictureStatus.APPROVED, gameId));
+    }
+
+    @Test
+    void findAllByGame_delegatesToRepository() {
+        List<Picture> expected = List.of(uploaded());
+        when(pictureRepository.findAllByGameId(gameId)).thenReturn(expected);
+        assertEquals(expected, service.findAllByGame(gameId));
     }
 
     // ==================== findApprovedForLatestGame ====================

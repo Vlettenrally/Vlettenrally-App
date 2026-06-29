@@ -71,6 +71,52 @@ class MockPictureRepositoryTest {
     }
 
     @Test
+    void findReadyForModerationByGameId_onlyUploadedPendingInGame() {
+        UUID otherGame = UUID.randomUUID();
+        save(teamA, PictureStatus.PENDING, true);          // ready, in game
+        save(teamA, PictureStatus.PENDING, false);         // not yet uploaded
+        Picture inOtherGame = save(teamA, PictureStatus.PENDING, true);
+        inOtherGame.setGameId(otherGame);
+        repository.save(inOtherGame);
+
+        List<Picture> result = repository.findReadyForModerationByGameId(gameId);
+
+        assertEquals(1, result.size());
+        assertEquals(gameId, result.getFirst().getGameId());
+    }
+
+    @Test
+    void findByStatusAndGameId_filtersByStatusAndGame() {
+        UUID otherGame = UUID.randomUUID();
+        save(teamA, PictureStatus.APPROVED, true);         // matches
+        save(teamA, PictureStatus.PENDING, true);          // wrong status
+        Picture wrongGame = save(teamB, PictureStatus.APPROVED, true);
+        wrongGame.setGameId(otherGame);
+        repository.save(wrongGame);
+
+        List<Picture> result = repository.findByStatusAndGameId(PictureStatus.APPROVED, gameId);
+
+        assertEquals(1, result.size());
+        assertEquals(PictureStatus.APPROVED, result.getFirst().getStatus());
+        assertEquals(gameId, result.getFirst().getGameId());
+    }
+
+    @Test
+    void findAllByGameId_filtersByGame() {
+        UUID otherGame = UUID.randomUUID();
+        save(teamA, PictureStatus.APPROVED, true);
+        save(teamB, PictureStatus.PENDING, true);
+        Picture wrongGame = save(teamA, PictureStatus.REJECTED, true);
+        wrongGame.setGameId(otherGame);
+        repository.save(wrongGame);
+
+        List<Picture> result = repository.findAllByGameId(gameId);
+
+        assertEquals(2, result.size());
+        assertTrue(result.stream().allMatch(p -> gameId.equals(p.getGameId())));
+    }
+
+    @Test
     void findApprovedByGameId_filtersByGameAndStatus() {
         UUID otherGame = UUID.randomUUID();
         Picture inGame = save(teamA, PictureStatus.APPROVED, true);
