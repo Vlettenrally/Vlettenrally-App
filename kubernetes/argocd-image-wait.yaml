@@ -33,12 +33,12 @@ spec:
           args:
             - |
               set -u
-              IMAGES="ghcr.io/joostvanviegen/vlettenrally-api:2026-06-29-6-native ghcr.io/joostvanviegen/vlettenrally-frontend:2026-06-29-6"
+              IMAGES="ghcr.io/joostvanviegen/vlettenrally-api:2026-06-29-7-native ghcr.io/joostvanviegen/vlettenrally-frontend:2026-06-29-7"
               TIMEOUT_SECONDS=1500   # ~25 min wall-clock budget for the build
               INTERVAL=15
               CHECK_TIMEOUT=30       # cap a single (possibly hung) registry call
               DEADLINE=$(( $(date +%s) + TIMEOUT_SECONDS ))
-              IMAGES="ghcr.io/joostvanviegen/vlettenrally-api:2026-06-29-6-native ghcr.io/joostvanviegen/vlettenrally-frontend:2026-06-29-6"
+              IMAGES="ghcr.io/joostvanviegen/vlettenrally-api:2026-06-29-7-native ghcr.io/joostvanviegen/vlettenrally-frontend:2026-06-29-7"
               for img in $IMAGES; do
                 echo "Waiting for $img ..."
                 while ! timeout "$CHECK_TIMEOUT" crane manifest "$img" >/dev/null 2>&1; do
