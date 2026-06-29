@@ -123,6 +123,13 @@ public class MockPictureRepository implements PictureRepository {
     }
 
     @Override
+    public long countAllByTeamId(UUID teamId) {
+        return pictures.values().stream()
+                .filter(p -> teamId.equals(p.getTeamId()))
+                .count();
+    }
+
+    @Override
     public Picture save(Picture picture) {
         if (picture.getId() == null) {
             picture.setId(UUID.randomUUID());

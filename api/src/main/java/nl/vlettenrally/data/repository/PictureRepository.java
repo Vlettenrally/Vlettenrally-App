@@ -34,6 +34,12 @@ public interface PictureRepository {
      */
     long countActiveByTeamId(UUID teamId);
 
+    /**
+     * Count all pictures ever created for a team across all statuses (including REJECTED).
+     * Used to enforce the per-team total upload attempt cap.
+     */
+    long countAllByTeamId(UUID teamId);
+
     Picture save(Picture picture);
 
     void delete(UUID id);

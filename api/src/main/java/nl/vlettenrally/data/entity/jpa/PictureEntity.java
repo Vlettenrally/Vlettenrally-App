@@ -32,7 +32,7 @@ public class PictureEntity {
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "team_id", nullable = false)
+    @JoinColumn(name = "team_id", nullable = true)
     private TeamEntity team;
 
     @ManyToOne(fetch = FetchType.LAZY)

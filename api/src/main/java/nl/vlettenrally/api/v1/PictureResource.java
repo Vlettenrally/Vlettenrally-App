@@ -126,6 +126,50 @@ public class PictureResource {
     // ==================== Admin Endpoints ====================
 
     /**
+     * Reserve an upload slot for an admin and get a pre-signed PUT URL. Auto-approved on confirm.
+     */
+    @POST
+    @Path("/admin/pictures")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER, SecurityRoles.RALLY_DESK})
+    public Response requestAdminUpload(PictureUploadRequest request, @Context SecurityContext securityContext) {
+        if (request == null || request.contentType() == null || request.contentType().isBlank()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("contentType is required"))
+                .build();
+        }
+        try {
+            PictureService.UploadTicket ticket = pictureService.requestAdminUpload(adminId(securityContext), request.contentType());
+            Picture p = ticket.picture();
+            PictureUploadResponse body = new PictureUploadResponse(
+                p.getId(),
+                p.getObjectKey(),
+                ticket.uploadUrl(),
+                p.getContentType(),
+                ticket.expiresAt().toString(),
+                pictureService.maxBytes(),
+                pictureService.allowedContentTypes()
+            );
+            return Response.status(Response.Status.CREATED).entity(body).build();
+        } catch (PictureException e) {
+            return error(e);
+        }
+    }
+
+    /**
+     * Confirm an admin upload; validates the object and auto-approves the picture.
+     */
+    @POST
+    @Path("/admin/pictures/{pictureId}/confirm")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER, SecurityRoles.RALLY_DESK})
+    public Response confirmAdminUpload(@PathParam("pictureId") UUID pictureId, @Context SecurityContext securityContext) {
+        try {
+            return Response.ok(toDto(pictureService.confirmAdminUpload(pictureId, adminId(securityContext)))).build();
+        } catch (PictureException e) {
+            return error(e);
+        }
+    }
+
+    /**
      * Pictures awaiting moderation (uploaded + pending).
      */
     @GET

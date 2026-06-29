@@ -28,6 +28,22 @@ public interface PictureService {
     UploadTicket requestUpload(UUID teamId, String contentType);
 
     /**
+     * Reserve an upload slot for an admin and return a pre-signed PUT URL.
+     * Uses the current active game; no per-team cap applies.
+     *
+     * @throws PictureException 415 if the content type is not allowed, 409 if no game is active.
+     */
+    UploadTicket requestAdminUpload(UUID adminId, String contentType);
+
+    /**
+     * Confirm an admin upload. Validates the stored object and auto-approves the picture.
+     *
+     * @throws PictureException 404 if not found, 409 if no object was uploaded,
+     *                          422 if the object violates size/type limits.
+     */
+    Picture confirmAdminUpload(UUID pictureId, UUID adminId);
+
+    /**
      * Confirm that the browser finished uploading. Validates the stored object against
      * the size/type limits and marks the picture uploaded (ready for moderation).
      *

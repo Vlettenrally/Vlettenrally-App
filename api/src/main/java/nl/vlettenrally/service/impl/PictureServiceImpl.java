@@ -50,6 +50,9 @@ public class PictureServiceImpl implements PictureService {
     @ConfigProperty(name = "vlettenrally.pictures.max-per-team")
     long maxPerTeam;
 
+    @ConfigProperty(name = "vlettenrally.pictures.max-attempts-per-team")
+    long maxAttemptsPerTeam;
+
     @ConfigProperty(name = "vlettenrally.pictures.max-bytes")
     long maxBytes;
 
@@ -83,6 +86,10 @@ public class PictureServiceImpl implements PictureService {
                 "Pictures can only be uploaded while the game is ongoing.");
         }
 
+        if (pictureRepository.countAllByTeamId(teamId) >= maxAttemptsPerTeam) {
+            throw new PictureException(Response.Status.CONFLICT, "Upload limit reached");
+        }
+
         if (pictureRepository.countActiveByTeamId(teamId) >= maxPerTeam) {
             throw new PictureException(Response.Status.CONFLICT,
                 "Picture limit reached (" + maxPerTeam + " per team). Delete a picture to upload a new one.");
@@ -102,6 +109,68 @@ public class PictureServiceImpl implements PictureService {
         Instant expiresAt = Instant.now().plus(uploadUrlTtl);
 
         return new UploadTicket(saved, uploadUrl, expiresAt);
+    }
+
+    @Override
+    public UploadTicket requestAdminUpload(UUID adminId, String contentType) {
+        String normalized = contentType != null ? contentType.trim().toLowerCase() : "";
+        if (!allowedContentTypes.contains(normalized)) {
+            throw new PictureException(Response.Status.UNSUPPORTED_MEDIA_TYPE,
+                "Unsupported content type. Allowed: " + String.join(", ", allowedContentTypes));
+        }
+
+        Game game = gameRepository.findActiveGames().stream().findFirst()
+            .orElseThrow(() -> new PictureException(Response.Status.CONFLICT, "No active game"));
+
+        Picture picture = new Picture();
+        picture.setTeamId(null);
+        picture.setGameId(game.getId());
+        picture.setStatus(PictureStatus.PENDING);
+        picture.setContentType(normalized);
+        picture.setObjectKey("games/" + game.getId() + "/admin/" + picture.getId());
+        Picture saved = pictureRepository.save(picture);
+
+        String uploadUrl = storageService.presignUpload(saved.getObjectKey(), normalized, uploadUrlTtl);
+        Instant expiresAt = Instant.now().plus(uploadUrlTtl);
+
+        return new UploadTicket(saved, uploadUrl, expiresAt);
+    }
+
+    @Override
+    public Picture confirmAdminUpload(UUID pictureId, UUID adminId) {
+        Picture picture = pictureRepository.findById(pictureId)
+            .orElseThrow(() -> new PictureException(Response.Status.NOT_FOUND, PICTURE_NOT_FOUND + pictureId));
+        if (picture.getTeamId() != null) {
+            throw new PictureException(Response.Status.NOT_FOUND, PICTURE_NOT_FOUND + pictureId);
+        }
+
+        Optional<PictureStorageService.ObjectMetadata> meta = storageService.head(picture.getObjectKey());
+        if (meta.isEmpty()) {
+            throw new PictureException(Response.Status.CONFLICT, "No uploaded file found for this picture");
+        }
+
+        PictureStorageService.ObjectMetadata metadata = meta.get();
+        String effectiveType = metadata.contentType() != null ? metadata.contentType().toLowerCase() : picture.getContentType();
+
+        if (metadata.sizeBytes() > maxBytes
+                || effectiveType == null
+                || !allowedContentTypes.contains(effectiveType)) {
+            storageService.delete(picture.getObjectKey());
+            pictureRepository.delete(picture.getId());
+            throw new PictureException(422, "Uploaded file is too large or not an allowed image type");
+        }
+
+        picture.setUploadedAt(Instant.now());
+        picture.setSizeBytes(metadata.sizeBytes());
+        picture.setContentType(effectiveType);
+        picture.setStatus(PictureStatus.APPROVED);
+        picture.setModeratedAt(Instant.now());
+        picture.setModeratedBy(adminId);
+        Picture saved = pictureRepository.save(picture);
+
+        webSocketPublisher.sendToAdmins(saved.getGameId(),
+            WebSocketMessageType.PICTURE_MODERATED.getValue(), toResponse(saved));
+        return saved;
     }
 
     @Override
@@ -230,8 +299,10 @@ public class PictureServiceImpl implements PictureService {
      */
     private Picture moderated(Picture picture) {
         PictureResponse payload = toResponse(picture);
-        webSocketPublisher.sendToTeam(picture.getGameId(), picture.getTeamId(),
-            WebSocketMessageType.PICTURE_MODERATED.getValue(), payload);
+        if (picture.getTeamId() != null) {
+            webSocketPublisher.sendToTeam(picture.getGameId(), picture.getTeamId(),
+                WebSocketMessageType.PICTURE_MODERATED.getValue(), payload);
+        }
         webSocketPublisher.sendToAdmins(picture.getGameId(),
             WebSocketMessageType.PICTURE_MODERATED.getValue(), payload);
         return picture;

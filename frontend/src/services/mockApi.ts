@@ -177,6 +177,10 @@ export const mockApi = {
   
   // ==================== Picture endpoints ====================
   async requestPictureUpload(teamId: string, body: { contentType: string; fileName?: string; sizeBytes?: number }) {
+    const total = mockPictures.filter((p) => p.teamId === teamId).length;
+    if (total >= 10) {
+      return { error: 'Upload limit reached', status: 409 };
+    }
     const active = mockPictures.filter((p) => p.teamId === teamId && p.status !== 'REJECTED').length;
     if (active >= 5) {
       return { error: 'Picture limit reached (5 per team).', status: 409 };
@@ -257,6 +261,38 @@ export const mockApi = {
     picture.status = 'REJECTED';
     picture.moderatedAt = new Date().toISOString();
     picture.notes = notes ?? null;
+    return { data: { ...picture }, status: 200 };
+  },
+
+  async requestAdminPictureUpload(body: { contentType: string; fileName?: string; sizeBytes?: number }) {
+    const pictureId = `pic-admin-${++mockPictureSeq}`;
+    mockPictures.push({
+      id: pictureId, teamId: null as unknown as string, gameId: MOCK_GAME_ID, status: 'PENDING',
+      contentType: body.contentType, sizeBytes: body.sizeBytes ?? null, viewUrl: null,
+      createdAt: new Date().toISOString(), uploadedAt: null, moderatedAt: null, notes: null,
+    });
+    return {
+      data: {
+        pictureId,
+        objectKey: `games/${MOCK_GAME_ID}/admin/${pictureId}`,
+        uploadUrl: `http://localhost:8080/mock-upload/${pictureId}`,
+        contentType: body.contentType,
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+        maxBytes: 10485760,
+        allowedContentTypes: ['image/jpeg', 'image/png', 'image/webp'],
+      },
+      status: 201,
+    };
+  },
+
+  async confirmAdminPictureUpload(pictureId: string) {
+    const picture = mockPictures.find((p) => p.id === pictureId);
+    if (!picture) return { error: 'Not found', status: 404 };
+    picture.uploadedAt = new Date().toISOString();
+    picture.sizeBytes = picture.sizeBytes ?? 512000;
+    picture.viewUrl = `https://picsum.photos/seed/${pictureId}/600/400`;
+    picture.status = 'APPROVED';
+    picture.moderatedAt = new Date().toISOString();
     return { data: { ...picture }, status: 200 };
   },
 

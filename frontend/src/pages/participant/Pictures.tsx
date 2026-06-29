@@ -34,6 +34,7 @@ import { mockApi } from '../../services/mockApi';
 import { config } from '../../config';
 
 const MAX_PICTURES = 5;
+const MAX_UPLOAD_ATTEMPTS = 10;
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
@@ -69,6 +70,7 @@ export default function Pictures() {
   // A team can only have MAX_PICTURES that are not rejected at any time.
   const activeCount = pictures.filter((p) => p.status !== 'REJECTED').length;
   const slotsFull = activeCount >= MAX_PICTURES;
+  const attemptsExhausted = pictures.length >= MAX_UPLOAD_ATTEMPTS;
   // Uploading is only allowed while the game is ongoing (the backend enforces this too).
   // In mock mode there is no real game status loaded, so don't block the demo.
   const gameOngoing = config.useMocks || game?.status === 'active';
@@ -168,7 +170,7 @@ export default function Pictures() {
             variant="contained"
             startIcon={<AddPhotoAlternateIcon />}
             onClick={handlePick}
-            disabled={uploading || slotsFull || !gameOngoing}
+            disabled={uploading || slotsFull || attemptsExhausted || !gameOngoing}
           >
             {t('participant.pictures.addPhoto')}
           </Button>
@@ -181,6 +183,12 @@ export default function Pictures() {
         {!gameOngoing && (
           <Alert severity="warning">
             {t('participant.pictures.rallyNotActive')}
+          </Alert>
+        )}
+
+        {attemptsExhausted && (
+          <Alert severity="warning">
+            {t('participant.pictures.uploadLimitReached')}
           </Alert>
         )}
 

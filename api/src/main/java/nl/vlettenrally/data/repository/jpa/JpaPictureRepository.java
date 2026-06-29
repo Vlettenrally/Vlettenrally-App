@@ -94,6 +94,14 @@ public class JpaPictureRepository extends ReadReplicaAwareRepository implements 
     }
 
     @Override
+    public long countAllByTeamId(UUID teamId) {
+        return getReadEntityManager(true)
+                .createQuery("SELECT COUNT(p) FROM PictureEntity p WHERE p.team.id = :teamId", Long.class)
+                .setParameter("teamId", teamId)
+                .getSingleResult();
+    }
+
+    @Override
     @Transactional
     public Picture save(Picture picture) {
         PictureEntity entity = getWriteEntityManager().find(PictureEntity.class, picture.getId());

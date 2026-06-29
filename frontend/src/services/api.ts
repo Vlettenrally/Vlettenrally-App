@@ -934,6 +934,17 @@ async getGames() : Promise<ApiResponse<Game[]>> {
   async rejectPicture(pictureId: string, notes?: string): Promise<ApiResponse<Picture>> {
     return this.post(`/pictures/${pictureId}/reject`, { notes });
   }
+
+  // Admin uploads (auto-approved)
+  async requestAdminPictureUpload(
+    body: { contentType: string; fileName?: string; sizeBytes?: number },
+  ): Promise<ApiResponse<PictureUploadResponse>> {
+    return this.post('/admin/pictures', body);
+  }
+
+  async confirmAdminPictureUpload(pictureId: string): Promise<ApiResponse<Picture>> {
+    return this.post(`/admin/pictures/${pictureId}/confirm`);
+  }
 }
 
 // Export either the real API or mock API based on configuration

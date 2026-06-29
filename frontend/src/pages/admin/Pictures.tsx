@@ -1,7 +1,7 @@
 /**
- * Admin Pictures - moderate team-uploaded pictures (approve / reject).
+ * Admin Pictures - moderate team-uploaded pictures (approve / reject) and upload admin photos.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Alert,
@@ -17,6 +17,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  LinearProgress,
   Stack,
   Tab,
   Tabs,
@@ -25,6 +26,7 @@ import {
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
+import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
 import { usePictureStore } from '../../store/usePictureStore';
 import type { Picture, PictureStatus } from '../../types/entities';
 import api from '../../services/api';
@@ -33,7 +35,10 @@ import { websocket } from '../../services/websocket';
 import { config } from '../../config';
 import { useAdminResync } from '../../hooks/useAdminSync';
 
-type TabKey = 'PENDING' | 'ALL';
+type TabKey = 'PENDING' | 'ALL' | 'UPLOAD';
+
+const MAX_BYTES = 10 * 1024 * 1024;
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 const STATUS_COLORS: Record<PictureStatus, 'default' | 'success' | 'warning' | 'error'> = {
   PENDING: 'warning',
@@ -50,6 +55,11 @@ export default function AdminPictures() {
   const [rejectTarget, setRejectTarget] = useState<Picture | null>(null);
   const [rejectNotes, setRejectNotes] = useState('');
 
+  // Upload state
+  const [uploading, setUploading] = useState(false);
+  const [uploadPercent, setUploadPercent] = useState<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const statusLabel = (status: PictureStatus): string => {
     const labels: Record<PictureStatus, string> = {
       PENDING: t('admin.pictures.statusPending'),
@@ -63,6 +73,7 @@ export default function AdminPictures() {
   const apiToUse = (config.useMocks ? mockApi : api) as unknown as typeof api;
 
   const load = useCallback(() => {
+    if (tab === 'UPLOAD') return;
     setLoading(true);
     setError(null);
     const request = tab === 'PENDING' ? apiToUse.getPendingPictures() : apiToUse.getAllPictures();
@@ -122,6 +133,56 @@ export default function AdminPictures() {
     }
   };
 
+  const handleAdminUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      setError(t('admin.pictures.typeError'));
+      return;
+    }
+    if (file.size > MAX_BYTES) {
+      setError(t('admin.pictures.sizeError'));
+      return;
+    }
+
+    setUploading(true);
+    setError(null);
+    setUploadPercent(0);
+    try {
+      const reservation = await apiToUse.requestAdminPictureUpload({
+        contentType: file.type,
+        fileName: file.name,
+        sizeBytes: file.size,
+      });
+      if (!reservation.data) {
+        setError(reservation.error || t('admin.pictures.uploadFailed'));
+        return;
+      }
+
+      const { pictureId, uploadUrl, contentType } = reservation.data;
+      const upload = await apiToUse.uploadFileToS3(uploadUrl, file, contentType, setUploadPercent);
+      if (!upload.ok) {
+        setError(t('admin.pictures.storageFailed'));
+        return;
+      }
+
+      const confirmed = await apiToUse.confirmAdminPictureUpload(pictureId);
+      if (confirmed.data) {
+        upsertModerationPicture(confirmed.data as Picture);
+      } else {
+        setError(confirmed.error || t('admin.pictures.confirmFailed'));
+      }
+    } catch (e) {
+      console.warn('Admin picture upload failed', e);
+      setError(t('admin.pictures.uploadFailed'));
+    } finally {
+      setUploadPercent(null);
+      setUploading(false);
+    }
+  };
+
   return (
     <Container maxWidth="lg" sx={{ mt: 3, mb: 6 }}>
       <Stack spacing={2}>
@@ -130,11 +191,40 @@ export default function AdminPictures() {
         <Tabs value={tab} onChange={(_, value) => setTab(value)}>
           <Tab label={t('admin.pictures.tabPending')} value="PENDING" />
           <Tab label={t('admin.pictures.tabAll')} value="ALL" />
+          <Tab label={t('admin.pictures.tabUpload')} value="UPLOAD" />
         </Tabs>
 
         {error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>}
 
-        {loading ? (
+        {tab === 'UPLOAD' ? (
+          <Stack spacing={2}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={ALLOWED_TYPES.join(',')}
+              style={{ display: 'none' }}
+              onChange={handleAdminUpload}
+            />
+            <Box>
+              <Button
+                variant="contained"
+                startIcon={<AddPhotoAlternateIcon />}
+                onClick={() => { setError(null); fileInputRef.current?.click(); }}
+                disabled={uploading}
+              >
+                {t('admin.pictures.addPhoto')}
+              </Button>
+            </Box>
+            {uploadPercent !== null && (
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  {t('admin.pictures.uploading', { percent: uploadPercent })}
+                </Typography>
+                <LinearProgress variant="determinate" value={uploadPercent} />
+              </Box>
+            )}
+          </Stack>
+        ) : loading ? (
           <Box display="flex" justifyContent="center" sx={{ py: 4 }}>
             <CircularProgress />
           </Box>
