@@ -72,10 +72,17 @@ public class LocationPollingScheduler {
         // Active games, plus PLANNED games whose pre-start lead window is open: polling a
         // game before kickoff seeds recent fixes so a team sitting in the start zone is
         // detected the instant the game goes ACTIVE (see GameStatusScheduler / the sweep).
+        // Also COMPLETED games whose post-end tail window is still open, so a late finish-zone
+        // crossing is detected and its automation fires (see LocationIngestService gate).
         List<Game> games = new ArrayList<>(gameService.findByStatus(Game.GameStatus.ACTIVE));
         Instant now = Instant.now();
         for (Game game : gameService.findByStatus(Game.GameStatus.PLANNED)) {
-            if (isWithinPollingLeadWindow(game, now)) {
+            if (game.isWithinPollingLeadWindow(now)) {
+                games.add(game);
+            }
+        }
+        for (Game game : gameService.findByStatus(Game.GameStatus.COMPLETED)) {
+            if (game.isWithinPollingTailWindow(now)) {
                 games.add(game);
             }
         }
@@ -94,21 +101,6 @@ public class LocationPollingScheduler {
                 Log.errorf("Failed to poll Legendstracking for game %s: %s", game.getId(), e.getMessage());
             }
         }
-    }
-
-    /**
-     * A PLANNED game qualifies for pre-start polling when its configured lead time has
-     * begun: now is within {@code locationPollingLeadMinutes} before {@code startSignalTime}
-     * and the start signal has not yet passed. A lead of 0 (or null) disables pre-start polling.
-     */
-    private boolean isWithinPollingLeadWindow(Game game, Instant now) {
-        Integer lead = game.getLocationPollingLeadMinutes();
-        if (lead == null || lead <= 0 || game.getStartSignalTime() == null) {
-            return false;
-        }
-        Instant signal = game.getStartSignalTime();
-        return now.isBefore(signal)
-            && !now.isBefore(signal.minus(java.time.Duration.ofMinutes(lead)));
     }
 
     private void pollGame(Game game) {

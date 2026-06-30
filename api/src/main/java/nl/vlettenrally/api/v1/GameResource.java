@@ -343,6 +343,7 @@ public class GameResource {
         game.setLocationPollingFrequency(request.locationPollingFrequency() != null ? request.locationPollingFrequency() : 15);
         game.setLocationEndpointActive(request.locationEndpointActive() != null ? request.locationEndpointActive() : false);
         game.setLocationPollingLeadMinutes(request.locationPollingLeadMinutes() != null ? request.locationPollingLeadMinutes() : 30);
+        game.setLocationPollingTailMinutes(request.locationPollingTailMinutes() != null ? request.locationPollingTailMinutes() : 30);
 
         // Per-game guard overrides: null leaves the game inheriting the global default.
         game.setLocMaxSpeedKmh(request.locMaxSpeedKmh());
@@ -390,6 +391,7 @@ public class GameResource {
                 if (request.locationPollingFrequency() != null) game.setLocationPollingFrequency(request.locationPollingFrequency());
                 if (request.locationEndpointActive() != null) game.setLocationEndpointActive(request.locationEndpointActive());
                 if (request.locationPollingLeadMinutes() != null) game.setLocationPollingLeadMinutes(request.locationPollingLeadMinutes());
+                if (request.locationPollingTailMinutes() != null) game.setLocationPollingTailMinutes(request.locationPollingTailMinutes());
 
                 // Per-game guard overrides: null = "leave unchanged" (consistent with the
                 // other fields above). Clearing back to "inherit global" is a DB-level action.
@@ -692,6 +694,7 @@ public class GameResource {
             game.getLocationPollingFrequency(),
             game.getLocationEndpointActive(),
             game.getLocationPollingLeadMinutes(),
+            game.getLocationPollingTailMinutes(),
             game.getLocMaxSpeedKmh(),
             game.getLocBoatMaxSpeedKmh(),
             game.getLocTurnAngleThresholdDegrees(),

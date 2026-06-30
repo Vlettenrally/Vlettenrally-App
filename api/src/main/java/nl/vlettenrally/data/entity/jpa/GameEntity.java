@@ -78,6 +78,10 @@ public class GameEntity {
     @Column(name = "location_polling_lead_minutes", nullable = false)
     private Integer locationPollingLeadMinutes = 30;
 
+    // Minutes after the end time to keep polling/ingesting locations once COMPLETED (0 = off).
+    @Column(name = "location_polling_tail_minutes", nullable = false)
+    private Integer locationPollingTailMinutes = 30;
+
     // Whether the final ranking has been revealed to players (set by an admin at
     // the award ceremony). Gates all player-facing ranking visibility.
     @Column(name = "rankings_published", nullable = false)

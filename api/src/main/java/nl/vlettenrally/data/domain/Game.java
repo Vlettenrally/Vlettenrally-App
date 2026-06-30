@@ -3,6 +3,7 @@ package nl.vlettenrally.data.domain;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -37,6 +38,13 @@ public class Game {
     private Boolean locationEndpointActive;
     /** Minutes before {@link #startSignalTime} to begin polling/ingesting locations. 0 = off. */
     private Integer locationPollingLeadMinutes;
+    /**
+     * Minutes after {@link #endTime} to keep polling/ingesting locations once the game is
+     * COMPLETED. Keeps checkpoint-pass detection alive briefly after the end so late-finish
+     * automations (a CHECKPOINT_ENTRY rule firing on a pass AFTER the game end) can still fire.
+     * 0 = off.
+     */
+    private Integer locationPollingTailMinutes;
 
     /** Whether the final ranking has been revealed to players (admin-triggered at the ceremony). */
     private Boolean rankingsPublished;
@@ -72,6 +80,7 @@ public class Game {
         this.locationPollingFrequency = 30; // Matches Legendstracking 30 s cache
         this.locationEndpointActive = false;
         this.locationPollingLeadMinutes = 30; // Start ingesting 30 min before the start signal
+        this.locationPollingTailMinutes = 30; // Keep ingesting 30 min after the end (late-finish automations)
 
         this.rankingsPublished = false;
         this.publicRankingsEnabled = false;
@@ -87,6 +96,34 @@ public class Game {
         this.startTime = startTime;
         this.endTime = endTime;
         this.status = status;
+    }
+
+    /**
+     * Whether {@code now} falls in the pre-start polling lead window: within
+     * {@link #locationPollingLeadMinutes} before {@link #startSignalTime} and before the signal
+     * itself. Window {@code [signal - lead, signal)}. A lead of 0/null (or no signal) disables it.
+     */
+    public boolean isWithinPollingLeadWindow(Instant now) {
+        Integer lead = locationPollingLeadMinutes;
+        if (lead == null || lead <= 0 || startSignalTime == null) {
+            return false;
+        }
+        return now.isBefore(startSignalTime)
+            && !now.isBefore(startSignalTime.minus(Duration.ofMinutes(lead)));
+    }
+
+    /**
+     * Whether {@code now} falls in the post-end polling tail window: after {@link #endTime} and
+     * within {@link #locationPollingTailMinutes} of it. Window {@code (endTime, endTime + tail]}.
+     * A tail of 0/null (or no end time) disables it.
+     */
+    public boolean isWithinPollingTailWindow(Instant now) {
+        Integer tail = locationPollingTailMinutes;
+        if (tail == null || tail <= 0 || endTime == null) {
+            return false;
+        }
+        return now.isAfter(endTime)
+            && !now.isAfter(endTime.plus(Duration.ofMinutes(tail)));
     }
 
 }

@@ -71,6 +71,13 @@ export default function GameFormDialog({
     { value: 60, label: t('components.gameForm.pollingLead1h', { defaultValue: '1 hour' }) },
   ];
 
+  const POLLING_TAIL_OPTIONS = [
+    { value: 0, label: t('components.gameForm.pollingTailOff', { defaultValue: 'Off' }) },
+    { value: 15, label: t('components.gameForm.pollingTail15m', { defaultValue: '15 minutes' }) },
+    { value: 30, label: t('components.gameForm.pollingTail30m', { defaultValue: '30 minutes' }) },
+    { value: 60, label: t('components.gameForm.pollingTail1h', { defaultValue: '1 hour' }) },
+  ];
+
   // Per-game overrides for the location-ingest outlier guards. Each is optional: an empty
   // field inherits the system-wide default (shown as the input placeholder). `step` controls
   // the number-input increment; `globalDefault` mirrors the backend application.properties.
@@ -112,6 +119,7 @@ export default function GameFormDialog({
     locationPollingFrequency: 30,
     locationEndpointActive: false,
     locationPollingLeadMinutes: 30,
+    locationPollingTailMinutes: 30,
   });
 
   const isCreateMode = !game;
@@ -145,6 +153,7 @@ export default function GameFormDialog({
         locationPollingFrequency: game.locationPollingFrequency || 30,
         locationEndpointActive: game.locationEndpointActive || false,
         locationPollingLeadMinutes: game.locationPollingLeadMinutes ?? 30,
+        locationPollingTailMinutes: game.locationPollingTailMinutes ?? 30,
         // Per-game guard overrides; undefined keeps the field blank (inherit global).
         locMaxSpeedKmh: game.locMaxSpeedKmh,
         locBoatMaxSpeedKmh: game.locBoatMaxSpeedKmh,
@@ -448,6 +457,26 @@ export default function GameFormDialog({
             <FormHelperText>
               {t('components.gameForm.pollingLeadHint', {
                 defaultValue: 'Start tracking this long before the start signal, so teams already in a zone are detected at kickoff.',
+              })}
+            </FormHelperText>
+          </FormControl>
+
+          <FormControl fullWidth>
+            <InputLabel>{t('components.gameForm.pollingTail')}</InputLabel>
+            <Select
+              value={formData.locationPollingTailMinutes ?? 30}
+              label={t('components.gameForm.pollingTail')}
+              onChange={(e) => handleChange('locationPollingTailMinutes')({ target: { value: e.target.value } })}
+            >
+              {POLLING_TAIL_OPTIONS.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </Select>
+            <FormHelperText>
+              {t('components.gameForm.pollingTailHint', {
+                defaultValue: 'Keep tracking this long after the end time, so a late finish-zone crossing still triggers its automation.',
               })}
             </FormHelperText>
           </FormControl>

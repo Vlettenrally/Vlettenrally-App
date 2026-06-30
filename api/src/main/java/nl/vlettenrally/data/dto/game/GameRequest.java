@@ -20,6 +20,7 @@ public record GameRequest(
     Integer locationPollingFrequency,
     Boolean locationEndpointActive,
     Integer locationPollingLeadMinutes,
+    Integer locationPollingTailMinutes,
     // Per-game location-ingest guard overrides (null = inherit the global default).
     Double locMaxSpeedKmh,
     Double locBoatMaxSpeedKmh,

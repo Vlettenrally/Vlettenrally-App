@@ -21,6 +21,8 @@ export interface Game {
   locationEndpointActive?: boolean;
   // Minutes before the start signal to begin polling/ingesting locations (0 = off).
   locationPollingLeadMinutes?: number;
+  // Minutes after the end time to keep polling/ingesting once COMPLETED (0 = off).
+  locationPollingTailMinutes?: number;
   // Per-game location-ingest guard overrides (undefined = inherit the global default).
   locMaxSpeedKmh?: number;
   locBoatMaxSpeedKmh?: number;
@@ -50,6 +52,7 @@ export interface GameRequest {
   locationPollingFrequency?: number;
   locationEndpointActive?: boolean;
   locationPollingLeadMinutes?: number;
+  locationPollingTailMinutes?: number;
   // Per-game location-ingest guard overrides (undefined = inherit the global default).
   locMaxSpeedKmh?: number;
   locBoatMaxSpeedKmh?: number;

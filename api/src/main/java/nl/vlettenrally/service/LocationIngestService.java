@@ -114,23 +114,30 @@ public class LocationIngestService {
         // look it up once here, the single choke point for every fix. A team that
         // has finished (reached its finish zone) is gated out the same way an
         // inactive game is — its meters advance the baseline but earn no points.
-        boolean gameActive = gameService.findById(reading.getGameId())
-            .map(game -> game.getStatus() == Game.GameStatus.ACTIVE)
-            .orElse(false);
+        //
+        // Scoring (distance + speed) is ACTIVE-only. Checkpoint detection additionally runs
+        // while a COMPLETED game is inside its post-end tail window, so a late finish-zone
+        // crossing is still detected and its automation fires (e.g. a CHECKPOINT_ENTRY rule
+        // comparing AFTER the game end). The rule itself still decides whether/how to act.
+        Game game = gameService.findById(reading.getGameId()).orElse(null);
+        boolean gameActive = game != null && game.getStatus() == Game.GameStatus.ACTIVE;
+        boolean inTailWindow = game != null && game.getStatus() == Game.GameStatus.COMPLETED
+            && game.isWithinPollingTailWindow(reading.getLocationTime());
         boolean teamFinished = teamRepository.findById(reading.getTeamId())
             .map(Team::isFinished)
             .orElse(false);
-        boolean active = gameActive && !teamFinished;
+        boolean scoringActive = gameActive && !teamFinished;
+        boolean detectCheckpoints = (gameActive || inTailWindow) && !teamFinished;
 
         double cumulativeMeters = teamDistanceCalculator.computeTraveledMeters(reading.getTeamId());
-        automationEngine.onDistanceUpdate(reading.getGameId(), reading.getTeamId(), cumulativeMeters, active);
+        automationEngine.onDistanceUpdate(reading.getGameId(), reading.getTeamId(), cumulativeMeters, scoringActive);
 
-        if (active) {
-            if (reading.getSpeed() != null) {
-                automationEngine.onSpeedExceeded(
-                    reading.getGameId(), reading.getTeamId(),
-                    reading.getSpeed().doubleValue());
-            }
+        if (scoringActive && reading.getSpeed() != null) {
+            automationEngine.onSpeedExceeded(
+                reading.getGameId(), reading.getTeamId(),
+                reading.getSpeed().doubleValue());
+        }
+        if (detectCheckpoints) {
             detectCheckpointPasses(previous, reading);
         }
 

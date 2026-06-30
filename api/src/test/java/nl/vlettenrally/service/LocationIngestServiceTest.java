@@ -198,6 +198,41 @@ class LocationIngestServiceTest {
     }
 
     @Test
+    void ingest_completedGameWithinTailWindow_recordsPassButCreditsNoDistance() {
+        Instant now = Instant.now();
+        UUID checkpointId = UUID.randomUUID();
+        when(locationDataRepository.findRecentByTeamId(teamId, 2)).thenReturn(List.of());
+        // Game ended 5 min ago with a 30-min tail window still open.
+        when(gameService.findById(gameId))
+            .thenReturn(Optional.of(completedGame(now.minusSeconds(5 * 60), 30)));
+        when(checkpointRepository.findContainingPoint(eq(gameId), any(Point.class)))
+            .thenReturn(List.of(checkpointId));
+
+        Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 5.0, now), "Team");
+
+        assertTrue(result.isPresent());
+        // Late finish-zone crossing is still detected so its automation can fire...
+        verify(achievementService).recordVerifiedPass(teamId, checkpointId, now);
+        // ...but scoring stays off after the game ends (no distance points).
+        verify(automationEngine).onDistanceUpdate(eq(gameId), eq(teamId), anyDouble(), eq(false));
+    }
+
+    @Test
+    void ingest_completedGameAfterTailWindow_skipsDetection() {
+        Instant now = Instant.now();
+        when(locationDataRepository.findRecentByTeamId(teamId, 2)).thenReturn(List.of());
+        // Game ended 31 min ago: past the 30-min tail window.
+        when(gameService.findById(gameId))
+            .thenReturn(Optional.of(completedGame(now.minusSeconds(31 * 60), 30)));
+
+        Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 5.0, now), "Team");
+
+        assertTrue(result.isPresent());
+        verify(checkpointRepository, never()).findContainingPoint(any(), any());
+        verify(achievementService, never()).recordVerifiedPass(any(), any(), any());
+    }
+
+    @Test
     void ingest_activeButOutsideAllZones_recordsNoPass() {
         when(locationDataRepository.findRecentByTeamId(teamId, 2)).thenReturn(List.of());
         when(gameService.findById(gameId)).thenReturn(Optional.of(activeGame()));
@@ -386,6 +421,15 @@ class LocationIngestServiceTest {
         Game game = new Game();
         game.setId(gameId);
         game.setStatus(Game.GameStatus.ACTIVE);
+        return game;
+    }
+
+    private Game completedGame(Instant endTime, int tailMinutes) {
+        Game game = new Game();
+        game.setId(gameId);
+        game.setStatus(Game.GameStatus.COMPLETED);
+        game.setEndTime(endTime);
+        game.setLocationPollingTailMinutes(tailMinutes);
         return game;
     }
 
