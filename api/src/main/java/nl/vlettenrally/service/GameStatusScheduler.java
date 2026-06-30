@@ -43,9 +43,11 @@ public class GameStatusScheduler {
     PollingLeader pollingLeader;
 
     /**
-     * Check for game status transitions every 30 seconds
+     * Check for game status transitions on the automation tick interval
+     * ({@code vlettenrally.automation.tick-interval}, default 5s) so auto
+     * start/finish and GAME_STATUS_CHANGE automations are not delayed.
      */
-    @Scheduled(every = "30s")
+    @Scheduled(every = "{vlettenrally.automation.tick-interval}")
     @Transactional
     void checkGameStatusTransitions() {
         if (!pollingLeader.tryAcquireOrRenew()) {

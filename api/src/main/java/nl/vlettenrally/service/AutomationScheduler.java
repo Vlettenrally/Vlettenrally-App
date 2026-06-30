@@ -8,9 +8,16 @@ import jakarta.transaction.Transactional;
 import java.time.Instant;
 
 /**
- * Drives the time-based automation triggers (SCHEDULED_TIME, TEAM_INACTIVITY).
+ * Drives the time-based automation triggers on two separate cadences:
+ * <ul>
+ *   <li>SCHEDULED_TIME — latency-sensitive, evaluated on the fast
+ *       {@code vlettenrally.automation.tick-interval} (default 5s).</li>
+ *   <li>TEAM_INACTIVITY — threshold is in minutes and the per-team location
+ *       lookup is the heaviest part of the sweep, so it runs on the coarse
+ *       {@code vlettenrally.automation.inactivity-interval} (default 30s).</li>
+ * </ul>
  *
- * Runs on a single instance at a time — leader election via
+ * Both ticks run on a single instance at a time — leader election via
  * {@link PollingLeader} (Valkey-backed lease, shared with the other
  * background schedulers).
  */
@@ -23,12 +30,21 @@ public class AutomationScheduler {
     @Inject
     PollingLeader pollingLeader;
 
-    @Scheduled(every = "30s")
+    @Scheduled(every = "{vlettenrally.automation.tick-interval}")
     @Transactional
-    void tick() {
+    void tickScheduledTime() {
         if (!pollingLeader.tryAcquireOrRenew()) {
             return;
         }
-        automationEngine.evaluateTimeAndInactivity(Instant.now());
+        automationEngine.evaluateScheduledTime(Instant.now());
+    }
+
+    @Scheduled(every = "{vlettenrally.automation.inactivity-interval}")
+    @Transactional
+    void tickInactivity() {
+        if (!pollingLeader.tryAcquireOrRenew()) {
+            return;
+        }
+        automationEngine.evaluateInactivity(Instant.now());
     }
 }

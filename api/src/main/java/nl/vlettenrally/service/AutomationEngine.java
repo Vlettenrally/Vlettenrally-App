@@ -299,7 +299,9 @@ public class AutomationEngine {
         evaluateInactivity(now);
     }
 
-    private void evaluateScheduledTime(Instant now) {
+    /** Scheduler tick: evaluate SCHEDULED_TIME rules. */
+    public void evaluateScheduledTime(Instant now) {
+        if (EXECUTING.get()) return;
         for (AutomationRule rule : ruleRepository.findEnabledByTriggerType(AutomationTriggerType.SCHEDULED_TIME)) {
             try {
                 Game game = gameService.findById(rule.getGameId()).orElse(null);
@@ -328,7 +330,9 @@ public class AutomationEngine {
         return anchor != null ? anchor.plus(Duration.ofMinutes(config.offsetMinutes())) : null;
     }
 
-    private void evaluateInactivity(Instant now) {
+    /** Scheduler tick: evaluate TEAM_INACTIVITY rules. */
+    public void evaluateInactivity(Instant now) {
+        if (EXECUTING.get()) return;
         for (AutomationRule rule : ruleRepository.findEnabledByTriggerType(AutomationTriggerType.TEAM_INACTIVITY)) {
             try {
                 Game game = gameService.findById(rule.getGameId()).orElse(null);

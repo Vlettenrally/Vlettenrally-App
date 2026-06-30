@@ -84,7 +84,7 @@ public class LocationPollingScheduler {
             if (!Boolean.TRUE.equals(game.getLocationEndpointActive())
                     || game.getLocationEndpointUrl() == null
                     || game.getLocationEndpointUrl().isBlank()) {
-                Log.infof("Game %s: location polling skipped (endpoint not active or URL not set)", game.getId());
+                Log.debugf("Game %s: location polling skipped (endpoint not active or URL not set)", game.getId());
                 continue;
             }
 
