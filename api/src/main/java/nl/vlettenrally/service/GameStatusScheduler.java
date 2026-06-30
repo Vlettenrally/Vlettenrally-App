@@ -15,11 +15,11 @@ import java.util.Map;
 
 /**
  * Scheduler for automatic game status transitions.
- *
+ * <p>
  * Transitions:
  * - PLANNED → ACTIVE: When startSignalTime is reached
  * - ACTIVE → COMPLETED: When endTime is reached
- *
+ * <p>
  * Runs on a single instance at a time — leader election via
  * {@link PollingLeader} (Valkey-backed lease, shared with the other
  * background schedulers).
@@ -37,6 +37,9 @@ public class GameStatusScheduler {
     AutomationEngine automationEngine;
 
     @Inject
+    LocationIngestService locationIngestService;
+
+    @Inject
     PollingLeader pollingLeader;
 
     /**
@@ -50,7 +53,7 @@ public class GameStatusScheduler {
         }
 
         Instant now = Instant.now();
-        
+
         // Check PLANNED games for transition to ACTIVE
         List<Game> plannedGames = gameService.findByStatus(Game.GameStatus.PLANNED);
         for (Game game : plannedGames) {
@@ -58,7 +61,7 @@ public class GameStatusScheduler {
                 transitionToActive(game);
             }
         }
-        
+
         // Check ACTIVE games for transition to COMPLETED
         List<Game> activeGames = gameService.findByStatus(Game.GameStatus.ACTIVE);
         for (Game game : activeGames) {
@@ -67,11 +70,11 @@ public class GameStatusScheduler {
             }
         }
     }
-    
+
     private void transitionToActive(Game game) {
         game.setStatus(Game.GameStatus.ACTIVE);
         gameService.save(game);
-        
+
         // Notify all connected clients
         webSocketPublisher.broadcastToGame(
             game.getId(),
@@ -82,16 +85,19 @@ public class GameStatusScheduler {
                 "previousStatus", "planned"
             )
         );
-        
+
         Log.info("Game '" + game.getName() + "' transitioned to ACTIVE");
 
         automationEngine.onGameStatusChange(game, Game.GameStatus.PLANNED, Game.GameStatus.ACTIVE);
+
+        // Fire automations for teams already sitting inside a zone at kickoff.
+        locationIngestService.evaluateCurrentPositions(game.getId());
     }
-    
+
     private void transitionToCompleted(Game game) {
         game.setStatus(Game.GameStatus.COMPLETED);
         gameService.save(game);
-        
+
         // Notify all connected clients
         webSocketPublisher.broadcastToGame(
             game.getId(),

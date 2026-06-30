@@ -18,5 +18,6 @@ public record GameRequest(
     String externalEventName,
     String locationEndpointUrl,
     Integer locationPollingFrequency,
-    Boolean locationEndpointActive
+    Boolean locationEndpointActive,
+    Integer locationPollingLeadMinutes
 ) {}

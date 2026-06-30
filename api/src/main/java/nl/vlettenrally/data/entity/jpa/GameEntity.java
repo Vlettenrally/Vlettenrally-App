@@ -74,6 +74,10 @@ public class GameEntity {
     @Column(name = "location_endpoint_active", nullable = false)
     private Boolean locationEndpointActive = false;
 
+    // Minutes before the start signal to begin polling/ingesting locations (0 = off).
+    @Column(name = "location_polling_lead_minutes", nullable = false)
+    private Integer locationPollingLeadMinutes = 30;
+
     // Whether the final ranking has been revealed to players (set by an admin at
     // the award ceremony). Gates all player-facing ranking visibility.
     @Column(name = "rankings_published", nullable = false)

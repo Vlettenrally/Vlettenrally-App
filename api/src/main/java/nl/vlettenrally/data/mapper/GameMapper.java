@@ -41,6 +41,7 @@ public class GameMapper {
         domain.setLocationEndpointUrl(entity.getLocationEndpointUrl());
         domain.setLocationPollingFrequency(entity.getLocationPollingFrequency());
         domain.setLocationEndpointActive(entity.getLocationEndpointActive());
+        domain.setLocationPollingLeadMinutes(entity.getLocationPollingLeadMinutes());
 
         domain.setRankingsPublished(entity.getRankingsPublished());
         domain.setPublicRankingsEnabled(entity.getPublicRankingsEnabled());
@@ -77,6 +78,7 @@ public class GameMapper {
         entity.setLocationEndpointUrl(domain.getLocationEndpointUrl());
         entity.setLocationPollingFrequency(domain.getLocationPollingFrequency());
         entity.setLocationEndpointActive(domain.getLocationEndpointActive());
+        entity.setLocationPollingLeadMinutes(domain.getLocationPollingLeadMinutes());
 
         entity.setRankingsPublished(domain.getRankingsPublished());
         entity.setPublicRankingsEnabled(domain.getPublicRankingsEnabled());
@@ -110,6 +112,7 @@ public class GameMapper {
         entity.setLocationEndpointUrl(domain.getLocationEndpointUrl());
         entity.setLocationPollingFrequency(domain.getLocationPollingFrequency());
         entity.setLocationEndpointActive(domain.getLocationEndpointActive());
+        entity.setLocationPollingLeadMinutes(domain.getLocationPollingLeadMinutes());
 
         entity.setRankingsPublished(domain.getRankingsPublished());
         entity.setPublicRankingsEnabled(domain.getPublicRankingsEnabled());

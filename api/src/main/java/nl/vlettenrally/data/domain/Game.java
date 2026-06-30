@@ -35,6 +35,8 @@ public class Game {
     private String locationEndpointUrl;
     private Integer locationPollingFrequency;
     private Boolean locationEndpointActive;
+    /** Minutes before {@link #startSignalTime} to begin polling/ingesting locations. 0 = off. */
+    private Integer locationPollingLeadMinutes;
 
     /** Whether the final ranking has been revealed to players (admin-triggered at the ceremony). */
     private Boolean rankingsPublished;
@@ -53,6 +55,8 @@ public class Game {
         this.status = GameStatus.PLANNED;
         this.locationPollingFrequency = 30; // Matches Legendstracking 30 s cache
         this.locationEndpointActive = false;
+        this.locationPollingLeadMinutes = 30; // Start ingesting 30 min before the start signal
+
         this.rankingsPublished = false;
         this.publicRankingsEnabled = false;
         this.createdAt = Instant.now();

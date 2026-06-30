@@ -12,6 +12,7 @@ import {
   Select,
   MenuItem,
   FormControl,
+  FormHelperText,
   InputLabel,
   CircularProgress,
   Alert,
@@ -50,6 +51,13 @@ export default function GameFormDialog({
     { value: 300, label: t('components.gameForm.polling5m', { defaultValue: '5 minutes' }) },
   ];
 
+  const POLLING_LEAD_OPTIONS = [
+    { value: 0, label: t('components.gameForm.pollingLeadOff', { defaultValue: 'Off' }) },
+    { value: 15, label: t('components.gameForm.pollingLead15m', { defaultValue: '15 minutes' }) },
+    { value: 30, label: t('components.gameForm.pollingLead30m', { defaultValue: '30 minutes' }) },
+    { value: 60, label: t('components.gameForm.pollingLead1h', { defaultValue: '1 hour' }) },
+  ];
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [externalEvents, setExternalEvents] = useState<ExternalEvent[]>([]);
@@ -73,6 +81,7 @@ export default function GameFormDialog({
     locationEndpointUrl: '',
     locationPollingFrequency: 30,
     locationEndpointActive: false,
+    locationPollingLeadMinutes: 30,
   });
 
   const isCreateMode = !game;
@@ -105,6 +114,7 @@ export default function GameFormDialog({
         locationEndpointUrl: game.locationEndpointUrl || '',
         locationPollingFrequency: game.locationPollingFrequency || 30,
         locationEndpointActive: game.locationEndpointActive || false,
+        locationPollingLeadMinutes: game.locationPollingLeadMinutes ?? 30,
       });
     } else {
       setFormData({
@@ -121,6 +131,7 @@ export default function GameFormDialog({
         locationEndpointUrl: '',
         locationPollingFrequency: 30,
         locationEndpointActive: false,
+        locationPollingLeadMinutes: 30,
       });
     }
     setError(null);
@@ -371,6 +382,26 @@ export default function GameFormDialog({
               sx={{ ml: 1 }}
             />
           </Box>
+
+          <FormControl fullWidth>
+            <InputLabel>{t('components.gameForm.pollingLead')}</InputLabel>
+            <Select
+              value={formData.locationPollingLeadMinutes ?? 30}
+              label={t('components.gameForm.pollingLead')}
+              onChange={(e) => handleChange('locationPollingLeadMinutes')({ target: { value: e.target.value } })}
+            >
+              {POLLING_LEAD_OPTIONS.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </Select>
+            <FormHelperText>
+              {t('components.gameForm.pollingLeadHint', {
+                defaultValue: 'Start tracking this long before the start signal, so teams already in a zone are detected at kickoff.',
+              })}
+            </FormHelperText>
+          </FormControl>
 
           {!isCreateMode && formData.locationEndpointUrl && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>

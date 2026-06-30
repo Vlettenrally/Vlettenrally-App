@@ -19,6 +19,8 @@ export interface Game {
   locationEndpointUrl?: string;
   locationPollingFrequency?: number;
   locationEndpointActive?: boolean;
+  // Minutes before the start signal to begin polling/ingesting locations (0 = off).
+  locationPollingLeadMinutes?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -40,6 +42,7 @@ export interface GameRequest {
   locationEndpointUrl?: string;
   locationPollingFrequency?: number;
   locationEndpointActive?: boolean;
+  locationPollingLeadMinutes?: number;
 }
 
 /**

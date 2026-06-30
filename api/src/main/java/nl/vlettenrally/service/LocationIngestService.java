@@ -163,6 +163,43 @@ public class LocationIngestService {
     }
 
     /**
+     * Credit every checkpoint each team is currently sitting inside, evaluated from each
+     * team's latest fix. Called once when a game transitions to ACTIVE so a team already
+     * parked in a start/checkpoint zone fires its automation immediately, rather than waiting
+     * for the next poll (or being missed if it drifts out of the zone before that poll lands).
+     * <p>
+     * State-based on purpose: it uses point containment ({@link CheckpointRepository#findContainingPoint}),
+     * not segment crossing, since there is no "previous" position to draw a segment from at kickoff.
+     * Reuses the idempotent {@link AchievementService#recordVerifiedPass}, so a checkpoint already
+     * credited (here or by a poll) neither re-credits points nor re-fires the automation. A team
+     * whose latest fix is older than the staleness window is skipped — an ancient leftover fix is
+     * not evidence the team is in the zone now.
+     */
+    @Transactional
+    public void evaluateCurrentPositions(UUID gameId) {
+        Instant cutoff = Instant.now().minus(Duration.ofSeconds(staleFixSeconds));
+        for (Team team : teamRepository.findByGameId(gameId)) {
+            if (team.isFinished()) {
+                continue;
+            }
+            LocationData latest = locationDataRepository.findLatestByTeamId(team.getId()).orElse(null);
+            if (latest == null || latest.getLocationTime() == null
+                    || latest.getLocationTime().isBefore(cutoff)) {
+                continue;
+            }
+            for (UUID checkpointId : checkpointRepository.findContainingPoint(gameId, latest.getLocation())) {
+                try {
+                    achievementService.recordVerifiedPass(
+                        team.getId(), checkpointId, latest.getLocationTime());
+                } catch (Exception e) {
+                    Log.warnf("Failed to record start-sweep pass team=%s checkpoint=%s: %s",
+                        team.getId(), checkpointId, e.getMessage());
+                }
+            }
+        }
+    }
+
+    /**
      * Auto-verify every checkpoint the boat passed since the previous fix. For two
      * consecutive fixes within the staleness window the straight segment between them is
      * tested ({@link CheckpointRepository#findCrossedBySegment}), so a zone transited between

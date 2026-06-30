@@ -41,6 +41,7 @@ import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.dto.achievement.CheckpointTeamResponse;
 import nl.vlettenrally.service.AchievementService;
 import nl.vlettenrally.service.AutomationEngine;
+import nl.vlettenrally.service.LocationIngestService;
 import nl.vlettenrally.service.AutomationService;
 import nl.vlettenrally.service.GameService;
 import nl.vlettenrally.service.RankingService;
@@ -126,6 +127,9 @@ public class GameResource {
 
     @Inject
     AutomationEngine automationEngine;
+
+    @Inject
+    LocationIngestService locationIngestService;
 
     @Inject
     WebSocketPublisher webSocketPublisher;
@@ -334,6 +338,7 @@ public class GameResource {
         game.setLocationEndpointUrl(request.locationEndpointUrl());
         game.setLocationPollingFrequency(request.locationPollingFrequency() != null ? request.locationPollingFrequency() : 15);
         game.setLocationEndpointActive(request.locationEndpointActive() != null ? request.locationEndpointActive() : false);
+        game.setLocationPollingLeadMinutes(request.locationPollingLeadMinutes() != null ? request.locationPollingLeadMinutes() : 30);
 
         Game saved = gameService.save(game);
         // Every game carries the built-in distance-points automation.
@@ -372,11 +377,17 @@ public class GameResource {
                 if (request.locationEndpointUrl() != null) game.setLocationEndpointUrl(request.locationEndpointUrl());
                 if (request.locationPollingFrequency() != null) game.setLocationPollingFrequency(request.locationPollingFrequency());
                 if (request.locationEndpointActive() != null) game.setLocationEndpointActive(request.locationEndpointActive());
+                if (request.locationPollingLeadMinutes() != null) game.setLocationPollingLeadMinutes(request.locationPollingLeadMinutes());
 
                 Game updated = gameService.save(game);
                 if (updated.getStatus() != oldStatus) {
                     // Manual admin transition — the scheduler hook won't see it.
                     automationEngine.onGameStatusChange(updated, oldStatus, updated.getStatus());
+                    if (updated.getStatus() == Game.GameStatus.ACTIVE
+                            && oldStatus != Game.GameStatus.ACTIVE) {
+                        // Fire automations for teams already sitting inside a zone at kickoff.
+                        locationIngestService.evaluateCurrentPositions(updated.getId());
+                    }
                 }
                 return Response.ok(toDto(updated)).build();
             })
@@ -657,6 +668,7 @@ public class GameResource {
             game.getLocationEndpointUrl(),
             game.getLocationPollingFrequency(),
             game.getLocationEndpointActive(),
+            game.getLocationPollingLeadMinutes(),
             game.getRankingsPublished() != null && game.getRankingsPublished(),
             game.getPublicRankingsEnabled() != null && game.getPublicRankingsEnabled(),
             game.getCreatedAt() != null ? game.getCreatedAt().toString() : null,

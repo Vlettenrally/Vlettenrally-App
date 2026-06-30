@@ -20,6 +20,7 @@ public record GameResponse(
     String locationEndpointUrl,
     Integer locationPollingFrequency,
     Boolean locationEndpointActive,
+    Integer locationPollingLeadMinutes,
     Boolean rankingsPublished,
     Boolean publicRankingsEnabled,
     String createdAt,

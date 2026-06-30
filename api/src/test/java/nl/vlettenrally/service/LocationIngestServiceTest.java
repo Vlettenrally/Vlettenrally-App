@@ -291,6 +291,80 @@ class LocationIngestServiceTest {
         verify(achievementService, never()).recordVerifiedPass(any(), any(), any());
     }
 
+    @Test
+    void evaluateCurrentPositions_inZoneRecentFix_recordsPass() {
+        Instant time = Instant.now().minusSeconds(30);
+        UUID checkpointId = UUID.randomUUID();
+        Team team = team(teamId, false);
+        when(teamRepository.findByGameId(gameId)).thenReturn(List.of(team));
+        when(locationDataRepository.findLatestByTeamId(teamId))
+            .thenReturn(Optional.of(reading(52.0, 5.0, time)));
+        when(checkpointRepository.findContainingPoint(eq(gameId), any(Point.class)))
+            .thenReturn(List.of(checkpointId));
+
+        service.evaluateCurrentPositions(gameId);
+
+        verify(achievementService).recordVerifiedPass(teamId, checkpointId, time);
+        // State-based: the sweep never draws a segment.
+        verify(checkpointRepository, never()).findCrossedBySegment(any(), any(), any());
+    }
+
+    @Test
+    void evaluateCurrentPositions_staleFix_recordsNothing() {
+        // Latest fix is older than the staleness window — not evidence the team is in the zone now.
+        Instant stale = Instant.now().minusSeconds(service.staleFixSeconds + 60);
+        when(teamRepository.findByGameId(gameId)).thenReturn(List.of(team(teamId, false)));
+        when(locationDataRepository.findLatestByTeamId(teamId))
+            .thenReturn(Optional.of(reading(52.0, 5.0, stale)));
+
+        service.evaluateCurrentPositions(gameId);
+
+        verify(checkpointRepository, never()).findContainingPoint(any(), any());
+        verify(achievementService, never()).recordVerifiedPass(any(), any(), any());
+    }
+
+    @Test
+    void evaluateCurrentPositions_noFix_recordsNothing() {
+        when(teamRepository.findByGameId(gameId)).thenReturn(List.of(team(teamId, false)));
+        when(locationDataRepository.findLatestByTeamId(teamId)).thenReturn(Optional.empty());
+
+        service.evaluateCurrentPositions(gameId);
+
+        verify(checkpointRepository, never()).findContainingPoint(any(), any());
+        verify(achievementService, never()).recordVerifiedPass(any(), any(), any());
+    }
+
+    @Test
+    void evaluateCurrentPositions_finishedTeam_isSkipped() {
+        when(teamRepository.findByGameId(gameId)).thenReturn(List.of(team(teamId, true)));
+
+        service.evaluateCurrentPositions(gameId);
+
+        verify(locationDataRepository, never()).findLatestByTeamId(any());
+        verify(achievementService, never()).recordVerifiedPass(any(), any(), any());
+    }
+
+    @Test
+    void evaluateCurrentPositions_outsideAllZones_recordsNothing() {
+        when(teamRepository.findByGameId(gameId)).thenReturn(List.of(team(teamId, false)));
+        when(locationDataRepository.findLatestByTeamId(teamId))
+            .thenReturn(Optional.of(reading(52.0, 5.0, Instant.now().minusSeconds(10))));
+        when(checkpointRepository.findContainingPoint(eq(gameId), any(Point.class)))
+            .thenReturn(List.of());
+
+        service.evaluateCurrentPositions(gameId);
+
+        verify(achievementService, never()).recordVerifiedPass(any(), any(), any());
+    }
+
+    private Team team(UUID id, boolean finished) {
+        Team team = new Team();
+        team.setId(id);
+        team.setGameId(gameId);
+        team.setFinished(finished);
+        return team;
+    }
+
     private Game activeGame() {
         Game game = new Game();
         game.setId(gameId);
