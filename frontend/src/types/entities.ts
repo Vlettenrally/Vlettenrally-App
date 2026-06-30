@@ -22,7 +22,6 @@ export interface Game {
   // Minutes before the start signal to begin polling/ingesting locations (0 = off).
   locationPollingLeadMinutes?: number;
   // Per-game location-ingest guard overrides (undefined = inherit the global default).
-  locMinIntervalSeconds?: number;
   locMaxSpeedKmh?: number;
   locBoatMaxSpeedKmh?: number;
   locTurnAngleThresholdDegrees?: number;
@@ -52,7 +51,6 @@ export interface GameRequest {
   locationEndpointActive?: boolean;
   locationPollingLeadMinutes?: number;
   // Per-game location-ingest guard overrides (undefined = inherit the global default).
-  locMinIntervalSeconds?: number;
   locMaxSpeedKmh?: number;
   locBoatMaxSpeedKmh?: number;
   locTurnAngleThresholdDegrees?: number;

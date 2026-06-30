@@ -36,7 +36,6 @@ class LocationGuardConfigTest {
     void setUp() {
         gameId = UUID.randomUUID();
         // Mirror the application.properties global defaults.
-        config.minIntervalSeconds = 5;
         config.maxSpeedKmh = 120;
         config.boatMaxSpeedKmh = 25;
         config.turnAngleThresholdDegrees = 120;
@@ -53,7 +52,6 @@ class LocationGuardConfigTest {
 
         TrackOutlierFilter.Thresholds t = config.thresholdsFor(gameId);
 
-        assertEquals(5, t.minIntervalSeconds());
         assertEquals(50, t.maxAccuracyMeters());
         assertEquals(120, t.maxSpeedKmh());
         assertEquals(25, t.boatMaxSpeedKmh());
@@ -66,7 +64,6 @@ class LocationGuardConfigTest {
     void thresholdsFor_withOverrides_usesGameValues() {
         Game game = new Game();
         game.setId(gameId);
-        game.setLocMinIntervalSeconds(10L);
         game.setLocMaxSpeedKmh(80.0);
         game.setLocBoatMaxSpeedKmh(15.0);
         game.setLocTurnAngleThresholdDegrees(90.0);
@@ -77,7 +74,6 @@ class LocationGuardConfigTest {
 
         TrackOutlierFilter.Thresholds t = config.thresholdsFor(gameId);
 
-        assertEquals(10, t.minIntervalSeconds());
         assertEquals(30, t.maxAccuracyMeters());
         assertEquals(80, t.maxSpeedKmh());
         assertEquals(15, t.boatMaxSpeedKmh());
@@ -106,7 +102,6 @@ class LocationGuardConfigTest {
 
         TrackOutlierFilter.Thresholds t = config.thresholdsFor(gameId);
 
-        assertEquals(5, t.minIntervalSeconds());
         assertEquals(120, t.maxSpeedKmh());
         assertEquals(300, t.staleFixSeconds());
     }

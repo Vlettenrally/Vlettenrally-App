@@ -30,9 +30,6 @@ public class LocationGuardConfig {
     @Inject
     GameService gameService;
 
-    @ConfigProperty(name = "vlettenrally.location.min-interval-seconds", defaultValue = "5")
-    long minIntervalSeconds;
-
     @ConfigProperty(name = "vlettenrally.location.max-speed-kmh", defaultValue = "120")
     double maxSpeedKmh;
 
@@ -60,7 +57,6 @@ public class LocationGuardConfig {
     public TrackOutlierFilter.Thresholds thresholdsFor(UUID gameId) {
         Game g = gameService.findById(gameId).orElse(null);
         return new TrackOutlierFilter.Thresholds(
-            g != null && g.getLocMinIntervalSeconds() != null ? g.getLocMinIntervalSeconds() : minIntervalSeconds,
             g != null && g.getLocMaxAccuracyMeters() != null ? g.getLocMaxAccuracyMeters() : maxAccuracyMeters,
             g != null && g.getLocMaxSpeedKmh() != null ? g.getLocMaxSpeedKmh() : maxSpeedKmh,
             g != null && g.getLocBoatMaxSpeedKmh() != null ? g.getLocBoatMaxSpeedKmh() : boatMaxSpeedKmh,

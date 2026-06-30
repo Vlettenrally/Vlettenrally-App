@@ -29,7 +29,7 @@ public final class TrackOutlierFilter {
     /** Outcome of evaluating a candidate fix. Anything other than ACCEPT means drop it. */
     public enum Decision {
         ACCEPT,
-        DROP_THROTTLE,
+        DROP_DUPLICATE,
         DROP_ACCURACY,
         DROP_TELEPORT,
         DROP_SPIKE
@@ -45,7 +45,6 @@ public final class TrackOutlierFilter {
      * Tunable thresholds, passed in so this class stays free of CDI/config and trivially
      * unit-testable.
      *
-     * @param minIntervalSeconds        drop fixes arriving faster than this since {@code last}
      * @param maxAccuracyMeters         drop fixes whose reported accuracy exceeds this (null bypasses)
      * @param maxSpeedKmh               hard teleport ceiling: any implied speed above this drops
      * @param boatMaxSpeedKmh           soft ceiling used by the direction-gated spike rule
@@ -54,7 +53,6 @@ public final class TrackOutlierFilter {
      * @param staleFixSeconds           if the gap exceeds this, apply only the hard ceiling (re-acquire after an outage)
      */
     public record Thresholds(
-            long minIntervalSeconds,
             double maxAccuracyMeters,
             double maxSpeedKmh,
             double boatMaxSpeedKmh,
@@ -73,9 +71,11 @@ public final class TrackOutlierFilter {
      */
     public static Result evaluate(LocationData prev, LocationData last, LocationData candidate, Thresholds t) {
         long dtSeconds = Duration.between(last.getLocationTime(), candidate.getLocationTime()).getSeconds();
-        if (dtSeconds < t.minIntervalSeconds()) {
-            return Result.drop(Decision.DROP_THROTTLE,
-                String.format("dt=%ds (min=%ds)", dtSeconds, t.minIntervalSeconds()));
+        // Drop re-polled duplicates and non-monotonic fixes: the timestamp must strictly advance.
+        // This also keeps the implied-speed division below safe (dtSeconds is guaranteed > 0).
+        if (dtSeconds <= 0) {
+            return Result.drop(Decision.DROP_DUPLICATE,
+                String.format("dt=%ds (must advance)", dtSeconds));
         }
 
         BigDecimal accuracy = candidate.getAccuracy();

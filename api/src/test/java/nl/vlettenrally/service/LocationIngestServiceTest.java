@@ -85,7 +85,7 @@ class LocationIngestServiceTest {
 
     // The production defaults, resolved through the (now-cached) LocationGuardConfig.
     private static final TrackOutlierFilter.Thresholds DEFAULT_THRESHOLDS =
-        new TrackOutlierFilter.Thresholds(5, 50, 120, 25, 120, 10, 300);
+        new TrackOutlierFilter.Thresholds(50, 120, 25, 120, 10, 300);
 
     @BeforeEach
     void setUp() {
@@ -107,16 +107,29 @@ class LocationIngestServiceTest {
     }
 
     @Test
-    void ingest_tooSoonAfterLastFix_isDropped() {
+    void ingest_duplicateTimestamp_isDropped() {
         Instant base = Instant.now();
         when(locationDataRepository.findRecentByTeamId(teamId, 2))
             .thenReturn(List.of(reading(52.0, 5.0, base)));
 
-        // 2 seconds after the last fix — under the 5s minimum interval.
-        Optional<TeamLocationResponse> result = service.ingest(reading(52.0001, 5.0001, base.plusSeconds(2)), "Team");
+        // Same timestamp as the last fix (a re-polled duplicate): the timestamp must advance.
+        Optional<TeamLocationResponse> result = service.ingest(reading(52.0001, 5.0001, base), "Team");
 
         assertFalse(result.isPresent());
         verify(locationDataRepository, never()).save(any(LocationData.class));
+    }
+
+    @Test
+    void ingest_highFrequencyFix_isAccepted() {
+        Instant base = Instant.now();
+        when(locationDataRepository.findRecentByTeamId(teamId, 2))
+            .thenReturn(List.of(reading(52.0, 5.0, base)));
+
+        // 2 seconds after the last fix — high-frequency fixes are no longer throttled.
+        Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 5.00001, base.plusSeconds(2)), "Team");
+
+        assertTrue(result.isPresent());
+        verify(locationDataRepository).save(any(LocationData.class));
     }
 
     @Test

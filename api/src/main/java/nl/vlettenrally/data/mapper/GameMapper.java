@@ -47,7 +47,6 @@ public class GameMapper {
         domain.setPublicRankingsEnabled(entity.getPublicRankingsEnabled());
 
         // Per-game location-ingest guard overrides (null = inherit global default)
-        domain.setLocMinIntervalSeconds(entity.getLocMinIntervalSeconds());
         domain.setLocMaxSpeedKmh(entity.getLocMaxSpeedKmh());
         domain.setLocBoatMaxSpeedKmh(entity.getLocBoatMaxSpeedKmh());
         domain.setLocTurnAngleThresholdDegrees(entity.getLocTurnAngleThresholdDegrees());
@@ -93,7 +92,6 @@ public class GameMapper {
         entity.setPublicRankingsEnabled(domain.getPublicRankingsEnabled());
 
         // Per-game location-ingest guard overrides (null = inherit global default)
-        entity.setLocMinIntervalSeconds(domain.getLocMinIntervalSeconds());
         entity.setLocMaxSpeedKmh(domain.getLocMaxSpeedKmh());
         entity.setLocBoatMaxSpeedKmh(domain.getLocBoatMaxSpeedKmh());
         entity.setLocTurnAngleThresholdDegrees(domain.getLocTurnAngleThresholdDegrees());
@@ -136,7 +134,6 @@ public class GameMapper {
         entity.setPublicRankingsEnabled(domain.getPublicRankingsEnabled());
 
         // Per-game location-ingest guard overrides (null = inherit global default)
-        entity.setLocMinIntervalSeconds(domain.getLocMinIntervalSeconds());
         entity.setLocMaxSpeedKmh(domain.getLocMaxSpeedKmh());
         entity.setLocBoatMaxSpeedKmh(domain.getLocBoatMaxSpeedKmh());
         entity.setLocTurnAngleThresholdDegrees(domain.getLocTurnAngleThresholdDegrees());

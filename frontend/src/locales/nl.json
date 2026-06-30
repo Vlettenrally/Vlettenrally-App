@@ -838,7 +838,6 @@
       "pollingLeadHint": "Start zoveel eerder met tracken vóór het startsignaal, zodat teams die al in een zone liggen bij de start worden gedetecteerd.",
       "guardOverrides": "Aangepaste ingest-filters",
       "guardOverridesHint": "Stel het outlier-filter af voor deze game. Laat een veld leeg om de systeemstandaard te gebruiken die erin wordt getoond.",
-      "guardMinInterval": "Min. interval (s)",
       "guardMaxSpeed": "Harde snelheidsgrens (km/u)",
       "guardBoatMaxSpeed": "Bootsnelheidsgrens (km/u)",
       "guardTurnAngle": "Draaihoekdrempel (°)",

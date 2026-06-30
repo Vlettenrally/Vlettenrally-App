@@ -42,7 +42,6 @@ interface GameFormDialogProps {
 
 // The optional numeric per-game location-ingest guard overrides on GameRequest.
 type GuardField =
-  | 'locMinIntervalSeconds'
   | 'locMaxSpeedKmh'
   | 'locBoatMaxSpeedKmh'
   | 'locTurnAngleThresholdDegrees'
@@ -81,7 +80,6 @@ export default function GameFormDialog({
     globalDefault: number;
     step: number;
   }> = [
-    { field: 'locMinIntervalSeconds', label: t('components.gameForm.guardMinInterval', { defaultValue: 'Min interval (s)' }), globalDefault: 5, step: 1 },
     { field: 'locMaxSpeedKmh', label: t('components.gameForm.guardMaxSpeed', { defaultValue: 'Hard speed ceiling (km/h)' }), globalDefault: 120, step: 1 },
     { field: 'locBoatMaxSpeedKmh', label: t('components.gameForm.guardBoatMaxSpeed', { defaultValue: 'Boat speed ceiling (km/h)' }), globalDefault: 25, step: 1 },
     { field: 'locTurnAngleThresholdDegrees', label: t('components.gameForm.guardTurnAngle', { defaultValue: 'Turn-angle threshold (°)' }), globalDefault: 120, step: 1 },
@@ -148,7 +146,6 @@ export default function GameFormDialog({
         locationEndpointActive: game.locationEndpointActive || false,
         locationPollingLeadMinutes: game.locationPollingLeadMinutes ?? 30,
         // Per-game guard overrides; undefined keeps the field blank (inherit global).
-        locMinIntervalSeconds: game.locMinIntervalSeconds,
         locMaxSpeedKmh: game.locMaxSpeedKmh,
         locBoatMaxSpeedKmh: game.locBoatMaxSpeedKmh,
         locTurnAngleThresholdDegrees: game.locTurnAngleThresholdDegrees,

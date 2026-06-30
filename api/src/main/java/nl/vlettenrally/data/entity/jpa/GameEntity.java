@@ -89,9 +89,6 @@ public class GameEntity {
 
     // Per-game location-ingest guard overrides. Nullable: NULL = inherit the global
     // default (vlettenrally.location.*); a value overrides that guard for this game.
-    @Column(name = "loc_min_interval_seconds")
-    private Long locMinIntervalSeconds;
-
     @Column(name = "loc_max_speed_kmh")
     private Double locMaxSpeedKmh;
 

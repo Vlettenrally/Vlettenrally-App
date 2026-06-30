@@ -838,7 +838,6 @@
       "pollingLeadHint": "Start tracking this long before the start signal, so teams already in a zone are detected at kickoff.",
       "guardOverrides": "Ingest guard overrides",
       "guardOverridesHint": "Tune the outlier filter for this game. Leave a field blank to inherit the system default shown in it.",
-      "guardMinInterval": "Min interval (s)",
       "guardMaxSpeed": "Hard speed ceiling (km/h)",
       "guardBoatMaxSpeed": "Boat speed ceiling (km/h)",
       "guardTurnAngle": "Turn-angle threshold (°)",

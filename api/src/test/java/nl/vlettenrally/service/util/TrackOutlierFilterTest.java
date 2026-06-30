@@ -21,7 +21,6 @@ class TrackOutlierFilterTest {
     private static final Instant T0 = Instant.parse("2026-06-13T10:00:00Z");
 
     private static final TrackOutlierFilter.Thresholds THRESHOLDS = new TrackOutlierFilter.Thresholds(
-        5,      // minIntervalSeconds
         50.0,   // maxAccuracyMeters
         120.0,  // maxSpeedKmh
         25.0,   // boatMaxSpeedKmh
@@ -85,10 +84,24 @@ class TrackOutlierFilterTest {
     }
 
     @Test
-    void belowMinInterval_isThrottled() {
+    void duplicateTimestamp_isDropped() {
         LocationData last = at(52.0, 5.000, 60);
-        LocationData cand = at(52.0, 5.0001, 62);  // only 2s later
-        assertEquals(TrackOutlierFilter.Decision.DROP_THROTTLE, evaluate(null, last, cand));
+        LocationData cand = at(52.0, 5.0001, 60);  // same timestamp (re-polled duplicate)
+        assertEquals(TrackOutlierFilter.Decision.DROP_DUPLICATE, evaluate(null, last, cand));
+    }
+
+    @Test
+    void nonMonotonicTimestamp_isDropped() {
+        LocationData last = at(52.0, 5.000, 60);
+        LocationData cand = at(52.0, 5.0001, 58);  // 2s earlier than last (out of order)
+        assertEquals(TrackOutlierFilter.Decision.DROP_DUPLICATE, evaluate(null, last, cand));
+    }
+
+    @Test
+    void highFrequencyFix_isAccepted() {
+        LocationData last = at(52.0, 5.000, 60);
+        LocationData cand = at(52.0, 5.0001, 62);  // only 2s later — no longer throttled
+        assertEquals(TrackOutlierFilter.Decision.ACCEPT, evaluate(null, last, cand));
     }
 
     @Test
