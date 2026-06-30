@@ -87,6 +87,29 @@ public class GameEntity {
     @Column(name = "public_rankings_enabled", nullable = false)
     private Boolean publicRankingsEnabled = false;
 
+    // Per-game location-ingest guard overrides. Nullable: NULL = inherit the global
+    // default (vlettenrally.location.*); a value overrides that guard for this game.
+    @Column(name = "loc_min_interval_seconds")
+    private Long locMinIntervalSeconds;
+
+    @Column(name = "loc_max_speed_kmh")
+    private Double locMaxSpeedKmh;
+
+    @Column(name = "loc_boat_max_speed_kmh")
+    private Double locBoatMaxSpeedKmh;
+
+    @Column(name = "loc_turn_angle_threshold_degrees")
+    private Double locTurnAngleThresholdDegrees;
+
+    @Column(name = "loc_min_bearing_segment_meters")
+    private Double locMinBearingSegmentMeters;
+
+    @Column(name = "loc_max_accuracy_meters")
+    private Double locMaxAccuracyMeters;
+
+    @Column(name = "loc_stale_fix_seconds")
+    private Long locStaleFixSeconds;
+
     public enum GameStatus {
         PLANNED,
         ACTIVE,

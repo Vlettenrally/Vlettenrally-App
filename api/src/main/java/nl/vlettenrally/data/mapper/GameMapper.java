@@ -46,6 +46,15 @@ public class GameMapper {
         domain.setRankingsPublished(entity.getRankingsPublished());
         domain.setPublicRankingsEnabled(entity.getPublicRankingsEnabled());
 
+        // Per-game location-ingest guard overrides (null = inherit global default)
+        domain.setLocMinIntervalSeconds(entity.getLocMinIntervalSeconds());
+        domain.setLocMaxSpeedKmh(entity.getLocMaxSpeedKmh());
+        domain.setLocBoatMaxSpeedKmh(entity.getLocBoatMaxSpeedKmh());
+        domain.setLocTurnAngleThresholdDegrees(entity.getLocTurnAngleThresholdDegrees());
+        domain.setLocMinBearingSegmentMeters(entity.getLocMinBearingSegmentMeters());
+        domain.setLocMaxAccuracyMeters(entity.getLocMaxAccuracyMeters());
+        domain.setLocStaleFixSeconds(entity.getLocStaleFixSeconds());
+
         return domain;
     }
 
@@ -83,6 +92,15 @@ public class GameMapper {
         entity.setRankingsPublished(domain.getRankingsPublished());
         entity.setPublicRankingsEnabled(domain.getPublicRankingsEnabled());
 
+        // Per-game location-ingest guard overrides (null = inherit global default)
+        entity.setLocMinIntervalSeconds(domain.getLocMinIntervalSeconds());
+        entity.setLocMaxSpeedKmh(domain.getLocMaxSpeedKmh());
+        entity.setLocBoatMaxSpeedKmh(domain.getLocBoatMaxSpeedKmh());
+        entity.setLocTurnAngleThresholdDegrees(domain.getLocTurnAngleThresholdDegrees());
+        entity.setLocMinBearingSegmentMeters(domain.getLocMinBearingSegmentMeters());
+        entity.setLocMaxAccuracyMeters(domain.getLocMaxAccuracyMeters());
+        entity.setLocStaleFixSeconds(domain.getLocStaleFixSeconds());
+
         return entity;
     }
 
@@ -116,6 +134,15 @@ public class GameMapper {
 
         entity.setRankingsPublished(domain.getRankingsPublished());
         entity.setPublicRankingsEnabled(domain.getPublicRankingsEnabled());
+
+        // Per-game location-ingest guard overrides (null = inherit global default)
+        entity.setLocMinIntervalSeconds(domain.getLocMinIntervalSeconds());
+        entity.setLocMaxSpeedKmh(domain.getLocMaxSpeedKmh());
+        entity.setLocBoatMaxSpeedKmh(domain.getLocBoatMaxSpeedKmh());
+        entity.setLocTurnAngleThresholdDegrees(domain.getLocTurnAngleThresholdDegrees());
+        entity.setLocMinBearingSegmentMeters(domain.getLocMinBearingSegmentMeters());
+        entity.setLocMaxAccuracyMeters(domain.getLocMaxAccuracyMeters());
+        entity.setLocStaleFixSeconds(domain.getLocStaleFixSeconds());
     }
 
     private static Game.GameStatus mapStatus(GameEntity.GameStatus status) {

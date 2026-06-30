@@ -19,5 +19,13 @@ public record GameRequest(
     String locationEndpointUrl,
     Integer locationPollingFrequency,
     Boolean locationEndpointActive,
-    Integer locationPollingLeadMinutes
+    Integer locationPollingLeadMinutes,
+    // Per-game location-ingest guard overrides (null = inherit the global default).
+    Long locMinIntervalSeconds,
+    Double locMaxSpeedKmh,
+    Double locBoatMaxSpeedKmh,
+    Double locTurnAngleThresholdDegrees,
+    Double locMinBearingSegmentMeters,
+    Double locMaxAccuracyMeters,
+    Long locStaleFixSeconds
 ) {}

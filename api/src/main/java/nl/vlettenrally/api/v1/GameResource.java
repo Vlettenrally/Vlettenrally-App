@@ -41,6 +41,7 @@ import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.dto.achievement.CheckpointTeamResponse;
 import nl.vlettenrally.service.AchievementService;
 import nl.vlettenrally.service.AutomationEngine;
+import nl.vlettenrally.service.LocationGuardConfig;
 import nl.vlettenrally.service.LocationIngestService;
 import nl.vlettenrally.service.AutomationService;
 import nl.vlettenrally.service.GameService;
@@ -130,6 +131,9 @@ public class GameResource {
 
     @Inject
     LocationIngestService locationIngestService;
+
+    @Inject
+    LocationGuardConfig locationGuardConfig;
 
     @Inject
     WebSocketPublisher webSocketPublisher;
@@ -340,6 +344,15 @@ public class GameResource {
         game.setLocationEndpointActive(request.locationEndpointActive() != null ? request.locationEndpointActive() : false);
         game.setLocationPollingLeadMinutes(request.locationPollingLeadMinutes() != null ? request.locationPollingLeadMinutes() : 30);
 
+        // Per-game guard overrides: null leaves the game inheriting the global default.
+        game.setLocMinIntervalSeconds(request.locMinIntervalSeconds());
+        game.setLocMaxSpeedKmh(request.locMaxSpeedKmh());
+        game.setLocBoatMaxSpeedKmh(request.locBoatMaxSpeedKmh());
+        game.setLocTurnAngleThresholdDegrees(request.locTurnAngleThresholdDegrees());
+        game.setLocMinBearingSegmentMeters(request.locMinBearingSegmentMeters());
+        game.setLocMaxAccuracyMeters(request.locMaxAccuracyMeters());
+        game.setLocStaleFixSeconds(request.locStaleFixSeconds());
+
         Game saved = gameService.save(game);
         // Every game carries the built-in distance-points automation.
         automationService.createSystemDistanceRule(saved.getId());
@@ -379,7 +392,19 @@ public class GameResource {
                 if (request.locationEndpointActive() != null) game.setLocationEndpointActive(request.locationEndpointActive());
                 if (request.locationPollingLeadMinutes() != null) game.setLocationPollingLeadMinutes(request.locationPollingLeadMinutes());
 
+                // Per-game guard overrides: null = "leave unchanged" (consistent with the
+                // other fields above). Clearing back to "inherit global" is a DB-level action.
+                if (request.locMinIntervalSeconds() != null) game.setLocMinIntervalSeconds(request.locMinIntervalSeconds());
+                if (request.locMaxSpeedKmh() != null) game.setLocMaxSpeedKmh(request.locMaxSpeedKmh());
+                if (request.locBoatMaxSpeedKmh() != null) game.setLocBoatMaxSpeedKmh(request.locBoatMaxSpeedKmh());
+                if (request.locTurnAngleThresholdDegrees() != null) game.setLocTurnAngleThresholdDegrees(request.locTurnAngleThresholdDegrees());
+                if (request.locMinBearingSegmentMeters() != null) game.setLocMinBearingSegmentMeters(request.locMinBearingSegmentMeters());
+                if (request.locMaxAccuracyMeters() != null) game.setLocMaxAccuracyMeters(request.locMaxAccuracyMeters());
+                if (request.locStaleFixSeconds() != null) game.setLocStaleFixSeconds(request.locStaleFixSeconds());
+
                 Game updated = gameService.save(game);
+                // Guard config may have changed; evict this replica's cached thresholds at once.
+                locationGuardConfig.invalidate(updated.getId());
                 if (updated.getStatus() != oldStatus) {
                     // Manual admin transition — the scheduler hook won't see it.
                     automationEngine.onGameStatusChange(updated, oldStatus, updated.getStatus());
@@ -669,6 +694,13 @@ public class GameResource {
             game.getLocationPollingFrequency(),
             game.getLocationEndpointActive(),
             game.getLocationPollingLeadMinutes(),
+            game.getLocMinIntervalSeconds(),
+            game.getLocMaxSpeedKmh(),
+            game.getLocBoatMaxSpeedKmh(),
+            game.getLocTurnAngleThresholdDegrees(),
+            game.getLocMinBearingSegmentMeters(),
+            game.getLocMaxAccuracyMeters(),
+            game.getLocStaleFixSeconds(),
             game.getRankingsPublished() != null && game.getRankingsPublished(),
             game.getPublicRankingsEnabled() != null && game.getPublicRankingsEnabled(),
             game.getCreatedAt() != null ? game.getCreatedAt().toString() : null,

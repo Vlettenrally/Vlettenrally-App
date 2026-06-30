@@ -44,6 +44,24 @@ public class Game {
     /** Whether the ranking is visible on the public scoreboard API (independent of player-app visibility). */
     private Boolean publicRankingsEnabled;
 
+    // Per-game location-ingest guard overrides. Null = inherit the global default from
+    // application.properties (vlettenrally.location.*); a non-null value overrides that
+    // guard for this game only. See LocationGuardConfig for resolution + caching.
+    /** Drop fixes arriving faster than this (seconds) since the last fix. Null = global. */
+    private Long locMinIntervalSeconds;
+    /** Hard teleport ceiling (km/h): any implied speed above this is dropped. Null = global. */
+    private Double locMaxSpeedKmh;
+    /** Soft ceiling (km/h) for the direction-gated spike rule. Null = global. */
+    private Double locBoatMaxSpeedKmh;
+    /** A turn sharper than this (degrees) is a spike candidate. Null = global. */
+    private Double locTurnAngleThresholdDegrees;
+    /** Legs shorter than this (meters) skip the turn test. Null = global. */
+    private Double locMinBearingSegmentMeters;
+    /** Drop fixes whose reported accuracy exceeds this (meters); null bypasses. Null = global. */
+    private Double locMaxAccuracyMeters;
+    /** Gaps longer than this (seconds) bypass the boat-speed/turn rules. Null = global. */
+    private Long locStaleFixSeconds;
+
     public enum GameStatus {
         PLANNED,
         ACTIVE,

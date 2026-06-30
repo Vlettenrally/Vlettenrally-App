@@ -16,7 +16,6 @@ import nl.vlettenrally.websockets.MapSubscriptionManager;
 import nl.vlettenrally.websockets.WebSocketEventTypes;
 import nl.vlettenrally.websockets.WebSocketMessage;
 import nl.vlettenrally.websockets.WebSocketPublisher;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.locationtech.jts.geom.Point;
 
 import java.math.BigDecimal;
@@ -66,33 +65,9 @@ public class LocationIngestService {
     @Inject
     AchievementService achievementService;
 
-    /** Drop fixes that arrive faster than this since the team's last stored fix. */
-    @ConfigProperty(name = "vlettenrally.location.min-interval-seconds", defaultValue = "5")
-    long minIntervalSeconds;
-
-    /** Hard teleport ceiling: drop fixes whose implied speed from the last fix exceeds this. */
-    @ConfigProperty(name = "vlettenrally.location.max-speed-kmh", defaultValue = "120")
-    double maxSpeedKmh;
-
-    /** Soft ceiling for the direction-gated spike rule (boats move slowly). */
-    @ConfigProperty(name = "vlettenrally.location.boat-max-speed-kmh", defaultValue = "25")
-    double boatMaxSpeedKmh;
-
-    /** A turn beyond this (degrees) is treated as a sharp reversal / spike candidate. */
-    @ConfigProperty(name = "vlettenrally.location.turn-angle-threshold-degrees", defaultValue = "120")
-    double turnAngleThresholdDegrees;
-
-    /** Legs shorter than this (meters) give unreliable bearings, so skip the turn test. */
-    @ConfigProperty(name = "vlettenrally.location.min-bearing-segment-meters", defaultValue = "10")
-    double minBearingSegmentMeters;
-
-    /** Drop fixes whose reported accuracy exceeds this (meters); null accuracy bypasses. */
-    @ConfigProperty(name = "vlettenrally.location.max-accuracy-meters", defaultValue = "50")
-    double maxAccuracyMeters;
-
-    /** Gaps longer than this (seconds) bypass the boat-speed/turn rules so the track re-acquires. */
-    @ConfigProperty(name = "vlettenrally.location.stale-fix-seconds", defaultValue = "300")
-    long staleFixSeconds;
+    /** Resolves + caches the per-game outlier guards (falling back to global defaults). */
+    @Inject
+    LocationGuardConfig guardConfig;
 
     /** Reject timestamps further than this into the future (clock skew / spoofing). */
     private static final long MAX_FUTURE_SKEW_SECONDS = 60;
@@ -177,6 +152,7 @@ public class LocationIngestService {
      */
     @Transactional
     public void evaluateCurrentPositions(UUID gameId) {
+        long staleFixSeconds = guardConfig.thresholdsFor(gameId).staleFixSeconds();
         Instant cutoff = Instant.now().minus(Duration.ofSeconds(staleFixSeconds));
         for (Team team : teamRepository.findByGameId(gameId)) {
             if (team.isFinished()) {
@@ -210,6 +186,7 @@ public class LocationIngestService {
      * {@link AchievementService#recordVerifiedPass} is idempotent per (team, checkpoint).
      */
     private void detectCheckpointPasses(LocationData previous, LocationData reading) {
+        long staleFixSeconds = guardConfig.thresholdsFor(reading.getGameId()).staleFixSeconds();
         boolean connect = previous != null
             && Duration.between(previous.getLocationTime(), reading.getLocationTime()).getSeconds() <= staleFixSeconds;
         List<UUID> matched = connect
@@ -273,9 +250,7 @@ public class LocationIngestService {
      * when the team has only one prior fix.
      */
     private boolean passesGuards(LocationData prev, LocationData last, LocationData reading) {
-        TrackOutlierFilter.Thresholds thresholds = new TrackOutlierFilter.Thresholds(
-            minIntervalSeconds, maxAccuracyMeters, maxSpeedKmh, boatMaxSpeedKmh,
-            turnAngleThresholdDegrees, minBearingSegmentMeters, staleFixSeconds);
+        TrackOutlierFilter.Thresholds thresholds = guardConfig.thresholdsFor(reading.getGameId());
         TrackOutlierFilter.Result result = TrackOutlierFilter.evaluate(prev, last, reading, thresholds);
         if (result.decision() != TrackOutlierFilter.Decision.ACCEPT) {
             Log.infof("Dropping location for team %s [%s]: %s",

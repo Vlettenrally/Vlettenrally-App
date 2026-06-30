@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -32,6 +33,7 @@ import nl.vlettenrally.data.dto.game.TeamLocationResponse;
 import nl.vlettenrally.data.repository.CheckpointRepository;
 import nl.vlettenrally.data.repository.LocationDataRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
+import nl.vlettenrally.service.util.TrackOutlierFilter;
 import nl.vlettenrally.websockets.MapSubscriptionManager;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 
@@ -72,23 +74,25 @@ class LocationIngestServiceTest {
     @Mock
     AchievementService achievementService;
 
+    @Mock
+    LocationGuardConfig guardConfig;
+
     @InjectMocks
     LocationIngestService service;
 
     private UUID teamId;
     private UUID gameId;
 
+    // The production defaults, resolved through the (now-cached) LocationGuardConfig.
+    private static final TrackOutlierFilter.Thresholds DEFAULT_THRESHOLDS =
+        new TrackOutlierFilter.Thresholds(5, 50, 120, 25, 120, 10, 300);
+
     @BeforeEach
     void setUp() {
-        service.minIntervalSeconds = 5;
-        service.maxSpeedKmh = 120;
-        service.boatMaxSpeedKmh = 25;
-        service.turnAngleThresholdDegrees = 120;
-        service.minBearingSegmentMeters = 10;
-        service.maxAccuracyMeters = 50;
-        service.staleFixSeconds = 300;
         teamId = UUID.randomUUID();
         gameId = UUID.randomUUID();
+        // Lenient: guards aren't consulted on paths that bail out earlier (e.g. invalid coords).
+        lenient().when(guardConfig.thresholdsFor(any())).thenReturn(DEFAULT_THRESHOLDS);
     }
 
     @Test
@@ -312,7 +316,7 @@ class LocationIngestServiceTest {
     @Test
     void evaluateCurrentPositions_staleFix_recordsNothing() {
         // Latest fix is older than the staleness window — not evidence the team is in the zone now.
-        Instant stale = Instant.now().minusSeconds(service.staleFixSeconds + 60);
+        Instant stale = Instant.now().minusSeconds(DEFAULT_THRESHOLDS.staleFixSeconds() + 60);
         when(teamRepository.findByGameId(gameId)).thenReturn(List.of(team(teamId, false)));
         when(locationDataRepository.findLatestByTeamId(teamId))
             .thenReturn(Optional.of(reading(52.0, 5.0, stale)));

@@ -17,11 +17,15 @@ import {
   CircularProgress,
   Alert,
   Divider,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material';
 import {
   NetworkCheck as TestIcon,
   CheckCircle as SuccessIcon,
   Error as ErrorIcon,
+  ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -35,6 +39,16 @@ interface GameFormDialogProps {
   game: Game | null;
   onSave?: (game: Game) => void;
 }
+
+// The optional numeric per-game location-ingest guard overrides on GameRequest.
+type GuardField =
+  | 'locMinIntervalSeconds'
+  | 'locMaxSpeedKmh'
+  | 'locBoatMaxSpeedKmh'
+  | 'locTurnAngleThresholdDegrees'
+  | 'locMinBearingSegmentMeters'
+  | 'locMaxAccuracyMeters'
+  | 'locStaleFixSeconds';
 
 export default function GameFormDialog({
   open,
@@ -56,6 +70,24 @@ export default function GameFormDialog({
     { value: 15, label: t('components.gameForm.pollingLead15m', { defaultValue: '15 minutes' }) },
     { value: 30, label: t('components.gameForm.pollingLead30m', { defaultValue: '30 minutes' }) },
     { value: 60, label: t('components.gameForm.pollingLead1h', { defaultValue: '1 hour' }) },
+  ];
+
+  // Per-game overrides for the location-ingest outlier guards. Each is optional: an empty
+  // field inherits the system-wide default (shown as the input placeholder). `step` controls
+  // the number-input increment; `globalDefault` mirrors the backend application.properties.
+  const GUARD_FIELDS: Array<{
+    field: GuardField;
+    label: string;
+    globalDefault: number;
+    step: number;
+  }> = [
+    { field: 'locMinIntervalSeconds', label: t('components.gameForm.guardMinInterval', { defaultValue: 'Min interval (s)' }), globalDefault: 5, step: 1 },
+    { field: 'locMaxSpeedKmh', label: t('components.gameForm.guardMaxSpeed', { defaultValue: 'Hard speed ceiling (km/h)' }), globalDefault: 120, step: 1 },
+    { field: 'locBoatMaxSpeedKmh', label: t('components.gameForm.guardBoatMaxSpeed', { defaultValue: 'Boat speed ceiling (km/h)' }), globalDefault: 25, step: 1 },
+    { field: 'locTurnAngleThresholdDegrees', label: t('components.gameForm.guardTurnAngle', { defaultValue: 'Turn-angle threshold (°)' }), globalDefault: 120, step: 1 },
+    { field: 'locMinBearingSegmentMeters', label: t('components.gameForm.guardMinBearingSegment', { defaultValue: 'Min bearing segment (m)' }), globalDefault: 10, step: 1 },
+    { field: 'locMaxAccuracyMeters', label: t('components.gameForm.guardMaxAccuracy', { defaultValue: 'Max GPS accuracy (m)' }), globalDefault: 50, step: 1 },
+    { field: 'locStaleFixSeconds', label: t('components.gameForm.guardStaleFix', { defaultValue: 'Stale-fix window (s)' }), globalDefault: 300, step: 1 },
   ];
 
   const [loading, setLoading] = useState(false);
@@ -115,6 +147,14 @@ export default function GameFormDialog({
         locationPollingFrequency: game.locationPollingFrequency || 30,
         locationEndpointActive: game.locationEndpointActive || false,
         locationPollingLeadMinutes: game.locationPollingLeadMinutes ?? 30,
+        // Per-game guard overrides; undefined keeps the field blank (inherit global).
+        locMinIntervalSeconds: game.locMinIntervalSeconds,
+        locMaxSpeedKmh: game.locMaxSpeedKmh,
+        locBoatMaxSpeedKmh: game.locBoatMaxSpeedKmh,
+        locTurnAngleThresholdDegrees: game.locTurnAngleThresholdDegrees,
+        locMinBearingSegmentMeters: game.locMinBearingSegmentMeters,
+        locMaxAccuracyMeters: game.locMaxAccuracyMeters,
+        locStaleFixSeconds: game.locStaleFixSeconds,
       });
     } else {
       setFormData({
@@ -220,6 +260,18 @@ export default function GameFormDialog({
     setFormData((prev) => ({
       ...prev,
       [field]: value,
+    }));
+  };
+
+  // Optional numeric guard override: an empty field clears the override (undefined =
+  // inherit the global default); otherwise store the parsed number.
+  const handleGuardChange = (field: GuardField) => (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const raw = event.target.value;
+    setFormData((prev) => ({
+      ...prev,
+      [field]: raw === '' ? undefined : Number(raw),
     }));
   };
 
@@ -402,6 +454,39 @@ export default function GameFormDialog({
               })}
             </FormHelperText>
           </FormControl>
+
+          {/* Per-game ingest guard overrides — collapsed by default; blank inherits the system default. */}
+          <Accordion disableGutters elevation={0} sx={{ '&:before': { display: 'none' }, border: 1, borderColor: 'divider', borderRadius: 1 }}>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Typography variant="subtitle2" color="text.secondary">
+                {t('components.gameForm.guardOverrides', { defaultValue: 'Ingest guard overrides' })}
+              </Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <FormHelperText sx={{ mt: 0, mb: 2 }}>
+                {t('components.gameForm.guardOverridesHint', {
+                  defaultValue: 'Tune the outlier filter for this game. Leave a field blank to inherit the system default shown in it.',
+                })}
+              </FormHelperText>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                {GUARD_FIELDS.map((guard) => (
+                  <TextField
+                    key={guard.field}
+                    type="number"
+                    label={guard.label}
+                    value={formData[guard.field] ?? ''}
+                    onChange={handleGuardChange(guard.field)}
+                    placeholder={String(guard.globalDefault)}
+                    slotProps={{
+                      inputLabel: { shrink: true },
+                      htmlInput: { min: 0, step: guard.step },
+                    }}
+                    fullWidth
+                  />
+                ))}
+              </Box>
+            </AccordionDetails>
+          </Accordion>
 
           {!isCreateMode && formData.locationEndpointUrl && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
