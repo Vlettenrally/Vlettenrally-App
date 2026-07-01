@@ -53,7 +53,7 @@ const PAGE_KEYS: Record<string, string> = {
   '/admin/admin-users':        'admin.layout.adminUsers',
 };
 
-const ALWAYS_ACCESSIBLE = ['/admin/map', '/admin/inbox'];
+const ALWAYS_ACCESSIBLE = ['/admin/map', '/admin/settings', '/admin/pictures'];
 
 export default function AdminUsersPage() {
   const { t } = useTranslation();
@@ -341,9 +341,9 @@ export default function AdminUsersPage() {
   ];
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h4">{t('admin.adminUsers.title')}</Typography>
+    <Box sx={{ p: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+        <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold' }}>{t('admin.adminUsers.title')}</Typography>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
