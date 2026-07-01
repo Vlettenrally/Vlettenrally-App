@@ -99,6 +99,9 @@ public class LoadTestSeedService {
             team.setName(String.format("LT Team %04d", i + 1));
             team.setDescription("load-test");
             team.setTrackerId(trackerId);
+            // Pre-check-in so the app token exchange (register-device) works immediately.
+            team.setCheckedIn(true);
+            team.setCheckedInDigitally(true);
             // No emergency phone numbers -> Twilio SMS fallback can never fire.
             team = teamRepository.save(team);
             teams.add(new LoadTestScenarioResponse.TeamRef(team.getId(), team.getName(), trackerId));
