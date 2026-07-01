@@ -18,7 +18,8 @@ import {
   getNotificationPermission,
   initializePushNotifications,
   onForegroundMessage,
-  registerIfPermissionGranted
+  registerIfPermissionGranted,
+  showLocalNotification
 } from './services/firebaseMessaging';
 import {
   clearPendingMessageIds,
@@ -193,7 +194,7 @@ function MockModeLauncher() {
 /**
  * Route guard for team/participant routes
  */
-function TeamRoute({ children }: { children: ReactNode }) {
+function TeamRoute({ children }: Readonly<{ children: ReactNode }>) {
   const isCheckedIn = storage.isCheckedIn();
 
   if (!isCheckedIn) {
@@ -208,7 +209,7 @@ function TeamRoute({ children }: { children: ReactNode }) {
  * the award ceremony. The menu item in TeamLayout is hidden in the same
  * condition; this guard prevents direct URL access before the reveal.
  */
-function RankingsRoute({ children }: { children: ReactNode }) {
+function RankingsRoute({ children }: Readonly<{ children: ReactNode }>) {
   const game = useGameStore((s) => s.game);
   if (game && !game.rankingsPublished) {
     return <Navigate to="/dashboard" replace />;
@@ -221,7 +222,7 @@ function RankingsRoute({ children }: { children: ReactNode }) {
  * leak near the end. The menu item is hidden in the same condition; this guard
  * blocks direct URL access.
  */
-function RivalsRoute({ children }: { children: ReactNode }) {
+function RivalsRoute({ children }: Readonly<{ children: ReactNode }>) {
   const game = useGameStore((s) => s.game);
   const team = useTeamStore((s) => s.team);
   if (team?.finished || game?.status === 'completed') {
@@ -233,7 +234,7 @@ function RivalsRoute({ children }: { children: ReactNode }) {
 /**
  * Route guard for admin routes
  */
-function AdminRoute({ children }: { children: ReactNode }) {
+function AdminRoute({ children }: Readonly<{ children: ReactNode }>) {
   const token = storage.getAuthToken();
   const role = storage.getUserRole();
   const location = useLocation();
@@ -314,7 +315,6 @@ function RootRedirect() {
 
 function App() {
   const { t } = useTranslation();
-  const [notification, setNotification] = useState<{ title: string; body: string } | null>(null);
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [showNotificationPrompt, setShowNotificationPrompt] = useState(() => {
     // Initialize based on current permission state (only show if logged in and permission not yet requested)
@@ -454,16 +454,13 @@ function App() {
     let unsubscribe: (() => void) | null = null;
 
     onForegroundMessage((payload) => {
-      // Show notification snackbar
-      // Read title/body from data field since we're using data-only messages
+      // Show a native OS push notification (more visible than an in-app toast).
+      // Read title/body from data field since we're using data-only messages.
       const title = payload.data?.title || payload.notification?.title || 'Vlettenrally';
       const body = payload.data?.body || payload.notification?.body || '';
 
       if (title || body) {
-        setNotification({
-          title: title,
-          body: body,
-        });
+        showLocalNotification(title, body, payload.data);
       }
 
       // Fetch and add the message to the store
@@ -480,10 +477,6 @@ function App() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty deps - only run once on mount
-
-  const handleCloseNotification = useCallback(() => {
-    setNotification(null);
-  }, []);
 
   const handleEnableNotifications = useCallback(async () => {
     setShowNotificationPrompt(false);
@@ -777,19 +770,6 @@ function App() {
           }
         >
           {t('common.updateAvailable')}
-        </Alert>
-      </Snackbar>
-
-      {/* Foreground notification snackbar */}
-      <Snackbar
-        open={!!notification}
-        autoHideDuration={6000}
-        onClose={handleCloseNotification}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert onClose={handleCloseNotification} severity="info" sx={{ width: '100%' }}>
-          <strong>{notification?.title}</strong>
-          {notification?.body && <div>{notification.body}</div>}
         </Alert>
       </Snackbar>
 

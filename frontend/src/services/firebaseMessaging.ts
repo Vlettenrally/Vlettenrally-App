@@ -278,6 +278,35 @@ export function getNotificationPermission(): NotificationPermission {
   return Notification.permission;
 }
 
+/**
+ * Show a native OS notification from the page context (foreground).
+ * Mirrors the options used by the service worker's background handler so
+ * foreground and background notifications look identical and share the same
+ * `notificationclick` behavior (which reads `messageId` from `data`).
+ * No-op if notifications aren't supported or permission isn't granted.
+ */
+export async function showLocalNotification(
+  title: string,
+  body: string,
+  data?: Record<string, string>
+): Promise<void> {
+  if (!('serviceWorker' in navigator) || getNotificationPermission() !== 'granted') {
+    return;
+  }
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    await registration.showNotification(title, {
+      body,
+      icon: '/icon-192x192.png',
+      badge: '/icon-192x192.png',
+      data,
+      tag: data?.messageId || 'vlettenrally-message',
+    });
+  } catch (err) {
+    console.warn('[FCM] Failed to show local notification:', err);
+  }
+}
+
 export default {
   requestNotificationPermission,
   getFcmToken,
@@ -286,4 +315,5 @@ export default {
   initializePushNotifications,
   registerIfPermissionGranted,
   getNotificationPermission,
+  showLocalNotification,
 };
