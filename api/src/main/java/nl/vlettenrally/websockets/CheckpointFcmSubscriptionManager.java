@@ -16,8 +16,8 @@ import java.util.stream.Collectors;
 /**
  * Tracks which admin users want to receive FCM checkpoint-detection notifications.
  * <p>
- * Unlike {@link CheckpointSubscriptionManager} (heartbeat-based, used for live
- * WebSocket UI updates), this subscription is <strong>durable</strong>: it is only
+ * Unlike the heartbeat-based checkpoint topic in {@link AdminTopicSubscriptionManager}
+ * (used for live WebSocket UI updates), this subscription is <strong>durable</strong>: it is only
  * removed by explicit unsubscribe calls. That allows operators to keep receiving
  * push notifications even when their phone screen locks or their browser
  * temporarily drops the WebSocket connection.
@@ -61,7 +61,7 @@ public class CheckpointFcmSubscriptionManager {
         return set.smembers(KEY_PREFIX + checkpointId)
             .onFailure().recoverWithItem(err -> {
                 Log.errorf("Failed to read FCM subscribers from Valkey: %s", err.getMessage());
-                return Collections.<String>emptySet();
+                return Collections.emptySet();
             })
             .map(members -> members.stream()
                 .map(s -> {

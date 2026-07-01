@@ -29,9 +29,6 @@ public class AdminWebSocket extends BaseWebSocket {
     WebSocketTokenService tokenService;
 
     @Inject
-    MapSubscriptionManager mapSubscriptionManager;
-
-    @Inject
     AdminTopicSubscriptionManager adminTopicSubscriptionManager;
 
     @Inject
@@ -99,12 +96,8 @@ public class AdminWebSocket extends BaseWebSocket {
                         return;
                     }
 
-                    if (type == WebSocketMessageType.MAP_HEARTBEAT) {
-                        mapSubscriptionManager.subscribe(session.getId(), wsSession.getGameId());
-                        return;
-                    }
-
                     if (type == WebSocketMessageType.ADMIN_HEARTBEAT) {
+                        // Covers the map (topic "map") and every per-page admin stream.
                         adminTopicSubscriptionManager.subscribe(session.getId(), wsSession.getGameId(), request.getTopic());
                         return;
                     }
@@ -182,13 +175,13 @@ public class AdminWebSocket extends BaseWebSocket {
         UUID previous = wsSession.getCheckpointId();
         if (previous != null && !previous.equals(newCheckpointId)) {
             // Operator switched (or cleared) their checkpoint — drop the old subscription
-            checkpointSubscriptionManager.unsubscribe(session.getId(), previous);
+            adminTopicSubscriptionManager.unsubscribe(session.getId(), previous, AdminTopics.CHECKPOINT);
         }
 
         wsSession.setCheckpointId(newCheckpointId);
 
         if (newCheckpointId != null) {
-            checkpointSubscriptionManager.subscribe(session.getId(), newCheckpointId);
+            adminTopicSubscriptionManager.subscribe(session.getId(), newCheckpointId, AdminTopics.CHECKPOINT);
         }
     }
 
@@ -204,9 +197,9 @@ public class AdminWebSocket extends BaseWebSocket {
             UUID gameId = UUID.fromString(gameIdStr);
             UUID previousGameId = wsSession.getGameId();
 
-            // Unsubscribe from map on previous game
+            // Drop every game-scoped subscription (map + per-page streams) on the old game
             if (previousGameId != null) {
-                mapSubscriptionManager.unsubscribe(session.getId(), previousGameId);
+                adminTopicSubscriptionManager.unsubscribeGameTopics(session.getId(), previousGameId);
             }
 
             wsSession.setGameId(gameId);

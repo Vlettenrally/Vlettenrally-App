@@ -4,7 +4,7 @@
  * Features:
  * - Real-time team location tracking via WebSocket LOCATION_UPDATE events
  * - Checkpoint markers
- * - MAP_HEARTBEAT sent every 10s so backend streams location data to this session
+ * - ADMIN_HEARTBEAT (topic "map") sent every 10s so backend streams location data to this session
  * - Initial data loaded via REST API on mount
  */
 import {lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState} from 'react';
@@ -14,20 +14,19 @@ import type {Checkpoint, TeamLocation} from '../../types/entities';
 import {useGameStore} from '../../store/useGameStore';
 import {useWebSocketSubscription} from '../../hooks/useWebSocket';
 import {useAdminResync} from '../../hooks/useAdminSync';
+import {useAdminTopicHeartbeat, ADMIN_TOPICS} from '../../hooks/useAdminHeartbeat';
 import api from '../../services/api';
 import MapLegendSidebar, {type TrackWindowMinutes} from './MapLegendSidebar';
 import {STALE_AFTER_MS, TEAM_COLOR} from './mapConstants';
 
 const MapView = lazy(() => import('../../components/MapView'));
 
-const MAP_HEARTBEAT_INTERVAL_MS = 10_000; // 10 seconds
-
 // Re-evaluate marker staleness on this cadence even when no new data arrives.
 const STALENESS_TICK_MS = 30_000; // 30 seconds
 
 export default function AdminMap() {
   const { selectedGameId } = useGameStore();
-  const { subscribe, send, connected } = useWebSocketSubscription();
+  const { subscribe, connected } = useWebSocketSubscription();
 
   const [teamLocations, setTeamLocations] = useState<TeamLocation[]>([]);
   const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([]);
@@ -52,28 +51,10 @@ export default function AdminMap() {
   const windowMinutesRef = useRef(windowMinutes);
   windowMinutesRef.current = windowMinutes;
 
-  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mapRef = useRef<MapViewHandle>(null);
 
-  // Send MAP_HEARTBEAT to backend so it streams location updates to this session
-  useEffect(() => {
-    if (!connected) return;
-
-    // Send initial heartbeat
-    send({ type: 'MAP_HEARTBEAT' });
-
-    // Send periodic heartbeats
-    heartbeatRef.current = setInterval(() => {
-      send({ type: 'MAP_HEARTBEAT' });
-    }, MAP_HEARTBEAT_INTERVAL_MS);
-
-    return () => {
-      if (heartbeatRef.current) {
-        clearInterval(heartbeatRef.current);
-        heartbeatRef.current = null;
-      }
-    };
-  }, [connected, send]);
+  // Heartbeat so the backend streams location updates to this session only while the map is open.
+  useAdminTopicHeartbeat(ADMIN_TOPICS.MAP);
 
   // Periodically advance `now` so stale markers dim without waiting for new data.
   useEffect(() => {

@@ -31,7 +31,7 @@ public class LocationBroadcastBuffer {
             new ConcurrentHashMap<>();
 
     @Inject
-    MapSubscriptionManager mapSubscriptionManager;
+    AdminTopicSubscriptionManager adminTopicSubscriptionManager;
 
     @Inject
     WebSocketPublisher webSocketPublisher;
@@ -78,7 +78,7 @@ public class LocationBroadcastBuffer {
             }
 
             List<TeamLocationResponse> batch = new ArrayList<>(gameBuffer.values());
-            Set<String> subscribers = mapSubscriptionManager.getActiveSubscribers(gameId);
+            Set<String> subscribers = adminTopicSubscriptionManager.getActiveSubscribers(gameId, AdminTopics.MAP);
             if (subscribers.isEmpty()) {
                 Log.debug("Location broadcast flush: no active map subscribers for game " + gameId
                         + ", dropping " + batch.size() + " fix(es)");

@@ -13,8 +13,8 @@ import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.fcm.FcmHttpClient;
 import nl.vlettenrally.service.AutomationEngine;
 import nl.vlettenrally.service.PointsLedgerService;
+import nl.vlettenrally.websockets.AdminTopicSubscriptionManager;
 import nl.vlettenrally.websockets.CheckpointFcmSubscriptionManager;
-import nl.vlettenrally.websockets.CheckpointSubscriptionManager;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -48,7 +48,7 @@ class AchievementServiceImplTest {
     @Mock CheckpointRepository checkpointRepository;
     @Mock TeamRepository teamRepository;
     @Mock WebSocketPublisher webSocketPublisher;
-    @Mock CheckpointSubscriptionManager checkpointSubscriptionManager;
+    @Mock AdminTopicSubscriptionManager adminTopicSubscriptionManager;
     @Mock CheckpointFcmSubscriptionManager checkpointFcmSubscriptionManager;
     @Mock FcmTokenRepository fcmTokenRepository;
     @Mock FcmHttpClient fcmHttpClient;

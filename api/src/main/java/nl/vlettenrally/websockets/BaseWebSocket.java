@@ -30,10 +30,7 @@ public abstract class BaseWebSocket {
     protected WebSocketPingHandler pingHandler;
 
     @Inject
-    protected MapSubscriptionManager mapSubscriptionManager;
-
-    @Inject
-    protected CheckpointSubscriptionManager checkpointSubscriptionManager;
+    protected AdminTopicSubscriptionManager adminTopicSubscriptionManager;
 
     @OnClose
     public void onClose(Session session) {
@@ -58,16 +55,17 @@ public abstract class BaseWebSocket {
     }
 
     /**
-     * Remove any map and checkpoint subscriptions for this session (admin sessions only).
+     * Remove any topic subscriptions (map, per-page streams, checkpoint) for this
+     * session (admin sessions only).
      */
     private void cleanupSubscriptions(Session session) {
         WebSocketSession wsSession = sessionManager.getSession(session.getId());
         if (wsSession == null || !wsSession.isAdmin()) return;
         if (wsSession.getGameId() != null) {
-            mapSubscriptionManager.unsubscribe(session.getId(), wsSession.getGameId());
+            adminTopicSubscriptionManager.unsubscribeGameTopics(session.getId(), wsSession.getGameId());
         }
         if (wsSession.getCheckpointId() != null) {
-            checkpointSubscriptionManager.unsubscribe(session.getId(), wsSession.getCheckpointId());
+            adminTopicSubscriptionManager.unsubscribe(session.getId(), wsSession.getCheckpointId(), AdminTopics.CHECKPOINT);
         }
     }
     

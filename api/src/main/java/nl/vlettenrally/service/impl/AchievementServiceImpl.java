@@ -23,7 +23,8 @@ import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.PrecisionModel;
 import nl.vlettenrally.websockets.CheckpointFcmSubscriptionManager;
-import nl.vlettenrally.websockets.CheckpointSubscriptionManager;
+import nl.vlettenrally.websockets.AdminTopicSubscriptionManager;
+import nl.vlettenrally.websockets.AdminTopics;
 import nl.vlettenrally.websockets.WebSocketMessage;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 import nl.vlettenrally.websockets.dto.CheckpointDetectionPayload;
@@ -60,7 +61,7 @@ public class AchievementServiceImpl implements AchievementService {
     WebSocketPublisher webSocketPublisher;
 
     @Inject
-    CheckpointSubscriptionManager checkpointSubscriptionManager;
+    AdminTopicSubscriptionManager adminTopicSubscriptionManager;
 
     @Inject
     CheckpointFcmSubscriptionManager checkpointFcmSubscriptionManager;
@@ -190,7 +191,7 @@ public class AchievementServiceImpl implements AchievementService {
      */
     private void notifyCheckpointOperators(Checkpoint checkpoint, UUID teamId, String teamName, CheckpointDetectionPayload wsPayload) {
         // 1) Live WS push to actively-viewing sessions
-        Set<String> subscribedSessions = checkpointSubscriptionManager.getActiveSubscribers(checkpoint.getId());
+        Set<String> subscribedSessions = adminTopicSubscriptionManager.getActiveSubscribers(checkpoint.getId(), AdminTopics.CHECKPOINT);
         for (String sessionId : subscribedSessions) {
             WebSocketMessage wsMessage = new WebSocketMessage("CHECKPOINT_DETECTION", wsPayload)
                 .withTargetSession(sessionId);

@@ -101,7 +101,7 @@ public class LocationIngestService {
         locationDataRepository.save(reading);
 
         TeamLocationResponse teamLocation = toResponse(reading, teamName);
-        webSocketPublisher.sendToTeam(
+        webSocketPublisher.sendToTeamOnly(
             reading.getGameId(),
             reading.getTeamId(),
             WebSocketEventTypes.LOCATION_UPDATE,
