@@ -147,6 +147,8 @@ export default function ParticipantMap() {
               markers={markers}
               center={DEFAULT_CENTER}
               zoom={DEFAULT_ZOOM}
+              followTeamLocation={true}
+              teamLocation={myLocation ? [myLocation.longitude, myLocation.latitude] : undefined}
             />
           </Suspense>
           {/* Status indicator */}

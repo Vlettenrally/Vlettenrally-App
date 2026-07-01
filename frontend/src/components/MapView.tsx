@@ -73,6 +73,8 @@ interface MapViewProps {
   tracks?: MapTrack[];
   /** Team marker shape. 'circle' (default) for live tracking maps; 'pin' for single-location callouts. */
   markerStyle?: 'circle' | 'pin';
+  /** When true: always add TeamLocateControl instead of GeolocateControl. Set at mount time. */
+  followTeamLocation?: boolean;
 }
 
 
@@ -84,7 +86,7 @@ const PIN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="44" 
 const PIN_IMAGE_ID = 'team-pin';
 
 export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
-  { markers, center, zoom, className, teamLocation, tracks, markerStyle = 'circle' },
+  { markers, center, zoom, className, teamLocation, tracks, markerStyle = 'circle', followTeamLocation = false },
   ref,
 ) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -99,6 +101,10 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   // True once the map has auto-fit; reset to false whenever markers go empty so
   // the next non-empty batch (initial load, or admin game switch) re-fits.
   const hasContentRef = useRef(false);
+  // Follow-mode state: true while the camera should track teamLocation updates.
+  const isFollowingRef = useRef(false);
+  // The locate button DOM element; updated by TeamLocateControl on mount/unmount.
+  const locateButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const fitToContent = useCallback(() => {
     const map = mapRef.current;
@@ -285,6 +291,11 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
             button.style.color = 'black'
 
             button.addEventListener('click', () => {
+              isFollowingRef.current = false;
+              if (locateButtonRef.current) {
+                locateButtonRef.current.setAttribute('aria-pressed', 'false');
+                locateButtonRef.current.style.color = '';
+              }
               fitToContentRef.current();
             });
 
@@ -299,29 +310,36 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
         map.addControl(new FitToAreaControl(), 'top-right');
 
-        if (teamLocation) {
-          // Custom locate button that flies to the team's last known tracker location
+        if (followTeamLocation) {
+          // Custom locate button that follows the team's reported tracker location
           class TeamLocateControl implements maplibregl.IControl {
             private _container: HTMLDivElement | undefined;
             private _map: maplibregl.Map | undefined;
 
-            onAdd(map: maplibregl.Map) {
-              this._map = map;
+            onAdd(addedMap: maplibregl.Map) {
+              this._map = addedMap;
               this._container = document.createElement('div');
               this._container.className = 'maplibregl-ctrl maplibregl-ctrl-group';
 
               const button = document.createElement('button');
               button.type = 'button';
-              button.title = 'Ga naar teamlocatie';
-              button.setAttribute('aria-label', 'Ga naar teamlocatie');
+              button.title = 'Volg teamlocatie';
+              button.setAttribute('aria-label', 'Volg teamlocatie');
+              button.setAttribute('aria-pressed', 'false');
               button.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/></svg>';
               button.style.display = 'flex';
               button.style.alignItems = 'center';
               button.style.justifyContent = 'center';
               button.style.cursor = 'pointer';
 
+              locateButtonRef.current = button;
+
               button.addEventListener('click', () => {
-                if (teamLocationRef.current) {
+                isFollowingRef.current = !isFollowingRef.current;
+                const active = isFollowingRef.current;
+                button.setAttribute('aria-pressed', String(active));
+                button.style.color = active ? '#1976d2' : '';
+                if (active && teamLocationRef.current) {
                   this._map?.flyTo({ center: teamLocationRef.current, zoom: 14 });
                 }
               });
@@ -333,12 +351,24 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
             onRemove() {
               this._container?.parentNode?.removeChild(this._container);
               this._map = undefined;
+              locateButtonRef.current = null;
             }
           }
 
           map.addControl(new TeamLocateControl(), 'top-right');
+
+          // Stop following when the user starts a drag gesture.
+          map.on('dragstart', () => {
+            if (isFollowingRef.current) {
+              isFollowingRef.current = false;
+              if (locateButtonRef.current) {
+                locateButtonRef.current.setAttribute('aria-pressed', 'false');
+                locateButtonRef.current.style.color = '';
+              }
+            }
+          });
         } else {
-          // Admin / fallback: use browser geolocation
+          // Admin / non-participant maps: use browser geolocation.
           map.addControl(new maplibregl.GeolocateControl({
             positionOptions: { enableHighAccuracy: true },
             trackUserLocation: true,
@@ -584,6 +614,12 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   useEffect(() => {
     updateTracks();
   }, [updateTracks]);
+
+  // Continuously track teamLocation when follow-mode is active.
+  useEffect(() => {
+    if (!isFollowingRef.current || !teamLocation) return;
+    mapRef.current?.easeTo({ center: teamLocation, duration: 800 });
+  }, [teamLocation]);
 
   return (
     <div
