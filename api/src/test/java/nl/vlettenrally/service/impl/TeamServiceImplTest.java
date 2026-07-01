@@ -30,6 +30,7 @@ import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.service.AutomationEngine;
 import nl.vlettenrally.service.GameService;
 import nl.vlettenrally.service.PictureService;
+import nl.vlettenrally.service.PointsTotalsCache;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 
 /**
@@ -53,6 +54,9 @@ class TeamServiceImplTest {
 
     @Mock
     AutomationEngine automationEngine;
+
+    @Mock
+    PointsTotalsCache pointsTotalsCache;
 
     @InjectMocks
     TeamServiceImpl teamService;
