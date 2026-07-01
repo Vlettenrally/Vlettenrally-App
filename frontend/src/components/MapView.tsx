@@ -339,7 +339,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
                 isFollowingRef.current = !isFollowingRef.current;
                 const active = isFollowingRef.current;
                 button.setAttribute('aria-pressed', String(active));
-                button.style.color = active ? '#1976d2' : '';
+                button.style.color = active ? '#1976d2' : 'black';
                 if (active && teamLocationRef.current) {
                   this._map?.flyTo({ center: teamLocationRef.current, zoom: 14 });
                 }
@@ -364,7 +364,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
               isFollowingRef.current = false;
               if (locateButtonRef.current) {
                 locateButtonRef.current.setAttribute('aria-pressed', 'false');
-                locateButtonRef.current.style.color = '';
+                locateButtonRef.current.style.color = 'black';
               }
             }
           });
