@@ -41,10 +41,11 @@ export const ADMIN_PAGE_ROLES: Record<string, string[]> = {
   '/admin/check-in': [AdminRole.GAME_MASTER, AdminRole.RALLY_DESK],
   '/admin/zones': [AdminRole.GAME_MASTER],
   '/admin/automations': [AdminRole.GAME_MASTER],
-  '/admin/settings': [AdminRole.GAME_MASTER],
+
   '/admin/messages': [AdminRole.MESSAGE_SENDER, AdminRole.RALLY_DESK],
-  '/admin/points-management': [AdminRole.CHECKPOINT_MANAGER, AdminRole.RALLY_DESK],
+  '/admin/points-management': [AdminRole.RALLY_DESK],
   '/admin/checkpoint-station': [AdminRole.CHECKPOINT_MANAGER],
+  '/admin/inbox': [AdminRole.MESSAGE_SENDER, AdminRole.RALLY_DESK],
   '/admin/admin-users': [AdminRole.SUPER_ADMIN],
 };
 
