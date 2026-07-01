@@ -8,16 +8,16 @@ import jakarta.transaction.TransactionSynchronizationRegistry;
 
 /**
  * Abstract base class for PostgreSQL repositories that provides read replica support.
- *
+ * <p>
  * This class injects both the primary EntityManager (for writes and consistent reads)
  * and the read-replica EntityManager (for read operations that can tolerate replication lag).
- *
+ * <p>
  * Reads are routed to the replica only when there is no active JTA transaction. When a
  * transaction is active (a write flow, or any {@code @Transactional} method), reads go to
  * the primary. This keeps a second datasource from ever being enlisted into an active
  * transaction — the enlistment conflict that previously forced all reads onto the primary —
  * and gives read-your-writes consistency for free within a transaction.
- *
+ * <p>
  * Subclasses should use:
  * - {@link #getReadEntityManager()} for standard read operations
  * - {@link #getReadEntityManager(boolean)} with {@code true} for reads requiring immediate consistency
