@@ -338,11 +338,18 @@ export default function CheckpointStation() {
   const actionable = (status: CheckpointTeamStatus['achievementStatus']) =>
     status !== 'VERIFIED' && status !== 'REJECTED';
 
+  const oneHourAgo = Date.now() - 60 * 60 * 1000;
+  const sortedVerified = teams
+    .filter((team) => team.achievementStatus === 'VERIFIED')
+    .sort((a, b) => (b.verifiedAt ?? '').localeCompare(a.verifiedAt ?? ''));
+
   const recentVerifiedIds = new Set(
-    teams
-      .filter((team) => team.achievementStatus === 'VERIFIED')
-      .sort((a, b) => (b.verifiedAt ?? '').localeCompare(a.verifiedAt ?? ''))
-      .slice(0, 5)
+    sortedVerified
+      .filter(
+        (team, index) =>
+          index < 20 ||
+          (team.verifiedAt != null && new Date(team.verifiedAt).getTime() >= oneHourAgo),
+      )
       .map((team) => team.teamId),
   );
   const visibleTeams = teams.filter(
