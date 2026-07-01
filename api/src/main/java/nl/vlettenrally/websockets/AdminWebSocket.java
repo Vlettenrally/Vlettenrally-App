@@ -32,6 +32,9 @@ public class AdminWebSocket extends BaseWebSocket {
     MapSubscriptionManager mapSubscriptionManager;
 
     @Inject
+    AdminTopicSubscriptionManager adminTopicSubscriptionManager;
+
+    @Inject
     CheckpointFcmSubscriptionManager checkpointFcmSubscriptionManager;
 
     @OnOpen
@@ -98,6 +101,11 @@ public class AdminWebSocket extends BaseWebSocket {
 
                     if (type == WebSocketMessageType.MAP_HEARTBEAT) {
                         mapSubscriptionManager.subscribe(session.getId(), wsSession.getGameId());
+                        return;
+                    }
+
+                    if (type == WebSocketMessageType.ADMIN_HEARTBEAT) {
+                        adminTopicSubscriptionManager.subscribe(session.getId(), wsSession.getGameId(), request.getTopic());
                         return;
                     }
 

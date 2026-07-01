@@ -126,7 +126,7 @@ class AutomationEngineTest {
         assertEquals(teamId, captor.getValue().getTeamId());
         assertEquals(checkpointId.toString(), captor.getValue().getContextKey());
         assertEquals(AutomationExecutionStatus.SUCCESS, captor.getValue().getStatus());
-        verify(webSocketPublisher).sendToAdmins(eq(gameId), eq("AUTOMATION_TRIGGERED"), any());
+        verify(webSocketPublisher).sendToAdminTopic(eq(gameId), eq("automations"), eq("AUTOMATION_TRIGGERED"), any());
     }
 
     @Test

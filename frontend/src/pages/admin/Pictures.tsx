@@ -35,6 +35,7 @@ import { mockApi } from '../../services/mockApi';
 import { websocket } from '../../services/websocket';
 import { config } from '../../config';
 import { useAdminResync } from '../../hooks/useAdminSync';
+import { useAdminTopicHeartbeat, ADMIN_TOPICS } from '../../hooks/useAdminHeartbeat';
 import { hasAnyRole, PICTURE_MODERATION_ROLES, PICTURE_UPLOAD_ROLES } from '../../services/auth';
 import { storage } from '../../services/storage';
 
@@ -108,6 +109,9 @@ export default function AdminPictures() {
   }, [load]);
 
   useAdminResync(load);
+
+  // Only receive picture events from the backend while this page is mounted.
+  useAdminTopicHeartbeat(ADMIN_TOPICS.PICTURES);
 
   useEffect(() => {
     if (config.useMocks) return;

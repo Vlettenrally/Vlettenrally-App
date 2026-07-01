@@ -178,7 +178,7 @@ class PictureServiceImplTest {
         assertEquals(123_456L, result.getSizeBytes());
         verify(storageService, never()).delete(any());
         // Admins get a live "new picture to moderate" event.
-        verify(webSocketPublisher).sendToAdmins(eq(gameId), eq("PICTURE_PENDING"), any());
+        verify(webSocketPublisher).sendToAdminTopic(eq(gameId), eq("pictures"), eq("PICTURE_PENDING"), any());
     }
 
     @Test
@@ -259,7 +259,7 @@ class PictureServiceImplTest {
         assertNotNull(result.getModeratedAt());
         // The owning team and the admin queues are notified live.
         verify(webSocketPublisher).sendToTeam(eq(gameId), eq(teamId), eq("PICTURE_MODERATED"), any());
-        verify(webSocketPublisher).sendToAdmins(eq(gameId), eq("PICTURE_MODERATED"), any());
+        verify(webSocketPublisher).sendToAdminTopic(eq(gameId), eq("pictures"), eq("PICTURE_MODERATED"), any());
     }
 
     @Test
@@ -288,7 +288,7 @@ class PictureServiceImplTest {
         // Rejected objects are kept for audit.
         verify(storageService, never()).delete(any());
         verify(webSocketPublisher).sendToTeam(eq(gameId), eq(teamId), eq("PICTURE_MODERATED"), any());
-        verify(webSocketPublisher).sendToAdmins(eq(gameId), eq("PICTURE_MODERATED"), any());
+        verify(webSocketPublisher).sendToAdminTopic(eq(gameId), eq("pictures"), eq("PICTURE_MODERATED"), any());
     }
 
     @Test

@@ -16,6 +16,7 @@ import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.service.PictureException;
 import nl.vlettenrally.service.PictureService;
 import nl.vlettenrally.service.storage.PictureStorageService;
+import nl.vlettenrally.websockets.AdminTopics;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 import nl.vlettenrally.websockets.dto.WebSocketMessageType;
 
@@ -168,7 +169,7 @@ public class PictureServiceImpl implements PictureService {
         picture.setModeratedBy(adminId);
         Picture saved = pictureRepository.save(picture);
 
-        webSocketPublisher.sendToAdmins(saved.getGameId(),
+        webSocketPublisher.sendToAdminTopic(saved.getGameId(), AdminTopics.PICTURES,
             WebSocketMessageType.PICTURE_MODERATED.getValue(), toResponse(saved));
         return saved;
     }
@@ -200,7 +201,7 @@ public class PictureServiceImpl implements PictureService {
         Picture saved = pictureRepository.save(picture);
 
         // Notify admins so the moderation queue picks up the new picture live.
-        webSocketPublisher.sendToAdmins(saved.getGameId(),
+        webSocketPublisher.sendToAdminTopic(saved.getGameId(), AdminTopics.PICTURES,
             WebSocketMessageType.PICTURE_PENDING.getValue(), toResponse(saved));
         return saved;
     }
@@ -318,7 +319,7 @@ public class PictureServiceImpl implements PictureService {
             webSocketPublisher.sendToTeam(picture.getGameId(), picture.getTeamId(),
                 WebSocketMessageType.PICTURE_MODERATED.getValue(), payload);
         }
-        webSocketPublisher.sendToAdmins(picture.getGameId(),
+        webSocketPublisher.sendToAdminTopic(picture.getGameId(), AdminTopics.PICTURES,
             WebSocketMessageType.PICTURE_MODERATED.getValue(), payload);
         return picture;
     }

@@ -39,6 +39,7 @@ import {
 } from '@mui/icons-material';
 import { useGameStore } from '../../store/useGameStore';
 import { useAdminResync } from '../../hooks/useAdminSync';
+import { useAdminTopicHeartbeat, ADMIN_TOPICS } from '../../hooks/useAdminHeartbeat';
 import type { AdminMessage, MessageTemplate, AdminTeam } from '../../types/entities';
 import api from '../../services/api';
 import websocket, { WebSocketEventType } from '../../services/websocket';
@@ -187,6 +188,9 @@ export default function AdminMessages() {
     void fetchMessages();
     void fetchTemplates();
   });
+
+  // Only receive delivery updates from the backend while this page is mounted.
+  useAdminTopicHeartbeat(ADMIN_TOPICS.MESSAGES);
 
   // Subscribe to WebSocket for real-time delivery updates
   useEffect(() => {

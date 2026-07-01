@@ -22,6 +22,7 @@ import nl.vlettenrally.provider.MessageTransmitter;
 import nl.vlettenrally.provider.TransmissionResult;
 import nl.vlettenrally.service.MessagePlaceholders;
 import nl.vlettenrally.service.MessageService;
+import nl.vlettenrally.websockets.AdminTopics;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 import nl.vlettenrally.websockets.WebSocketSessionManager;
 import nl.vlettenrally.websockets.dto.WebSocketMessageType;
@@ -300,7 +301,7 @@ public class MessageServiceImpl implements MessageService {
      */
     private void publishMessageDeliveryUpdate(UUID gameId, UUID batchId, UUID teamId, UUID messageId, boolean delivered, boolean read) {
         MessageDeliveryUpdatePayload payload = new MessageDeliveryUpdatePayload(messageId, batchId, teamId, delivered, read);
-        webSocketPublisher.sendToAdmins(gameId, WebSocketMessageType.MESSAGE_DELIVERY_UPDATE.getValue(), payload);
+        webSocketPublisher.sendToAdminTopic(gameId, AdminTopics.MESSAGES, WebSocketMessageType.MESSAGE_DELIVERY_UPDATE.getValue(), payload);
         Log.debugf("Published MESSAGE_DELIVERY_UPDATE for message %s (delivered=%s, read=%s)", messageId, delivered, read);
     }
 

@@ -32,6 +32,8 @@ import {
 } from '@mui/icons-material';
 import { useGameStore } from '../../store/useGameStore';
 import { useAdminResync } from '../../hooks/useAdminSync';
+import { useAdminTopicHeartbeat, ADMIN_TOPICS } from '../../hooks/useAdminHeartbeat';
+import websocket, { WebSocketEventType } from '../../services/websocket';
 import { usePointEntryStore } from '../../store/usePointEntryStore';
 import { teamService } from '../../services/teamService';
 import api from '../../services/api';
@@ -130,6 +132,23 @@ export default function PointsManagement() {
   }, [selectedGameId, filterTeam, filterType]);
 
   useAdminResync(() => void loadEntries());
+
+  // Only receive point-ledger events from the backend while this page is mounted.
+  useAdminTopicHeartbeat(ADMIN_TOPICS.POINTS);
+
+  // Live point-ledger updates: fold new/edited entries into the store.
+  useEffect(() => {
+    const unsubCreated = websocket.on(WebSocketEventType.POINT_ENTRY_CREATED, (m) =>
+      addEntry(m.payload as PointEntry),
+    );
+    const unsubUpdated = websocket.on(WebSocketEventType.POINT_ENTRY_UPDATED, (m) =>
+      updateEntry(m.payload as PointEntry),
+    );
+    return () => {
+      unsubCreated();
+      unsubUpdated();
+    };
+  }, [addEntry, updateEntry]);
 
   const teamNameById = useMemo(() => {
     const map = new Map<string, string>();

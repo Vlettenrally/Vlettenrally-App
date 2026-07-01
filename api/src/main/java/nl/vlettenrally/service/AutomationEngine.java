@@ -20,6 +20,7 @@ import nl.vlettenrally.data.repository.AutomationRuleRepository;
 import nl.vlettenrally.data.repository.CheckpointRepository;
 import nl.vlettenrally.data.repository.LocationDataRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
+import nl.vlettenrally.websockets.AdminTopics;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 import nl.vlettenrally.websockets.dto.WebSocketMessageType;
 
@@ -430,7 +431,7 @@ public class AutomationEngine {
         payload.put("contextKey", contextKey);
         payload.put("status", execution.getStatus());
         payload.put("firedAt", execution.getFiredAt().toString());
-        webSocketPublisher.sendToAdmins(rule.getGameId(),
+        webSocketPublisher.sendToAdminTopic(rule.getGameId(), AdminTopics.AUTOMATIONS,
             WebSocketMessageType.AUTOMATION_TRIGGERED.getValue(), payload);
     }
 

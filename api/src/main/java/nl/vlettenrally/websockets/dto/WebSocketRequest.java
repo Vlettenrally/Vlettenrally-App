@@ -16,6 +16,7 @@ public class WebSocketRequest {
     private WebSocketMessageType type;
     private String gameId;
     private String checkpointId;
+    private String topic;
 
     public WebSocketMessageType getType() {
         return type;

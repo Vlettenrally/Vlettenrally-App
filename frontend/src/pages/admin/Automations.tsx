@@ -35,6 +35,8 @@ import {
 import api from '../../services/api';
 import websocket, { WebSocketEventType } from '../../services/websocket';
 import { useGameStore } from '../../store/useGameStore';
+import { useAdminResync } from '../../hooks/useAdminSync';
+import { useAdminTopicHeartbeat, ADMIN_TOPICS } from '../../hooks/useAdminHeartbeat';
 import { RelativeTime } from '../../components/RelativeTime';
 import AutomationFormDialog from '../../components/AutomationFormDialog';
 import AutomationExecutionsDialog from '../../components/AutomationExecutionsDialog';
@@ -162,6 +164,12 @@ export default function Automations() {
       setRules([]);
     }
   }, [selectedGameId, fetchRules]);
+
+  // Recover any AUTOMATION_TRIGGERED events missed while the page was backgrounded.
+  useAdminResync(() => void fetchRules());
+
+  // Only receive automation-fired events from the backend while this page is mounted.
+  useAdminTopicHeartbeat(ADMIN_TOPICS.AUTOMATIONS);
 
   // Live refresh when a rule fires.
   useEffect(() => {

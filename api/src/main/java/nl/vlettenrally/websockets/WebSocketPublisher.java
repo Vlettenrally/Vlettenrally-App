@@ -18,6 +18,9 @@ public class WebSocketPublisher {
     
     @Inject
     ValkeyPubSubService valkeyPubSubService;
+
+    @Inject
+    AdminTopicSubscriptionManager adminTopicSubscriptionManager;
     
     /**
      * Publish a message to all connected clients
@@ -67,6 +70,24 @@ public class WebSocketPublisher {
         valkeyPubSubService.publish(message);
     }
     
+    /**
+     * Publish a message to admins who are actively viewing a given sub-page
+     * ("topic") for a game. Only sessions that have sent an ADMIN_HEARTBEAT for
+     * the topic within the heartbeat window receive it; this avoids streaming
+     * page-specific events to admins who aren't on that page.
+     *
+     * @see AdminTopicSubscriptionManager
+     */
+    public void sendToAdminTopic(UUID gameId, String topic, String type, Object payload) {
+        for (String sessionId : adminTopicSubscriptionManager.getActiveSubscribers(gameId, topic)) {
+            WebSocketMessage message = new WebSocketMessage(type, payload)
+                .withTargetGame(gameId)
+                .forAdminOnly()
+                .withTargetSession(sessionId);
+            valkeyPubSubService.publish(message);
+        }
+    }
+
     /**
      * Publish a custom message (for advanced targeting)
      */

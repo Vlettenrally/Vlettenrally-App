@@ -15,6 +15,7 @@ import nl.vlettenrally.data.enums.AutomationExecutionStatus;
 import nl.vlettenrally.data.enums.MessageType;
 import nl.vlettenrally.data.enums.PointEntryType;
 import nl.vlettenrally.data.repository.TeamRepository;
+import nl.vlettenrally.websockets.AdminTopics;
 import nl.vlettenrally.websockets.WebSocketEventTypes;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 import nl.vlettenrally.websockets.dto.WebSocketMessageType;
@@ -247,8 +248,9 @@ public class AutomationActionExecutor {
             metadataJson
         );
 
-        webSocketPublisher.sendToAdmins(
+        webSocketPublisher.sendToAdminTopic(
             rule.getGameId(),
+            AdminTopics.INBOX,
             WebSocketMessageType.AUTOMATION_NOTIFICATION.getValue(),
             Map.of(
                 "notificationId", notification.getId(),

@@ -188,7 +188,7 @@ class AutomationActionExecutorTest {
         assertEquals(AutomationExecutionStatus.SUCCESS, result.status());
         @SuppressWarnings("unchecked")
         ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
-        verify(webSocketPublisher).sendToAdmins(eq(gameId), eq("AUTOMATION_NOTIFICATION"), captor.capture());
+        verify(webSocketPublisher).sendToAdminTopic(eq(gameId), eq("inbox"), eq("AUTOMATION_NOTIFICATION"), captor.capture());
         assertEquals("De Watervlooien ging Windkracht Tien voorbij", captor.getValue().get("text"));
         assertEquals("Testregel", captor.getValue().get("ruleName"));
         verify(adminInboxService).createNotification(eq(gameId), eq(team.getId()), eq("AUTOMATION_NOTIFICATION"),

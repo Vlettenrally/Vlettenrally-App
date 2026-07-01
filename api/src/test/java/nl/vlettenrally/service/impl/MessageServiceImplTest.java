@@ -176,7 +176,7 @@ class MessageServiceImplTest {
         // Assert
         verify(messageRepository).findById(messageId);
         verify(messageRepository).markAsRead(messageId);
-        verify(webSocketPublisher).sendToAdmins(eq(message.getGameId()), eq("MESSAGE_DELIVERY_UPDATE"), any());
+        verify(webSocketPublisher).sendToAdminTopic(eq(message.getGameId()), eq("messages"), eq("MESSAGE_DELIVERY_UPDATE"), any());
     }
 
     @Test
@@ -213,7 +213,7 @@ class MessageServiceImplTest {
         // Assert
         verify(messageRepository).markAsRead(id1);
         verify(messageRepository).markAsRead(id2);
-        verify(webSocketPublisher, times(2)).sendToAdmins(eq(msg1.getGameId()), eq("MESSAGE_DELIVERY_UPDATE"), any());
+        verify(webSocketPublisher, times(2)).sendToAdminTopic(eq(msg1.getGameId()), eq("messages"), eq("MESSAGE_DELIVERY_UPDATE"), any());
     }
 
     @Test
@@ -248,7 +248,7 @@ class MessageServiceImplTest {
 
         // Assert
         verify(messageRepository).markAllAsReadForTeam(teamId);
-        verify(webSocketPublisher, times(2)).sendToAdmins(eq(msg1.getGameId()), eq("MESSAGE_DELIVERY_UPDATE"), any());
+        verify(webSocketPublisher, times(2)).sendToAdminTopic(eq(msg1.getGameId()), eq("messages"), eq("MESSAGE_DELIVERY_UPDATE"), any());
     }
 
     // ==================== findAdminMessagesByGame Tests ====================

@@ -17,6 +17,7 @@ import nl.vlettenrally.data.dto.points.PointEntryResponse;
 import nl.vlettenrally.data.enums.PointEntryType;
 import nl.vlettenrally.data.repository.PointEntryRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
+import nl.vlettenrally.websockets.AdminTopics;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 import nl.vlettenrally.websockets.dto.WebSocketMessageType;
 import org.locationtech.jts.geom.Point;
@@ -208,7 +209,7 @@ public class PointsLedgerService {
                 @Override public void beforeCompletion() { }
                 @Override public void afterCompletion(int status) {
                     if (status == Status.STATUS_COMMITTED) {
-                        webSocketPublisher.sendToAdmins(gameId, type, payload);
+                        webSocketPublisher.sendToAdminTopic(gameId, AdminTopics.POINTS, type, payload);
                     }
                 }
             });
