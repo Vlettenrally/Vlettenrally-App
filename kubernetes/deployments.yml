@@ -37,7 +37,7 @@ spec:
       terminationGracePeriodSeconds: 60
       containers:
         - name: vlettenrally-api
-          image: ghcr.io/joostvanviegen/vlettenrally-api:2026-07-01-8-native
+          image: ghcr.io/joostvanviegen/vlettenrally-api:2026-07-01-9-native
           resources:
             requests:
               memory: "512Mi"
@@ -261,7 +261,7 @@ spec:
       terminationGracePeriodSeconds: 60
       containers:
         - name: vlettenrally-api-worker
-          image: ghcr.io/joostvanviegen/vlettenrally-api:2026-07-01-8-native
+          image: ghcr.io/joostvanviegen/vlettenrally-api:2026-07-01-9-native
           resources:
             requests:
               memory: "512Mi"
@@ -467,7 +467,7 @@ spec:
         - name: ghcr-creds
       containers:
         - name: vlettenrally-frontend
-          image: ghcr.io/joostvanviegen/vlettenrally-frontend:2026-07-01-8
+          image: ghcr.io/joostvanviegen/vlettenrally-frontend:2026-07-01-9
           resources:
             requests:
               memory: "128Mi"
