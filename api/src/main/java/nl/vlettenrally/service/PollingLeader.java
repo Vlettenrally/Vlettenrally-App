@@ -46,7 +46,21 @@ public class PollingLeader {
     @ConfigProperty(name = "vlettenrally.scheduler.lock.enabled", defaultValue = "true")
     boolean lockEnabled;
 
+    /**
+     * When false this instance is never eligible to run the background schedulers: it
+     * always loses leader election and skips every tick. Set this on the traffic-serving
+     * replicas so scheduler work is confined to a dedicated worker tier that receives no
+     * HTTP/WebSocket traffic (see kubernetes/deployments.yml, {@code vlettenrally-api-worker}).
+     * Broadcasts still reach connected clients through the Valkey pub/sub fan-out, so the
+     * worker does not need to hold any client connections itself.
+     */
+    @ConfigProperty(name = "vlettenrally.scheduler.enabled", defaultValue = "true")
+    boolean schedulerEnabled;
+
     public boolean tryAcquireOrRenew() {
+        if (!schedulerEnabled) {
+            return false;
+        }
         if (!lockEnabled) {
             return true;
         }
@@ -87,7 +101,8 @@ public class PollingLeader {
     void release() {
         // Stop all subsequent ticks from touching Redis for the rest of the lifecycle.
         shuttingDown = true;
-        if (!lockEnabled) {
+        // Scheduler-ineligible instances never acquired the lease, so there is nothing to release.
+        if (!schedulerEnabled || !lockEnabled) {
             return;
         }
         try {

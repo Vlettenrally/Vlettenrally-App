@@ -42,7 +42,32 @@ class PollingLeaderTest {
     @BeforeEach
     void setUp() {
         leader.lockEnabled = true;
+        leader.schedulerEnabled = true;
         org.mockito.Mockito.lenient().when(redisDataSource.value(String.class)).thenReturn(values);
+    }
+
+    @Test
+    void standsDownWithoutTouchingRedis_whenSchedulerDisabled() {
+        // Traffic-serving replicas run with schedulers disabled: they must never win the
+        // election nor even reach Valkey, so scheduler work stays on the worker tier.
+        leader.schedulerEnabled = false;
+
+        assertFalse(leader.tryAcquireOrRenew());
+
+        verify(redisDataSource, never()).value(String.class);
+        verify(values, never()).setAndChanged(any(), any(), any());
+    }
+
+    @Test
+    void releaseIsNoOp_whenSchedulerDisabled() {
+        // A scheduler-ineligible instance never acquired the lease, so shutdown must not
+        // touch Valkey trying to release a lock it does not hold.
+        leader.schedulerEnabled = false;
+
+        leader.release();
+
+        verify(redisDataSource, never()).value(String.class);
+        verify(redisDataSource, never()).key();
     }
 
     @Test

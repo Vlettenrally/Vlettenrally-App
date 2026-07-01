@@ -51,6 +51,234 @@ spec:
               value: "Europe/Amsterdam"
             - name: LOG_LEVEL
               value: "INFO"
+            # Traffic tier: never run the background schedulers. Scheduler work is
+            # confined to the vlettenrally-api-worker deployment, which serves no
+            # traffic (it is not selected by the vlettenrally-api Service).
+            - name: VLETTENRALLY_SCHEDULER_ENABLED
+              value: "false"
+            # Database configuration
+            - name: DB_HOST
+              value: "vlettenrally-database-rw"
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_NAME
+              value: "vlettenrally"
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: vlettenrally-database-app
+                  key: username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: vlettenrally-database-app
+                  key: password
+            # Read replica (optional)
+            - name: DB_READ_HOST
+              value: "vlettenrally-database-ro"
+            # Firebase configuration
+            - name: FIREBASE_CREDENTIALS_PATH
+              value: "/secrets/firebase/credentials.json"
+            # Twilio configuration
+            - name: TWILIO_ACCOUNT_SID
+              valueFrom:
+                secretKeyRef:
+                  name: vlettenrally-twilio
+                  key: account-sid
+            - name: TWILIO_API_KEY_SID
+              valueFrom:
+                secretKeyRef:
+                  name: vlettenrally-twilio
+                  key: api-key-sid
+            - name: TWILIO_API_KEY_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: vlettenrally-twilio
+                  key: api-key-secret
+            - name: TWILIO_FROM_PHONE
+              valueFrom:
+                secretKeyRef:
+                  name: vlettenrally-twilio
+                  key: from-number
+            # Admin credentials
+            - name: INITIAL_ADMIN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: vlettenrally-admin
+                  key: username
+            - name: INITIAL_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: vlettenrally-admin
+                  key: password
+            # JWT keys path
+            - name: MP_JWT_VERIFY_PUBLICKEY_LOCATION
+              value: "/secrets/jwt/publicKey.pem"
+            - name: SMALLRYE_JWT_SIGN_KEY_LOCATION
+              value: "/secrets/jwt/privateKey.pem"
+            # Pre-registration API (optional)
+            - name: PRE_REGISTRATION_API_URL
+              value: "https://vlettenrally.nl/wp-json/vr/v1"
+            - name: PRE_REGISTRATION_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: vlettenrally-pre-registration
+                  key: api-key
+            - name: FRONTEND_BASE_URL
+              value: "https://game.vlettenrally.nl"
+            # Valkey Sentinel Configuration
+            - name: VALKEY_CLIENT_TYPE
+              value: "sentinel"
+            - name: VALKEY_HOSTS
+              value: "redis://vlettenrally-valkey-sentinel-0.vlettenrally-valkey-sentinel-headless:26379,redis://vlettenrally-valkey-sentinel-1.vlettenrally-valkey-sentinel-headless:26379,redis://vlettenrally-valkey-sentinel-2.vlettenrally-valkey-sentinel-headless:26379"
+            - name: VALKEY_SENTINEL_MASTER
+              value: "vlettenrally-valkey-master"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: opentelemetry-destination
+                  key: endpoint
+            - name: OTEL_EXPORTER_OTLP_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: opentelemetry-destination
+                  key: token
+            - name: K8S_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: APP_VERSION
+              value: "2026-06-24-2-native"
+            # S3 Image Storage Configuration
+            - name: S3_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: vlettenrally-s3-images
+                  key: endpoint
+            - name: STORJ_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: vlettenrally-s3-images
+                  key: access-key
+            - name: STORJ_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: vlettenrally-s3-images
+                  key: secret-key
+            - name: PICTURES_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: vlettenrally-s3-images
+                  key: bucket-name
+            # Public gallery configuration
+            - name: PUBLIC_GALLERY_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: vlettenrally-public-gallery
+                  key: token
+          volumeMounts:
+            - name: firebase-credentials
+              mountPath: /secrets/firebase
+              readOnly: true
+            - name: jwt-keys
+              mountPath: /secrets/jwt
+              readOnly: true
+          livenessProbe:
+            httpGet:
+              path: /q/health/live
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /q/health/ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+      volumes:
+        - name: firebase-credentials
+          secret:
+            secretName: vlettenrally-firebase
+        - name: jwt-keys
+          secret:
+            secretName: vlettenrally-jwt-keys
+
+---
+# =============================================================================
+# API worker tier
+# =============================================================================
+# Same image as vlettenrally-api, but this deployment carries the label
+# app: vlettenrally-api-worker so it is NOT selected by the vlettenrally-api
+# Service — it therefore receives no HTTP/WebSocket traffic and no ingress.
+# It is the only tier eligible to run the background schedulers
+# (VLETTENRALLY_SCHEDULER_ENABLED left true here, false on the traffic tier).
+# Leader election (PollingLeader, Valkey lease) still coordinates across worker
+# replicas, so replicas can be raised for HA. Broadcasts driven by the schedulers
+# reach connected clients on the traffic tier via the Valkey pub/sub fan-out.
+# No HPA: scheduler work is single-leader, so scaling on CPU is pointless.
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vlettenrally-api-worker
+  labels:
+    app: vlettenrally-api-worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: vlettenrally-api-worker
+  template:
+    metadata:
+      labels:
+        app: vlettenrally-api-worker
+    spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 80
+            preference:
+              matchExpressions:
+              - key: servers.ngpc.rxt.io/type
+                operator: In
+                values:
+                - spot
+          - weight: 20
+            preference:
+              matchExpressions:
+              - key: servers.ngpc.rxt.io/type
+                operator: In
+                values:
+                - ondemand
+      imagePullSecrets:
+        - name: ghcr-creds
+      # Must exceed quarkus.shutdown.delay (15s) + quarkus.shutdown.timeout (30s) so the graceful
+      # drain and PollingLeader lock release complete before k8s sends SIGKILL.
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: vlettenrally-api-worker
+          image: ghcr.io/joostvanviegen/vlettenrally-api:2026-07-01-5-native
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: TZ
+              value: "Europe/Amsterdam"
+            - name: LOG_LEVEL
+              value: "INFO"
+            # Worker tier: this is the scheduler-eligible instance. Kept explicit
+            # (default is already true) so the split with the traffic tier is obvious.
+            - name: VLETTENRALLY_SCHEDULER_ENABLED
+              value: "true"
             # Database configuration
             - name: DB_HOST
               value: "vlettenrally-database-rw"
