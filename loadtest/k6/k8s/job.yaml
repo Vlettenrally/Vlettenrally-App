@@ -1,0 +1,63 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: loadtest-k6
+  labels:
+    app: loadtest-k6
+    role: loadtest
+spec:
+  # A load test is a one-shot: never auto-retry (a partial re-run would double the load).
+  backoffLimit: 0
+  # Clean the Job up 1h after it finishes.
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app: loadtest-k6
+        role: loadtest
+    spec:
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: ghcr-creds
+      containers:
+        - name: k6
+          # Build + push from loadtest/k6/Dockerfile (see loadtest/README.md).
+          image: ghcr.io/joostvanviegen/vlettenrally-loadtest-k6:latest
+          args: ["run", "/scripts/app-load.js"]
+          # To stream results to Grafana, also add "--out" / "experimental-prometheus-rw" to args
+          # and set K6_PROMETHEUS_RW_SERVER_URL below.
+          env:
+            # In-cluster API service (see kubernetes/services.yml).
+            - name: BASE_URL
+              value: http://vlettenrally-api:8080
+            - name: WS_URL
+              value: ws://vlettenrally-api:8080
+            - name: SCENARIO
+              value: /scenario/scenario.json
+            - name: DEVICES_PER_TEAM
+              value: "3"
+            - name: SESSION_SECONDS
+              value: "120"
+            - name: RAMP
+              value: "2m"
+            - name: HOLD
+              value: "10m"
+            # - name: K6_PROMETHEUS_RW_SERVER_URL
+            #   value: http://<prometheus-or-alloy>/api/v1/write
+          resources:
+            requests:
+              cpu: "1"
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 1Gi
+          volumeMounts:
+            - name: scenario
+              mountPath: /scenario
+              readOnly: true
+      volumes:
+        # Reuses the same ConfigMap the mock location server mounts:
+        # kubectl create configmap loadtest-scenario --from-file=scenario.json=loadtest/scenario/scenario.json
+        - name: scenario
+          configMap:
+            name: loadtest-scenario

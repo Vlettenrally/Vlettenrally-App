@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loadtest-location
+  labels:
+    app: loadtest-location
+    role: loadtest
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: loadtest-location
+  template:
+    metadata:
+      labels:
+        app: loadtest-location
+        role: loadtest
+    spec:
+      imagePullSecrets:
+        - name: ghcr-creds
+      containers:
+        - name: loadtest-location
+          # Build + push this image, or run the server outside the cluster and point the
+          # game's location_endpoint_url at it instead. See loadtest/README.md.
+          image: ghcr.io/joostvanviegen/vlettenrally-loadtest-location:latest
+
+          ports:
+            - containerPort: 8080
+          env:
+            - name: PORT
+              value: "8080"
+            - name: SCENARIO_PATH
+              value: /scenario/scenario.json
+            # Boat-speed band stays strictly under the API's 25 km/h guard.
+            - name: SPEED_MIN_KMH
+              value: "6"
+            - name: SPEED_MAX_KMH
+              value: "22"
+            - name: STAGGER_WINDOW_SECONDS
+              value: "1200"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          volumeMounts:
+            - name: scenario
+              mountPath: /scenario
+              readOnly: true
+      volumes:
+        # kubectl create configmap loadtest-scenario --from-file=scenario.json=loadtest/scenario/scenario.json
+        - name: scenario
+          configMap:
+            name: loadtest-scenario

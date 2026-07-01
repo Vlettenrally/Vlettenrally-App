@@ -1,0 +1,4 @@
+scenario/scenario.json
+node_modules/
+mock-location-server/dist/
+*.log

@@ -1,0 +1,21 @@
+{
+  "name": "vlettenrally-mock-location-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Impersonates the Legendstracking external location API and simulates teams moving in straight lines between checkpoints at boat speeds.",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "fastify": "^4.28.1"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "@types/node": "^22.9.0"
+  }
+}

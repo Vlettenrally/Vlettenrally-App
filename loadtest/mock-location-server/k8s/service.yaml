@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: loadtest-location
+  labels:
+    app: loadtest-location
+    role: loadtest
+spec:
+  # ClusterIP only: reachable from the API pods, never exposed publicly.
+  type: ClusterIP
+  selector:
+    app: loadtest-location
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
