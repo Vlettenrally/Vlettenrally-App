@@ -63,7 +63,6 @@ export default function TeamDetailDialog({
     checkedInDigitally: false,
     traccarEnabled: false,
     finished: false,
-    totalPoints: 0,
     trackerId: '',
   });
 
@@ -82,7 +81,6 @@ export default function TeamDetailDialog({
         checkedInDigitally: team.checkedInDigitally,
         traccarEnabled: team.traccarEnabled,
         finished: team.finished,
-        totalPoints: team.totalPoints,
         trackerId: team.trackerId ?? '',
       });
       setIsEditing(false);
@@ -139,7 +137,6 @@ export default function TeamDetailDialog({
         checkedInDigitally: false,
         traccarEnabled: false,
         finished: false,
-        totalPoints: 0,
         trackerId: '',
       });
       setIsEditing(true);
@@ -239,7 +236,6 @@ export default function TeamDetailDialog({
           checkedInDigitally: team.checkedInDigitally,
           traccarEnabled: team.traccarEnabled,
           finished: team.finished,
-          totalPoints: team.totalPoints,
           trackerId: team.trackerId ?? '',
         });
       }
@@ -272,7 +268,6 @@ export default function TeamDetailDialog({
         checkedInDigitally: formData.checkedInDigitally,
         traccarEnabled: formData.traccarEnabled,
         finished: formData.finished,
-        totalPoints: formData.totalPoints,
       };
 
       if (isCreateMode) {
@@ -291,7 +286,6 @@ export default function TeamDetailDialog({
           checkedInDigitally: false,
           traccarEnabled: false,
           finished: false,
-          totalPoints: 0,
           trackerId: '',
         });
       } else if (team) {
@@ -598,27 +592,6 @@ export default function TeamDetailDialog({
                     color={team.finished ? 'success' : 'default'}
                     size="small"
                   />
-                )}
-              </Box>
-
-              <Box>
-                <Typography variant="subtitle2" gutterBottom>
-                  {t('components.teamDetail.points')}
-                </Typography>
-                {isEditing ? (
-                  <TextField
-                    type="number"
-                    value={formData.totalPoints}
-                    onChange={(e) => {
-                      const value = Math.max(0, parseInt(e.target.value, 10) || 0);
-                      setFormData((prev) => ({ ...prev, totalPoints: value }));
-                    }}
-                    slotProps={{ htmlInput: { min: 0 } }}
-                    size="small"
-                    fullWidth
-                  />
-                ) : (
-                  <Typography>{team.totalPoints}</Typography>
                 )}
               </Box>
 

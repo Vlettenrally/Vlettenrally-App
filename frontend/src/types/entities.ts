@@ -590,6 +590,7 @@ export interface PointEntry {
   lng?: number | null;
   description?: string | null;
   createdAt: string;
+  updatedAt: string;
   createdBy?: string | null;
   editedAt?: string | null;
   editedBy?: string | null;

@@ -37,7 +37,7 @@ public class JpaPointEntryRepository extends ReadReplicaAwareRepository implemen
         StringBuilder jpql = new StringBuilder("SELECT e FROM PointEntryEntity e WHERE e.game.id = :gameId");
         if (teamId != null)    jpql.append(" AND e.team.id = :teamId");
         if (entryType != null) jpql.append(" AND e.entryType = :entryType");
-        jpql.append(" ORDER BY e.createdAt DESC");
+        jpql.append(" ORDER BY e.updatedAt DESC");
 
         TypedQuery<PointEntryEntity> query = getReadEntityManager()
                 .createQuery(jpql.toString(), PointEntryEntity.class)

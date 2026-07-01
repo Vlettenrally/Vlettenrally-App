@@ -319,11 +319,13 @@ export default function PointsManagement() {
                             )}
                           </TableCell>
                           <TableCell align="center">
-                            <Tooltip title={t('admin.pointsManagement.edit')}>
-                              <IconButton size="small" onClick={() => setEditTarget(entry)}>
-                                <EditIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
+                            {entry.entryType !== 'DISTANCE_BONUS' && (
+                              <Tooltip title={t('admin.pointsManagement.edit')}>
+                                <IconButton size="small" onClick={() => setEditTarget(entry)}>
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
                           </TableCell>
                         </TableRow>
                       );

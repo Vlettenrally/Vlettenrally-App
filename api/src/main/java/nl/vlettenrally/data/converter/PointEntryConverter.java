@@ -23,6 +23,7 @@ public class PointEntryConverter {
             loc != null ? loc.getX() : null,
             entry.getDescription(),
             entry.getCreatedAt(),
+            entry.getUpdatedAt(),
             entry.getCreatedBy(),
             entry.getEditedAt(),
             entry.getEditedBy(),

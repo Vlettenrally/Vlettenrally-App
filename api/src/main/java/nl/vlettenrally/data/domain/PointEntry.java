@@ -29,6 +29,7 @@ public class PointEntry {
     private Point location;             // nullable; WGS84
     private String description;
     private Instant createdAt;
+    private Instant updatedAt;          // last modified (admin edit or system accrual)
     private UUID createdBy;             // nullable; set for MANUAL_ADJUSTMENT
     private Instant editedAt;           // nullable
     private UUID editedBy;              // nullable
@@ -37,5 +38,6 @@ public class PointEntry {
     public PointEntry() {
         this.id = UUID.randomUUID();
         this.createdAt = Instant.now();
+        this.updatedAt = this.createdAt;
     }
 }

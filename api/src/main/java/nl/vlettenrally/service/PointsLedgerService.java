@@ -120,7 +120,9 @@ public class PointsLedgerService {
         int delta = newAmount - entry.getCurrentAmount();
         if (delta == 0) {
             // No-op edit — still record the reason for auditability if provided
-            entry.setEditedAt(Instant.now());
+            Instant now = Instant.now();
+            entry.setUpdatedAt(now);
+            entry.setEditedAt(now);
             entry.setEditedBy(editedBy);
             entry.setEditReason(reason);
             PointEntry saved = pointEntryRepository.save(entry);
@@ -139,8 +141,10 @@ public class PointsLedgerService {
                 "Resulting total points would be negative (" + newTotal + ")");
         }
 
+        Instant now = Instant.now();
         entry.setCurrentAmount(newAmount);
-        entry.setEditedAt(Instant.now());
+        entry.setUpdatedAt(now);
+        entry.setEditedAt(now);
         entry.setEditedBy(editedBy);
         entry.setEditReason(reason);
         PointEntry saved = pointEntryRepository.save(entry);
@@ -183,6 +187,7 @@ public class PointsLedgerService {
         }
 
         entry.setCurrentAmount(newAmount);
+        entry.setUpdatedAt(Instant.now());
         PointEntry saved = pointEntryRepository.save(entry);
 
         team.setTotalPoints(newTotal);

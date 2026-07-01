@@ -289,15 +289,32 @@ export default function CheckpointStation() {
     setDetecting(true);
 
     const res = await api.detectProximity(addTeam.id, selectedCheckpointId);
-    setDetecting(false);
 
     if (res.data) {
+      // A manual entry is an explicit operator confirmation, so verify it
+      // straight away rather than leaving a PENDING hit for a second review.
+      const verified = await api.verifyAchievement(res.data.id);
+      setDetecting(false);
       setAddDialogOpen(false);
       setAddTeam(null);
       await fetchTeams();
-      const newTeam = teams.find((team) => team.teamId === addTeam.id);
-      if (newTeam) openVerify({ ...newTeam, achievementId: res.data.id });
-    } else if (res.status === 409) {
+      if (verified.data) {
+        const total = verified.data.pointsEarned ?? 0;
+        setSnackbar({
+          message: t('admin.checkpointStation.verifiedMessage', { teamName: addTeam.name, points: total }),
+          severity: 'success',
+        });
+      } else {
+        setSnackbar({
+          message: verified.error ?? t('admin.checkpointStation.verifyFailed'),
+          severity: 'error',
+        });
+      }
+      return;
+    }
+
+    setDetecting(false);
+    if (res.status === 409) {
       setAddDialogOpen(false);
       setAddTeam(null);
       await fetchTeams();

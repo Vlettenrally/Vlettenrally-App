@@ -24,6 +24,7 @@ public final class PointEntryMapper {
         domain.setLocation(entity.getLocation());
         domain.setDescription(entity.getDescription());
         domain.setCreatedAt(entity.getCreatedAt());
+        domain.setUpdatedAt(entity.getUpdatedAt());
         domain.setCreatedBy(entity.getCreatedBy());
         domain.setEditedAt(entity.getEditedAt());
         domain.setEditedBy(entity.getEditedBy());
@@ -50,6 +51,9 @@ public final class PointEntryMapper {
         if (domain.getCreatedAt() != null) {
             entity.setCreatedAt(domain.getCreatedAt());
         }
+        if (domain.getUpdatedAt() != null) {
+            entity.setUpdatedAt(domain.getUpdatedAt());
+        }
         entity.setCreatedBy(domain.getCreatedBy());
         entity.setEditedAt(domain.getEditedAt());
         entity.setEditedBy(domain.getEditedBy());
@@ -61,6 +65,7 @@ public final class PointEntryMapper {
         if (entity == null || domain == null) return;
 
         entity.setCurrentAmount(domain.getCurrentAmount());
+        entity.setUpdatedAt(domain.getUpdatedAt());
         entity.setEditedAt(domain.getEditedAt());
         entity.setEditedBy(domain.getEditedBy());
         entity.setEditReason(domain.getEditReason());

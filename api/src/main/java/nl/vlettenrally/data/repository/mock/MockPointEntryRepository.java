@@ -115,7 +115,7 @@ public class MockPointEntryRepository implements PointEntryRepository {
                 .filter(e -> gameId.equals(e.getGameId()))
                 .filter(e -> teamId == null || teamId.equals(e.getTeamId()))
                 .filter(e -> entryType == null || entryType == e.getEntryType())
-                .sorted(Comparator.comparing(PointEntry::getCreatedAt).reversed())
+                .sorted(Comparator.comparing(PointEntry::getUpdatedAt).reversed())
                 .skip((long) page * pageSize)
                 .limit(pageSize)
                 .collect(Collectors.toList());

@@ -19,7 +19,8 @@ import java.util.UUID;
 @Entity
 @Table(name = "point_entries", indexes = {
     @Index(name = "idx_point_entries_game_created", columnList = "game_id, created_at"),
-    @Index(name = "idx_point_entries_team_created", columnList = "team_id, created_at")
+    @Index(name = "idx_point_entries_team_created", columnList = "team_id, created_at"),
+    @Index(name = "idx_point_entries_game_updated", columnList = "game_id, updated_at")
 })
 public class PointEntryEntity {
 
@@ -57,6 +58,9 @@ public class PointEntryEntity {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
+
     @Column(name = "created_by")
     private UUID createdBy;
 
@@ -72,5 +76,6 @@ public class PointEntryEntity {
     public PointEntryEntity() {
         this.id = UUID.randomUUID();
         this.createdAt = Instant.now();
+        this.updatedAt = this.createdAt;
     }
 }

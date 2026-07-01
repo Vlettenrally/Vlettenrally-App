@@ -24,6 +24,7 @@ public record PointEntryResponse(
     Double lng,
     String description,
     Instant createdAt,
+    Instant updatedAt,
     UUID createdBy,
     Instant editedAt,
     UUID editedBy,
