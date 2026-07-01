@@ -37,6 +37,7 @@ public class AdminLoadTestResource {
     private static final double DEFAULT_CENTER_LAT = 52.35;
     private static final double DEFAULT_CENTER_LNG = 4.90;
     private static final double DEFAULT_SPREAD_KM = 3.0;
+    private static final int DEFAULT_START_IN_MINUTES = 7; // pre-start window, within the asked 5–10 min
     private static final String DEFAULT_ENDPOINT_URL = "http://loadtest-location:8080/api/event/1";
 
     @Inject
@@ -53,6 +54,8 @@ public class AdminLoadTestResource {
         String url = (request != null && request.locationEndpointUrl() != null && !request.locationEndpointUrl().isBlank())
             ? request.locationEndpointUrl().trim()
             : DEFAULT_ENDPOINT_URL;
+        boolean seedAutomations = request == null || request.seedAutomations() == null || request.seedAutomations();
+        int startInMinutes = value(request == null ? null : request.startInMinutes(), DEFAULT_START_IN_MINUTES);
 
         if (teamCount < 1 || teamCount > 2000) {
             return badRequest("teamCount must be between 1 and 2000");
@@ -63,9 +66,12 @@ public class AdminLoadTestResource {
         if (spreadKm <= 0 || spreadKm > 200) {
             return badRequest("spreadKm must be between 0 (exclusive) and 200");
         }
+        if (startInMinutes < 0 || startInMinutes > 1440) {
+            return badRequest("startInMinutes must be between 0 and 1440");
+        }
 
         LoadTestScenarioResponse scenario =
-            seedService.seed(teamCount, checkpointCount, centerLat, centerLng, spreadKm, url);
+            seedService.seed(teamCount, checkpointCount, centerLat, centerLng, spreadKm, url, seedAutomations, startInMinutes);
         return Response.ok(scenario).build();
     }
 

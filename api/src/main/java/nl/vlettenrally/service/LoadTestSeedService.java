@@ -4,10 +4,15 @@ import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import nl.vlettenrally.data.domain.AutomationRule;
 import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.Team;
+import nl.vlettenrally.data.domain.automation.AutomationAction;
+import nl.vlettenrally.data.domain.automation.AutomationTriggerConfig;
 import nl.vlettenrally.data.dto.admin.LoadTestScenarioResponse;
 import nl.vlettenrally.data.dto.game.CheckpointRequest;
+import nl.vlettenrally.data.enums.AutomationTriggerType;
+import nl.vlettenrally.data.enums.MessageType;
 import nl.vlettenrally.data.repository.TeamRepository;
 
 import java.time.Duration;
@@ -60,19 +65,28 @@ public class LoadTestSeedService {
     @Inject
     PictureService pictureService;
 
+    @Inject
+    AutomationService automationService;
+
     @Transactional
     public LoadTestScenarioResponse seed(int teamCount, int checkpointCount,
                                          double centerLat, double centerLng, double spreadKm,
-                                         String locationEndpointUrl) {
+                                         String locationEndpointUrl, boolean seedAutomations,
+                                         int startInMinutes) {
         Instant now = Instant.now();
+        Instant startTime = now.plus(Duration.ofMinutes(startInMinutes));
 
         Game game = new Game();
         game.setName(MARKER_PREFIX + DateTimeFormatter.ISO_INSTANT.format(now.truncatedTo(ChronoUnit.SECONDS)));
         game.setDescription("Automated load-test fixture. Safe to delete via DELETE /api/v1/admin/load-test/{gameId}.");
-        game.setStatus(Game.GameStatus.ACTIVE);
-        game.setStartTime(now);
-        game.setStartSignalTime(now);
-        game.setEndTime(now.plus(Duration.ofHours(4)));
+        // PLANNED: GameStatusScheduler flips it to ACTIVE at startSignalTime, exercising the
+        // GAME_STATUS_CHANGE path. Location polling still runs pre-start (within the lead window),
+        // so ingestion is stressed while teams mill about before the start signal.
+        game.setStatus(Game.GameStatus.PLANNED);
+        game.setCheckInStartTime(now);
+        game.setStartTime(startTime);
+        game.setStartSignalTime(startTime);
+        game.setEndTime(startTime.plus(Duration.ofHours(4)));
         game.setLocationEndpointUrl(locationEndpointUrl);
         game.setLocationEndpointActive(true);
         game.setLocationPollingLeadMinutes(30);
@@ -91,6 +105,7 @@ public class LoadTestSeedService {
             waypoints.add(new LoadTestScenarioResponse.Waypoint(name, latLng[0], latLng[1]));
         }
 
+        List<Team> savedTeams = new ArrayList<>(teamCount);
         List<LoadTestScenarioResponse.TeamRef> teams = new ArrayList<>(teamCount);
         for (int i = 0; i < teamCount; i++) {
             String trackerId = String.valueOf(TRACKER_BASE + i);
@@ -104,11 +119,17 @@ public class LoadTestSeedService {
             team.setCheckedInDigitally(true);
             // No emergency phone numbers -> Twilio SMS fallback can never fire.
             team = teamRepository.save(team);
+            savedTeams.add(team);
             teams.add(new LoadTestScenarioResponse.TeamRef(team.getId(), team.getName(), trackerId));
         }
 
-        Log.infof("Seeded load-test game %s: %d teams, %d checkpoints, endpoint=%s",
-            gameId, teamCount, checkpointCount, locationEndpointUrl);
+        if (seedAutomations) {
+            assignRivals(savedTeams);
+            seedAutomationRules(gameId);
+        }
+
+        Log.infof("Seeded load-test game %s: %d teams, %d checkpoints, automations=%s, endpoint=%s",
+            gameId, teamCount, checkpointCount, seedAutomations, locationEndpointUrl);
 
         return new LoadTestScenarioResponse(
             gameId, game.getName(), locationEndpointUrl, game.getStartTime(), waypoints, teams);
@@ -137,6 +158,79 @@ public class LoadTestSeedService {
         gameService.delete(gameId);
 
         Log.infof("Tore down load-test game %s", gameId);
+    }
+
+    /**
+     * Create automation rules that continuously exercise the engine's hot paths as the seeded
+     * teams move: the built-in distance rule (per-fix accrual), a checkpoint-entry rule that awards
+     * points + notifies admins (drives the ledger + ranking recompute + broadcasts on every pass),
+     * a checkpoint-entry rule that messages the team (drives the message delivery pipeline), and a
+     * speed-alert rule (fires whenever a team's reported speed clears the threshold). All are
+     * {@code fireOnce=false} with a cooldown so they re-fire throughout the run without unbounded
+     * write volume.
+     */
+    private void seedAutomationRules(UUID gameId) {
+        // Built-in continuous distance accrual (1 point / 100 m) — evaluated on every ingested fix.
+        automationService.createSystemDistanceRule(gameId);
+
+        // Any-checkpoint config: null checkpointId means "fires on a pass of any checkpoint".
+        AutomationTriggerConfig anyCheckpoint =
+            new AutomationTriggerConfig(null, null, null, null, null, null, null, null, null);
+
+        createRule(gameId, "LT checkpoint points", AutomationTriggerType.CHECKPOINT_ENTRY, anyCheckpoint,
+            List.of(
+                new AutomationAction.AwardPoints(25, "Checkpoint pass (load test)"),
+                new AutomationAction.NotifyAdmins("LT: team passed a checkpoint")),
+            1);
+
+        createRule(gameId, "LT checkpoint message", AutomationTriggerType.CHECKPOINT_ENTRY, anyCheckpoint,
+            List.of(new AutomationAction.SendMessage("Checkpoint bereikt! (load test)", MessageType.GENERAL, null, null)),
+            5);
+
+        // Teams move at 6–22 km/h, so a 12 km/h threshold fires for roughly half of them.
+        AutomationTriggerConfig speed =
+            new AutomationTriggerConfig(null, null, null, null, null, null, null, null, null, null, 12);
+        createRule(gameId, "LT speed alert", AutomationTriggerType.SPEED_ALERT, speed,
+            List.of(new AutomationAction.NotifyAdmins("LT: team exceeded 12 km/h")),
+            2);
+
+        // RIVAL_OVERTAKE fires when a team's climbing total crosses above a rival's — see assignRivals.
+        createRule(gameId, "LT rival overtake", AutomationTriggerType.RIVAL_OVERTAKE, null,
+            List.of(new AutomationAction.SendMessage("Je hebt een rivaal ingehaald! (load test)", MessageType.RIVAL, null, null)),
+            1);
+    }
+
+    /**
+     * Wire each team to a couple of rivals (the next teams in a ring) so the RIVAL_OVERTAKE rule
+     * has something to compare against as points climb. Persisted via {@code teamRepository.save},
+     * which rewrites the team_rivals join rows.
+     */
+    private void assignRivals(List<Team> savedTeams) {
+        int n = savedTeams.size();
+        if (n < 3) return; // need at least one distinct rival
+        int rivalsPerTeam = Math.min(2, n - 1);
+        for (int i = 0; i < n; i++) {
+            List<UUID> rivals = new ArrayList<>(rivalsPerTeam);
+            for (int r = 1; r <= rivalsPerTeam; r++) {
+                rivals.add(savedTeams.get((i + r) % n).getId());
+            }
+            Team team = savedTeams.get(i);
+            team.setRivals(rivals);
+            teamRepository.save(team);
+        }
+    }
+
+    private void createRule(UUID gameId, String name, AutomationTriggerType triggerType,
+                            AutomationTriggerConfig config, List<AutomationAction> actions,
+                            int cooldownMinutes) {
+        AutomationRule rule = new AutomationRule();
+        rule.setName(name);
+        rule.setTriggerType(triggerType);
+        rule.setTriggerConfig(config);
+        rule.setActions(actions);
+        rule.setFireOnce(false); // re-fire throughout the run
+        rule.setCooldownMinutes(cooldownMinutes);
+        automationService.createRule(gameId, rule, null);
     }
 
     /** Point at {@code distanceKm} from ({@code lat},{@code lng}) along {@code bearingRad}. */

@@ -13,6 +13,12 @@ import io.quarkus.runtime.annotations.RegisterForReflection;
  * @param spreadKm            radius (km) the checkpoints are placed on around the centre
  * @param locationEndpointUrl base URL the API will poll for participant locations; should
  *                            point at the mock location server (e.g. the in-cluster service)
+ * @param seedAutomations     whether to also seed automation rules that exercise the engine
+ *                            (distance accrual, checkpoint award/message, speed alert, rival
+ *                            overtake). Null = true.
+ * @param startInMinutes      minutes from now until the game auto-starts (PLANNED → ACTIVE). The
+ *                            game is created not-yet-started so teams check in and move during a
+ *                            pre-start window. Null = default (7).
  */
 @RegisterForReflection
 public record LoadTestSeedRequest(
@@ -21,5 +27,7 @@ public record LoadTestSeedRequest(
     Double centerLat,
     Double centerLng,
     Double spreadKm,
-    String locationEndpointUrl
+    String locationEndpointUrl,
+    Boolean seedAutomations,
+    Integer startInMinutes
 ) {}
