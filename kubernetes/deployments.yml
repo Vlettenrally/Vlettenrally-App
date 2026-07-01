@@ -182,7 +182,7 @@ spec:
               readOnly: true
           livenessProbe:
             httpGet:
-              path: /q/health
+              path: /q/health/live
               port: http
             initialDelaySeconds: 30
             periodSeconds: 10
