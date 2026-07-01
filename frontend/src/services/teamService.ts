@@ -132,6 +132,11 @@ export const teamService = {
     const response = await api.removeTeamDevice(teamId, deviceId);
     return !response.error;
   },
+
+  resetPointsLedger: async (teamId: string, gameId: string): Promise<{ error: string | null }> => {
+    const response = await api.resetTeamPointsLedger(teamId, gameId);
+    return { error: response.error ?? null };
+  },
 };
 
 export default teamService;

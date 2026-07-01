@@ -151,4 +151,9 @@ public class MockPointEntryRepository implements PointEntryRepository {
     public void delete(UUID id) {
         entries.remove(id);
     }
+
+    @Override
+    public void deleteByTeamAndGame(UUID teamId, UUID gameId) {
+        entries.values().removeIf(e -> teamId.equals(e.getTeamId()) && gameId.equals(e.getGameId()));
+    }
 }

@@ -10,6 +10,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -33,6 +34,7 @@ import nl.vlettenrally.data.dto.team.AssignTrackerRequest;
 import nl.vlettenrally.data.repository.DeviceRegistrationRepository;
 import nl.vlettenrally.service.CheckInCacheService;
 import nl.vlettenrally.service.CheckInCoordinationService;
+import nl.vlettenrally.service.PointsLedgerService;
 import nl.vlettenrally.service.TeamService;
 import nl.vlettenrally.service.TrackerAssignmentService;
 import nl.vlettenrally.websockets.WebSocketEventTypes;
@@ -81,6 +83,9 @@ public class TeamResource {
 
     @Inject
     CheckInCacheService checkInCacheService;
+
+    @Inject
+    PointsLedgerService pointsLedgerService;
 
     /**
      * Get all teams
@@ -532,6 +537,31 @@ public class TeamResource {
             return Response.status(Response.Status.NOT_FOUND)
                 .entity(new ErrorResponse(e.getMessage()))
                 .build();
+        }
+    }
+
+    /**
+     * Super-admin: delete every point entry for a team within a game and reset the
+     * Valkey cache to the recomputed total. Intended for correcting severe scoring
+     * errors or cleaning up test teams.
+     */
+    @DELETE
+    @Path("/teams/{teamId}/point-entries")
+    @RolesAllowed(SecurityRoles.SUPER_ADMIN)
+    public Response resetTeamPointsLedger(@PathParam("teamId") UUID teamId,
+                                          @QueryParam("gameId") UUID gameId) {
+        if (gameId == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ErrorResponse("gameId query parameter is required"))
+                    .build();
+        }
+        try {
+            pointsLedgerService.resetTeamLedger(teamId, gameId);
+            return Response.noContent().build();
+        } catch (jakarta.ws.rs.NotFoundException e) {
+            return Response.status(Response.Status.NOT_FOUND)
+                    .entity(new ErrorResponse(e.getMessage()))
+                    .build();
         }
     }
 }

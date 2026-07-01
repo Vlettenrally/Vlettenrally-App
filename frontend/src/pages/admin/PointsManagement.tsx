@@ -144,11 +144,15 @@ export default function PointsManagement() {
     const unsubUpdated = websocket.on(WebSocketEventType.POINT_ENTRY_UPDATED, (m) =>
       updateEntry(m.payload as PointEntry),
     );
+    const unsubReset = websocket.on(WebSocketEventType.TEAM_LEDGER_RESET, () =>
+      void loadEntries({ page: 0 }),
+    );
     return () => {
       unsubCreated();
       unsubUpdated();
+      unsubReset();
     };
-  }, [addEntry, updateEntry]);
+  }, [addEntry, updateEntry, loadEntries]);
 
   const teamNameById = useMemo(() => {
     const map = new Map<string, string>();

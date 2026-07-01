@@ -193,6 +193,33 @@ public class PointsLedgerService {
         return pointEntryRepository.findById(id);
     }
 
+    @Transactional
+    public void resetTeamLedger(UUID teamId, UUID gameId) {
+        teamRepository.findById(teamId)
+                .orElseThrow(() -> new NotFoundException("Team not found: " + teamId));
+        pointEntryRepository.deleteByTeamAndGame(teamId, gameId);
+        int newTotal = pointEntryRepository.sumCurrentAmountByTeam(teamId);
+        cacheTotalAfterCommit(teamId, newTotal);
+        broadcastRankingAfterCommit(gameId, teamId, newTotal);
+        broadcastLedgerResetAfterCommit(gameId, teamId);
+    }
+
+    private void broadcastLedgerResetAfterCommit(UUID gameId, UUID teamId) {
+        Map<String, Object> payload = Map.of("teamId", teamId, "gameId", gameId);
+        try {
+            txRegistry.registerInterposedSynchronization(new Synchronization() {
+                @Override public void beforeCompletion() { }
+                @Override public void afterCompletion(int status) {
+                    if (status == Status.STATUS_COMMITTED) {
+                        webSocketPublisher.sendToAdminTopic(gameId, AdminTopics.POINTS, "TEAM_LEDGER_RESET", payload);
+                    }
+                }
+            });
+        } catch (IllegalStateException noTx) {
+            webSocketPublisher.sendToAdminTopic(gameId, AdminTopics.POINTS, "TEAM_LEDGER_RESET", payload);
+        }
+    }
+
     /**
      * Register a post-commit broadcast so admins never see a row that the
      * transaction later rolled back.

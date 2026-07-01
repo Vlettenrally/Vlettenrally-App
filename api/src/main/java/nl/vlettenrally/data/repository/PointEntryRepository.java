@@ -33,4 +33,6 @@ public interface PointEntryRepository {
     PointEntry save(PointEntry entry);
 
     void delete(UUID id);
+
+    void deleteByTeamAndGame(UUID teamId, UUID gameId);
 }

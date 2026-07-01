@@ -450,6 +450,10 @@ class ApiService {
     return this.delete(`/teams/${teamId}/devices/${deviceId}`);
   }
 
+  async resetTeamPointsLedger(teamId: string, gameId: string): Promise<ApiResponse<void>> {
+    return this.delete(`/teams/${teamId}/point-entries?gameId=${gameId}`);
+  }
+
   // Admin self-service: their own registered FCM devices
   async getMyAdminDevices(): Promise<ApiResponse<CheckInDevice[]>> {
     return this.get('/admin/me/devices');

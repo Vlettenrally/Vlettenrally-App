@@ -797,7 +797,9 @@
       "deleteTeam": "Verwijder team",
       "deleteConfirm": "Team \"{{name}}\" en alle bijbehorende gegevens worden permanent verwijderd.",
       "cancel": "Annuleer",
-      "deleteForever": "Verwijder definitief"
+      "deleteForever": "Verwijder definitief",
+      "resetLedger": "Ledger resetten",
+      "confirmLedgerResetMessage": "Dit verwijdert alle puntregels voor dit team. Dit kan niet ongedaan worden gemaakt."
     },
     "gameForm": {
       "createTitle": "Create New Game",

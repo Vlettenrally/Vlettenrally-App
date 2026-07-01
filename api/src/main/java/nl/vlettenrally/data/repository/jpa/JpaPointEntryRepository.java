@@ -106,4 +106,14 @@ public class JpaPointEntryRepository extends ReadReplicaAwareRepository implemen
                 .setParameter("id", id)
                 .executeUpdate();
     }
+
+    @Transactional
+    @Override
+    public void deleteByTeamAndGame(UUID teamId, UUID gameId) {
+        getWriteEntityManager()
+                .createQuery("DELETE FROM PointEntryEntity e WHERE e.team.id = :teamId AND e.game.id = :gameId")
+                .setParameter("teamId", teamId)
+                .setParameter("gameId", gameId)
+                .executeUpdate();
+    }
 }

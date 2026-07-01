@@ -23,6 +23,7 @@ import { useTranslation } from 'react-i18next';
 import type { AdminTeam, CheckInDevice } from '../types/entities';
 import { teamService } from '../services/teamService';
 import { gameService } from '../services/gameService';
+import { storage } from '../services/storage';
 
 interface TeamDetailDialogProps {
   open: boolean;
@@ -51,6 +52,8 @@ export default function TeamDetailDialog({
   const [deviceError, setDeviceError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [confirmLedgerReset, setConfirmLedgerReset] = useState(false);
+  const [ledgerResetPending, setLedgerResetPending] = useState(false);
   const [availableTrackers, setAvailableTrackers] = useState<string[]>([]);
 
   const [formData, setFormData] = useState({
@@ -68,6 +71,7 @@ export default function TeamDetailDialog({
 
   const { t } = useTranslation();
   const isCreateMode = !team;
+  const isSuperAdmin = storage.isSuperAdmin();
 
   useEffect(() => {
     if (team) {
@@ -212,6 +216,22 @@ export default function TeamDetailDialog({
       onSave?.();
     } finally {
       setDeviceActionPending(false);
+    }
+  };
+
+  const handleResetLedger = async () => {
+    if (!team) return;
+    setLedgerResetPending(true);
+    try {
+      const { error: ledgerError } = await teamService.resetPointsLedger(team.id, gameId);
+      if (ledgerError) {
+        setError(ledgerError);
+        return;
+      }
+      setConfirmLedgerReset(false);
+      onSave?.();
+    } finally {
+      setLedgerResetPending(false);
     }
   };
 
@@ -715,6 +735,49 @@ export default function TeamDetailDialog({
                     </Button>
                   )}
                 </Box>
+
+                {isSuperAdmin && (
+                  <Box sx={{ mt: 2 }}>
+                    {confirmLedgerReset ? (
+                      <Alert
+                        severity="error"
+                        action={
+                          <Stack direction="row" spacing={1}>
+                            <Button
+                              size="small"
+                              color="inherit"
+                              disabled={ledgerResetPending}
+                              onClick={() => setConfirmLedgerReset(false)}
+                            >
+                              {t('common.cancel')}
+                            </Button>
+                            <Button
+                              size="small"
+                              color="error"
+                              variant="contained"
+                              disabled={ledgerResetPending}
+                              onClick={handleResetLedger}
+                            >
+                              {ledgerResetPending ? <CircularProgress size={20} /> : t('components.teamDetail.reset')}
+                            </Button>
+                          </Stack>
+                        }
+                      >
+                        {t('components.teamDetail.confirmLedgerResetMessage')}
+                      </Alert>
+                    ) : (
+                      <Button
+                        size="small"
+                        color="error"
+                        variant="outlined"
+                        disabled={ledgerResetPending}
+                        onClick={() => setConfirmLedgerReset(true)}
+                      >
+                        {t('components.teamDetail.resetLedger')}
+                      </Button>
+                    )}
+                  </Box>
+                )}
               </Box>
             </>
           )}

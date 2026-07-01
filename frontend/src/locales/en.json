@@ -797,7 +797,9 @@
       "deleteTeam": "Delete team",
       "deleteConfirm": "Team \"{{name}}\" and all associated data will be permanently deleted.",
       "cancel": "Cancel",
-      "deleteForever": "Delete permanently"
+      "deleteForever": "Delete permanently",
+      "resetLedger": "Reset points ledger",
+      "confirmLedgerResetMessage": "This will permanently delete all point entries for this team. This cannot be undone."
     },
     "gameForm": {
       "createTitle": "Create New Game",
