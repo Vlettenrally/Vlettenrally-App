@@ -34,7 +34,6 @@ public class Team {
     // but stops accruing automatic points (checkpoint passes + distance).
     private boolean finished;
     private Instant finishedAt;
-    private int totalPoints;
     private List<UUID> rivals;
     private String notes;
     // Traccar GPS tracking: opt-in per team. traccarIdentifier is a long-lived
@@ -60,7 +59,6 @@ public class Team {
         this.checkedIn = false;
         this.checkedInDigitally = false;
         this.finished = false;
-        this.totalPoints = 0;
         this.traccarEnabled = false;
         this.createdAt = Instant.now();
         this.updatedAt = Instant.now();

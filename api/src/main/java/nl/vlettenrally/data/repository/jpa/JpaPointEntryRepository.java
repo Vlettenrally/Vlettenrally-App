@@ -67,6 +67,15 @@ public class JpaPointEntryRepository extends ReadReplicaAwareRepository implemen
         return query.getSingleResult();
     }
 
+    @Override
+    public int sumCurrentAmountByTeam(UUID teamId) {
+        Long result = getReadEntityManager()
+                .createQuery("SELECT COALESCE(SUM(e.currentAmount), 0) FROM PointEntryEntity e WHERE e.team.id = :teamId", Long.class)
+                .setParameter("teamId", teamId)
+                .getSingleResult();
+        return result == null ? 0 : result.intValue();
+    }
+
     @Transactional
     @Override
     public PointEntry save(PointEntry entry) {

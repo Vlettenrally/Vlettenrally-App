@@ -31,8 +31,6 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * Single mutator of {@link Team#getTotalPoints()}.
- * <p>
  * Every change is recorded as a PointEntry. The team's totalPoints is updated
  * by the same delta in the same transaction. After commit, an admin WebSocket
  * event is published so the Points Management page updates live.
@@ -69,17 +67,21 @@ public class PointsLedgerService {
     @Inject
     AutomationEngine automationEngine;
 
+    @Inject
+    PointsTotalsCache pointsTotalsCache;
+
     /**
-     * Record a new ledger entry and adjust the team's totalPoints by {@code amount}.
+     * Record a new ledger entry. The team's running total is maintained in the
+     * Valkey cache ({@link PointsTotalsCache}), not on the team row.
      */
     @Transactional
     public PointEntry createEntry(UUID teamId, UUID gameId, PointEntryType type, int amount,
                                   Point location, String description,
                                   UUID sourceAchievementId, UUID createdBy) {
-        Team team = teamRepository.findById(teamId)
+        teamRepository.findById(teamId)
                 .orElseThrow(() -> new NotFoundException("Team not found: " + teamId));
 
-        int oldTotal = team.getTotalPoints();
+        int oldTotal = pointsTotalsCache.get(teamId);
         int newTotal = oldTotal + amount;
         if (newTotal < 0) {
             throw new BadRequestException(
@@ -98,12 +100,9 @@ public class PointsLedgerService {
         entry.setCreatedBy(createdBy);
         PointEntry saved = pointEntryRepository.save(entry);
 
-        team.setTotalPoints(newTotal);
-        team.setUpdatedAt(Instant.now());
-        teamRepository.save(team);
-
+        cacheTotalAfterCommit(teamId, newTotal);
         broadcastAfterCommit(gameId, EVENT_POINT_ENTRY_CREATED, pointEntryConverter.toResponse(saved));
-        broadcastRankingAfterCommit(gameId, teamId);
+        broadcastRankingAfterCommit(gameId, teamId, newTotal);
         automationEngine.onTeamPointsChanged(gameId, teamId, oldTotal, newTotal);
         return saved;
     }
@@ -131,10 +130,8 @@ public class PointsLedgerService {
             return saved;
         }
 
-        Team team = teamRepository.findById(entry.getTeamId())
-                .orElseThrow(() -> new NotFoundException("Team not found: " + entry.getTeamId()));
-
-        int oldTotal = team.getTotalPoints();
+        UUID teamId = entry.getTeamId();
+        int oldTotal = pointsTotalsCache.get(teamId);
         int newTotal = oldTotal + delta;
         if (newTotal < 0) {
             throw new BadRequestException(
@@ -149,13 +146,10 @@ public class PointsLedgerService {
         entry.setEditReason(reason);
         PointEntry saved = pointEntryRepository.save(entry);
 
-        team.setTotalPoints(newTotal);
-        team.setUpdatedAt(Instant.now());
-        teamRepository.save(team);
-
+        cacheTotalAfterCommit(teamId, newTotal);
         broadcastAfterCommit(entry.getGameId(), EVENT_POINT_ENTRY_UPDATED, pointEntryConverter.toResponse(saved));
-        broadcastRankingAfterCommit(entry.getGameId(), entry.getTeamId());
-        automationEngine.onTeamPointsChanged(entry.getGameId(), entry.getTeamId(), oldTotal, newTotal);
+        broadcastRankingAfterCommit(entry.getGameId(), teamId, newTotal);
+        automationEngine.onTeamPointsChanged(entry.getGameId(), teamId, oldTotal, newTotal);
         return saved;
     }
 
@@ -176,10 +170,8 @@ public class PointsLedgerService {
             return entry;
         }
 
-        Team team = teamRepository.findById(entry.getTeamId())
-                .orElseThrow(() -> new NotFoundException("Team not found: " + entry.getTeamId()));
-
-        int oldTotal = team.getTotalPoints();
+        UUID teamId = entry.getTeamId();
+        int oldTotal = pointsTotalsCache.get(teamId);
         int newTotal = oldTotal + delta;
         if (newTotal < 0) {
             throw new BadRequestException(
@@ -190,13 +182,10 @@ public class PointsLedgerService {
         entry.setUpdatedAt(Instant.now());
         PointEntry saved = pointEntryRepository.save(entry);
 
-        team.setTotalPoints(newTotal);
-        team.setUpdatedAt(Instant.now());
-        teamRepository.save(team);
-
+        cacheTotalAfterCommit(teamId, newTotal);
         broadcastAfterCommit(entry.getGameId(), EVENT_POINT_ENTRY_UPDATED, pointEntryConverter.toResponse(saved));
-        broadcastRankingAfterCommit(entry.getGameId(), entry.getTeamId());
-        automationEngine.onTeamPointsChanged(entry.getGameId(), entry.getTeamId(), oldTotal, newTotal);
+        broadcastRankingAfterCommit(entry.getGameId(), teamId, newTotal);
+        automationEngine.onTeamPointsChanged(entry.getGameId(), teamId, oldTotal, newTotal);
         return saved;
     }
 
@@ -227,6 +216,25 @@ public class PointsLedgerService {
     }
 
     /**
+     * Write the new total to the cache after commit so reads during the same
+     * broadcast cycle already see the fresh value without a ledger re-query.
+     */
+    private void cacheTotalAfterCommit(UUID teamId, int newTotal) {
+        try {
+            txRegistry.registerInterposedSynchronization(new Synchronization() {
+                @Override public void beforeCompletion() { }
+                @Override public void afterCompletion(int status) {
+                    if (status == Status.STATUS_COMMITTED) {
+                        pointsTotalsCache.set(teamId, newTotal);
+                    }
+                }
+            });
+        } catch (IllegalStateException noTx) {
+            pointsTotalsCache.set(teamId, newTotal);
+        }
+    }
+
+    /**
      * Publish standings after a point change, gated on game status. Done after
      * commit so subscribers never see standings from a rolled-back tx.
      * <p>
@@ -236,26 +244,28 @@ public class PointsLedgerService {
      * live score, so instead each affected team is sent only its own
      * [me + my rivals] view; the backend does the filtering, not the client.
      *
-     * @param changedTeamId the team whose total changed; used to decide which
-     *                      teams' rival views need refreshing during the game.
+     * @param changedTeamId    the team whose total changed.
+     * @param changedTeamTotal the new total for that team; passed explicitly so
+     *                         the rival payload is built without a second cache
+     *                         look-up or ordering dependency on cacheTotalAfterCommit.
      */
-    private void broadcastRankingAfterCommit(UUID gameId, UUID changedTeamId) {
+    private void broadcastRankingAfterCommit(UUID gameId, UUID changedTeamId, int changedTeamTotal) {
         try {
             txRegistry.registerInterposedSynchronization(new Synchronization() {
                 @Override public void beforeCompletion() { }
                 @Override public void afterCompletion(int status) {
                     if (status == Status.STATUS_COMMITTED) {
-                        publishStandings(gameId, changedTeamId);
+                        publishStandings(gameId, changedTeamId, changedTeamTotal);
                     }
                 }
             });
         } catch (IllegalStateException noTx) {
             Log.warn("No active transaction for ranking broadcast; sending immediately");
-            publishStandings(gameId, changedTeamId);
+            publishStandings(gameId, changedTeamId, changedTeamTotal);
         }
     }
 
-    private void publishStandings(UUID gameId, UUID changedTeamId) {
+    private void publishStandings(UUID gameId, UUID changedTeamId, int changedTeamTotal) {
         if (isRankingsPublished(gameId)) {
             // Standings are only player-visible once an admin has revealed them.
             // After that, a points correction re-broadcasts the updated ranking.
@@ -283,7 +293,7 @@ public class PointsLedgerService {
                     gameId,
                     team.getId(),
                     WebSocketMessageType.RIVAL_UPDATE.getValue(),
-                    rivalPayload(team, byId));
+                    rivalPayload(team, byId, changedTeamId, changedTeamTotal));
             }
         }
     }
@@ -303,15 +313,20 @@ public class PointsLedgerService {
     /**
      * The team's rivals as {id, name, totalPoints} — the same shape
      * {@code TeamServiceImpl.setRivals} emits on a RIVAL_UPDATE.
+     * The changed team's total is supplied explicitly; all others are read from
+     * the cache (which may itself trigger a ledger SUM on a cold miss).
      */
-    private List<Map<String, Object>> rivalPayload(Team team, Map<UUID, Team> byId) {
-        return team.getRivals().stream()
+    private List<Map<String, Object>> rivalPayload(Team recipient, Map<UUID, Team> byId,
+                                                   UUID changedTeamId, int changedTeamTotal) {
+        return recipient.getRivals().stream()
             .map(byId::get)
             .filter(Objects::nonNull)
-            .map(r -> Map.<String, Object>of(
-                "id", r.getId(),
-                "name", r.getName(),
-                "totalPoints", r.getTotalPoints()))
+            .map(r -> {
+                int total = r.getId().equals(changedTeamId)
+                    ? changedTeamTotal
+                    : pointsTotalsCache.get(r.getId());
+                return Map.<String, Object>of("id", r.getId(), "name", r.getName(), "totalPoints", total);
+            })
             .toList();
     }
 }

@@ -397,7 +397,6 @@ class TeamServiceImplTest {
         team.setDescription("Test Description");
         team.setCheckedIn(checkedIn);
         team.setCheckedInDigitally(checkedIn);
-        team.setTotalPoints(0);
         team.setParticipants(new ArrayList<>());
         team.setRivals(new ArrayList<>());
         team.setCreatedAt(Instant.now());

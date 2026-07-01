@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
 /**
  * Mock implementation of PointEntryRepository with prefilled data.
  * Only active in dev and test profiles - replaced by JpaPointEntryRepository in prod.
- *
+ * <p>
  * Seeded entries sum to the hardcoded team totals in MockTeamRepository
  * so totalPoints stays consistent with the ledger.
  */
@@ -128,6 +128,14 @@ public class MockPointEntryRepository implements PointEntryRepository {
                 .filter(e -> teamId == null || teamId.equals(e.getTeamId()))
                 .filter(e -> entryType == null || entryType == e.getEntryType())
                 .count();
+    }
+
+    @Override
+    public int sumCurrentAmountByTeam(UUID teamId) {
+        return entries.values().stream()
+                .filter(e -> teamId.equals(e.getTeamId()))
+                .mapToInt(PointEntry::getCurrentAmount)
+                .sum();
     }
 
     @Override

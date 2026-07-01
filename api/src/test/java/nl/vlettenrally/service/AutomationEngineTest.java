@@ -67,6 +67,7 @@ class AutomationEngineTest {
     @Mock PointsLedgerService pointsLedgerService;
     @Mock AutomationActionExecutor actionExecutor;
     @Mock WebSocketPublisher webSocketPublisher;
+    @Mock PointsTotalsCache pointsTotalsCache;
 
     @InjectMocks AutomationEngine engine;
 
@@ -421,8 +422,7 @@ class AutomationEngineTest {
         rival.setId(UUID.randomUUID());
         rival.setGameId(gameId);
         rival.setName("Rivaal");
-        rival.setTotalPoints(totalPoints);
-        when(teamRepository.findById(rival.getId())).thenReturn(Optional.of(rival));
+        lenient().when(pointsTotalsCache.get(rival.getId())).thenReturn(totalPoints);
         return rival;
     }
 

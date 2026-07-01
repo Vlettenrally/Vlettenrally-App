@@ -54,7 +54,6 @@ public class MockTeamRepository implements TeamRepository {
         team1.setDeviceId(UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"));
         team1.setCheckedIn(true);
         team1.setCheckedInDigitally(true);
-        team1.setTotalPoints(350);
         team1.setRivals(Collections.singletonList(TEAM_WINDKRACHT_ID));
         team1.setNotes("Favoriet voor de winst!");
         team1.setEmergencyPhoneNumbers(List.of("+31612345678", "+31687654321"));
@@ -72,7 +71,6 @@ public class MockTeamRepository implements TeamRepository {
         team2.setDeviceId(UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"));
         team2.setCheckedIn(true);
         team2.setCheckedInDigitally(true);
-        team2.setTotalPoints(300);
         team2.setRivals(Collections.singletonList(TEAM_WATERVLOOIEN_ID));
         team2.setEmergencyPhoneNumbers(List.of("+31687654321"));
         team2.setCreatedAt(now.minus(47, ChronoUnit.HOURS));
@@ -88,7 +86,6 @@ public class MockTeamRepository implements TeamRepository {
         team3.setParticipants(List.of("Tom de Vries", "Henk Boot"));
         team3.setCheckedIn(true);
         team3.setCheckedInDigitally(true);
-        team3.setTotalPoints(250);
         team3.setRivals(Collections.emptyList());
         team3.setEmergencyPhoneNumbers(List.of("+31612345678", "+31687654321"));
         team3.setCreatedAt(now.minus(46, ChronoUnit.HOURS));
@@ -106,7 +103,6 @@ public class MockTeamRepository implements TeamRepository {
         team4.setCheckedInDigitally(false);
         team4.setTraccarEnabled(true);
         team4.setTraccarIdentifier("mock-traccar-kapitein-haak");
-        team4.setTotalPoints(0);
         team4.setRivals(Collections.emptyList());
         team4.setEmergencyPhoneNumbers(List.of("+31612345678", "+31687654321"));
         team4.setCreatedAt(now.minus(45, ChronoUnit.HOURS));

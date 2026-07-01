@@ -7,7 +7,7 @@ import java.util.UUID;
 
 /**
  * Response DTO for a single ledger entry.
- *
+ * <p>
  * The frontend renders "deducted" as {@code originalAmount - currentAmount} when positive,
  * so both values are sent on every payload.
  */

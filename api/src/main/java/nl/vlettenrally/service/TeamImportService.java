@@ -21,7 +21,7 @@ import java.util.UUID;
 
 /**
  * Service for importing teams from external pre-registration system.
- *
+ * <p>
  * Each booking from the external API contains one or more boat attendees;
  * each attendee is imported as its own Team (one team per boat).
  */
@@ -141,7 +141,6 @@ public class TeamImportService {
         team.setParticipants(new ArrayList<>());
         team.setEmergencyPhoneNumbers(new ArrayList<>());
         team.setCheckedIn(false);
-        team.setTotalPoints(0);
         team.setRivals(new ArrayList<>());
         team.setCreatedAt(Instant.now());
         team.setUpdatedAt(Instant.now());

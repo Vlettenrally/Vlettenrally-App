@@ -162,7 +162,6 @@ class TeamImportServiceTest {
         assertNotNull(savedTeam.getId());
         assertEquals(gameId, savedTeam.getGameId());
         assertFalse(savedTeam.isCheckedIn());
-        assertEquals(0, savedTeam.getTotalPoints());
         assertNotNull(savedTeam.getParticipants());
         assertNotNull(savedTeam.getEmergencyPhoneNumbers());
         assertTrue(savedTeam.getEmergencyPhoneNumbers().isEmpty());

@@ -25,6 +25,11 @@ public interface PointEntryRepository {
      */
     long countByGame(UUID gameId, UUID teamId, PointEntryType entryType);
 
+    /**
+     * Sum of {@code currentAmount} across all entries for a team. Returns 0 for a team with no entries.
+     */
+    int sumCurrentAmountByTeam(UUID teamId);
+
     PointEntry save(PointEntry entry);
 
     void delete(UUID id);

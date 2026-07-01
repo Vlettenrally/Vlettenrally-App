@@ -10,7 +10,7 @@ import java.util.UUID;
 
 /**
  * Domain model for an entry in the points ledger.
- *
+ * <p>
  * Every change to a Team's totalPoints produces one PointEntry.
  * An entry's {@code originalAmount} is set at creation and never changes;
  * {@code currentAmount} may be adjusted later (admin penalty or correction).

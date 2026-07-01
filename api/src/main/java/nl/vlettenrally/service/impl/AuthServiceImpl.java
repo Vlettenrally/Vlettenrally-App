@@ -106,7 +106,6 @@ public class AuthServiceImpl implements AuthService {
         team.setParticipants(participantNames != null ? participantNames : Collections.emptyList());
         team.setNotes(bookingId);
         team.setCheckedIn(false);
-        team.setTotalPoints(0);
 
         Team savedTeam = teamRepository.save(team);
 
@@ -641,7 +640,7 @@ public class AuthServiceImpl implements AuthService {
 
     /**
      * Calculate when a game's check-in token should expire.
-     *
+     * <p>
      * Expiry rules:
      * 1. If all teams have checked in, token expires 5 minutes after the last check-in
      * 2. If game start time has passed, token expires immediately

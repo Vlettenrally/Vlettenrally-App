@@ -82,9 +82,6 @@ public class TeamEntity {
     @Column(name = "tracker_id", length = 64)
     private String trackerId;
 
-    @Column(name = "total_points", nullable = false)
-    private int totalPoints = 0;
-
     @Version
     @Column(name = "version", nullable = false)
     private long version;

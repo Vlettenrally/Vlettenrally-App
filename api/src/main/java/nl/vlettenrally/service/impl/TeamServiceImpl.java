@@ -8,6 +8,7 @@ import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.service.AutomationEngine;
 import nl.vlettenrally.service.GameService;
 import nl.vlettenrally.service.PictureService;
+import nl.vlettenrally.service.PointsTotalsCache;
 import nl.vlettenrally.service.TeamService;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 import nl.vlettenrally.websockets.dto.WebSocketMessageType;
@@ -43,6 +44,9 @@ public class TeamServiceImpl implements TeamService {
 
     @Inject
     AutomationEngine automationEngine;
+
+    @Inject
+    PointsTotalsCache pointsTotalsCache;
 
     @ConfigProperty(name = "vlettenrally.rivals.max-per-team", defaultValue = "5")
     int maxRivals;
@@ -203,7 +207,7 @@ public class TeamServiceImpl implements TeamService {
                     .map(r -> Map.of(
                         "id", r.getId(),
                         "name", r.getName(),
-                        "totalPoints", r.getTotalPoints()
+                        "totalPoints", pointsTotalsCache.get(r.getId())
                     ))
                     .toList()
             );

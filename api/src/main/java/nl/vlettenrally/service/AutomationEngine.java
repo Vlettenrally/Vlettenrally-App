@@ -29,7 +29,6 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -94,6 +93,9 @@ public class AutomationEngine {
 
     @Inject
     WebSocketPublisher webSocketPublisher;
+
+    @Inject
+    PointsTotalsCache pointsTotalsCache;
 
     /**
      * A team's checkpoint pass was verified (auto or manual).
@@ -179,9 +181,7 @@ public class AutomationEngine {
             if (team == null || team.getRivals() == null) return;
 
             for (UUID rivalId : team.getRivals()) {
-                Optional<Team> rival = teamRepository.findById(rivalId);
-                if (rival.isEmpty()) continue;
-                int rivalTotal = rival.get().getTotalPoints();
+                int rivalTotal = pointsTotalsCache.get(rivalId);
                 if (oldTotal <= rivalTotal && newTotal > rivalTotal) {
                     for (AutomationRule rule : rules) {
                         fireForTeam(rule, teamId, rivalId.toString());

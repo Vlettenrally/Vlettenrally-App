@@ -1,13 +1,19 @@
 package nl.vlettenrally.data.converter;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import nl.vlettenrally.data.dto.team.TeamPlayerResponse;
 import nl.vlettenrally.data.dto.team.TeamPublicResponse;
 import nl.vlettenrally.data.dto.team.TeamResponse;
 import nl.vlettenrally.data.domain.Team;
+import nl.vlettenrally.service.PointsTotalsCache;
 
 @ApplicationScoped
 public class TeamConverter {
+
+    @Inject
+    PointsTotalsCache pointsTotalsCache;
+
     public Team toDomain(TeamResponse dto) {
         if (dto == null) {
             return null;
@@ -18,7 +24,7 @@ public class TeamConverter {
                 dto.name(),
                 dto.description());
     }
-    
+
     public TeamResponse toDto(Team domain) {
         if (domain == null) {
             return null;
@@ -36,7 +42,7 @@ public class TeamConverter {
                 domain.isTraccarEnabled(),
                 domain.getTraccarIdentifier(),
                 domain.getTrackerId(),
-                domain.getTotalPoints(),
+                pointsTotalsCache.get(domain.getId()),
                 domain.getRivals(),
                 domain.getNotes(),
                 domain.getEmergencyPhoneNumbers(),
@@ -45,9 +51,6 @@ public class TeamConverter {
         );
     }
 
-    /**
-     * Convert domain Team to TeamPlayerResponse (limited view for player's own team)
-     */
     public TeamPlayerResponse toPlayerResponse(Team domain) {
         if (domain == null) {
             return null;
@@ -60,15 +63,12 @@ public class TeamConverter {
                 domain.isCheckedIn(),
                 domain.isCheckedInDigitally(),
                 domain.isFinished(),
-                domain.getTotalPoints(),
+                pointsTotalsCache.get(domain.getId()),
                 domain.getRivals(),
                 domain.getCreatedAt().toString()
         );
     }
 
-    /**
-     * Convert domain Team to TeamPublicResponse (minimal view for rivals/rankings)
-     */
     public TeamPublicResponse toPublicResponse(Team domain) {
         if (domain == null) {
             return null;
@@ -76,7 +76,7 @@ public class TeamConverter {
         return new TeamPublicResponse(
                 domain.getId(),
                 domain.getName(),
-                domain.getTotalPoints()
+                pointsTotalsCache.get(domain.getId())
         );
     }
 }

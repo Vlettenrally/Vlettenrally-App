@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.lenient;
@@ -46,8 +47,8 @@ import nl.vlettenrally.websockets.dto.WebSocketMessageType;
 
 /**
  * Unit tests for PointsLedgerService.
- * Verifies the ledger is the single mutator of Team.totalPoints and enforces
- * the non-negative-total invariant on both create and edit.
+ * Verifies that the ledger is the authoritative source for team totals and that
+ * those totals are maintained in PointsTotalsCache (not on the Team row).
  */
 @ExtendWith(MockitoExtension.class)
 class PointsLedgerServiceTest {
@@ -60,6 +61,7 @@ class PointsLedgerServiceTest {
     @Mock RankingService rankingService;
     @Mock TransactionSynchronizationRegistry txRegistry;
     @Mock AutomationEngine automationEngine;
+    @Mock PointsTotalsCache pointsTotalsCache;
 
     @InjectMocks PointsLedgerService ledger;
 
@@ -76,28 +78,30 @@ class PointsLedgerServiceTest {
         team.setId(teamId);
         team.setGameId(gameId);
         team.setName("Test team");
-        team.setTotalPoints(100);
+        // Initial total comes from the cache, not the team object
+        lenient().when(pointsTotalsCache.get(teamId)).thenReturn(100);
 
         lenient().when(pointEntryRepository.save(any(PointEntry.class)))
-            .thenAnswer(inv -> inv.getArgument(0));
-        lenient().when(teamRepository.save(any(Team.class)))
             .thenAnswer(inv -> inv.getArgument(0));
     }
 
     @Test
-    void createEntry_addsAmountToTeamTotal_andRecordsEntry() {
+    void createEntry_addsAmountToCache_andRecordsEntry() {
         when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
 
         PointEntry result = ledger.createEntry(teamId, gameId, PointEntryType.CHECKPOINT_VERIFICATION,
             50, null, "Checkpoint X", UUID.randomUUID(), null);
 
-        assertEquals(150, team.getTotalPoints());
         assertEquals(50, result.getOriginalAmount());
         assertEquals(50, result.getCurrentAmount());
         assertEquals(teamId, result.getTeamId());
         assertEquals(PointEntryType.CHECKPOINT_VERIFICATION, result.getEntryType());
-        verify(teamRepository).save(team);
+        // Team row is never touched for points
+        verify(teamRepository, never()).save(any());
         verify(automationEngine).onTeamPointsChanged(gameId, teamId, 100, 150);
+        // Cache is written after commit
+        fireAfterCommit();
+        verify(pointsTotalsCache).set(teamId, 150);
     }
 
     @Test
@@ -109,17 +113,18 @@ class PointsLedgerServiceTest {
         entry.setOriginalAmount(10);
         entry.setCurrentAmount(10);
         when(pointEntryRepository.findById(entry.getId())).thenReturn(Optional.of(entry));
-        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
 
         PointEntry result = ledger.accrueEntry(entry.getId(), 25);
 
-        assertEquals(115, team.getTotalPoints());
         assertEquals(25, result.getCurrentAmount());
         assertEquals(10, result.getOriginalAmount());
         assertNull(result.getEditedAt());
         assertNull(result.getEditedBy());
         assertNull(result.getEditReason());
+        verify(teamRepository, never()).save(any());
         verify(automationEngine).onTeamPointsChanged(gameId, teamId, 100, 115);
+        fireAfterCommit();
+        verify(pointsTotalsCache).set(teamId, 115);
     }
 
     @Test
@@ -134,16 +139,19 @@ class PointsLedgerServiceTest {
 
         verify(teamRepository, never()).save(any());
         verify(pointEntryRepository, never()).save(any());
+        verify(pointsTotalsCache, never()).set(any(), anyInt());
     }
 
     @Test
-    void createEntry_appliesNegativeAmount_andDeductsFromTeamTotal() {
+    void createEntry_appliesNegativeAmount() {
         when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
 
         ledger.createEntry(teamId, gameId, PointEntryType.MANUAL_ADJUSTMENT,
             -30, null, "Penalty", null, UUID.randomUUID());
 
-        assertEquals(70, team.getTotalPoints());
+        verify(automationEngine).onTeamPointsChanged(gameId, teamId, 100, 70);
+        fireAfterCommit();
+        verify(pointsTotalsCache).set(teamId, 70);
     }
 
     @Test
@@ -155,10 +163,9 @@ class PointsLedgerServiceTest {
                 -101, null, "Too much", null, null)
         );
 
-        // Total unchanged, nothing persisted
-        assertEquals(100, team.getTotalPoints());
         verify(pointEntryRepository, never()).save(any());
         verify(teamRepository, never()).save(any());
+        verify(pointsTotalsCache, never()).set(any(), anyInt());
     }
 
     @Test
@@ -172,7 +179,7 @@ class PointsLedgerServiceTest {
     }
 
     @Test
-    void editEntry_appliesDeltaToTeamTotal_andLeavesOriginalAmountUntouched() {
+    void editEntry_appliesDeltaToCache_andLeavesOriginalAmountUntouched() {
         UUID entryId = UUID.randomUUID();
         PointEntry existing = new PointEntry();
         existing.setId(entryId);
@@ -183,7 +190,6 @@ class PointsLedgerServiceTest {
         existing.setCurrentAmount(120);
 
         when(pointEntryRepository.findById(entryId)).thenReturn(Optional.of(existing));
-        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
 
         UUID admin = UUID.randomUUID();
         PointEntry result = ledger.editEntry(entryId, 100, "Onreglementair gevaren", admin);
@@ -193,8 +199,10 @@ class PointsLedgerServiceTest {
         assertEquals(admin, result.getEditedBy());
         assertEquals("Onreglementair gevaren", result.getEditReason());
         assertNotNull(result.getEditedAt());
-        // Team total adjusted by delta -20
-        assertEquals(80, team.getTotalPoints());
+        verify(teamRepository, never()).save(any());
+        // delta = -20; cache updated to 100 + (-20) = 80
+        fireAfterCommit();
+        verify(pointsTotalsCache).set(teamId, 80);
     }
 
     @Test
@@ -209,15 +217,14 @@ class PointsLedgerServiceTest {
         existing.setCurrentAmount(50);
 
         when(pointEntryRepository.findById(entryId)).thenReturn(Optional.of(existing));
-        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
 
         // Reducing by 200 would put team at -50
         assertThrows(BadRequestException.class, () ->
             ledger.editEntry(entryId, -150, "Too far", null)
         );
 
-        assertEquals(100, team.getTotalPoints());
         assertEquals(50, existing.getCurrentAmount(), "Entry must not be mutated on rejection");
+        verify(pointsTotalsCache, never()).set(any(), anyInt());
     }
 
     @Test
@@ -236,9 +243,10 @@ class PointsLedgerServiceTest {
         UUID admin = UUID.randomUUID();
         ledger.editEntry(entryId, 50, "No change but record reason", admin);
 
-        // Team should NOT have been looked up at all
+        // No total change → cache not written, team not saved
         verify(teamRepository, never()).findById(any());
         verify(teamRepository, never()).save(any());
+        verify(pointsTotalsCache, never()).set(any(), anyInt());
         assertNotNull(existing.getEditedAt());
         assertEquals(admin, existing.getEditedBy());
         assertEquals("No change but record reason", existing.getEditReason());
@@ -287,7 +295,7 @@ class PointsLedgerServiceTest {
     }
 
     @Test
-    void editEntry_doesNotMutateTeam_whenDeltaIsZero() {
+    void editEntry_doesNotMutateCache_whenDeltaIsZero() {
         UUID entryId = UUID.randomUUID();
         PointEntry existing = new PointEntry();
         existing.setId(entryId);
@@ -300,8 +308,8 @@ class PointsLedgerServiceTest {
 
         ledger.editEntry(entryId, 40, "reaffirm", null);
 
-        assertEquals(100, team.getTotalPoints());
         verify(teamRepository, never()).save(any());
+        verify(pointsTotalsCache, never()).set(any(), anyInt());
     }
 
     // ---- standings broadcast (gated on game status) ----------------------
@@ -337,7 +345,8 @@ class PointsLedgerServiceTest {
         verify(webSocketPublisher, never()).sendToTeamOnly(eq(gameId), eq(c.getId()),
             eq(WebSocketMessageType.RIVAL_UPDATE.getValue()), any());
 
-        // A's payload carries only X, with X's fresh total (100 + 50) — no other scores.
+        // A's payload carries only X, with X's fresh total (100 + 50 = 150).
+        // The total is passed explicitly (changedTeamTotal) so no extra cache read is needed.
         ArgumentCaptor<Object> payload = ArgumentCaptor.forClass(Object.class);
         verify(webSocketPublisher).sendToTeamOnly(eq(gameId), eq(a.getId()),
             eq(WebSocketMessageType.RIVAL_UPDATE.getValue()), payload.capture());
