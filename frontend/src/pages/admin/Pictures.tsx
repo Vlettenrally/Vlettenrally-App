@@ -305,7 +305,7 @@ export default function AdminPictures() {
         open={!!lightboxUrl}
         onClose={() => setLightboxUrl(null)}
         maxWidth={false}
-        PaperProps={{ sx: { bgcolor: 'black', m: 1 } }}
+        slotProps={{ paper: { sx: { bgcolor: 'black', m: 1 } } }}
       >
         {lightboxUrl && (
           <img

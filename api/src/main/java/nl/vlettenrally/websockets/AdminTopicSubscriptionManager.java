@@ -96,9 +96,9 @@ public class AdminTopicSubscriptionManager {
                 .chain(() -> zset.zrangebyscore(key, ScoreRange.from(cutoff, Double.POSITIVE_INFINITY)))
                 .onFailure().recoverWithItem(err -> {
                     Log.errorf("Failed to get admin topic subscribers from Valkey: %s", err.getMessage());
-                    return Collections.<String>emptyList();
+                    return Collections.emptyList();
                 })
-                .map(HashSet<String>::new)
+                .map(HashSet::new)
                 .await().atMost(Duration.ofSeconds(5));
     }
 }

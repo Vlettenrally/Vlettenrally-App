@@ -1,7 +1,7 @@
 import ws from "k6/ws";
 import { check, sleep } from "k6";
 import { Counter, Rate } from "k6/metrics";
-import { registerDevice, wsToken, refresh } from "./lib/auth.js";
+import { registerDevice, wsToken } from "./lib/auth.js";
 import { pollDashboard, pollCheckpoints, uploadPicture } from "./lib/traffic.js";
 
 // --- Config (all overridable via env) -------------------------------------------------------

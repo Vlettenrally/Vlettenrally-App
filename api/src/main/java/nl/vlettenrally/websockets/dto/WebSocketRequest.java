@@ -18,7 +18,4 @@ public class WebSocketRequest {
     private String checkpointId;
     private String topic;
 
-    public WebSocketMessageType getType() {
-        return type;
-    }
 }

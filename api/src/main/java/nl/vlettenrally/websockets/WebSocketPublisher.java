@@ -7,7 +7,7 @@ import jakarta.inject.Inject;
 
 /**
  * Publisher for WebSocket messages using Valkey pub/sub for cross-pod distribution.
- * 
+ * <p>
  * Services can inject this class and use the publish methods to send messages
  * to connected WebSocket clients. Messages are published to a Valkey channel
  * and delivered to all API pods, which then forward them to their locally
