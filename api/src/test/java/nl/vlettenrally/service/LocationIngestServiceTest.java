@@ -34,7 +34,7 @@ import nl.vlettenrally.data.repository.CheckpointRepository;
 import nl.vlettenrally.data.repository.LocationDataRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.service.util.TrackOutlierFilter;
-import nl.vlettenrally.websockets.MapSubscriptionManager;
+import nl.vlettenrally.websockets.LocationBroadcastBuffer;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 
 import java.util.List;
@@ -54,7 +54,7 @@ class LocationIngestServiceTest {
     WebSocketPublisher webSocketPublisher;
 
     @Mock
-    MapSubscriptionManager mapSubscriptionManager;
+    LocationBroadcastBuffer locationBroadcastBuffer;
 
     @Mock
     AutomationEngine automationEngine;

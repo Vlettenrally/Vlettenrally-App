@@ -12,9 +12,8 @@ import nl.vlettenrally.data.repository.CheckpointRepository;
 import nl.vlettenrally.data.repository.LocationDataRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.service.util.TrackOutlierFilter;
-import nl.vlettenrally.websockets.MapSubscriptionManager;
+import nl.vlettenrally.websockets.LocationBroadcastBuffer;
 import nl.vlettenrally.websockets.WebSocketEventTypes;
-import nl.vlettenrally.websockets.WebSocketMessage;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 import org.locationtech.jts.geom.Point;
 
@@ -23,7 +22,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -31,9 +29,9 @@ import java.util.UUID;
  * (Legendstracking polling or the Traccar/OsmAnd ingestion endpoint).
  * <p>
  * Applies abuse/quality guards, saves the fix, notifies the team's own devices,
- * and recomputes travelled distance. Admin-map broadcasting is left to the caller
- * via {@link #broadcastToMap} so the poller can batch a whole sweep into one
- * message while single-point sources broadcast one at a time.
+ * and recomputes travelled distance. Admin-map broadcasting is delegated to
+ * {@link nl.vlettenrally.websockets.LocationBroadcastBuffer} via {@link #broadcastToMap}
+ * so that rapid per-device updates are coalesced before reaching the frontend.
  */
 @ApplicationScoped
 public class LocationIngestService {
@@ -42,10 +40,10 @@ public class LocationIngestService {
     LocationDataRepository locationDataRepository;
 
     @Inject
-    WebSocketPublisher webSocketPublisher;
+    LocationBroadcastBuffer locationBroadcastBuffer;
 
     @Inject
-    MapSubscriptionManager mapSubscriptionManager;
+    WebSocketPublisher webSocketPublisher;
 
     @Inject
     AutomationEngine automationEngine;
@@ -211,21 +209,12 @@ public class LocationIngestService {
     }
 
     /**
-     * Broadcast a batch of accepted fixes to admin clients watching the game map.
-     * No-op for an empty batch.
+     * Queue a batch of accepted fixes for the next admin-map broadcast.
+     * Actual delivery is handled by {@link LocationBroadcastBuffer} on its flush
+     * interval, so rapid per-device updates are coalesced before hitting the frontend.
      */
     public void broadcastToMap(UUID gameId, List<TeamLocationResponse> locations) {
-        if (locations.isEmpty()) {
-            return;
-        }
-        Set<String> subscribedSessionIds = mapSubscriptionManager.getActiveSubscribers(gameId);
-        for (String sessionId : subscribedSessionIds) {
-            WebSocketMessage message = new WebSocketMessage(WebSocketEventTypes.LOCATION_UPDATE, locations)
-                .withTargetGame(gameId)
-                .forAdminOnly()
-                .withTargetSession(sessionId);
-            webSocketPublisher.publish(message);
-        }
+        locationBroadcastBuffer.buffer(gameId, locations);
     }
 
     private boolean isValid(LocationData reading) {
