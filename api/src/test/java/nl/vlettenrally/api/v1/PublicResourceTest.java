@@ -17,6 +17,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
 /**
@@ -44,6 +45,32 @@ class PublicResourceTest {
         assertEquals("Summer Rally", first.name());
         assertEquals("planned", first.status());
         assertFalse(first.scoresPublished());
+    }
+
+    @Test
+    void scoresPublished_matchesAvailabilityGate() {
+        // scoresPublished mirrors PublicRankingResource's availability gate: true when the public
+        // scoreboard is enabled OR the ranking has been revealed in-app (which also opens the
+        // public endpoint); false only when neither flag is set.
+        Game inAppReveal = game("In-app reveal", Instant.parse("2026-04-01T10:00:00Z"));
+        inAppReveal.setRankingsPublished(true);
+        inAppReveal.setPublicRankingsEnabled(false);
+
+        Game publicEnabled = game("Public scoreboard", Instant.parse("2026-05-01T10:00:00Z"));
+        publicEnabled.setRankingsPublished(false);
+        publicEnabled.setPublicRankingsEnabled(true);
+
+        Game neither = game("Not published", Instant.parse("2026-06-01T10:00:00Z"));
+        neither.setRankingsPublished(false);
+        neither.setPublicRankingsEnabled(false);
+
+        when(gameService.findAll()).thenReturn(List.of(inAppReveal, publicEnabled, neither));
+
+        List<?> body = assertInstanceOf(List.class, resource.games().getEntity());
+        // Most recent first: neither, publicEnabled, inAppReveal.
+        assertFalse(((PublicGameResponse) body.get(0)).scoresPublished());
+        assertTrue(((PublicGameResponse) body.get(1)).scoresPublished());
+        assertTrue(((PublicGameResponse) body.get(2)).scoresPublished());
     }
 
     private Game game(String name, Instant startTime) {

@@ -17,6 +17,10 @@ public record PublicGameResponse(
     String name,
     String startTime,
     String status,
+    // Whether scores are actually fetchable on the public scoreboard API. Matches the availability
+    // gate in PublicRankingResource: true when the public scoreboard is enabled
+    // (publicRankingsEnabled, SET_PUBLIC_RANKINGS_ENABLED) OR the ranking has been revealed in-app
+    // (rankingsPublished, SET_RANKINGS_PUBLISHED), which also opens the public endpoint.
     boolean scoresPublished
 ) {
     public static PublicGameResponse from(Game g) {
@@ -25,7 +29,7 @@ public record PublicGameResponse(
             g.getName(),
             g.getStartTime() != null ? g.getStartTime().toString() : null,
             g.getStatus() != null ? g.getStatus().name().toLowerCase() : null,
-            Boolean.TRUE.equals(g.getRankingsPublished())
+            Boolean.TRUE.equals(g.getPublicRankingsEnabled()) || Boolean.TRUE.equals(g.getRankingsPublished())
         );
     }
 }
