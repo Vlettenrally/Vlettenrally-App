@@ -11,24 +11,12 @@ import nl.vlettenrally.data.enums.Role;
 import nl.vlettenrally.data.enums.TokenType;
 import nl.vlettenrally.data.dto.auth.GameCheckInLinkResponse;
 import nl.vlettenrally.data.domain.Team;
-import nl.vlettenrally.data.dto.auth.RegistrationResult;
 import nl.vlettenrally.data.dto.auth.TokenResult;
 
 /**
  * Service interface for Authentication operations
  */
 public interface AuthService {
-
-    /**
-     * Register a new team and return a one-time registration token
-     */
-    RegistrationResult registerTeam(
-            String gameId,
-            String scoutingGroup,
-            String emergencyContact,
-            List<String> participantNames,
-            String bookingId
-    );
 
     /**
      * Exchange a registration token for access and refresh tokens

@@ -22,7 +22,6 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import java.time.Instant;
 import java.security.SecureRandom;
 import java.util.Base64;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -33,7 +32,6 @@ import java.util.stream.Collectors;
 import nl.vlettenrally.data.dto.auth.GameCheckInLinkResponse;
 import nl.vlettenrally.data.dto.auth.RegistrationTokenData;
 import nl.vlettenrally.data.dto.auth.TokenResult;
-import nl.vlettenrally.data.dto.auth.RegistrationResult;
 import nl.vlettenrally.data.domain.RefreshToken;
 import nl.vlettenrally.data.repository.RefreshTokenRepository;
 
@@ -89,40 +87,6 @@ public class AuthServiceImpl implements AuthService {
 
     // Track when all teams in a game have checked in (for expiry calculation)
     private final Map<UUID, Instant> allTeamsCheckedInAt = new ConcurrentHashMap<>();
-
-    @Override
-    public RegistrationResult registerTeam(
-            String gameId,
-            String scoutingGroup,
-            String emergencyContact,
-            List<String> participantNames,
-            String bookingId) {
-
-        // Create new team
-        Team team = new Team();
-        team.setGameId(UUID.fromString(gameId));
-        team.setName(scoutingGroup != null ? scoutingGroup : "Team");
-        team.setDescription(scoutingGroup);
-        team.setParticipants(participantNames != null ? participantNames : Collections.emptyList());
-        team.setNotes(bookingId);
-        team.setCheckedIn(false);
-
-        Team savedTeam = teamRepository.save(team);
-
-        // Generate registration token (valid for 15 minutes)
-        String registrationToken = UUID.randomUUID().toString();
-        long expiresAt = Instant.now().plusSeconds(900).getEpochSecond();
-
-        registrationTokens.put(registrationToken,
-            new RegistrationTokenData(savedTeam.getId().toString(), team.getName(), "team", expiresAt, false));
-
-        cleanupExpiredTokens();
-
-        Log.infof("Team registration token created - teamId: %s, teamName: %s, gameId: %s",
-            savedTeam.getId(), team.getName(), gameId);
-
-        return new RegistrationResult(registrationToken, savedTeam.getId().toString(), expiresAt);
-    }
 
     @Override
     public Optional<TokenResult> exchangeToken(String registrationToken) {

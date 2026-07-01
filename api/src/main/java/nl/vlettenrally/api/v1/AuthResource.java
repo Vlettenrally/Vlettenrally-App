@@ -12,18 +12,12 @@ import nl.vlettenrally.api.security.SecurityRoles;
 import nl.vlettenrally.data.dto.auth.AdminLoginRequest;
 import nl.vlettenrally.data.dto.auth.AuthTokenResponse;
 import nl.vlettenrally.data.dto.auth.RefreshTokenRequest;
-import nl.vlettenrally.data.dto.auth.RegistrationResult;
-import nl.vlettenrally.data.dto.auth.RegistrationTokenResponse;
-import nl.vlettenrally.data.dto.auth.TeamRegistrationRequest;
 import nl.vlettenrally.data.dto.auth.UpdatePasswordRequest;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
 import nl.vlettenrally.data.enums.TokenType;
 import nl.vlettenrally.service.AuthService;
-import nl.vlettenrally.service.TeamService;
 
 import java.time.Instant;
-import java.util.Collections;
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -32,7 +26,6 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 /**
  * REST Resource for Authentication operations
  * Endpoints:
- * - POST /api/v1/auth/register - Register a new team
  * - POST /api/v1/auth/refresh - Refresh access token
  * - POST /api/v1/auth/admin/login - Admin login with username/password
  * - POST /api/v1/auth/admin/update-password - Admin update password
@@ -52,47 +45,6 @@ public class AuthResource {
 
     @ConfigProperty(name = "vlettenrally.jwt.refresh-token-expiry-days", defaultValue = "5")
     int refreshTokenExpiryDays;
-
-    /**
-     * Register a new team from third party registration system
-     * Returns a one-time registration token
-     */
-    @POST
-    @Path("/register")
-    public Response registerTeam(TeamRegistrationRequest registration) {
-        try {
-            // Validate input
-            if (registration.gameId() == null) {
-                return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new ErrorResponse("gameId is required"))
-                    .build();
-            }
-
-            // Convert array to list
-            List<String> participants = registration.participantNames() != null
-                ? List.of(registration.participantNames())
-                : Collections.emptyList();
-
-            RegistrationResult result = authService.registerTeam(
-                registration.gameId(),
-                registration.scoutingGroup(),
-                registration.emergencyContact(),
-                participants,
-                registration.bookingId()
-            );
-
-            return Response.ok(new RegistrationTokenResponse(
-                result.registrationToken(),
-                result.teamId(),
-                Instant.ofEpochSecond(result.expiresAt())
-            )).build();
-
-        } catch (Exception e) {
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                .entity(new ErrorResponse("Registration failed: " + e.getMessage()))
-                .build();
-        }
-    }
 
     /**
      * Refresh access token using refresh token
