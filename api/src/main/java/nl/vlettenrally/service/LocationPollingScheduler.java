@@ -20,10 +20,14 @@ import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.PrecisionModel;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -32,8 +36,14 @@ import java.util.stream.Collectors;
  * are not taken from the external feed — they are detected internally from each fix via
  * {@link LocationIngestService} (PostGIS geofencing), the same path Traccar uses.
  * <p>
- * Runs at the configured interval on a single instance at a time — leader election
- * via {@link PollingLeader} (Valkey-backed lease).
+ * The scheduler fires at {@code vlettenrally.location.polling-interval} (the tick rate /
+ * minimum floor). Each game is only polled when at least {@code game.locationPollingFrequency}
+ * seconds have elapsed since its previous poll, so different games can run at different
+ * effective rates without running multiple scheduler threads.
+ * <p>
+ * Runs on a single instance at a time — leader election via {@link PollingLeader}
+ * (Valkey-backed lease). Poll timestamps are tracked in memory: a leader change causes
+ * at most one extra immediate poll per game, which is harmless.
  * <p>
  * Teams are matched to participants by Team.trackerId (the physical tracker ID
  * from the external provider). Participant tracker IDs without a matching team
@@ -46,6 +56,9 @@ import java.util.stream.Collectors;
 public class LocationPollingScheduler {
 
     private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory(new PrecisionModel(), 4326);
+
+    /** Last successful poll timestamp per game, used to enforce per-game polling frequency. */
+    private final ConcurrentHashMap<UUID, Instant> lastPolledAt = new ConcurrentHashMap<>();
 
     @Inject
     GameService gameService;
@@ -87,6 +100,13 @@ public class LocationPollingScheduler {
             }
         }
 
+        // Collect the IDs of games still in the candidate set so we can prune stale entries.
+        Set<UUID> activeGameIds = new java.util.HashSet<>();
+        for (Game game : games) {
+            activeGameIds.add(game.getId());
+        }
+        lastPolledAt.keySet().retainAll(activeGameIds);
+
         for (Game game : games) {
             if (!Boolean.TRUE.equals(game.getLocationEndpointActive())
                     || game.getLocationEndpointUrl() == null
@@ -95,8 +115,20 @@ public class LocationPollingScheduler {
                 continue;
             }
 
+            // Respect the per-game polling frequency. The scheduler tick is a floor; each game
+            // is only polled when at least locationPollingFrequency seconds have elapsed.
+            int frequencySeconds = game.getLocationPollingFrequency() != null
+                    ? game.getLocationPollingFrequency() : 30;
+            Instant last = lastPolledAt.get(game.getId());
+            if (last != null && Duration.between(last, now).getSeconds() < frequencySeconds) {
+                Log.debugf("Game %s: skipping poll (%.0fs since last, frequency=%ds)",
+                        game.getId(), (double) Duration.between(last, now).getSeconds(), frequencySeconds);
+                continue;
+            }
+
             try {
                 pollGame(game);
+                lastPolledAt.put(game.getId(), now);
             } catch (Exception e) {
                 Log.errorf("Failed to poll Legendstracking for game %s: %s", game.getId(), e.getMessage());
             }
