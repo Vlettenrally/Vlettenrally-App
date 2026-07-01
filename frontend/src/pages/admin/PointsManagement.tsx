@@ -235,6 +235,8 @@ export default function PointsManagement() {
               <MenuItem value="">{t('admin.pointsManagement.allTypes')}</MenuItem>
               <MenuItem value="CHECKPOINT_VERIFICATION">{t('admin.pointsManagement.typeCheckpoint')}</MenuItem>
               <MenuItem value="MANUAL_ADJUSTMENT">{t('admin.pointsManagement.typeManual')}</MenuItem>
+              <MenuItem value="AUTOMATION_BONUS">{t('admin.pointsManagement.typeAutomation')}</MenuItem>
+              <MenuItem value="DISTANCE_BONUS">{t('admin.pointsManagement.typeDistance')}</MenuItem>
             </TextField>
           </Stack>
         </CardContent>
@@ -289,7 +291,12 @@ export default function PointsManagement() {
                             <Chip
                               size="small"
                               label={ENTRY_TYPE_LABELS[entry.entryType]}
-                              color={entry.entryType === 'CHECKPOINT_VERIFICATION' ? 'primary' : 'default'}
+                              color={
+                                entry.entryType === 'CHECKPOINT_VERIFICATION' ? 'primary'
+                                : entry.entryType === 'DISTANCE_BONUS' ? 'success'
+                                : entry.entryType === 'AUTOMATION_BONUS' ? 'secondary'
+                                : 'default'
+                              }
                               variant="outlined"
                             />
                           </TableCell>
