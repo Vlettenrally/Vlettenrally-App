@@ -32,7 +32,9 @@ public class JpaRefreshTokenRepository extends ReadReplicaAwareRepository implem
     @Override
     public Optional<RefreshToken> findByToken(String token) {
         try {
-            RefreshTokenEntity entity = getReadEntityManager()
+            // Primary read: refresh-token validation must see the latest revocation/rotation
+            // state, otherwise a lagging replica defeats duplicate/replay detection.
+            RefreshTokenEntity entity = getReadEntityManager(true)
                     .createQuery("SELECT r FROM RefreshTokenEntity r WHERE r.token = :token", RefreshTokenEntity.class)
                     .setParameter("token", token)
                     .getSingleResult();
@@ -44,7 +46,8 @@ public class JpaRefreshTokenRepository extends ReadReplicaAwareRepository implem
 
     @Override
     public List<RefreshToken> findBySubject(String subject) {
-        List<RefreshTokenEntity> entities = getReadEntityManager()
+        // Primary read: used to revoke all of a subject's tokens; must not miss recent ones.
+        List<RefreshTokenEntity> entities = getReadEntityManager(true)
                 .createQuery("SELECT r FROM RefreshTokenEntity r WHERE r.subject = :subject ORDER BY r.createdAt DESC", RefreshTokenEntity.class)
                 .setParameter("subject", subject)
                 .getResultList();

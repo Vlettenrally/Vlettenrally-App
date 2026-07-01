@@ -46,7 +46,9 @@ public class JpaFcmTokenRepository extends ReadReplicaAwareRepository implements
     @Override
     public Optional<FcmToken> findByDeviceRegistrationId(UUID deviceRegistrationId) {
         try {
-            FcmTokenEntity entity = getReadEntityManager()
+            // Primary read: drives the FCM token upsert decision against the per-device
+            // unique constraint; a stale replica read widens the check-then-act race.
+            FcmTokenEntity entity = getReadEntityManager(true)
                     .createQuery("SELECT f FROM FcmTokenEntity f WHERE f.deviceRegistration.id = :deviceRegistrationId", FcmTokenEntity.class)
                     .setParameter("deviceRegistrationId", deviceRegistrationId)
                     .getSingleResult();
@@ -94,7 +96,9 @@ public class JpaFcmTokenRepository extends ReadReplicaAwareRepository implements
     @Override
     public Optional<FcmToken> findByToken(String token) {
         try {
-            FcmTokenEntity entity = getReadEntityManager()
+            // Primary read: drives the FCM token upsert decision against the per-token
+            // unique constraint; a stale replica read widens the check-then-act race.
+            FcmTokenEntity entity = getReadEntityManager(true)
                     .createQuery("SELECT f FROM FcmTokenEntity f WHERE f.token = :token", FcmTokenEntity.class)
                     .setParameter("token", token)
                     .getSingleResult();
