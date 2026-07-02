@@ -32,4 +32,9 @@ public class MockAutomationDistanceProgressRepository implements AutomationDista
         progress.put(new Key(p.getRuleId(), p.getTeamId()), p);
         return p;
     }
+
+    @Override
+    public void deleteByRuleAndTeam(UUID ruleId, UUID teamId) {
+        progress.remove(new Key(ruleId, teamId));
+    }
 }

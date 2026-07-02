@@ -51,4 +51,15 @@ public class JpaAutomationDistanceProgressRepository extends ReadReplicaAwareRep
         getWriteEntityManager().persist(entity);
         return AutomationDistanceProgressMapper.toDomain(entity);
     }
+
+    @Transactional
+    @Override
+    public void deleteByRuleAndTeam(UUID ruleId, UUID teamId) {
+        getWriteEntityManager()
+                .createQuery("DELETE FROM AutomationDistanceProgressEntity e "
+                        + "WHERE e.ruleId = :ruleId AND e.teamId = :teamId")
+                .setParameter("ruleId", ruleId)
+                .setParameter("teamId", teamId)
+                .executeUpdate();
+    }
 }

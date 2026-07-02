@@ -19,6 +19,7 @@ public record PointEntryResponse(
     String entryType,
     int originalAmount,
     int currentAmount,
+    Double distanceMeters,
     UUID sourceAchievementId,
     Double lat,
     Double lng,

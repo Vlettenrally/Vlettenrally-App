@@ -25,6 +25,7 @@ public class PointEntry {
     private PointEntryType entryType;
     private int originalAmount;     // immutable after creation
     private int currentAmount;      // mutable via editEntry
+    private Double distanceMeters;  // nullable; credited distance for DISTANCE_BONUS entries
     private UUID sourceAchievementId;   // nullable; set for CHECKPOINT_VERIFICATION
     private Point location;             // nullable; WGS84
     private String description;

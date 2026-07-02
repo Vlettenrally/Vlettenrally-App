@@ -585,6 +585,8 @@ export interface PointEntry {
   entryType: PointEntryType;
   originalAmount: number;
   currentAmount: number;
+  /** Credited distance in meters for DISTANCE_BONUS entries; null otherwise. */
+  distanceMeters?: number | null;
   sourceAchievementId?: string | null;
   lat?: number | null;
   lng?: number | null;

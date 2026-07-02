@@ -18,6 +18,7 @@ public class PointEntryConverter {
             entry.getEntryType() != null ? entry.getEntryType().name() : null,
             entry.getOriginalAmount(),
             entry.getCurrentAmount(),
+            entry.getDistanceMeters(),
             entry.getSourceAchievementId(),
             loc != null ? loc.getY() : null,
             loc != null ? loc.getX() : null,

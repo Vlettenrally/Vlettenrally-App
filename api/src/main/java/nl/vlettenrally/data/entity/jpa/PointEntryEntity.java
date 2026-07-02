@@ -46,6 +46,10 @@ public class PointEntryEntity {
     @Column(name = "current_amount", nullable = false)
     private int currentAmount;
 
+    /** Credited distance (meters) for DISTANCE_BONUS entries; null for other types. */
+    @Column(name = "distance_meters")
+    private Double distanceMeters;
+
     @Column(name = "source_achievement_id")
     private UUID sourceAchievementId;
 

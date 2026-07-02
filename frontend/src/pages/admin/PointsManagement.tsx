@@ -52,6 +52,17 @@ function formatTimestamp(iso: string): string {
   });
 }
 
+/** Credited distance for a distance-bonus entry, as km (>= 1 km) or m. */
+function formatDistance(meters: number): string {
+  if (meters >= 1000) {
+    return `${(meters / 1000).toLocaleString(undefined, {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    })} km`;
+  }
+  return `${Math.round(meters)} m`;
+}
+
 export default function PointsManagement() {
   const { t } = useTranslation();
   const selectedGameId = useGameStore((s) => s.selectedGameId);
@@ -281,10 +292,16 @@ export default function PointsManagement() {
                       const delta = entry.originalAmount - entry.currentAmount;
                       const teamName = teamNameById.get(entry.teamId) ?? '—';
                       const wasEdited = entry.editedAt != null;
+                      // Distance bonuses accrue into one entry over time, so the
+                      // original/adjustment framing doesn't apply — show the full
+                      // value plus the distance travelled instead.
+                      const isDistance = entry.entryType === 'DISTANCE_BONUS';
                       return (
                         <TableRow key={entry.id} hover>
                           <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                            {formatTimestamp(entry.createdAt)}
+                            {/* Distance bonuses accrue into one row over time, so show when
+                                they last grew rather than the frozen creation time. */}
+                            {formatTimestamp(isDistance ? entry.updatedAt : entry.createdAt)}
                           </TableCell>
                           <TableCell>{teamName}</TableCell>
                           <TableCell>
@@ -301,9 +318,11 @@ export default function PointsManagement() {
                             />
                           </TableCell>
                           <TableCell>{entry.description ?? ''}</TableCell>
-                          <TableCell align="right">{entry.originalAmount}</TableCell>
+                          <TableCell align="right">{isDistance ? '—' : entry.originalAmount}</TableCell>
                           <TableCell align="right">
-                            {delta !== 0 ? (
+                            {isDistance ? (
+                              '—'
+                            ) : delta !== 0 ? (
                               <Chip
                                 size="small"
                                 color={delta > 0 ? 'error' : 'success'}
@@ -317,6 +336,11 @@ export default function PointsManagement() {
                           </TableCell>
                           <TableCell align="right">
                             <strong>{entry.currentAmount}</strong>
+                            {isDistance && entry.distanceMeters != null && (
+                              <Typography variant="caption" color="text.secondary" display="block">
+                                {formatDistance(entry.distanceMeters)}
+                              </Typography>
+                            )}
                           </TableCell>
                           <TableCell align="center">
                             {entry.lat != null && entry.lng != null ? (

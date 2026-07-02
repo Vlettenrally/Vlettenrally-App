@@ -280,15 +280,51 @@ public class AutomationEngine {
         distanceProgressRepository.save(progress);
     }
 
+    /**
+     * Wipe the distance accrual state for a team across the game's
+     * DISTANCE_TRAVELED rules. Called when a team's ledger is reset: the next
+     * distance update then re-baselines (first sight, no retroactive credit)
+     * and a fresh DISTANCE_BONUS entry is created, instead of accruing onto the
+     * now-deleted entry. Exception-safe like the discrete hooks.
+     */
+    public void resetDistanceProgress(UUID gameId, UUID teamId) {
+        try {
+            for (AutomationRule rule : ruleRepository.findByGameIdAndTriggerType(
+                    gameId, AutomationTriggerType.DISTANCE_TRAVELED)) {
+                distanceProgressRepository.deleteByRuleAndTeam(rule.getId(), teamId);
+            }
+        } catch (Exception e) {
+            Log.errorf("Automation distance reset failed for game %s team %s: %s", gameId, teamId, e.getMessage());
+        }
+    }
+
     private void creditDistancePoints(AutomationRule rule, UUID teamId,
                                       AutomationDistanceProgress progress, int newPoints) {
         int total = progress.getCreditedPoints() + newPoints;
-        if (progress.getPointEntryId() == null) {
+        Integer pointsPer100m = rule.getTriggerConfig() != null
+            ? rule.getTriggerConfig().pointsPer100m() : null;
+        // Meters credited this round, derived from the points at the current rate
+        // (newPoints is always blocks * pointsPer100m, so this is exact per call).
+        double creditedMeters = pointsPer100m != null && pointsPer100m > 0
+            ? (double) newPoints / pointsPer100m * DISTANCE_BLOCK_METERS : 0.0;
+
+        // Recreate the entry if it's missing (e.g. deleted by a ledger reset
+        // that left this progress row intact) rather than accruing onto a
+        // deleted id and crashing the distance hook.
+        PointEntry existing = progress.getPointEntryId() != null
+            ? pointsLedgerService.findById(progress.getPointEntryId()).orElse(null) : null;
+        if (existing == null) {
+            // Back-fill meters from the running total so a recreated entry's
+            // distance stays consistent with its point value.
+            double totalMeters = pointsPer100m != null && pointsPer100m > 0
+                ? (double) total / pointsPer100m * DISTANCE_BLOCK_METERS : 0.0;
             PointEntry entry = pointsLedgerService.createEntry(teamId, rule.getGameId(),
-                PointEntryType.DISTANCE_BONUS, total, null, "Afstandspunten", null, null);
+                PointEntryType.DISTANCE_BONUS, total, null, "Afstandspunten", null, null, totalMeters);
             progress.setPointEntryId(entry.getId());
         } else {
-            pointsLedgerService.accrueEntry(progress.getPointEntryId(), total);
+            double totalMeters = (existing.getDistanceMeters() != null
+                ? existing.getDistanceMeters() : 0.0) + creditedMeters;
+            pointsLedgerService.accrueEntry(progress.getPointEntryId(), total, totalMeters);
         }
         progress.setCreditedPoints(total);
     }

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -530,13 +531,14 @@ class AutomationEngineTest {
 
         PointEntry entry = new PointEntry();
         when(pointsLedgerService.createEntry(eq(teamId), eq(gameId), eq(PointEntryType.DISTANCE_BONUS),
-                anyInt(), isNull(), anyString(), isNull(), isNull())).thenReturn(entry);
+                anyInt(), isNull(), anyString(), isNull(), isNull(), anyDouble())).thenReturn(entry);
 
         // +250 m → leftover 280 → 2 whole 100 m blocks, 80 m remainder
         engine.onDistanceUpdate(gameId, teamId, 1250, true);
 
+        // 12 points at 1 point / 100 m → 1200 m of credited distance recorded.
         verify(pointsLedgerService).createEntry(eq(teamId), eq(gameId), eq(PointEntryType.DISTANCE_BONUS),
-            eq(12), isNull(), eq("Afstandspunten"), isNull(), isNull());
+            eq(12), isNull(), eq("Afstandspunten"), isNull(), isNull(), eq(1200.0));
 
         ArgumentCaptor<AutomationDistanceProgress> captor =
             ArgumentCaptor.forClass(AutomationDistanceProgress.class);
@@ -554,13 +556,14 @@ class AutomationEngineTest {
 
         PointEntry entry = new PointEntry();
         when(pointsLedgerService.createEntry(eq(teamId), eq(gameId), eq(PointEntryType.DISTANCE_BONUS),
-                anyInt(), isNull(), anyString(), isNull(), isNull())).thenReturn(entry);
+                anyInt(), isNull(), anyString(), isNull(), isNull(), anyDouble())).thenReturn(entry);
 
         // +250 m → 2 whole blocks × 3 points = 6, 50 m remainder
         engine.onDistanceUpdate(gameId, teamId, 1250, true);
 
+        // 6 points at 3 points / 100 m → 200 m of credited distance recorded.
         verify(pointsLedgerService).createEntry(eq(teamId), eq(gameId), eq(PointEntryType.DISTANCE_BONUS),
-            eq(6), isNull(), eq("Afstandspunten"), isNull(), isNull());
+            eq(6), isNull(), eq("Afstandspunten"), isNull(), isNull(), eq(200.0));
 
         ArgumentCaptor<AutomationDistanceProgress> captor =
             ArgumentCaptor.forClass(AutomationDistanceProgress.class);
@@ -574,11 +577,59 @@ class AutomationEngineTest {
         AutomationRule rule = distanceRule(1);
         UUID entryId = UUID.randomUUID();
         progress(rule, 1000, 0, 10, entryId);
+        PointEntry existing = new PointEntry();
+        existing.setId(entryId);
+        existing.setDistanceMeters(1000.0);
+        when(pointsLedgerService.findById(entryId)).thenReturn(Optional.of(existing));
 
         engine.onDistanceUpdate(gameId, teamId, 1100, true);
 
-        verify(pointsLedgerService).accrueEntry(entryId, 11);
+        // +1 point → +100 m added to the entry's existing 1000 m.
+        verify(pointsLedgerService).accrueEntry(entryId, 11, 1100.0);
         verify(pointsLedgerService, never()).createEntry(any(), any(), any(), anyInt(), any(), any(), any(), any());
+    }
+
+    @Test
+    void distance_recreatesEntry_whenReferencedEntryWasDeleted() {
+        AutomationRule rule = distanceRule(1);
+        UUID staleEntryId = UUID.randomUUID();
+        progress(rule, 1000, 0, 10, staleEntryId);
+        // The referenced entry is gone (e.g. deleted by a ledger reset that left
+        // this progress row intact) — self-heal by creating a fresh entry.
+        when(pointsLedgerService.findById(staleEntryId)).thenReturn(Optional.empty());
+        PointEntry fresh = new PointEntry();
+        when(pointsLedgerService.createEntry(eq(teamId), eq(gameId), eq(PointEntryType.DISTANCE_BONUS),
+                anyInt(), isNull(), anyString(), isNull(), isNull(), anyDouble())).thenReturn(fresh);
+
+        engine.onDistanceUpdate(gameId, teamId, 1100, true);
+
+        // Recreated entry back-fills meters from the running total: 11 pts → 1100 m.
+        verify(pointsLedgerService).createEntry(eq(teamId), eq(gameId), eq(PointEntryType.DISTANCE_BONUS),
+            eq(11), isNull(), eq("Afstandspunten"), isNull(), isNull(), eq(1100.0));
+        verify(pointsLedgerService, never()).accrueEntry(any(), anyInt(), any());
+        ArgumentCaptor<AutomationDistanceProgress> captor =
+            ArgumentCaptor.forClass(AutomationDistanceProgress.class);
+        verify(distanceProgressRepository).save(captor.capture());
+        assertEquals(fresh.getId(), captor.getValue().getPointEntryId());
+    }
+
+    @Test
+    void resetDistanceProgress_deletesProgressForGameDistanceRules() {
+        AutomationRule rule = rule(AutomationTriggerType.DISTANCE_TRAVELED, emptyConfig());
+        when(ruleRepository.findByGameIdAndTriggerType(gameId, AutomationTriggerType.DISTANCE_TRAVELED))
+            .thenReturn(List.of(rule));
+
+        engine.resetDistanceProgress(gameId, teamId);
+
+        verify(distanceProgressRepository).deleteByRuleAndTeam(rule.getId(), teamId);
+    }
+
+    @Test
+    void resetDistanceProgress_neverThrows_whenRepositoryFails() {
+        when(ruleRepository.findByGameIdAndTriggerType(gameId, AutomationTriggerType.DISTANCE_TRAVELED))
+            .thenThrow(new RuntimeException("boom"));
+
+        assertDoesNotThrow(() -> engine.resetDistanceProgress(gameId, teamId));
     }
 
     @Test

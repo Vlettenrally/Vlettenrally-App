@@ -78,6 +78,19 @@ public class PointsLedgerService {
     public PointEntry createEntry(UUID teamId, UUID gameId, PointEntryType type, int amount,
                                   Point location, String description,
                                   UUID sourceAchievementId, UUID createdBy) {
+        return createEntry(teamId, gameId, type, amount, location, description,
+            sourceAchievementId, createdBy, null);
+    }
+
+    /**
+     * As {@link #createEntry(UUID, UUID, PointEntryType, int, Point, String, UUID, UUID)},
+     * but records the credited distance (meters) on the entry — used for
+     * DISTANCE_BONUS entries so the ledger can show how far the points cover.
+     */
+    @Transactional
+    public PointEntry createEntry(UUID teamId, UUID gameId, PointEntryType type, int amount,
+                                  Point location, String description,
+                                  UUID sourceAchievementId, UUID createdBy, Double distanceMeters) {
         teamRepository.findById(teamId)
                 .orElseThrow(() -> new NotFoundException("Team not found: " + teamId));
 
@@ -94,6 +107,7 @@ public class PointsLedgerService {
         entry.setEntryType(type);
         entry.setOriginalAmount(amount);
         entry.setCurrentAmount(amount);
+        entry.setDistanceMeters(distanceMeters);
         entry.setSourceAchievementId(sourceAchievementId);
         entry.setLocation(location);
         entry.setDescription(description);
@@ -162,6 +176,15 @@ public class PointsLedgerService {
      */
     @Transactional
     public PointEntry accrueEntry(UUID entryId, int newAmount) {
+        return accrueEntry(entryId, newAmount, null);
+    }
+
+    /**
+     * As {@link #accrueEntry(UUID, int)}, but also updates the credited distance
+     * (meters) on the entry — used for continuous DISTANCE_BONUS accrual.
+     */
+    @Transactional
+    public PointEntry accrueEntry(UUID entryId, int newAmount, Double distanceMeters) {
         PointEntry entry = pointEntryRepository.findById(entryId)
                 .orElseThrow(() -> new NotFoundException("Point entry not found: " + entryId));
 
@@ -179,6 +202,9 @@ public class PointsLedgerService {
         }
 
         entry.setCurrentAmount(newAmount);
+        if (distanceMeters != null) {
+            entry.setDistanceMeters(distanceMeters);
+        }
         entry.setUpdatedAt(Instant.now());
         PointEntry saved = pointEntryRepository.save(entry);
 
@@ -198,6 +224,9 @@ public class PointsLedgerService {
         teamRepository.findById(teamId)
                 .orElseThrow(() -> new NotFoundException("Team not found: " + teamId));
         pointEntryRepository.deleteByTeamAndGame(teamId, gameId);
+        // Clear distance accrual state so the next update re-baselines and
+        // creates a fresh entry instead of accruing onto the deleted one.
+        automationEngine.resetDistanceProgress(gameId, teamId);
         int newTotal = pointEntryRepository.sumCurrentAmountByTeam(teamId);
         cacheTotalAfterCommit(teamId, newTotal);
         broadcastRankingAfterCommit(gameId, teamId, newTotal);

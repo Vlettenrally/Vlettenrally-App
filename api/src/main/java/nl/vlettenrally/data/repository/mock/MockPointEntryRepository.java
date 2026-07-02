@@ -63,11 +63,24 @@ public class MockPointEntryRepository implements PointEntryRepository {
         edited.setEditedAt(now.minus(10, ChronoUnit.MINUTES));
         edited.setEditReason("Onreglementair gevaren tussen checkpoints");
 
-        // Windkracht Tien — totalPoints = 300 → 100 + 200
+        // Windkracht Tien — totalPoints = 318 → 100 + 200 + 18 distance points
         addVerification(windkracht, game, 100, point(4.9000, 52.3580),
                 "Checkpoint Amstel geverifieerd", now.minus(70, ChronoUnit.MINUTES));
         addVerification(windkracht, game, 200, point(4.8872, 52.3702),
                 "Checkpoint Keizersgracht geverifieerd", now.minus(30, ChronoUnit.MINUTES));
+        // Distance bonus accrues into a single entry over time — 18 points for
+        // ~1.8 km travelled, so the ledger shows the full value plus distance.
+        PointEntry distance = new PointEntry();
+        distance.setTeamId(windkracht);
+        distance.setGameId(game);
+        distance.setEntryType(PointEntryType.DISTANCE_BONUS);
+        distance.setOriginalAmount(18);
+        distance.setCurrentAmount(18);
+        distance.setDistanceMeters(1830.0);
+        distance.setDescription("Afstandspunten");
+        distance.setCreatedAt(now.minus(25, ChronoUnit.MINUTES));
+        distance.setUpdatedAt(now.minus(2, ChronoUnit.MINUTES));
+        entries.put(distance.getId(), distance);
 
         // De Grachtengorrillas — totalPoints = 250 → 250 (one entry, no location to show that case)
         PointEntry manual = new PointEntry();
