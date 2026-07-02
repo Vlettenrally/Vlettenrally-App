@@ -62,6 +62,7 @@ class PointsLedgerServiceTest {
     @Mock TransactionSynchronizationRegistry txRegistry;
     @Mock AutomationEngine automationEngine;
     @Mock PointsTotalsCache pointsTotalsCache;
+    @Mock nl.vlettenrally.websockets.StandingsBroadcastBuffer standingsBroadcastBuffer;
 
     @InjectMocks PointsLedgerService ledger;
 
@@ -393,6 +394,45 @@ class PointsLedgerServiceTest {
             eq(WebSocketMessageType.RANKING_UPDATE.getValue()), eq(full));
         verify(webSocketPublisher, never()).sendToTeamOnly(any(), any(),
             eq(WebSocketMessageType.RIVAL_UPDATE.getValue()), any());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void publishStandingsForTeams_coalesced_readsTotalsFromCache_andFansOutToAffected() {
+        // The buffered accrual path publishes for a set of changed teams and reads every total
+        // from the cache (each accrual wrote through post-commit), rather than being handed one
+        // explicit total. Affected recipients = a changed team itself, or any team rivalling one.
+        team.setCheckedIn(true); // X — the changed team
+        Team a = teamInGame("A", List.of(teamId), true);   // picked X -> notified
+        Team b = teamInGame("B", List.of(UUID.randomUUID()), true); // unrelated -> not notified
+        when(gameService.findById(gameId)).thenReturn(Optional.of(game(Game.GameStatus.ACTIVE)));
+        when(teamRepository.findByGameId(gameId)).thenReturn(List.of(team, a, b));
+        when(pointsTotalsCache.get(teamId)).thenReturn(150);
+
+        ledger.publishStandingsForTeams(gameId, java.util.Set.of(teamId));
+
+        verify(webSocketPublisher, never()).broadcastToGame(eq(gameId),
+            eq(WebSocketMessageType.RANKING_UPDATE.getValue()), any());
+        verify(webSocketPublisher).sendToTeamOnly(eq(gameId), eq(teamId),
+            eq(WebSocketMessageType.RIVAL_UPDATE.getValue()), any());
+        verify(webSocketPublisher, never()).sendToTeamOnly(eq(gameId), eq(b.getId()),
+            eq(WebSocketMessageType.RIVAL_UPDATE.getValue()), any());
+
+        // A's payload carries X read from the cache (150), proving no explicit total is needed.
+        ArgumentCaptor<Object> payload = ArgumentCaptor.forClass(Object.class);
+        verify(webSocketPublisher).sendToTeamOnly(eq(gameId), eq(a.getId()),
+            eq(WebSocketMessageType.RIVAL_UPDATE.getValue()), payload.capture());
+        List<Map<String, Object>> rivals = (List<Map<String, Object>>) payload.getValue();
+        assertEquals(1, rivals.size());
+        assertEquals(teamId, rivals.getFirst().get("id"));
+        assertEquals(150, rivals.getFirst().get("totalPoints"));
+    }
+
+    @Test
+    void publishStandingsForTeams_emptySet_isNoOp() {
+        ledger.publishStandingsForTeams(gameId, java.util.Set.of());
+        verify(webSocketPublisher, never()).broadcastToGame(any(), any(), any());
+        verify(webSocketPublisher, never()).sendToTeamOnly(any(), any(), any(), any());
     }
 
     /** Run every post-commit synchronization the call registered, as a real commit would. */

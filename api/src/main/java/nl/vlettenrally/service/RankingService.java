@@ -6,6 +6,7 @@ import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.dto.game.RankingResponse;
 import nl.vlettenrally.data.repository.TeamRepository;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -45,17 +46,23 @@ public class RankingService {
             .sorted(Comparator.comparingInt((Team t) -> totals.get(t.getId())).reversed())
             .toList();
 
-        return sorted.stream()
-            .map(team -> {
-                int teamTotal = totals.get(team.getId());
-                int position = 1;
-                for (Team t : sorted) {
-                    if (totals.get(t.getId()) > teamTotal) {
-                        position++;
-                    }
-                }
-                return new RankingResponse(position, team.getId(), team.getName(), team.getDescription(), teamTotal);
-            })
-            .toList();
+        // Single pass over the sorted list: position only advances when the total
+        // drops below the previous team's, so ties share a position (1-based). This
+        // is the same result as the previous per-team inner scan, but O(n) instead
+        // of O(n²) — it runs on every ranking build and every published-standings broadcast.
+        List<RankingResponse> ranking = new ArrayList<>(sorted.size());
+        int position = 0;
+        int rank = 0;
+        Integer previousTotal = null;
+        for (Team team : sorted) {
+            int teamTotal = totals.get(team.getId());
+            position++;
+            if (previousTotal == null || teamTotal < previousTotal) {
+                rank = position;
+                previousTotal = teamTotal;
+            }
+            ranking.add(new RankingResponse(rank, team.getId(), team.getName(), team.getDescription(), teamTotal));
+        }
+        return ranking;
     }
 }

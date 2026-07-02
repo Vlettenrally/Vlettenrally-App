@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -69,6 +70,9 @@ public class PointsLedgerService {
 
     @Inject
     PointsTotalsCache pointsTotalsCache;
+
+    @Inject
+    nl.vlettenrally.websockets.StandingsBroadcastBuffer standingsBroadcastBuffer;
 
     /**
      * Record a new ledger entry. The team's running total is maintained in the
@@ -210,7 +214,10 @@ public class PointsLedgerService {
 
         cacheTotalAfterCommit(teamId, newTotal);
         broadcastAfterCommit(entry.getGameId(), EVENT_POINT_ENTRY_UPDATED, pointEntryConverter.toResponse(saved));
-        broadcastRankingAfterCommit(entry.getGameId(), teamId, newTotal);
+        // Continuous distance accrual credits points every 100 m per team, so a standings
+        // broadcast per accrual would fan out O(teams) work on every fix. Coalesce instead:
+        // mark the game dirty and let StandingsBroadcastBuffer publish once per flush interval.
+        bufferStandingsAfterCommit(entry.getGameId(), teamId);
         automationEngine.onTeamPointsChanged(entry.getGameId(), teamId, oldTotal, newTotal);
         return saved;
     }
@@ -272,6 +279,27 @@ public class PointsLedgerService {
     }
 
     /**
+     * Register a post-commit hook that marks the game's standings dirty in
+     * {@link nl.vlettenrally.websockets.StandingsBroadcastBuffer}, which then publishes the
+     * ranking / rival views once per flush interval instead of once per accrual. Used by the
+     * continuous distance-accrual path; the discrete admin paths broadcast immediately.
+     */
+    private void bufferStandingsAfterCommit(UUID gameId, UUID teamId) {
+        try {
+            txRegistry.registerInterposedSynchronization(new Synchronization() {
+                @Override public void beforeCompletion() { }
+                @Override public void afterCompletion(int status) {
+                    if (status == Status.STATUS_COMMITTED) {
+                        standingsBroadcastBuffer.markDirty(gameId, teamId);
+                    }
+                }
+            });
+        } catch (IllegalStateException noTx) {
+            standingsBroadcastBuffer.markDirty(gameId, teamId);
+        }
+    }
+
+    /**
      * Write the new total to the cache after commit so reads during the same
      * broadcast cycle already see the fresh value without a ledger re-query.
      */
@@ -311,17 +339,40 @@ public class PointsLedgerService {
                 @Override public void beforeCompletion() { }
                 @Override public void afterCompletion(int status) {
                     if (status == Status.STATUS_COMMITTED) {
-                        publishStandings(gameId, changedTeamId, changedTeamTotal);
+                        publishStandings(gameId, Set.of(changedTeamId), Map.of(changedTeamId, changedTeamTotal));
                     }
                 }
             });
         } catch (IllegalStateException noTx) {
             Log.warn("No active transaction for ranking broadcast; sending immediately");
-            publishStandings(gameId, changedTeamId, changedTeamTotal);
+            publishStandings(gameId, Set.of(changedTeamId), Map.of(changedTeamId, changedTeamTotal));
         }
     }
 
-    private void publishStandings(UUID gameId, UUID changedTeamId, int changedTeamTotal) {
+    /**
+     * Coalesced standings publish for the set of teams whose totals changed since the last
+     * flush — called by {@link nl.vlettenrally.websockets.StandingsBroadcastBuffer} on its flush
+     * interval for continuous distance accrual. Totals are read from {@link PointsTotalsCache}
+     * (fresh, since each accrual wrote through post-commit), so no explicit totals are passed.
+     * Wrapped in a transaction so the team/ranking reads have a session on the scheduler thread.
+     */
+    @Transactional
+    public void publishStandingsForTeams(UUID gameId, Set<UUID> changedTeamIds) {
+        if (changedTeamIds == null || changedTeamIds.isEmpty()) {
+            return;
+        }
+        publishStandings(gameId, changedTeamIds, Map.of());
+    }
+
+    /**
+     * Publish standings for one or more changed teams, gated on game status.
+     * <p>
+     * A team's total is taken from {@code totalOverrides} when present (the discrete path passes
+     * the just-computed value so the payload needs no extra cache read), otherwise from
+     * {@link PointsTotalsCache} (the coalesced path, where every changed team's total was written
+     * through post-commit).
+     */
+    private void publishStandings(UUID gameId, Set<UUID> changedTeamIds, Map<UUID, Integer> totalOverrides) {
         if (isRankingsPublished(gameId)) {
             // Standings are only player-visible once an admin has revealed them.
             // After that, a points correction re-broadcasts the updated ranking.
@@ -331,8 +382,8 @@ public class PointsLedgerService {
                 rankingService.buildRanking(gameId));
         } else if (!isGameCompleted(gameId)) {
             // During the game, never send the full ranking. Refresh only the
-            // rival views that include the changed team: the changed team itself
-            // (its own total moved) and every team that picked it as a rival.
+            // rival views that include a changed team: each changed team itself
+            // (its own total moved) and every team that picked one as a rival.
             List<Team> teams = teamRepository.findByGameId(gameId);
             Map<UUID, Team> byId = teams.stream()
                 .collect(Collectors.toMap(Team::getId, t -> t));
@@ -340,8 +391,8 @@ public class PointsLedgerService {
                 if (!team.isCheckedIn()) {
                     continue;
                 }
-                boolean affected = team.getId().equals(changedTeamId)
-                    || team.getRivals().contains(changedTeamId);
+                boolean affected = changedTeamIds.contains(team.getId())
+                    || team.getRivals().stream().anyMatch(changedTeamIds::contains);
                 if (!affected) {
                     continue;
                 }
@@ -349,7 +400,7 @@ public class PointsLedgerService {
                     gameId,
                     team.getId(),
                     WebSocketMessageType.RIVAL_UPDATE.getValue(),
-                    rivalPayload(team, byId, changedTeamId, changedTeamTotal));
+                    rivalPayload(team, byId, totalOverrides));
             }
         }
     }
@@ -369,18 +420,18 @@ public class PointsLedgerService {
     /**
      * The team's rivals as {id, name, totalPoints} — the same shape
      * {@code TeamServiceImpl.setRivals} emits on a RIVAL_UPDATE.
-     * The changed team's total is supplied explicitly; all others are read from
-     * the cache (which may itself trigger a ledger SUM on a cold miss).
+     * A rival's total comes from {@code totalOverrides} when present (the discrete path supplies
+     * the just-changed team's fresh total), otherwise from the cache (an L1 hit in the common
+     * case; a Valkey read, or a ledger SUM on a cold miss, at worst).
      */
     private List<Map<String, Object>> rivalPayload(Team recipient, Map<UUID, Team> byId,
-                                                   UUID changedTeamId, int changedTeamTotal) {
+                                                   Map<UUID, Integer> totalOverrides) {
         return recipient.getRivals().stream()
             .map(byId::get)
             .filter(Objects::nonNull)
             .map(r -> {
-                int total = r.getId().equals(changedTeamId)
-                    ? changedTeamTotal
-                    : pointsTotalsCache.get(r.getId());
+                Integer override = totalOverrides.get(r.getId());
+                int total = override != null ? override : pointsTotalsCache.get(r.getId());
                 return Map.<String, Object>of("id", r.getId(), "name", r.getName(), "totalPoints", total);
             })
             .toList();
