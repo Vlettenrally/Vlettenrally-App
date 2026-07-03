@@ -684,6 +684,18 @@ export default function CheckpointStation() {
             }
             value={addTeam}
             onChange={(_, v) => setAddTeam(v)}
+            renderOption={({ key, ...props }, option) => (
+              <Box key={key} component="li" {...props}>
+                <Box>
+                  <Typography variant="body2">{option.name}</Typography>
+                  {option.description && (
+                    <Typography variant="caption" color="text.secondary" display="block">
+                      {option.description}
+                    </Typography>
+                  )}
+                </Box>
+              </Box>
+            )}
             renderInput={(params) => (
               <TextField {...params} label={t('admin.checkpointStation.addSearchTeam')} size="small" fullWidth />
             )}

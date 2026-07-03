@@ -262,6 +262,11 @@ export default function SendMessageDialog({
                       <Typography variant="body2">
                         {option.name}
                       </Typography>
+                      {option.description && (
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          {option.description}
+                        </Typography>
+                      )}
                     </Box>
                   </li>
                 )}

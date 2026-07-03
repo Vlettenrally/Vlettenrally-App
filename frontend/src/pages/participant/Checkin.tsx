@@ -1129,7 +1129,14 @@ export function CheckInPage() {
                   }
                   renderOption={({ key, ...props }, option) => (
                     <Box key={key} component="li" {...props} sx={{ minHeight: 48, display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography variant="body1" sx={{ flexGrow: 1 }}>{option.name}</Typography>
+                      <Box sx={{ flexGrow: 1 }}>
+                        <Typography variant="body1">{option.name}</Typography>
+                        {option.description && (
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            {option.description}
+                          </Typography>
+                        )}
+                      </Box>
                       {!option.checkedIn && (
                         <Chip
                           size="small"
@@ -1362,6 +1369,18 @@ export function CheckInPage() {
                   filterOptions={(options, { inputValue }) =>
                     options.filter((option) => teamMatchesQuery(option, inputValue))
                   }
+                  renderOption={({ key, ...props }, option) => (
+                    <Box key={key} component="li" {...props}>
+                      <Box>
+                        <Typography variant="body2">{option.name}</Typography>
+                        {option.description && (
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            {option.description}
+                          </Typography>
+                        )}
+                      </Box>
+                    </Box>
+                  )}
                   openOnFocus
                   filterSelectedOptions
                   renderValue={(value, getTagProps) =>

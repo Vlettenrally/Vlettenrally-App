@@ -10,6 +10,8 @@ import {
   Alert,
   Stack,
   Autocomplete,
+  Box,
+  Typography,
 } from '@mui/material';
 import api from '../../services/api';
 import { teamMatchesQuery } from '../../utils/teamSearch';
@@ -100,6 +102,18 @@ export default function CreateAdjustmentDialog({ open, onClose, gameId, teams, o
             filterOptions={(options, { inputValue }) =>
               options.filter((option) => teamMatchesQuery(option, inputValue))
             }
+            renderOption={({ key, ...props }, option) => (
+              <Box key={key} component="li" {...props}>
+                <Box>
+                  <Typography variant="body2">{option.name}</Typography>
+                  {option.description && (
+                    <Typography variant="caption" color="text.secondary" display="block">
+                      {option.description}
+                    </Typography>
+                  )}
+                </Box>
+              </Box>
+            )}
             isOptionEqualToValue={(a, b) => a.id === b.id}
             renderInput={(params) => <TextField {...params} label={t('common.team')} required />}
             fullWidth

@@ -290,9 +290,14 @@ export default function CheckIn() {
                       {...props}
                       sx={{ minHeight: 48, display: 'flex', alignItems: 'center', gap: 1 }}
                     >
-                      <Typography variant="body1" sx={{ flexGrow: 1 }}>
-                        {option.name}
-                      </Typography>
+                      <Box sx={{ flexGrow: 1 }}>
+                        <Typography variant="body1">{option.name}</Typography>
+                        {option.description && (
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            {option.description}
+                          </Typography>
+                        )}
+                      </Box>
                       {option.checkedIn ? (
                         <Chip size="small" color="success" label={t('admin.checkIn.checkedIn')} />
                       ) : (

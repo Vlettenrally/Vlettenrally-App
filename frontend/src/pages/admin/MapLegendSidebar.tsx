@@ -271,7 +271,7 @@ export function MapLegendSidebar({
                       }}
                     />
                     <ListItemText
-                      primary={team.name}
+                      primary={team.description ? `${team.name} · ${team.description}` : team.name}
                       secondary={<RelativeTime date={team.locationTime} />}
                       slotProps={{
                         primary: { variant: 'body2', noWrap: true },

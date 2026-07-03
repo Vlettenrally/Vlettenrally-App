@@ -200,6 +200,18 @@ export default function Rivals() {
               filterOptions={(options, { inputValue }) =>
                 options.filter((option) => teamMatchesQuery(option, inputValue))
               }
+              renderOption={({ key, ...props }, option) => (
+                <Box key={key} component="li" {...props}>
+                  <Box>
+                    <Typography variant="body2">{option.name}</Typography>
+                    {option.description && (
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        {option.description}
+                      </Typography>
+                    )}
+                  </Box>
+                </Box>
+              )}
               openOnFocus
               filterSelectedOptions
               renderValue={(value, getTagProps) =>

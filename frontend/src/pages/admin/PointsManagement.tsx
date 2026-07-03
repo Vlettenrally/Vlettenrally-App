@@ -230,6 +230,18 @@ export default function PointsManagement() {
               filterOptions={(options, { inputValue }) =>
                 options.filter((option) => teamMatchesQuery(option, inputValue))
               }
+              renderOption={({ key, ...props }, option) => (
+                <Box key={key} component="li" {...props}>
+                  <Box>
+                    <Typography variant="body2">{option.name}</Typography>
+                    {option.description && (
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        {option.description}
+                      </Typography>
+                    )}
+                  </Box>
+                </Box>
+              )}
               isOptionEqualToValue={(a, b) => a.id === b.id}
               renderInput={(params) => (
                 <TextField

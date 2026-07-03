@@ -738,6 +738,18 @@ export default function AutomationFormDialog({
                 filterOptions={(options, { inputValue }) =>
                   options.filter((option) => teamMatchesQuery(option, inputValue))
                 }
+                renderOption={({ key, ...props }, option) => (
+                  <Box key={key} component="li" {...props}>
+                    <Box>
+                      <Typography variant="body2">{option.name}</Typography>
+                      {option.description && (
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          {option.description}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Box>
+                )}
                 value={teams.filter((team) => targetTeamIds.includes(team.id))}
                 onChange={(_, value) => setTargetTeamIds(value.map((team) => team.id))}
                 renderInput={(params) => (
