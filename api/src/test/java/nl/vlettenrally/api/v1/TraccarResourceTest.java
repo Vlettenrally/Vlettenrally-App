@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -63,7 +64,7 @@ class TraccarResourceTest {
         assertEquals(200, response.getStatus());
 
         ArgumentCaptor<LocationData> captor = ArgumentCaptor.forClass(LocationData.class);
-        verify(locationIngestService).ingest(captor.capture(), eq("Team"));
+        verify(locationIngestService).ingest(captor.capture(), eq("Team"), isNull());
         LocationData reading = captor.getValue();
         assertEquals(teamId, reading.getTeamId());
         assertEquals(gameId, reading.getGameId());
@@ -87,7 +88,7 @@ class TraccarResourceTest {
         assertEquals(200, response.getStatus());
 
         ArgumentCaptor<LocationData> captor = ArgumentCaptor.forClass(LocationData.class);
-        verify(locationIngestService).ingest(captor.capture(), eq("Team"));
+        verify(locationIngestService).ingest(captor.capture(), eq("Team"), isNull());
         LocationData reading = captor.getValue();
         assertEquals(52.1, reading.getLocation().getY(), 1e-9);
         assertEquals(5.2, reading.getLocation().getX(), 1e-9);
@@ -110,7 +111,7 @@ class TraccarResourceTest {
         assertEquals(200, response.getStatus());
 
         ArgumentCaptor<LocationData> captor = ArgumentCaptor.forClass(LocationData.class);
-        verify(locationIngestService).ingest(captor.capture(), eq("Team"));
+        verify(locationIngestService).ingest(captor.capture(), eq("Team"), isNull());
         LocationData reading = captor.getValue();
         assertEquals(52.1, reading.getLocation().getY(), 1e-9);
         assertEquals(5.2, reading.getLocation().getX(), 1e-9);
@@ -134,7 +135,7 @@ class TraccarResourceTest {
         assertEquals(200, response.getStatus());
 
         ArgumentCaptor<LocationData> captor = ArgumentCaptor.forClass(LocationData.class);
-        verify(locationIngestService).ingest(captor.capture(), eq("Team"));
+        verify(locationIngestService).ingest(captor.capture(), eq("Team"), isNull());
         LocationData reading = captor.getValue();
         assertEquals(52.0158884, reading.getLocation().getY(), 1e-9);
         assertEquals(4.7094968, reading.getLocation().getX(), 1e-9);
@@ -159,7 +160,7 @@ class TraccarResourceTest {
         assertEquals(200, response.getStatus());
 
         ArgumentCaptor<LocationData> captor = ArgumentCaptor.forClass(LocationData.class);
-        verify(locationIngestService).ingest(captor.capture(), eq("Team"));
+        verify(locationIngestService).ingest(captor.capture(), eq("Team"), isNull());
         LocationData reading = captor.getValue();
         assertEquals(36.0, reading.getSpeed().doubleValue(), 1e-6);
         assertEquals(270.0, reading.getHeading().doubleValue(), 1e-9);
@@ -173,7 +174,7 @@ class TraccarResourceTest {
             null, null, null, null, null);
 
         assertEquals(200, response.getStatus());
-        verify(locationIngestService, never()).ingest(any(), any());
+        verify(locationIngestService, never()).ingest(any(), any(), any());
     }
 
     @Test
@@ -186,7 +187,7 @@ class TraccarResourceTest {
             null, null, null, null, null);
 
         assertEquals(200, response.getStatus());
-        verify(locationIngestService, never()).ingest(any(), any());
+        verify(locationIngestService, never()).ingest(any(), any(), any());
     }
 
     @Test
@@ -195,7 +196,7 @@ class TraccarResourceTest {
             null, null, null, null, null);
 
         assertEquals(200, response.getStatus());
-        verify(locationIngestService, never()).ingest(any(), any());
+        verify(locationIngestService, never()).ingest(any(), any(), any());
     }
 
     private Team enabledTeam(String identifier) {

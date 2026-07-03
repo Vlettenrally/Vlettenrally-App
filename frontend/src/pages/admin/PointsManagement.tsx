@@ -40,6 +40,7 @@ import api from '../../services/api';
 import EditEntryDialog from '../../components/admin/EditEntryDialog';
 import CreateAdjustmentDialog from '../../components/admin/CreateAdjustmentDialog';
 import MapPopupDialog from '../../components/admin/MapPopupDialog';
+import { teamMatchesQuery } from '../../utils/teamSearch';
 import type { AdminTeam, Checkpoint, PointEntry, PointEntryType } from '../../types/entities';
 
 function formatTimestamp(iso: string): string {
@@ -226,6 +227,9 @@ export default function PointsManagement() {
               onChange={(_, newValue) => setFilterTeam(newValue)}
               options={teams}
               getOptionLabel={(team) => team.name}
+              filterOptions={(options, { inputValue }) =>
+                options.filter((option) => teamMatchesQuery(option, inputValue))
+              }
               isOptionEqualToValue={(a, b) => a.id === b.id}
               renderInput={(params) => (
                 <TextField

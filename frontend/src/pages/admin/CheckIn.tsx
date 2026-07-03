@@ -40,6 +40,7 @@ import { useAdminResync } from '../../hooks/useAdminSync';
 import { teamService } from '../../services/teamService';
 import { gameService } from '../../services/gameService';
 import { isPhoneNumber, validateParticipantNames } from '../../utils/validators';
+import { teamMatchesQuery } from '../../utils/teamSearch';
 import type { AdminTeam } from '../../types/entities';
 
 type Step = 'search' | 'overview' | 'manual';
@@ -279,6 +280,9 @@ export default function CheckIn() {
                   onChange={(_, value) => handleSelectTeam(value)}
                   getOptionLabel={(option) => option.name}
                   isOptionEqualToValue={(option, val) => option.id === val.id}
+                  filterOptions={(options, { inputValue }) =>
+                    options.filter((option) => teamMatchesQuery(option, inputValue))
+                  }
                   renderOption={({ key, ...props }, option) => (
                     <Box
                       key={key}

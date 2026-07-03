@@ -26,6 +26,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../services/api';
 import { formatDateTime, formatForDateTimeLocalInput } from '../utils/dateTime';
+import { teamMatchesQuery } from '../utils/teamSearch';
 import type {
   AdminTeam,
   AutomationAction,
@@ -734,6 +735,9 @@ export default function AutomationFormDialog({
                 multiple
                 options={teams}
                 getOptionLabel={(team) => team.name}
+                filterOptions={(options, { inputValue }) =>
+                  options.filter((option) => teamMatchesQuery(option, inputValue))
+                }
                 value={teams.filter((team) => targetTeamIds.includes(team.id))}
                 onChange={(_, value) => setTargetTeamIds(value.map((team) => team.id))}
                 renderInput={(params) => (

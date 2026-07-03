@@ -7,10 +7,11 @@ import java.util.UUID;
 public record TeamOptionResponse(
     UUID id,
     String name,
+    String description,
     boolean checkedIn,
     boolean hasMainDevice
 ) {
     public TeamOptionResponse(UUID id, String name) {
-        this(id, name, false, false);
+        this(id, name, null, false, false);
     }
 }

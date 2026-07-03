@@ -439,8 +439,6 @@ export default function TeamDetailDialog({
             value={formData.description}
             onChange={handleChange('description')}
             disabled={!isEditing}
-            multiline
-            rows={2}
             fullWidth
           />
 

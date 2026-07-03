@@ -30,6 +30,7 @@ import {
 } from '@mui/icons-material';
 import type { AdminTeam, MessageTemplate, MessageType, SendAdminMessageRequest } from '../types/entities';
 import api from '../services/api';
+import { teamMatchesQuery } from '../utils/teamSearch';
 
 interface SendMessageDialogProps {
   open: boolean;
@@ -231,13 +232,9 @@ export default function SendMessageDialog({
                 getOptionLabel={(option) => option.name}
                 value={selectedTeams}
                 onChange={(_, value) => setSelectedTeams(value)}
-                filterOptions={(options, { inputValue }) => {
-                  const filterValue = inputValue.toLowerCase();
-                  return options.filter(
-                    (option) =>
-                      option.name.toLowerCase().includes(filterValue)
-                  );
-                }}
+                filterOptions={(options, { inputValue }) =>
+                  options.filter((option) => teamMatchesQuery(option, inputValue))
+                }
                 renderInput={(params) => (
                   <TextField
                     {...params}

@@ -195,7 +195,7 @@ public class LocationPollingScheduler {
             locationData.setSpeed(pl.getSpeed() != null ? BigDecimal.valueOf(pl.getSpeed()) : null);
             locationData.setHeading(null);
 
-            locationIngestService.ingest(locationData, team.getName()).ifPresent(broadcasts::add);
+            locationIngestService.ingest(locationData, team.getName(), team.getDescription()).ifPresent(broadcasts::add);
         }
 
         Log.infof("Game %s: polled %d participant locations, accepted %d", game.getId(), totalCount, broadcasts.size());

@@ -30,6 +30,7 @@ import GroupAddIcon from '@mui/icons-material/GroupAdd';
 import { useTeamStore, type RankingEntry } from '../../store/useTeamStore';
 import { useGameStore } from '../../store/useGameStore';
 import teamService from '../../services/teamService';
+import { teamMatchesQuery } from '../../utils/teamSearch';
 import type { PublicTeam, TeamOption } from '../../types/entities';
 
 const MAX_RIVALS = 5;
@@ -196,6 +197,9 @@ export default function Rivals() {
               }}
               isOptionEqualToValue={(option, val) => option.id === val.id}
               getOptionLabel={(option) => option.name}
+              filterOptions={(options, { inputValue }) =>
+                options.filter((option) => teamMatchesQuery(option, inputValue))
+              }
               openOnFocus
               filterSelectedOptions
               renderValue={(value, getTagProps) =>

@@ -99,7 +99,7 @@ class LocationIngestServiceTest {
     void ingest_firstFix_isAccepted() {
         when(locationDataRepository.findRecentByTeamId(teamId, 2)).thenReturn(List.of());
 
-        Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 5.0, Instant.now()), "Team");
+        Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 5.0, Instant.now()), "Team", null);
 
         assertTrue(result.isPresent());
         verify(locationDataRepository).save(any(LocationData.class));
@@ -113,7 +113,7 @@ class LocationIngestServiceTest {
             .thenReturn(List.of(reading(52.0, 5.0, base)));
 
         // Same timestamp as the last fix (a re-polled duplicate): the timestamp must advance.
-        Optional<TeamLocationResponse> result = service.ingest(reading(52.0001, 5.0001, base), "Team");
+        Optional<TeamLocationResponse> result = service.ingest(reading(52.0001, 5.0001, base), "Team", null);
 
         assertFalse(result.isPresent());
         verify(locationDataRepository, never()).save(any(LocationData.class));
@@ -126,7 +126,7 @@ class LocationIngestServiceTest {
             .thenReturn(List.of(reading(52.0, 5.0, base)));
 
         // 2 seconds after the last fix — high-frequency fixes are no longer throttled.
-        Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 5.00001, base.plusSeconds(2)), "Team");
+        Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 5.00001, base.plusSeconds(2)), "Team", null);
 
         assertTrue(result.isPresent());
         verify(locationDataRepository).save(any(LocationData.class));
@@ -139,7 +139,7 @@ class LocationIngestServiceTest {
             .thenReturn(List.of(reading(52.0, 5.0, base)));
 
         // ~0.7 km east in 10s ≈ 250 km/h, well over the 120 km/h ceiling.
-        Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 5.01, base.plusSeconds(10)), "Team");
+        Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 5.01, base.plusSeconds(10)), "Team", null);
 
         assertFalse(result.isPresent());
         verify(locationDataRepository, never()).save(any(LocationData.class));
@@ -153,7 +153,7 @@ class LocationIngestServiceTest {
 
         // ~0.7 km east in 60s ≈ 42 km/h — under the hard ceiling, and with no prior fix
         // there is no bearing to trigger the direction-gated boat-speed rule.
-        Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 5.01, base.plusSeconds(60)), "Team");
+        Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 5.01, base.plusSeconds(60)), "Team", null);
 
         assertTrue(result.isPresent());
         verify(locationDataRepository).save(any(LocationData.class));
@@ -161,7 +161,7 @@ class LocationIngestServiceTest {
 
     @Test
     void ingest_outOfRangeCoordinates_isDropped() {
-        Optional<TeamLocationResponse> result = service.ingest(reading(95.0, 5.0, Instant.now()), "Team");
+        Optional<TeamLocationResponse> result = service.ingest(reading(95.0, 5.0, Instant.now()), "Team", null);
 
         assertFalse(result.isPresent());
         verify(locationDataRepository, never()).save(any(LocationData.class));
@@ -176,7 +176,7 @@ class LocationIngestServiceTest {
         when(checkpointRepository.findContainingPoint(eq(gameId), any(Point.class)))
             .thenReturn(List.of(checkpointId));
 
-        Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 5.0, time), "Team");
+        Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 5.0, time), "Team", null);
 
         assertTrue(result.isPresent());
         verify(achievementService).recordVerifiedPass(teamId, checkpointId, time);
@@ -190,7 +190,7 @@ class LocationIngestServiceTest {
         completed.setStatus(Game.GameStatus.COMPLETED);
         when(gameService.findById(gameId)).thenReturn(Optional.of(completed));
 
-        Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 5.0, Instant.now()), "Team");
+        Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 5.0, Instant.now()), "Team", null);
 
         assertTrue(result.isPresent());
         verify(checkpointRepository, never()).findContainingPoint(any(), any());
@@ -208,7 +208,7 @@ class LocationIngestServiceTest {
         when(checkpointRepository.findContainingPoint(eq(gameId), any(Point.class)))
             .thenReturn(List.of(checkpointId));
 
-        Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 5.0, now), "Team");
+        Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 5.0, now), "Team", null);
 
         assertTrue(result.isPresent());
         // Late finish-zone crossing is still detected so its automation can fire...
@@ -225,7 +225,7 @@ class LocationIngestServiceTest {
         when(gameService.findById(gameId))
             .thenReturn(Optional.of(completedGame(now.minusSeconds(31 * 60), 30)));
 
-        Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 5.0, now), "Team");
+        Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 5.0, now), "Team", null);
 
         assertTrue(result.isPresent());
         verify(checkpointRepository, never()).findContainingPoint(any(), any());
@@ -239,7 +239,7 @@ class LocationIngestServiceTest {
         when(checkpointRepository.findContainingPoint(eq(gameId), any(Point.class)))
             .thenReturn(List.of());
 
-        service.ingest(reading(52.0, 5.0, Instant.now()), "Team");
+        service.ingest(reading(52.0, 5.0, Instant.now()), "Team", null);
 
         verify(achievementService, never()).recordVerifiedPass(any(), any(), any());
     }
@@ -253,7 +253,7 @@ class LocationIngestServiceTest {
         when(locationDataRepository.findRecentByTeamId(teamId, 2)).thenReturn(List.of(last, prev));
 
         // Candidate sharply reverses ~690 m west in 60s (~41 km/h): turn 180°, boat-implausible.
-        Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 4.991, base.plusSeconds(120)), "Team");
+        Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 4.991, base.plusSeconds(120)), "Team", null);
 
         assertFalse(result.isPresent());
         verify(locationDataRepository, never()).save(any(LocationData.class));
@@ -267,7 +267,7 @@ class LocationIngestServiceTest {
         when(locationDataRepository.findRecentByTeamId(teamId, 2)).thenReturn(List.of(last, prev));
 
         // A real U-turn: ~69 m back west in 60s (~4 km/h). Sharp angle but boat speed → keep it.
-        Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 5.000, base.plusSeconds(120)), "Team");
+        Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 5.000, base.plusSeconds(120)), "Team", null);
 
         assertTrue(result.isPresent());
         verify(locationDataRepository).save(any(LocationData.class));
@@ -281,7 +281,7 @@ class LocationIngestServiceTest {
 
         // 100 m reported accuracy, over the 50 m gate.
         Optional<TeamLocationResponse> result =
-            service.ingest(reading(52.0001, 5.0001, base.plusSeconds(60), new BigDecimal("100.0")), "Team");
+            service.ingest(reading(52.0001, 5.0001, base.plusSeconds(60), new BigDecimal("100.0")), "Team", null);
 
         assertFalse(result.isPresent());
         verify(locationDataRepository, never()).save(any(LocationData.class));
@@ -299,7 +299,7 @@ class LocationIngestServiceTest {
 
         // ~150 m east in 60s (~9 km/h). Neither endpoint need be in the zone; the segment is.
         Instant t = base.plusSeconds(60);
-        Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 5.0022, t), "Team");
+        Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 5.0022, t), "Team", null);
 
         assertTrue(result.isPresent());
         verify(achievementService).recordVerifiedPass(teamId, checkpointId, t);
@@ -316,7 +316,7 @@ class LocationIngestServiceTest {
             .thenReturn(List.of());
 
         // 600s after the last fix — beyond the 300s staleness window, so no connecting segment.
-        service.ingest(reading(52.0, 5.001, base.plusSeconds(600)), "Team");
+        service.ingest(reading(52.0, 5.001, base.plusSeconds(600)), "Team", null);
 
         verify(checkpointRepository).findContainingPoint(eq(gameId), any(Point.class));
         verify(checkpointRepository, never()).findCrossedBySegment(any(), any(), any());
@@ -332,7 +332,7 @@ class LocationIngestServiceTest {
         finished.setFinished(true);
         when(teamRepository.findById(teamId)).thenReturn(Optional.of(finished));
 
-        Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 5.0, Instant.now()), "Team");
+        Optional<TeamLocationResponse> result = service.ingest(reading(52.0, 5.0, Instant.now()), "Team", null);
 
         assertTrue(result.isPresent());
         // Distance still computed for tracking but credited as inactive (active=false).

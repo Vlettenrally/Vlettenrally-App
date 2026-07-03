@@ -12,6 +12,7 @@ import {
   Autocomplete,
 } from '@mui/material';
 import api from '../../services/api';
+import { teamMatchesQuery } from '../../utils/teamSearch';
 import type { AdminTeam, PointEntry } from '../../types/entities';
 
 interface CreateAdjustmentDialogProps {
@@ -96,6 +97,9 @@ export default function CreateAdjustmentDialog({ open, onClose, gameId, teams, o
             onChange={(_, newValue) => setTeam(newValue)}
             options={teams}
             getOptionLabel={(opt) => opt.name}
+            filterOptions={(options, { inputValue }) =>
+              options.filter((option) => teamMatchesQuery(option, inputValue))
+            }
             isOptionEqualToValue={(a, b) => a.id === b.id}
             renderInput={(params) => <TextField {...params} label={t('common.team')} required />}
             fullWidth

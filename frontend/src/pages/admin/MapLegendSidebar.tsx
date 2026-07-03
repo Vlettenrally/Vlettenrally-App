@@ -25,12 +25,14 @@ import PushPinOutlinedIcon from '@mui/icons-material/PushPinOutlined';
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
 import { RelativeTime } from '../../components/RelativeTime';
 import { STALE_AFTER_MS } from './mapConstants';
+import { teamMatchesQuery } from '../../utils/teamSearch';
 
 export type TrackWindowMinutes = 15 | 30 | 60 | 120 | 720 | 0; // 0 = all time
 
 export interface LegendTeam {
   id: string;
   name: string;
+  description?: string;
   color: string;
   /** ISO timestamp of the team's most recent location fix. */
   locationTime: string;
@@ -114,11 +116,10 @@ export function MapLegendSidebar({
     { value: 0, label: t('admin.map.windowAll') },
   ];
 
-  const filteredTeams = useMemo(() => {
-    const q = teamQuery.trim().toLowerCase();
-    if (!q) return teams;
-    return teams.filter(team => team.name.toLowerCase().includes(q));
-  }, [teams, teamQuery]);
+  const filteredTeams = useMemo(
+    () => teams.filter(team => teamMatchesQuery(team, teamQuery)),
+    [teams, teamQuery],
+  );
 
   // Master checkboxes operate on the FULL list, ignoring the search filter.
   const teamsMaster = masterState(teams, hiddenTeamIds);

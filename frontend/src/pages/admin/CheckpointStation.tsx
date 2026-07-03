@@ -44,6 +44,7 @@ import { useGameStore } from '../../store/useGameStore';
 import { teamService } from '../../services/teamService';
 import { websocket } from '../../services/websocket';
 import api from '../../services/api';
+import { teamMatchesQuery } from '../../utils/teamSearch';
 import type { WebSocketMessage } from '../../services/websocket';
 import type { AdminTeam, CheckpointTeamStatus } from '../../types/entities';
 import type { Checkpoint } from '../../types/entities.ts';
@@ -678,6 +679,9 @@ export default function CheckpointStation() {
           <Autocomplete
             options={allTeams.filter((team) => !teams.some((r) => r.teamId === team.id && r.achievementStatus === 'VERIFIED'))}
             getOptionLabel={(team) => team.name}
+            filterOptions={(options, { inputValue }) =>
+              options.filter((option) => teamMatchesQuery(option, inputValue))
+            }
             value={addTeam}
             onChange={(_, v) => setAddTeam(v)}
             renderInput={(params) => (

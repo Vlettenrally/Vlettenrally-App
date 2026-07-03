@@ -43,6 +43,7 @@ import { useTeamStore } from '../../store/useTeamStore';
 import { useTeamWebSocket } from '../../hooks/useWebSocket';
 import { useDeviceIdentity } from '../../hooks/useDeviceIdentity';
 import { isPhoneNumber, validateParticipantNames } from '../../utils/validators';
+import { teamMatchesQuery } from '../../utils/teamSearch';
 import { initializePushNotificationsWithReason } from '../../services/firebaseMessaging';
 import { shouldPromptHomescreenInstall } from '../../utils/pwa';
 import { WebSocketEventType } from '../../services/websocket';
@@ -1123,6 +1124,9 @@ export function CheckInPage() {
                   value={selectedTeam}
                   onChange={(_, value) => setSelectedTeam(value)}
                   getOptionLabel={(option) => option.name ?? ''}
+                  filterOptions={(options, { inputValue }) =>
+                    options.filter((option) => teamMatchesQuery(option, inputValue))
+                  }
                   renderOption={({ key, ...props }, option) => (
                     <Box key={key} component="li" {...props} sx={{ minHeight: 48, display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Typography variant="body1" sx={{ flexGrow: 1 }}>{option.name}</Typography>
@@ -1355,6 +1359,9 @@ export function CheckInPage() {
                   }}
                   isOptionEqualToValue={(option, val) => option.id === val.id}
                   getOptionLabel={(option) => option.name}
+                  filterOptions={(options, { inputValue }) =>
+                    options.filter((option) => teamMatchesQuery(option, inputValue))
+                  }
                   openOnFocus
                   filterSelectedOptions
                   renderValue={(value, getTagProps) =>

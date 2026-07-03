@@ -85,6 +85,7 @@ public class CheckInResource {
                 .map(team -> new TeamOptionResponse(
                     team.getId(),
                     team.getName(),
+                    team.getDescription(),
                     team.isCheckedIn(),
                     team.getMainDeviceId() != null))
                 .toList()
@@ -156,6 +157,7 @@ public class CheckInResource {
                 .map(team -> new TeamOptionResponse(
                     team.getId(),
                     team.getName(),
+                    team.getDescription(),
                     team.isCheckedIn(),
                     team.getMainDeviceId() != null))
                 .toList();

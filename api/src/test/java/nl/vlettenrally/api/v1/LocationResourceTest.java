@@ -43,7 +43,7 @@ class LocationResourceTest {
     @Test
     void getLatestTeamLocations_serviceReturnsList_returnsOkWithBody() {
         List<TeamLocationResponse> body = List.of(
-            new TeamLocationResponse(teamId, "De Watervlooien", 52.37, 4.9, 10.0, 90.0, "2026-05-17T10:00:00Z"));
+            new TeamLocationResponse(teamId, "De Watervlooien", null, 52.37, 4.9, 10.0, 90.0, "2026-05-17T10:00:00Z"));
         when(locationService.getLatestTeamLocations(gameId)).thenReturn(Optional.of(body));
 
         try (Response response = locationResource.getLatestTeamLocations(gameId)) {
@@ -67,7 +67,7 @@ class LocationResourceTest {
 
     @Test
     void getLatestTeamLocation_serviceReturnsValue_returnsOkWithBody() {
-        TeamLocationResponse body = new TeamLocationResponse(teamId, "De Watervlooien", 52.3580, 4.9001, 3.5, 120.0, "2026-05-17T10:00:00Z");
+        TeamLocationResponse body = new TeamLocationResponse(teamId, "De Watervlooien", null, 52.3580, 4.9001, 3.5, 120.0, "2026-05-17T10:00:00Z");
         when(locationService.getLatestTeamLocation(gameId, teamId)).thenReturn(Optional.of(body));
 
         try (Response response = locationResource.getLatestTeamLocation(gameId, teamId)) {
@@ -90,8 +90,8 @@ class LocationResourceTest {
     @Test
     void getTeamLocationHistory_serviceReturnsList_returnsOkAndForwardsWindow() {
         List<TeamLocationResponse> body = List.of(
-            new TeamLocationResponse(teamId, "De Watervlooien", 52.37, 4.9, null, null, "2026-05-17T10:00:00Z"),
-            new TeamLocationResponse(teamId, "De Watervlooien", 52.38, 4.91, null, null, "2026-05-17T10:01:00Z"));
+            new TeamLocationResponse(teamId, "De Watervlooien", null, 52.37, 4.9, null, null, "2026-05-17T10:00:00Z"),
+            new TeamLocationResponse(teamId, "De Watervlooien", null, 52.38, 4.91, null, null, "2026-05-17T10:01:00Z"));
         when(locationService.getTeamLocationHistory(gameId, teamId, 30)).thenReturn(Optional.of(body));
 
         try (Response response = locationResource.getTeamLocationHistory(gameId, teamId, 30)) {

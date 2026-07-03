@@ -1,6 +1,6 @@
 import { Box, Typography, Button, Card, CardContent, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, CircularProgress, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, TextField } from '@mui/material';
 import { Upload as ImportIcon, Add as AddIcon, CheckCircle as SuccessIcon, Error as ErrorIcon, GpsFixed as TrackerIcon, Download as DownloadIcon } from '@mui/icons-material';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useGameStore } from '../../store/useGameStore';
 import { useAdminResync } from '../../hooks/useAdminSync';
@@ -8,6 +8,7 @@ import { teamService } from '../../services/teamService';
 import { gameService } from '../../services/gameService';
 import { websocket } from '../../services/websocket';
 import TeamDetailDialog from '../../components/TeamDetailDialog';
+import { teamMatchesQuery } from '../../utils/teamSearch';
 import type { AdminTeam, Game, TeamImportResult, TrackerAssignResult } from '../../types/entities';
 
 type DetailDialog = { title: string; items: string[] };
@@ -16,6 +17,7 @@ export default function Teams() {
   const { t } = useTranslation();
   const selectedGameId = useGameStore((s) => s.selectedGameId);
   const [teams, setTeams] = useState<AdminTeam[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedTeam, setSelectedTeam] = useState<AdminTeam | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [game, setGame] = useState<Game | null>(null);
@@ -187,6 +189,11 @@ export default function Teams() {
   const isCompleted = game?.status === 'completed';
   const canImport = game?.externalEventId && !isCompleted;
 
+  const filteredTeams = useMemo(
+    () => teams.filter((team) => teamMatchesQuery(team, searchQuery)),
+    [teams, searchQuery],
+  );
+
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
@@ -323,6 +330,14 @@ export default function Teams() {
           <Typography variant="h6" sx={{ mb: 2 }}>
             {t('admin.teams.teamsLoaded', { count: teams.length })}
           </Typography>
+          <TextField
+            size="small"
+            fullWidth
+            placeholder={t('admin.teams.searchTeam')}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            sx={{ mb: 2 }}
+          />
           <TableContainer>
             <Table>
               <TableHead>
@@ -337,7 +352,7 @@ export default function Teams() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {teams.map((team) => (
+                {filteredTeams.map((team) => (
                   <TableRow
                     key={team.id}
                     hover
@@ -372,6 +387,15 @@ export default function Teams() {
                     </TableCell>
                   </TableRow>
                 ))}
+                {filteredTeams.length === 0 && teams.length > 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7}>
+                      <Typography variant="body2" color="text.secondary">
+                        {t('admin.teams.noResults')}
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </TableContainer>

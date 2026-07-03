@@ -81,7 +81,7 @@ public class LocationIngestService {
      *         no-op — e.g. still return HTTP 200 to a tracker app).
      */
     @Transactional
-    public Optional<TeamLocationResponse> ingest(LocationData reading, String teamName) {
+    public Optional<TeamLocationResponse> ingest(LocationData reading, String teamName, String teamDescription) {
         if (!isValid(reading)) {
             return Optional.empty();
         }
@@ -100,7 +100,7 @@ public class LocationIngestService {
 
         locationDataRepository.save(reading);
 
-        TeamLocationResponse teamLocation = toResponse(reading, teamName);
+        TeamLocationResponse teamLocation = toResponse(reading, teamName, teamDescription);
         webSocketPublisher.sendToTeamOnly(
             reading.getGameId(),
             reading.getTeamId(),
@@ -256,11 +256,12 @@ public class LocationIngestService {
         return true;
     }
 
-    private static TeamLocationResponse toResponse(LocationData reading, String teamName) {
+    private static TeamLocationResponse toResponse(LocationData reading, String teamName, String teamDescription) {
         Point p = reading.getLocation();
         return new TeamLocationResponse(
             reading.getTeamId(),
             teamName,
+            teamDescription,
             p.getY(),
             p.getX(),
             toDouble(reading.getSpeed()),

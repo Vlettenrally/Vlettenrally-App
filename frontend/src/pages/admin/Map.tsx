@@ -191,6 +191,7 @@ export default function AdminMap() {
     () => teamLocations.map(loc => ({
       id: loc.teamId,
       name: loc.teamName,
+      description: loc.teamDescription,
       color: TEAM_COLOR,
       locationTime: loc.locationTime,
     })),

@@ -249,7 +249,7 @@ public class TraccarResource {
         // Broadcast the accepted fix to admin map subscribers; the poller batches a
         // whole sweep, but a single Traccar report is its own one-element batch.
         // Checkpoint passes are detected internally from the fix via geofencing.
-        locationIngestService.ingest(reading, team.getName())
+        locationIngestService.ingest(reading, team.getName(), team.getDescription())
             .ifPresent(location -> locationIngestService.broadcastToMap(team.getGameId(), List.of(location)));
         return Response.ok().build();
     }

@@ -112,6 +112,7 @@ export interface LocationTestResult {
 export interface TeamLocation {
   teamId: string;
   teamName: string;
+  teamDescription?: string;
   latitude: number;
   longitude: number;
   speed?: number;
@@ -487,6 +488,7 @@ export interface CheckpointTeamStatus {
 export interface TeamOption {
   id: string;
   name: string;
+  description?: string;
   checkedIn?: boolean;
   hasMainDevice?: boolean;
 }

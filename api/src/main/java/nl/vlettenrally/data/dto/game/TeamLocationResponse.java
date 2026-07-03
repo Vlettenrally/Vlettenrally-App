@@ -11,6 +11,7 @@ import io.quarkus.runtime.annotations.RegisterForReflection;
 public record TeamLocationResponse(
     UUID teamId,
     String teamName,
+    String teamDescription,
     double latitude,
     double longitude,
     Double speed,

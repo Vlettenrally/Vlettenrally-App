@@ -107,6 +107,7 @@ public class LocationServiceImpl implements LocationService {
         return new TeamLocationResponse(
             team.getId(),
             team.getName(),
+            team.getDescription(),
             lat,
             lng,
             speed,

@@ -42,9 +42,6 @@ spec:
             requests:
               memory: "512Mi"
               cpu: "250m"
-            limits:
-              memory: "1024Mi"
-              cpu: "1"
           ports:
             - name: http
               containerPort: 8080
@@ -267,8 +264,7 @@ spec:
           resources:
             requests:
               memory: "512Mi"
-              cpu: "500m"
-
+              cpu: "1"
           ports:
             - name: http
               containerPort: 8080
