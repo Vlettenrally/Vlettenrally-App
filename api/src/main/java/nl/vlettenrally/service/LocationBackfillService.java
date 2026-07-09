@@ -1,6 +1,7 @@
 package nl.vlettenrally.service;
 
 import io.quarkus.logging.Log;
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -50,6 +51,8 @@ public class LocationBackfillService {
     BackfillThrottle throttle;
 
     public enum Status { COMPLETED, COOLING_DOWN, BUSY, NO_PARTICIPANT, NOT_CONFIGURED }
+
+    private record GameAndTeam(Game game, Team team) {}
 
     /**
      * Outcome of a backfill request. {@code cooldownRemainingSeconds} is only meaningful for
@@ -125,11 +128,17 @@ public class LocationBackfillService {
 
     private BackfillResult execute(UUID gameId, UUID teamId, Integer knownParticipantId)
             throws LocationApiException {
-        Game game = gameService.findById(gameId).orElse(null);
+        // triggerAutoBackfill dispatches onto a plain worker-pool thread with no CDI request context
+        // or JTA transaction, so the game/team reads need their own short transaction to get a usable
+        // EntityManager; the manual entry point (backfillTeamTrack) runs on the request thread instead,
+        // where the ambient request context already covers these same reads.
+        GameAndTeam gameAndTeam = QuarkusTransaction.requiringNew()
+            .call(() -> new GameAndTeam(gameService.findById(gameId).orElse(null), teamRepository.findById(teamId).orElse(null)));
+        Game game = gameAndTeam.game();
         if (game == null || game.getLocationEndpointUrl() == null || game.getLocationEndpointUrl().isBlank()) {
             return BackfillResult.of(Status.NOT_CONFIGURED);
         }
-        Team team = teamRepository.findById(teamId).orElse(null);
+        Team team = gameAndTeam.team();
         if (team == null) {
             return BackfillResult.of(Status.NO_PARTICIPANT);
         }
