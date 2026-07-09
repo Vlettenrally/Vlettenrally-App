@@ -149,6 +149,7 @@ class LocationBackfillPersisterTest {
         when(teamDistanceCalculator.recomputeFromScratch(team.getId())).thenReturn(500.0);
         // Each consecutive pair reports one newly-credited pass.
         when(locationIngestService.detectCheckpointPasses(any(), any())).thenReturn(1);
+        game.setStartSignalTime(BASE.minus(1, ChronoUnit.HOURS));
 
         List<EventParticipantLocation> track = List.of(
             providerPoint(4.90, 52.3710, 100),
@@ -162,5 +163,120 @@ class LocationBackfillPersisterTest {
         assertEquals(1, result.checkpointPassesDetected());
         verify(locationIngestService, times(1)).detectCheckpointPasses(any(), any());
         verify(automationEngine).onDistanceUpdate(eq(GAME_ID), eq(team.getId()), eq(500.0), eq(true));
+    }
+
+    @Test
+    void persist_excludesCheckpointPassesReachedBeforeStartSignalTime() {
+        when(locationIngestService.isValid(any())).thenReturn(true);
+        lenient().when(locationIngestService.passesGuards(any(), any(), any())).thenReturn(true);
+        when(locationIngestService.computeGate(any(), any(), any()))
+            .thenReturn(new LocationIngestService.IngestGate(true, true));
+        when(teamDistanceCalculator.recomputeFromScratch(team.getId())).thenReturn(500.0);
+        when(locationIngestService.detectCheckpointPasses(any(), any())).thenReturn(1);
+        // Backfill can replay the pre-start lead window; only pairs whose arrival is at/after the
+        // start signal may be credited.
+        game.setStartSignalTime(BASE.plus(150, ChronoUnit.SECONDS));
+
+        List<EventParticipantLocation> track = List.of(
+            providerPoint(4.90, 52.3700, 50),   // pre-start
+            providerPoint(4.90, 52.3710, 100),  // pre-start
+            providerPoint(4.90, 52.3720, 200)   // post-start
+        );
+
+        LocationBackfillService.BackfillResult result = persister.persist(game, team, track);
+
+        assertEquals(3, result.inserted());
+        // Only the (t=100 -> t=200) pair has an arrival at/after startSignalTime; the (t=50 -> t=100)
+        // pre-start pair is excluded even though checkpoint detection is otherwise active.
+        assertEquals(1, result.checkpointPassesDetected());
+        verify(locationIngestService, times(1)).detectCheckpointPasses(any(), any());
+    }
+
+    @Test
+    void persist_stopsCreditingCheckpointsOnceTeamFinishesMidReplay() {
+        when(locationIngestService.isValid(any())).thenReturn(true);
+        lenient().when(locationIngestService.passesGuards(any(), any(), any())).thenReturn(true);
+        when(locationIngestService.computeGate(any(), any(), any()))
+            .thenReturn(new LocationIngestService.IngestGate(true, true));
+        when(teamDistanceCalculator.recomputeFromScratch(team.getId())).thenReturn(500.0);
+        // In the real pipeline, a CHECKPOINT_ENTRY automation rule can finish the team synchronously
+        // from inside detectCheckpointPasses (AutomationEngine.onCheckpointPass -> FinishTeam action).
+        // Simulate that side effect on the first segment.
+        when(locationIngestService.detectCheckpointPasses(any(), any())).thenAnswer(invocation -> {
+            team.setFinished(true);
+            return 1;
+        });
+        game.setStartSignalTime(BASE.minus(1, ChronoUnit.HOURS));
+
+        List<EventParticipantLocation> track = List.of(
+            providerPoint(4.90, 52.3710, 100),
+            providerPoint(4.90, 52.3720, 200),
+            providerPoint(4.90, 52.3730, 300)
+        );
+
+        LocationBackfillService.BackfillResult result = persister.persist(game, team, track);
+
+        assertEquals(3, result.inserted());
+        // Only the segment that triggers the finish is credited; later segments in the same batch
+        // must not still be credited once the team has finished.
+        assertEquals(1, result.checkpointPassesDetected());
+        verify(locationIngestService, times(1)).detectCheckpointPasses(any(), any());
+    }
+
+    @Test
+    void persist_creditsCheckpointsBeforeFinishedAtEvenWhenTeamAlreadyFinished() {
+        when(locationIngestService.isValid(any())).thenReturn(true);
+        lenient().when(locationIngestService.passesGuards(any(), any(), any())).thenReturn(true);
+        when(locationIngestService.computeGate(any(), any(), any()))
+            .thenReturn(new LocationIngestService.IngestGate(false, false));
+        when(teamDistanceCalculator.recomputeFromScratch(team.getId())).thenReturn(500.0);
+        when(locationIngestService.detectCheckpointPasses(any(), any())).thenReturn(1);
+        game.setStartSignalTime(BASE.minus(1, ChronoUnit.HOURS));
+        // The team already finished (in an earlier, unrelated call) before this backfill even starts;
+        // finishedAt sits between the second and third candidate.
+        team.setFinished(true);
+        team.setFinishedAt(BASE.plus(250, ChronoUnit.SECONDS));
+
+        List<EventParticipantLocation> track = List.of(
+            providerPoint(4.90, 52.3700, 100),  // before finishedAt
+            providerPoint(4.90, 52.3710, 200),  // before finishedAt
+            providerPoint(4.90, 52.3720, 300)   // at/after finishedAt
+        );
+
+        LocationBackfillService.BackfillResult result = persister.persist(game, team, track);
+
+        assertEquals(3, result.inserted());
+        // The (t=100 -> t=200) pair predates finishedAt and must still be creditable even though the
+        // team is currently finished; the (t=200 -> t=300) pair, reached at/after finishedAt, must not.
+        assertEquals(1, result.checkpointPassesDetected());
+        verify(locationIngestService, times(1)).detectCheckpointPasses(any(), any());
+    }
+
+    @Test
+    void persist_excludesCheckpointPassesAfterTailWindowCloses() {
+        when(locationIngestService.isValid(any())).thenReturn(true);
+        lenient().when(locationIngestService.passesGuards(any(), any(), any())).thenReturn(true);
+        when(locationIngestService.computeGate(any(), any(), any()))
+            .thenReturn(new LocationIngestService.IngestGate(false, false));
+        when(teamDistanceCalculator.recomputeFromScratch(team.getId())).thenReturn(500.0);
+        when(locationIngestService.detectCheckpointPasses(any(), any())).thenReturn(1);
+        game.setStartSignalTime(BASE.minus(1, ChronoUnit.HOURS));
+        // Game ended at t=150s; default locationPollingTailMinutes=30 keeps the tail window open
+        // until t=150s+30min=1950s.
+        game.setEndTime(BASE.plus(150, ChronoUnit.SECONDS));
+
+        List<EventParticipantLocation> track = List.of(
+            providerPoint(4.90, 52.3700, 100),   // before end
+            providerPoint(4.90, 52.3710, 200),   // after end, within tail window
+            providerPoint(4.90, 52.3720, 2000)   // after end, past tail window
+        );
+
+        LocationBackfillService.BackfillResult result = persister.persist(game, team, track);
+
+        assertEquals(3, result.inserted());
+        // The (t=100 -> t=200) pair lands inside the tail window and is creditable; the
+        // (t=200 -> t=2000) pair, reached long after the tail window closes, is not.
+        assertEquals(1, result.checkpointPassesDetected());
+        verify(locationIngestService, times(1)).detectCheckpointPasses(any(), any());
     }
 }
