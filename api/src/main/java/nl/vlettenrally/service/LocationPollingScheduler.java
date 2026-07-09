@@ -13,7 +13,9 @@ import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.LocationData;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.dto.game.TeamLocationResponse;
+import nl.vlettenrally.data.repository.LocationDataRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Point;
@@ -73,7 +75,21 @@ public class LocationPollingScheduler {
     LocationIngestService locationIngestService;
 
     @Inject
+    LocationDataRepository locationDataRepository;
+
+    @Inject
+    LocationBackfillService locationBackfillService;
+
+    @Inject
+    BackfillThrottle backfillThrottle;
+
+    @Inject
     PollingLeader pollingLeader;
+
+    /** A fresh fix this much newer than a team's last stored fix means the tracker was offline —
+     *  automatically fetch its buffered history to fill the gap (throttled per team). */
+    @ConfigProperty(name = "vlettenrally.location.backfill.gap-threshold", defaultValue = "PT15M")
+    Duration backfillGapThreshold;
 
     @Scheduled(every = "{vlettenrally.location.polling-interval}")
     @Transactional
@@ -181,6 +197,18 @@ public class LocationPollingScheduler {
                 continue;
             }
 
+            // Skip a team whose backfill is in flight: the bulk recompute mutates the same distance
+            // accumulator, so a concurrent live insert here would race it.
+            if (backfillThrottle.isLocked(team.getId())) {
+                Log.debugf("Game %s: skipping team %s (backfill in progress)", game.getId(), team.getId());
+                continue;
+            }
+
+            // Capture the last stored fix time BEFORE ingesting, to detect an offline gap below.
+            Instant lastStored = locationDataRepository.findLatestByTeamId(team.getId())
+                .map(LocationData::getLocationTime).orElse(null);
+            Instant fixTime = parseInstant(pl.getLocationTime());
+
             totalCount++;
             Point point = GEOMETRY_FACTORY.createPoint(
                 new Coordinate(pl.getLocation().getLongitude(), pl.getLocation().getLatitude()));
@@ -189,13 +217,21 @@ public class LocationPollingScheduler {
             locationData.setTeamId(team.getId());
             locationData.setGameId(game.getId());
             locationData.setLocation(point);
-            locationData.setLocationTime(parseInstant(pl.getLocationTime()));
+            locationData.setLocationTime(fixTime);
             locationData.setAccuracy(pl.getGpsAccuracy() != null && pl.getGpsAccuracy() > 0
                 ? BigDecimal.valueOf(pl.getGpsAccuracy()) : null);
             locationData.setSpeed(pl.getSpeed() != null ? BigDecimal.valueOf(pl.getSpeed()) : null);
             locationData.setHeading(null);
 
             locationIngestService.ingest(locationData, team.getName(), team.getDescription()).ifPresent(broadcasts::add);
+
+            // Automatic gap backfill: a fresh fix far newer than the last stored one means the tracker
+            // was offline and has buffered points we never polled. Fetch its history to fill the trail.
+            // Fire-and-forget + throttled, so repeated ticks during the gap coalesce into one run.
+            if (lastStored != null && fixTime != null
+                    && Duration.between(lastStored, fixTime).compareTo(backfillGapThreshold) > 0) {
+                locationBackfillService.triggerAutoBackfill(game.getId(), team.getId(), pl.getEventParticipantsId());
+            }
         }
 
         Log.infof("Game %s: polled %d participant locations, accepted %d", game.getId(), totalCount, broadcasts.size());

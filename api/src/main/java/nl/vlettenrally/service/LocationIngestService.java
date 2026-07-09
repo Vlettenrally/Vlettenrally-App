@@ -117,25 +117,17 @@ public class LocationIngestService {
         // while a COMPLETED game is inside its post-end tail window, so a late finish-zone
         // crossing is still detected and its automation fires (e.g. a CHECKPOINT_ENTRY rule
         // comparing AFTER the game end). The rule itself still decides whether/how to act.
-        Game game = gameService.findById(reading.getGameId()).orElse(null);
-        boolean gameActive = game != null && game.getStatus() == Game.GameStatus.ACTIVE;
-        boolean inTailWindow = game != null && game.getStatus() == Game.GameStatus.COMPLETED
-            && game.isWithinPollingTailWindow(reading.getLocationTime());
-        boolean teamFinished = teamRepository.findById(reading.getTeamId())
-            .map(Team::isFinished)
-            .orElse(false);
-        boolean scoringActive = gameActive && !teamFinished;
-        boolean detectCheckpoints = (gameActive || inTailWindow) && !teamFinished;
+        IngestGate gate = computeGate(reading.getGameId(), reading.getTeamId(), reading.getLocationTime());
 
         double cumulativeMeters = teamDistanceCalculator.computeTraveledMeters(reading.getTeamId());
-        automationEngine.onDistanceUpdate(reading.getGameId(), reading.getTeamId(), cumulativeMeters, scoringActive);
+        automationEngine.onDistanceUpdate(reading.getGameId(), reading.getTeamId(), cumulativeMeters, gate.scoringActive());
 
-        if (scoringActive && reading.getSpeed() != null) {
+        if (gate.scoringActive() && reading.getSpeed() != null) {
             automationEngine.onSpeedExceeded(
                 reading.getGameId(), reading.getTeamId(),
                 reading.getSpeed().doubleValue());
         }
-        if (detectCheckpoints) {
+        if (gate.detectCheckpoints()) {
             detectCheckpointPasses(previous, reading);
         }
 
@@ -190,22 +182,26 @@ public class LocationIngestService {
      * A single spatial query resolves all matching checkpoints at once;
      * {@link AchievementService#recordVerifiedPass} is idempotent per (team, checkpoint).
      */
-    private void detectCheckpointPasses(LocationData previous, LocationData reading) {
+    int detectCheckpointPasses(LocationData previous, LocationData reading) {
         long staleFixSeconds = guardConfig.thresholdsFor(reading.getGameId()).staleFixSeconds();
         boolean connect = previous != null
             && Duration.between(previous.getLocationTime(), reading.getLocationTime()).getSeconds() <= staleFixSeconds;
         List<UUID> matched = connect
             ? checkpointRepository.findCrossedBySegment(reading.getGameId(), previous.getLocation(), reading.getLocation())
             : checkpointRepository.findContainingPoint(reading.getGameId(), reading.getLocation());
+        int recorded = 0;
         for (UUID checkpointId : matched) {
             try {
-                achievementService.recordVerifiedPass(
-                    reading.getTeamId(), checkpointId, reading.getLocationTime());
+                if (achievementService.recordVerifiedPass(
+                        reading.getTeamId(), checkpointId, reading.getLocationTime()).isPresent()) {
+                    recorded++;
+                }
             } catch (Exception e) {
                 Log.warnf("Failed to record geofenced pass team=%s checkpoint=%s: %s",
                     reading.getTeamId(), checkpointId, e.getMessage());
             }
         }
+        return recorded;
     }
 
     /**
@@ -217,7 +213,30 @@ public class LocationIngestService {
         locationBroadcastBuffer.buffer(gameId, locations);
     }
 
-    private boolean isValid(LocationData reading) {
+    /**
+     * The two gating flags derived from game/team state, shared by the live ingest path and the
+     * bulk backfill path so both decide scoring and checkpoint detection identically.
+     */
+    record IngestGate(boolean scoringActive, boolean detectCheckpoints) {}
+
+    /**
+     * Scoring (distance + speed) is ACTIVE-only; checkpoint detection additionally runs while a
+     * COMPLETED game is inside its post-end tail window. A finished team is gated out of both.
+     */
+    IngestGate computeGate(UUID gameId, UUID teamId, Instant atTime) {
+        Game game = gameService.findById(gameId).orElse(null);
+        boolean gameActive = game != null && game.getStatus() == Game.GameStatus.ACTIVE;
+        boolean inTailWindow = game != null && game.getStatus() == Game.GameStatus.COMPLETED
+            && game.isWithinPollingTailWindow(atTime);
+        boolean teamFinished = teamRepository.findById(teamId)
+            .map(Team::isFinished)
+            .orElse(false);
+        boolean scoringActive = gameActive && !teamFinished;
+        boolean detectCheckpoints = (gameActive || inTailWindow) && !teamFinished;
+        return new IngestGate(scoringActive, detectCheckpoints);
+    }
+
+    boolean isValid(LocationData reading) {
         Point p = reading.getLocation();
         if (p == null) {
             Log.infof("Dropping location for team %s: location point is null", reading.getTeamId());
@@ -245,7 +264,7 @@ public class LocationIngestService {
      * Delegates the decision to the pure {@link TrackOutlierFilter}; {@code prev} may be null
      * when the team has only one prior fix.
      */
-    private boolean passesGuards(LocationData prev, LocationData last, LocationData reading) {
+    boolean passesGuards(LocationData prev, LocationData last, LocationData reading) {
         TrackOutlierFilter.Thresholds thresholds = guardConfig.thresholdsFor(reading.getGameId());
         TrackOutlierFilter.Result result = TrackOutlierFilter.evaluate(prev, last, reading, thresholds);
         if (result.decision() != TrackOutlierFilter.Decision.ACCEPT) {

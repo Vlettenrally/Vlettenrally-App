@@ -13,6 +13,7 @@ import type {
   TeamImportResult,
   TrackerAssignResult,
   LocationTestResult,
+  BackfillResult,
   TeamLocation,
   Checkpoint,
   CheckpointRequest,
@@ -599,6 +600,12 @@ async getGames() : Promise<ApiResponse<Game[]>> {
 
   async testLocationEndpoint(gameId: string) : Promise<ApiResponse<LocationTestResult>> {
     return this.post(`/games/${gameId}/test-location-endpoint`);
+  }
+
+  // Backfill a single team's historical track from the external tracker. Throttled server-side;
+  // a 429 status means the team is still cooling down.
+  async backfillTeamTrack(gameId: string, teamId: string) : Promise<ApiResponse<BackfillResult>> {
+    return this.post(`/games/${gameId}/teams/${teamId}/backfill-track`);
   }
 
   // Location endpoints

@@ -6,6 +6,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import nl.vlettenrally.client.dto.TestConnectionResult;
 import nl.vlettenrally.client.dto.legendstracking.EventDetailsResponse;
 import nl.vlettenrally.client.dto.legendstracking.EventParticipant;
+import nl.vlettenrally.client.dto.legendstracking.EventParticipantTrackResponse;
 import nl.vlettenrally.client.dto.legendstracking.EventParticipantsLocationsResponse;
 import nl.vlettenrally.client.exception.LocationApiException;
 
@@ -26,6 +27,7 @@ public class LocationApiClient {
 
     private static final String DETAILS_SUFFIX = "/details";
     private static final String PARTICIPANT_LOCATIONS_SUFFIX = "/participants_locations";
+    private static final String PARTICIPANT_TRACK_SUFFIX = "/participant_track";
 
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
@@ -44,6 +46,20 @@ public class LocationApiClient {
 
     public EventParticipantsLocationsResponse fetchParticipantLocations(String baseUrl) throws LocationApiException {
         return get(joinUrl(baseUrl, PARTICIPANT_LOCATIONS_SUFFIX), EventParticipantsLocationsResponse.class);
+    }
+
+    /**
+     * Fetch a single participant's full historical track for backfilling.
+     * <p>
+     * The backfill endpoint is keyed by the <em>event participant</em> id, not the event id:
+     * {@code https://host/api/event/{eventParticipantId}/participant_track}. The game only stores
+     * the event base URL ({@code https://host/api/event/{eventId}}), so the trailing event-id
+     * segment is stripped to recover the {@code .../api/event} root before appending the
+     * participant id and suffix.
+     */
+    public EventParticipantTrackResponse fetchParticipantTrack(String baseUrl, int eventParticipantId)
+            throws LocationApiException {
+        return get(participantTrackUrl(baseUrl, eventParticipantId), EventParticipantTrackResponse.class);
     }
 
     public TestConnectionResult testConnection(String baseUrl) throws LocationApiException {
@@ -86,5 +102,22 @@ public class LocationApiClient {
         }
         String trimmed = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
         return trimmed + suffix;
+    }
+
+    /**
+     * Derive {@code .../api/event/{eventParticipantId}/participant_track} from the event base URL
+     * by dropping its trailing event-id segment.
+     */
+    static String participantTrackUrl(String baseUrl, int eventParticipantId) {
+        if (baseUrl == null || baseUrl.isBlank()) {
+            throw new IllegalArgumentException("baseUrl must not be blank");
+        }
+        String trimmed = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+        int lastSlash = trimmed.lastIndexOf('/');
+        if (lastSlash <= 0) {
+            throw new IllegalArgumentException("Cannot derive participant_track URL from: " + baseUrl);
+        }
+        String root = trimmed.substring(0, lastSlash);
+        return root + "/" + eventParticipantId + PARTICIPANT_TRACK_SUFFIX;
     }
 }

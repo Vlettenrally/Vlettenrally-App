@@ -107,6 +107,15 @@ export interface LocationTestResult {
 }
 
 /**
+ * Result of backfilling a team's historical track from the external tracker.
+ */
+export interface BackfillResult {
+  inserted: number;
+  droppedByGuard: number;
+  checkpointPassesDetected: number;
+}
+
+/**
  * Team location data from location tracking
  */
 export interface TeamLocation {

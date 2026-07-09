@@ -93,6 +93,47 @@ public class TeamDistanceCalculator {
         return cumulative;
     }
 
+    /**
+     * Rewind the team's distance accumulator and re-walk its entire stored track, so points
+     * inserted into an <em>older</em> gap (e.g. by a backfill) are counted — the incremental
+     * {@link #computeTraveledMeters} would otherwise skip them because they predate the cursor.
+     * <p>
+     * The returned (and persisted) cumulative is clamped to never fall below the previous total:
+     * {@link AutomationEngine#onDistanceUpdate} treats a decrease as a rebaseline and would
+     * double-credit meters as the value climbed back. Adding vertices to a polyline almost always
+     * increases its length, but under the {@code minSegmentMeters} jitter threshold that is not
+     * guaranteed, so we clamp. The recomputed anchor is kept intact (only the scalar is clamped),
+     * so subsequent live increments stay correct.
+     * <p>
+     * O(n) over the whole track; acceptable because backfill is rare and throttled.
+     */
+    public double recomputeFromScratch(UUID teamId) {
+        TeamDistanceProgress progress = progressRepository.findByTeamId(teamId)
+                .orElseGet(() -> newProgress(teamId));
+        double oldCumulative = progress.getCumulativeMeters();
+
+        // Reset the anchor + cursor so computeTraveledMeters re-walks from the first fix.
+        progress.setAnchorLon(null);
+        progress.setAnchorLat(null);
+        progress.setCumulativeMeters(0);
+        progress.setLastProcessedTime(null);
+        progress.setUpdatedAt(Instant.now());
+        progressRepository.save(progress);
+
+        double recomputed = computeTraveledMeters(teamId);
+        if (recomputed >= oldCumulative) {
+            return recomputed;
+        }
+
+        // Clamp the scalar up to the prior total to keep the fed value monotonic; leave the
+        // recomputed anchor/cursor in place for correct future increments.
+        TeamDistanceProgress clamped = progressRepository.findByTeamId(teamId).orElse(progress);
+        clamped.setCumulativeMeters(oldCumulative);
+        clamped.setUpdatedAt(Instant.now());
+        progressRepository.save(clamped);
+        return oldCumulative;
+    }
+
     private static TeamDistanceProgress newProgress(UUID teamId) {
         TeamDistanceProgress progress = new TeamDistanceProgress();
         progress.setTeamId(teamId);

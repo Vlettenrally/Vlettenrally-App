@@ -55,6 +55,9 @@ export default function TeamDetailDialog({
   const [confirmLedgerReset, setConfirmLedgerReset] = useState(false);
   const [ledgerResetPending, setLedgerResetPending] = useState(false);
   const [availableTrackers, setAvailableTrackers] = useState<string[]>([]);
+  const [backfillPending, setBackfillPending] = useState(false);
+  const [backfillMessage, setBackfillMessage] = useState<string | null>(null);
+  const [backfillError, setBackfillError] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -88,6 +91,8 @@ export default function TeamDetailDialog({
         trackerId: team.trackerId ?? '',
       });
       setIsEditing(false);
+      setBackfillMessage(null);
+      setBackfillError(false);
 
       // Load the pool of unassigned trackers for the picker.
       gameService
@@ -353,6 +358,33 @@ export default function TeamDetailDialog({
     }
   };
 
+  const handleBackfill = useCallback(async () => {
+    if (!team) return;
+    setBackfillPending(true);
+    setBackfillMessage(null);
+    setBackfillError(false);
+    try {
+      const outcome = await gameService.backfillTeamTrack(team.gameId, team.id);
+      if (outcome.status === 'cooldown') {
+        setBackfillError(true);
+        setBackfillMessage(t('components.teamDetail.backfillCooldown'));
+      } else if (outcome.status === 'error') {
+        setBackfillError(true);
+        setBackfillMessage(outcome.error ?? t('components.teamDetail.backfillFailed'));
+      } else {
+        setBackfillError(false);
+        setBackfillMessage(
+          t('components.teamDetail.backfillSuccess', {
+            inserted: outcome.result.inserted,
+            passes: outcome.result.checkpointPassesDetected,
+          }),
+        );
+      }
+    } finally {
+      setBackfillPending(false);
+    }
+  }, [team, t]);
+
   const handleChange = (field: keyof typeof formData) => (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
@@ -587,6 +619,31 @@ export default function TeamDetailDialog({
                     color={team.trackerId ? 'success' : 'default'}
                     size="small"
                   />
+                )}
+                {!isEditing && team.trackerId && (
+                  <Box sx={{ mt: 1 }}>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={handleBackfill}
+                      disabled={backfillPending}
+                      startIcon={backfillPending ? <CircularProgress size={16} /> : undefined}
+                    >
+                      {t('components.teamDetail.backfillTrack')}
+                    </Button>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ display: 'block', mt: 0.5 }}
+                    >
+                      {t('components.teamDetail.backfillHint')}
+                    </Typography>
+                    {backfillMessage && (
+                      <Alert severity={backfillError ? 'warning' : 'success'} sx={{ mt: 1 }}>
+                        {backfillMessage}
+                      </Alert>
+                    )}
+                  </Box>
                 )}
               </Box>
 

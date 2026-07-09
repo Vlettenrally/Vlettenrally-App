@@ -1,5 +1,10 @@
 import api from './api';
-import { type Game, type GameRequest, type ExternalEvent, type TeamImportResult, type TrackerAssignResult, type LocationTestResult } from '../types/entities';
+import { type Game, type GameRequest, type ExternalEvent, type TeamImportResult, type TrackerAssignResult, type LocationTestResult, type BackfillResult } from '../types/entities';
+
+export type BackfillOutcome =
+  | { status: 'ok'; result: BackfillResult }
+  | { status: 'cooldown'; error?: string }
+  | { status: 'error'; error?: string };
 
 // Request deduplication - prevents duplicate in-flight requests
 // Service worker handles caching for offline support
@@ -97,6 +102,19 @@ export const gameService = {
       throw new Error(response.error);
     }
     return response.data!;
+  },
+
+  // Backfill a team's historical track. Returns a discriminated outcome so callers can tell a
+  // cooldown (HTTP 429) apart from a genuine failure without catching exceptions.
+  backfillTeamTrack: async (gameId: string, teamId: string): Promise<BackfillOutcome> => {
+    const response = await api.backfillTeamTrack(gameId, teamId);
+    if (response.status === 429) {
+      return { status: 'cooldown', error: response.error };
+    }
+    if (response.error || !response.data) {
+      return { status: 'error', error: response.error };
+    }
+    return { status: 'ok', result: response.data };
   },
 
   getExternalEvents: async (): Promise<ExternalEvent[]> => {

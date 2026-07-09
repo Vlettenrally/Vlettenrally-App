@@ -32,6 +32,7 @@ import nl.vlettenrally.data.dto.game.LocationTestResponse;
 import nl.vlettenrally.data.dto.game.TeamImportResponse;
 import nl.vlettenrally.data.dto.game.AssignTrackersRequest;
 import nl.vlettenrally.data.dto.game.AssignTrackersResponse;
+import nl.vlettenrally.data.dto.game.BackfillResponse;
 import nl.vlettenrally.data.converter.TeamConverter;
 import nl.vlettenrally.data.domain.Checkpoint;
 import nl.vlettenrally.data.domain.CircleCheckpoint;
@@ -42,6 +43,7 @@ import nl.vlettenrally.data.dto.achievement.CheckpointTeamResponse;
 import nl.vlettenrally.service.AchievementService;
 import nl.vlettenrally.service.AutomationEngine;
 import nl.vlettenrally.service.LocationGuardConfig;
+import nl.vlettenrally.service.LocationBackfillService;
 import nl.vlettenrally.service.LocationIngestService;
 import nl.vlettenrally.service.AutomationService;
 import nl.vlettenrally.service.GameService;
@@ -131,6 +133,9 @@ public class GameResource {
 
     @Inject
     LocationIngestService locationIngestService;
+
+    @Inject
+    LocationBackfillService locationBackfillService;
 
     @Inject
     LocationGuardConfig locationGuardConfig;
@@ -474,6 +479,43 @@ public class GameResource {
                 }
             })
             .orElse(gameNotFoundResponse());
+    }
+
+    /**
+     * Backfill a single team's historical track from the Legendstracking per-participant history
+     * endpoint, to fill gaps left when the tracker was offline. The provider endpoint is expensive,
+     * so this is throttled by a shared per-team cooldown (429 while cooling down).
+     */
+    @POST
+    @Path("/{gameId}/teams/{teamId}/backfill-track")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
+    public Response backfillTeamTrack(@PathParam("gameId") UUID gameId, @PathParam("teamId") UUID teamId) {
+        if (gameService.findById(gameId).isEmpty()) {
+            return gameNotFoundResponse();
+        }
+        try {
+            LocationBackfillService.BackfillResult result =
+                locationBackfillService.backfillTeamTrack(gameId, teamId);
+	        return switch(result.status()) {
+		        case COMPLETED -> Response.ok(new BackfillResponse(
+				        result.inserted(), result.droppedByGuard(), result.checkpointPassesDetected())).build();
+		        case COOLING_DOWN -> Response.status(429)
+				        .header("Retry-After", result.cooldownRemainingSeconds())
+				        .entity(new ErrorResponse("Backfill is cooling down; retry in "
+						        + result.cooldownRemainingSeconds() + "s"))
+				        .build();
+		        case BUSY -> Response.status(Response.Status.CONFLICT)
+				        .entity(new ErrorResponse("A backfill for this team is already running")).build();
+		        case NOT_CONFIGURED -> Response.status(Response.Status.BAD_REQUEST)
+				        .entity(new ErrorResponse("Game has no location endpoint configured")).build();
+		        default -> Response.status(Response.Status.BAD_REQUEST)
+				        .entity(new ErrorResponse(
+						        "Team has no tracker, or its tracker is not reporting to the event")).build();
+	        };
+        } catch (LocationApiException e) {
+            return Response.status(Response.Status.BAD_GATEWAY)
+                .entity(new ErrorResponse("Backfill failed: " + e.getMessage())).build();
+        }
     }
 
     /**

@@ -164,4 +164,41 @@ class TeamDistanceCalculatorTest {
         double second = calculator.computeTraveledMeters(TEAM); // nothing new
         assertEquals(first, second, 1e-9);
     }
+
+    @Test
+    void recomputeFromScratch_countsPointsInsertedIntoAnOlderGap() {
+        // A straight north-bound run at t=0 and t=60, processed incrementally (cursor advances to t=60).
+        saveFix(4.9000, 52.3700, 0);
+        saveFix(4.9000, 52.3720, 60);
+        double incremental = calculator.computeTraveledMeters(TEAM);
+        assertTrue(incremental > 0);
+
+        // Backfill inserts a fix in the gap. It predates the cursor, so a plain incremental pass
+        // ignores it entirely...
+        saveFix(4.9000, 52.3710, 30);
+        assertEquals(incremental, calculator.computeTraveledMeters(TEAM), 1e-9);
+
+        // ...but recomputeFromScratch re-walks the whole track. The path length is unchanged (the
+        // gap point lies on the straight line), so it equals the incremental total, proving the
+        // full re-walk happened rather than skipping the older insert.
+        double recomputed = calculator.recomputeFromScratch(TEAM);
+        assertEquals(incremental, recomputed, 1e-6);
+    }
+
+    @Test
+    void recomputeFromScratch_clampsUpToPreviousTotalToStayMonotonic() {
+        // Seed a single fix (a real recompute would yield 0 metres) but pretend a larger cumulative
+        // was already credited. The clamp must not let the fed value drop below that.
+        saveFix(4.9000, 52.3700, 0);
+        calculator.computeTraveledMeters(TEAM);
+        MockTeamDistanceProgressRepository progressRepo =
+            (MockTeamDistanceProgressRepository) calculator.progressRepository;
+        var progress = progressRepo.findByTeamId(TEAM).orElseThrow();
+        progress.setCumulativeMeters(1234.0);
+        progressRepo.save(progress);
+
+        double recomputed = calculator.recomputeFromScratch(TEAM);
+        assertEquals(1234.0, recomputed, 1e-9);
+        assertEquals(1234.0, progressRepo.findByTeamId(TEAM).orElseThrow().getCumulativeMeters(), 1e-9);
+    }
 }
