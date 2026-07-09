@@ -1,5 +1,8 @@
 package nl.vlettenrally.service.impl;
 
+import jakarta.transaction.Status;
+import jakarta.transaction.Synchronization;
+import jakarta.transaction.TransactionSynchronizationRegistry;
 import nl.vlettenrally.data.domain.Achievement;
 import nl.vlettenrally.data.domain.Checkpoint;
 import nl.vlettenrally.data.domain.CircleCheckpoint;
@@ -13,9 +16,11 @@ import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.fcm.FcmHttpClient;
 import nl.vlettenrally.service.AutomationEngine;
 import nl.vlettenrally.service.PointsLedgerService;
+import nl.vlettenrally.service.PointsTotalsCache;
 import nl.vlettenrally.websockets.AdminTopicSubscriptionManager;
 import nl.vlettenrally.websockets.CheckpointFcmSubscriptionManager;
 import nl.vlettenrally.websockets.WebSocketPublisher;
+import nl.vlettenrally.websockets.dto.WebSocketMessageType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,6 +30,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -33,6 +39,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -53,6 +61,8 @@ class AchievementServiceImplTest {
     @Mock FcmTokenRepository fcmTokenRepository;
     @Mock FcmHttpClient fcmHttpClient;
     @Mock PointsLedgerService pointsLedgerService;
+    @Mock PointsTotalsCache pointsTotalsCache;
+    @Mock TransactionSynchronizationRegistry txRegistry;
     @Mock AutomationEngine automationEngine;
 
     @InjectMocks AchievementServiceImpl service;
@@ -82,6 +92,17 @@ class AchievementServiceImplTest {
         cp.setLatitude(35.139407);
         cp.setLongitude(-89.835925);
         checkpoint = cp;
+
+        lenient().when(pointsTotalsCache.get(teamId)).thenReturn(100);
+    }
+
+    /** Run every post-commit synchronization the call registered, as a real commit would. */
+    private void fireAfterCommit() {
+        ArgumentCaptor<Synchronization> captor = ArgumentCaptor.forClass(Synchronization.class);
+        verify(txRegistry, atLeastOnce()).registerInterposedSynchronization(captor.capture());
+        for (Synchronization sync : captor.getAllValues()) {
+            sync.afterCompletion(Status.STATUS_COMMITTED);
+        }
     }
 
     @Test
@@ -293,5 +314,88 @@ class AchievementServiceImplTest {
         assertTrue(result.isPresent());
         // verifiedBy left null distinguishes system-verified from operator-verified records.
         org.junit.jupiter.api.Assertions.assertNull(result.get().getVerifiedBy());
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void recordVerifiedPass_createsVerifiedAchievement_pushesTeamAchievementAfterCommit() {
+        Instant passTime = Instant.parse("2026-03-09T17:45:34Z");
+        when(achievementRepository.findByTeamIdAndCheckpointId(teamId, checkpointId))
+            .thenReturn(Optional.empty());
+        when(checkpointRepository.findById(checkpointId)).thenReturn(Optional.of(checkpoint));
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+        when(achievementRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Optional<Achievement> result = service.recordVerifiedPass(teamId, checkpointId, passTime);
+        assertTrue(result.isPresent());
+
+        verify(webSocketPublisher, never()).sendToTeamOnly(any(), any(), any(), any());
+        fireAfterCommit();
+
+        ArgumentCaptor<Map<String, Object>> payloadCaptor = ArgumentCaptor.forClass(Map.class);
+        verify(webSocketPublisher).sendToTeamOnly(
+            eq(gameId), eq(teamId), eq(WebSocketMessageType.TEAM_ACHIEVEMENT.getValue()), payloadCaptor.capture());
+        Map<String, Object> payload = payloadCaptor.getValue();
+        assertEquals(result.get().getId(), payload.get("id"));
+        assertEquals(checkpointId, payload.get("checkpointId"));
+        assertEquals(10, payload.get("pointsEarned"));
+        assertEquals(110, payload.get("totalPoints"), "baseline 100 (mocked cache) + 10 earned");
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void recordVerifiedPass_promotesPendingToVerified_pushesTeamAchievementAfterCommit() {
+        Instant passTime = Instant.parse("2026-03-09T17:45:34Z");
+        Achievement pending = new Achievement();
+        pending.setTeamId(teamId);
+        pending.setCheckpointId(checkpointId);
+        pending.setStatus(AchievementStatus.PENDING);
+        pending.setDetectedAt(passTime.minusSeconds(30));
+        pending.setBonusPoints(5);
+
+        when(achievementRepository.findByTeamIdAndCheckpointId(teamId, checkpointId))
+            .thenReturn(Optional.of(pending));
+        when(checkpointRepository.findById(checkpointId)).thenReturn(Optional.of(checkpoint));
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+        when(achievementRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.recordVerifiedPass(teamId, checkpointId, passTime);
+        fireAfterCommit();
+
+        ArgumentCaptor<Map<String, Object>> payloadCaptor = ArgumentCaptor.forClass(Map.class);
+        verify(webSocketPublisher).sendToTeamOnly(
+            eq(gameId), eq(teamId), eq(WebSocketMessageType.TEAM_ACHIEVEMENT.getValue()), payloadCaptor.capture());
+        Map<String, Object> payload = payloadCaptor.getValue();
+        assertEquals(15, payload.get("pointsEarned"), "base 10 + preserved bonus 5");
+        assertEquals(115, payload.get("totalPoints"), "baseline 100 (mocked cache) + 15 earned");
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void verifyAchievement_pushesTeamAchievementAfterCommit() {
+        UUID achievementId = UUID.randomUUID();
+        UUID gameMasterId = UUID.randomUUID();
+        Achievement pending = new Achievement();
+        pending.setId(achievementId);
+        pending.setTeamId(teamId);
+        pending.setCheckpointId(checkpointId);
+        pending.setStatus(AchievementStatus.PENDING);
+
+        when(achievementRepository.findById(achievementId)).thenReturn(Optional.of(pending));
+        when(checkpointRepository.findById(checkpointId)).thenReturn(Optional.of(checkpoint));
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+        when(achievementRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Optional<Achievement> result = service.verifyAchievement(achievementId, gameMasterId, "notes", 5);
+        assertTrue(result.isPresent());
+        fireAfterCommit();
+
+        ArgumentCaptor<Map<String, Object>> payloadCaptor = ArgumentCaptor.forClass(Map.class);
+        verify(webSocketPublisher).sendToTeamOnly(
+            eq(gameId), eq(teamId), eq(WebSocketMessageType.TEAM_ACHIEVEMENT.getValue()), payloadCaptor.capture());
+        Map<String, Object> payload = payloadCaptor.getValue();
+        assertEquals(achievementId, payload.get("id"));
+        assertEquals(15, payload.get("pointsEarned"), "base 10 + bonus 5");
+        assertEquals(115, payload.get("totalPoints"), "baseline 100 (mocked cache) + 15 earned");
     }
 }

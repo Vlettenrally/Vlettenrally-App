@@ -3,6 +3,9 @@ package nl.vlettenrally.service.impl;
 import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.transaction.Status;
+import jakarta.transaction.Synchronization;
+import jakarta.transaction.TransactionSynchronizationRegistry;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import nl.vlettenrally.data.domain.Achievement;
 import nl.vlettenrally.data.domain.Checkpoint;
@@ -18,6 +21,7 @@ import nl.vlettenrally.fcm.FcmHttpClient;
 import nl.vlettenrally.service.AchievementService;
 import nl.vlettenrally.service.AutomationEngine;
 import nl.vlettenrally.service.PointsLedgerService;
+import nl.vlettenrally.service.PointsTotalsCache;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Point;
@@ -28,6 +32,7 @@ import nl.vlettenrally.websockets.AdminTopics;
 import nl.vlettenrally.websockets.WebSocketMessage;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 import nl.vlettenrally.websockets.dto.CheckpointDetectionPayload;
+import nl.vlettenrally.websockets.dto.WebSocketMessageType;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -74,6 +79,12 @@ public class AchievementServiceImpl implements AchievementService {
 
     @Inject
     PointsLedgerService pointsLedgerService;
+
+    @Inject
+    PointsTotalsCache pointsTotalsCache;
+
+    @Inject
+    TransactionSynchronizationRegistry txRegistry;
 
     @Inject
     AutomationEngine automationEngine;
@@ -238,8 +249,9 @@ public class AchievementServiceImpl implements AchievementService {
         }
 
         // Update achievement status
+        Instant verifiedAt = Instant.now();
         achievement.setStatus(AchievementStatus.VERIFIED);
-        achievement.setVerifiedAt(Instant.now());
+        achievement.setVerifiedAt(verifiedAt);
         achievement.setVerifiedBy(gameMasterId);
         achievement.setNotes(notes);
         achievement.setBonusPoints(bonusPoints);
@@ -255,6 +267,8 @@ public class AchievementServiceImpl implements AchievementService {
         Team team = teamRepository.findById(achievement.getTeamId())
             .orElseThrow(() -> new IllegalStateException("Team not found: " + achievement.getTeamId()));
 
+        int oldTotal = pointsTotalsCache.get(team.getId());
+
         pointsLedgerService.createEntry(
             team.getId(),
             team.getGameId(),
@@ -266,6 +280,15 @@ public class AchievementServiceImpl implements AchievementService {
             null
         );
 
+        notifyTeamAchievementAfterCommit(team.getGameId(), team.getId(), Map.of(
+            "id", savedAchievement.getId(),
+            "teamId", team.getId(),
+            "checkpointId", checkpoint.getId(),
+            "pointsEarned", total,
+            "achievedAt", verifiedAt.toString(),
+            "totalPoints", oldTotal + total
+        ));
+
         // Manual verification: detectedAt is when the team was actually in the
         // zone; verifiedAt is merely when the game master confirmed it.
         automationEngine.onCheckpointPass(team.getGameId(), team.getId(), checkpoint.getId(),
@@ -273,6 +296,30 @@ public class AchievementServiceImpl implements AchievementService {
                 ? savedAchievement.getDetectedAt() : savedAchievement.getVerifiedAt());
 
         return Optional.of(savedAchievement);
+    }
+
+    /**
+     * Push a live TEAM_ACHIEVEMENT event to the achieving team's own session once the
+     * enclosing transaction commits, so the player's Dashboard (points + checkpoints
+     * reached) updates without waiting for a reconnect-triggered resync. Falls back to
+     * an immediate send when there's no active transaction (e.g. the caller isn't
+     * itself @Transactional and createEntry already committed its own).
+     */
+    private void notifyTeamAchievementAfterCommit(UUID gameId, UUID teamId, Map<String, Object> payload) {
+        try {
+            txRegistry.registerInterposedSynchronization(new Synchronization() {
+                @Override public void beforeCompletion() { }
+                @Override public void afterCompletion(int status) {
+                    if (status == Status.STATUS_COMMITTED) {
+                        webSocketPublisher.sendToTeamOnly(
+                            gameId, teamId, WebSocketMessageType.TEAM_ACHIEVEMENT.getValue(), payload);
+                    }
+                }
+            });
+        } catch (IllegalStateException noTx) {
+            webSocketPublisher.sendToTeamOnly(
+                gameId, teamId, WebSocketMessageType.TEAM_ACHIEVEMENT.getValue(), payload);
+        }
     }
 
     /**
@@ -358,6 +405,8 @@ public class AchievementServiceImpl implements AchievementService {
             Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new IllegalStateException("Team not found: " + teamId));
 
+            int oldTotal = pointsTotalsCache.get(team.getId());
+
             pointsLedgerService.createEntry(
                 team.getId(),
                 team.getGameId(),
@@ -368,6 +417,16 @@ public class AchievementServiceImpl implements AchievementService {
                 saved.getId(),
                 null
             );
+
+            notifyTeamAchievementAfterCommit(team.getGameId(), team.getId(), Map.of(
+                "id", saved.getId(),
+                "teamId", team.getId(),
+                "checkpointId", checkpoint.getId(),
+                "pointsEarned", total,
+                "achievedAt", passTime.toString(),
+                "totalPoints", oldTotal + total
+            ));
+
             automationEngine.onCheckpointPass(team.getGameId(), team.getId(), checkpointId, passTime);
             return Optional.of(saved);
         }
@@ -386,6 +445,8 @@ public class AchievementServiceImpl implements AchievementService {
 
         Achievement saved = achievementRepository.save(achievement);
 
+        int oldTotal = pointsTotalsCache.get(team.getId());
+
         pointsLedgerService.createEntry(
             team.getId(),
             team.getGameId(),
@@ -396,6 +457,15 @@ public class AchievementServiceImpl implements AchievementService {
             saved.getId(),
             null
         );
+
+        notifyTeamAchievementAfterCommit(team.getGameId(), team.getId(), Map.of(
+            "id", saved.getId(),
+            "teamId", team.getId(),
+            "checkpointId", checkpoint.getId(),
+            "pointsEarned", checkpoint.getPoints(),
+            "achievedAt", passTime.toString(),
+            "totalPoints", oldTotal + checkpoint.getPoints()
+        ));
 
         automationEngine.onCheckpointPass(team.getGameId(), team.getId(), checkpointId, passTime);
 
