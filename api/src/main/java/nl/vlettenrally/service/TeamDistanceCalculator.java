@@ -1,5 +1,6 @@
 package nl.vlettenrally.service;
 
+import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import nl.vlettenrally.data.domain.LocationData;
@@ -123,6 +124,21 @@ public class TeamDistanceCalculator {
         double recomputed = computeTraveledMeters(teamId);
         if (recomputed >= oldCumulative) {
             return recomputed;
+        }
+
+        // A full, independent re-derivation from location_data came out lower than what was
+        // already credited. A shortfall up to a couple of minSegmentMeters can happen legitimately
+        // (per the jitter-threshold caveat above, and floating-point rounding when the two are
+        // really equal); anything past that margin is not explainable by either and indicates
+        // prior drift/corruption of the accumulator (e.g. a cursor regression) — since re-walking
+        // the same or more fixes can never legitimately produce a materially shorter path. The
+        // clamp below applies either way to keep the fed value monotonic, but only log past the
+        // margin so routine, expected variance doesn't drown out a real signal.
+        double shortfall = oldCumulative - recomputed;
+        if (shortfall > 2 * minSegmentMeters) {
+            Log.warnf("Team %s distance recompute came out lower than stored total (recomputed=%.1fm, stored=%.1fm) "
+                    + "— clamping to stored value; this indicates prior drift/corruption in team_distance_progress",
+                teamId, recomputed, oldCumulative);
         }
 
         // Clamp the scalar up to the prior total to keep the fed value monotonic; leave the

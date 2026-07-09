@@ -23,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import jakarta.ws.rs.core.Response;
 import nl.vlettenrally.data.domain.LocationData;
 import nl.vlettenrally.data.domain.Team;
+import nl.vlettenrally.service.BackfillThrottle;
 import nl.vlettenrally.service.LocationIngestService;
 import nl.vlettenrally.service.TeamService;
 
@@ -37,6 +38,9 @@ class TraccarResourceTest {
 
     @Mock
     LocationIngestService locationIngestService;
+
+    @Mock
+    BackfillThrottle backfillThrottle;
 
     @InjectMocks
     TraccarResource resource;
@@ -193,6 +197,21 @@ class TraccarResourceTest {
     @Test
     void report_missingRequiredParams_doesNotIngest() {
         Response response = resource.reportGet("secret-id", null, 5.2, null,
+            null, null, null, null, null);
+
+        assertEquals(200, response.getStatus());
+        verify(locationIngestService, never()).ingest(any(), any(), any());
+    }
+
+    @Test
+    void report_backfillInProgress_doesNotIngest() {
+        // A full-track recompute is in flight for this team; a concurrent live insert here
+        // would race it (see JpaTeamDistanceProgressRepository / TeamDistanceCalculator).
+        Team team = enabledTeam("secret-id");
+        when(teamService.findByTraccarIdentifier("secret-id")).thenReturn(Optional.of(team));
+        when(backfillThrottle.isLocked(teamId)).thenReturn(true);
+
+        Response response = resource.reportGet("secret-id", 52.1, 5.2, "1700000000",
             null, null, null, null, null);
 
         assertEquals(200, response.getStatus());

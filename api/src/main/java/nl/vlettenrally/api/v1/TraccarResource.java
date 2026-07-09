@@ -12,6 +12,7 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.Response;
 import nl.vlettenrally.data.domain.LocationData;
 import nl.vlettenrally.data.domain.Team;
+import nl.vlettenrally.service.BackfillThrottle;
 import nl.vlettenrally.service.LocationIngestService;
 import nl.vlettenrally.service.TeamService;
 import org.locationtech.jts.geom.Coordinate;
@@ -59,6 +60,9 @@ public class TraccarResource {
 
     @Inject
     LocationIngestService locationIngestService;
+
+    @Inject
+    BackfillThrottle backfillThrottle;
 
     @Inject
     ObjectMapper objectMapper;
@@ -235,6 +239,14 @@ public class TraccarResource {
             return Response.ok().build();
         }
         Team team = teamOpt.get();
+
+        // Skip a team whose backfill is in flight: its full-track recompute mutates the same
+        // distance accumulator, so a concurrent live insert here would race it (mirrors the same
+        // guard in LocationPollingScheduler for poll-sourced fixes).
+        if (backfillThrottle.isLocked(team.getId())) {
+            Log.debugf("Traccar report ignored: backfill in progress for team %s", team.getId());
+            return Response.ok().build();
+        }
 
         LocationData reading = new LocationData();
         reading.setTeamId(team.getId());
