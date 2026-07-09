@@ -120,6 +120,8 @@ export default function ParticipantMap() {
         zoneType: cp.zoneType,
         radiusMeters: cp.radiusMeters,
         polygonPoints: cp.polygonPoints,
+        openingTime: cp.openingTime,
+        closingTime: cp.closingTime,
       })),
   ];
 

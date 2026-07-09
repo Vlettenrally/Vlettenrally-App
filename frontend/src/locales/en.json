@@ -1,4 +1,12 @@
 {
+  "map": {
+    "opens": "Opens",
+    "closes": "Closes",
+    "zoneOpensAt": "opens {{time}}",
+    "zoneClosesAt": "closes {{time}}",
+    "open": "Open",
+    "closed": "Closed"
+  },
   "common": {
     "save": "Save",
     "cancel": "Cancel",

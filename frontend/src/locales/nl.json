@@ -1,4 +1,12 @@
 {
+  "map": {
+    "opens": "Opent",
+    "closes": "Sluit",
+    "zoneOpensAt": "opent {{time}}",
+    "zoneClosesAt": "sluit {{time}}",
+    "open": "Open",
+    "closed": "Gesloten"
+  },
   "common": {
     "save": "Opslaan",
     "cancel": "Annuleren",

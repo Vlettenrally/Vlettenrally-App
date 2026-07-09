@@ -174,6 +174,8 @@ export default function AdminMap() {
         zoneType: cp.zoneType,
         radiusMeters: cp.radiusMeters,
         polygonPoints: cp.polygonPoints,
+        openingTime: cp.openingTime,
+        closingTime: cp.closingTime,
         hidden: cp.hidden,
       })),
   ];

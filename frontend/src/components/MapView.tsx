@@ -5,10 +5,12 @@
  * and checkpoint markers. Uses self-hosted vector tiles via Martin.
  */
 import { forwardRef, useEffect, useImperativeHandle, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { resolveMapStyle, DEFAULT_CENTER } from '../utils/mapStyle';
-import { formatRelativeTime } from '../utils/dateTime';
+import { formatRelativeTime, formatTime } from '../utils/dateTime';
 import turfCircle from '@turf/circle';
 
 export interface MapMarker {
@@ -23,6 +25,9 @@ export interface MapMarker {
   radiusMeters?: number;
   /** Polygon vertices as [[lat, lng], ...] */
   polygonPoints?: number[][];
+  /** Checkpoint marker: ISO opening/closing times, shown in the popup and label when set */
+  openingTime?: string;
+  closingTime?: string;
   /** Hidden from teams — admin maps render these in a muted style */
   hidden?: boolean;
   /** Team marker: most recent location is older than the staleness threshold — rendered dimmed */
@@ -63,6 +68,33 @@ function computeFitBounds(markers: MapMarker[]): maplibregl.LngLatBounds | null 
   return bounds;
 }
 
+/**
+ * Parenthesised time-window suffix for a zone's on-map label. Both bounds set →
+ * "(10:00–16:00)". Single-bound windows read in words → "(opens 10:00)" /
+ * "(closes 16:00)". Returns '' when neither bound is set (matches the backend's
+ * open-ended-null semantics in Checkpoint).
+ */
+function zoneTimeSuffix(t: TFunction, openingTime?: string, closingTime?: string): string {
+  if (openingTime && closingTime) {
+    return `(${formatTime(openingTime)}–${formatTime(closingTime)})`;
+  }
+  if (openingTime) {
+    return `(${t('map.zoneOpensAt', { time: formatTime(openingTime) })})`;
+  }
+  if (closingTime) {
+    return `(${t('map.zoneClosesAt', { time: formatTime(closingTime) })})`;
+  }
+  return '';
+}
+
+/** True when `now` falls within the zone window; null bounds are open-ended. */
+function isZoneOpenNow(openingTime?: string, closingTime?: string): boolean {
+  const now = Date.now();
+  const afterOpen = !openingTime || now >= new Date(openingTime).getTime();
+  const beforeClose = !closingTime || now < new Date(closingTime).getTime();
+  return afterOpen && beforeClose;
+}
+
 interface MapViewProps {
   markers: MapMarker[];
   center?: [number, number]; // [lng, lat]
@@ -89,6 +121,12 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   { markers, center, zoom, className, teamLocation, tracks, markerStyle = 'circle', followTeamLocation = false },
   ref,
 ) {
+  const { t } = useTranslation();
+  // Kept in a ref so the (once-created) popup click handler reads the current
+  // translator without being re-bound (mirrors teamLocationRef below).
+  const tRef = useRef(t);
+  tRef.current = t;
+
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersSourceRef = useRef<boolean>(false);
@@ -171,6 +209,13 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         properties: {
           id: m.id,
           label: m.label,
+          // On-map label: name with the zone window appended when set.
+          displayLabel: (() => {
+            const suffix = zoneTimeSuffix(t, m.openingTime, m.closingTime);
+            return suffix ? `${m.label} ${suffix}` : m.label;
+          })(),
+          openingTime: m.openingTime ?? '',
+          closingTime: m.closingTime ?? '',
           color: m.color,
           hidden: m.hidden ?? false,
         },
@@ -222,7 +267,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     if (zoneSource) {
       zoneSource.setData({ type: 'FeatureCollection', features: zoneFeatures });
     }
-  }, [markers]);
+  }, [markers, t]);
 
   const updateTracks = useCallback(() => {
     const map = mapRef.current;
@@ -535,7 +580,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
             type: 'symbol',
             source: 'checkpoint-markers',
             layout: {
-              'text-field': ['get', 'label'],
+              'text-field': ['get', 'displayLabel'],
               'text-font': ['Noto Sans Bold'],
               'text-size': 12,
               'text-offset': [0, 2],
@@ -577,10 +622,22 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           const feature = e.features[0];
           const coords = (feature.geometry as GeoJSON.Point).coordinates.slice() as [number, number];
           const label = feature.properties?.label || '';
+          const openingTime = feature.properties?.openingTime || '';
+          const closingTime = feature.properties?.closingTime || '';
+          const tt = tRef.current;
+
+          let html = `<strong>📍 ${label}</strong>`;
+          if (openingTime || closingTime) {
+            const open = isZoneOpenNow(openingTime || undefined, closingTime || undefined);
+            const badge = open ? `🟢 ${tt('map.open')}` : `🔴 ${tt('map.closed')}`;
+            html = `<strong>📍 ${label}</strong> ${badge}`;
+            if (openingTime) html += `<br/>${tt('map.opens')}: ${formatTime(openingTime)}`;
+            if (closingTime) html += `<br/>${tt('map.closes')}: ${formatTime(closingTime)}`;
+          }
 
           new maplibregl.Popup({ offset: 14, closeButton: false })
             .setLngLat(coords)
-            .setHTML(`<strong>📍 ${label}</strong>`)
+            .setHTML(html)
             .addTo(map);
         });
 
