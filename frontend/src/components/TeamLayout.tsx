@@ -18,6 +18,7 @@ import {
   ListItemText,
   ListItemButton,
   Divider,
+  Alert,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -28,12 +29,14 @@ import {
   Map as MapIcon,
   Description as DescriptionIcon,
   PhotoCamera as PhotoCameraIcon,
+  WifiOff as WifiOffIcon,
 } from '@mui/icons-material';
 import { storage } from '../services/storage';
 import { useTeamStore } from '../store/useTeamStore';
 import { useGameStore } from '../store/useGameStore';
 import { useTeamRealtime } from '../hooks/useRealtime';
 import { useTeamSync } from '../hooks/useTeamSync';
+import { useConnectionStatus } from '../hooks/useConnectionStatus';
 import api from '../services/api';
 import { mockApi } from '../services/mockApi';
 import { config } from '../config';
@@ -82,6 +85,10 @@ export function TeamLayout({ children }: TeamLayoutProps) {
   // Re-sync full player state on reconnect / app resume so data that changed
   // while offline or suspended is refreshed without needing a remount.
   useTeamSync({ gameId, teamId: team?.id || teamId || null });
+
+  // Shown on every team page (not just Dashboard) since the connection is
+  // owned here and shared across the whole team app.
+  const { showDisconnected } = useConnectionStatus();
 
   // Load the game so we can gate the Rankings/Rivals menu items and routes.
   useEffect(() => {
@@ -187,6 +194,16 @@ export function TeamLayout({ children }: TeamLayoutProps) {
           )}
         </Toolbar>
       </AppBar>
+
+      {showDisconnected && (
+        <Alert
+          severity="warning"
+          icon={<WifiOffIcon />}
+          sx={{ borderRadius: 0 }}
+        >
+          {t('participant.dashboard.noConnection')}
+        </Alert>
+      )}
 
       <Drawer anchor="left" open={drawerOpen} onClose={() => setDrawerOpen(false)}>
         <Box sx={{ width: 250 }} role="presentation">

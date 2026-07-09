@@ -9,7 +9,6 @@ import {
   Typography,
   Card,
   CardContent,
-  Alert,
   Grid,
   Dialog,
   DialogTitle,
@@ -18,7 +17,6 @@ import {
 import {
   EmojiEvents as TrophyIcon,
   Flag as FlagIcon,
-  WifiOff as WifiOffIcon,
 } from '@mui/icons-material';
 import { useTeamStore, type Achievement } from '../../store/useTeamStore';
 import { useGameStore, type Checkpoint } from '../../store/useGameStore';
@@ -29,7 +27,6 @@ import api from '../../services/api';
 import { mockApi } from '../../services/mockApi';
 import { config } from '../../config';
 import { MessageList } from '../../components/MessageList';
-import { useConnectionStatus } from '../../hooks/useConnectionStatus';
 
 /** Show an "ending soon" warning when the rally ends within this many seconds. */
 const ENDING_SOON_SECONDS = 60 * 60;
@@ -132,7 +129,6 @@ function GameStatusCard() {
 export function DashboardPage() {
   const { team, achievements, setAchievements } = useTeamStore();
   const { messages, setMessages } = useMessageStore();
-  const { showDisconnected } = useConnectionStatus();
   const { t } = useTranslation();
   // Checkpoints live in the game store so useTeamSync can refresh them on resume.
   const totalCheckpoints = useGameStore((state) => state.checkpoints.length);
@@ -248,19 +244,6 @@ export function DashboardPage() {
             <GameStatusCard />
           </Box>
         </Paper>
-      )}
-
-      {/* Connection Warning */}
-      {showDisconnected && (
-        <Alert 
-          severity="warning" 
-          icon={<WifiOffIcon />}
-          sx={{ 
-            borderRadius: 0,
-          }}
-        >
-          {t('participant.dashboard.noConnection')}
-        </Alert>
       )}
 
       {/* Chat-style Messages Feed */}

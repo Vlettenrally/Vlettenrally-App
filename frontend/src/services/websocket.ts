@@ -104,6 +104,14 @@ class WebSocketService {
 
   private handleVisibilityChange = (): void => {
     if (document.visibilityState !== 'visible') return;
+
+    // Resync from the live value rather than trusting the cached flag: mobile
+    // browsers can fail to fire a matching 'online' event after a network
+    // switch, which would otherwise latch isOnline false forever and disable
+    // every recovery path (this is the one that restores the app on
+    // foreground, so it must not depend on a possibly-stale reading).
+    this.isOnline = navigator.onLine;
+
     if (!this.config || this.isIntentionallyClosed || !this.isOnline) return;
 
     // Force a fresh connection whether the socket is dead or a zombie (OPEN but stale
@@ -272,6 +280,10 @@ class WebSocketService {
 
       this.socket.onopen = () => {
         console.log('WebSocket connected as', this.config?.type);
+        // A successful connection is definitive proof of connectivity — correct
+        // the cached flag in case it was wrongly latched false by a missed
+        // 'online' event.
+        this.isOnline = true;
         this.isConnecting = false;
         this.reconnectAttempts = 0;
         this.reconnectDelay = 1000;
@@ -324,10 +336,15 @@ class WebSocketService {
       clearTimeout(this.reconnectTimeout);
     }
 
-    // Don't reconnect if offline
+    // Resync from the live value rather than trusting the cached flag, which
+    // can get latched false forever if the browser never fires a matching
+    // 'online' event. Even if still offline, fall through to arm the timer
+    // below rather than returning — the check inside the timeout re-reads
+    // isOnline when it fires, turning this into a polling loop instead of a
+    // dead end that depends entirely on an 'online' event that may never come.
+    this.isOnline = navigator.onLine;
     if (!this.isOnline) {
       console.log('Skipping reconnection attempt - device is offline');
-      return;
     }
 
     // Keep counting attempts only up to the cap; past it we keep retrying at the
@@ -342,8 +359,15 @@ class WebSocketService {
     console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
 
     this.reconnectTimeout = window.setTimeout(() => {
-      // Double-check we're still online and not already connecting before attempting
-      if (this.isOnline && !this.isConnecting) {
+      // Resync again at fire time — if we're still offline, re-arm rather than
+      // stopping, so a missed 'online' event degrades to polling navigator.onLine
+      // every tick instead of leaving the client permanently unable to recover.
+      this.isOnline = navigator.onLine;
+      if (!this.isOnline) {
+        this.scheduleReconnect();
+        return;
+      }
+      if (!this.isConnecting) {
         this.createConnection().catch(err => console.error('Reconnection failed:', err));
       }
     }, delay);
