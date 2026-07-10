@@ -14,6 +14,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
+process.loadEnvFile?.(resolve(here, ".env")); // load scripts/.env if present; inline env still wins
 const scenarioPath = resolve(here, "../scenario/scenario.json");
 
 const API_URL = (process.env.API_URL || "https://game.vlettenrally.nl").replace(/\/$/, "");

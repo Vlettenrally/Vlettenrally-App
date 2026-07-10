@@ -1,4 +1,5 @@
 scenario/scenario.json
+scripts/.env
 node_modules/
 mock-location-server/dist/
 *.log
