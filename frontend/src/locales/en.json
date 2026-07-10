@@ -900,6 +900,12 @@
       "empty": "No messages yet",
       "new": "New"
     },
+    "newMessageBanner": {
+      "title": "New message",
+      "view": "View",
+      "more": "+{{count}} more",
+      "close": "Close"
+    },
     "rivalTeams": {
       "loading": "Loading rivals...",
       "noRivals": "No rival teams",

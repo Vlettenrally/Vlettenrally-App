@@ -900,6 +900,12 @@
       "empty": "Nog geen berichten",
       "new": "Nieuw"
     },
+    "newMessageBanner": {
+      "title": "Nieuw bericht",
+      "view": "Bekijken",
+      "more": "+{{count}} meer",
+      "close": "Sluiten"
+    },
     "rivalTeams": {
       "loading": "Rivalen laden...",
       "noRivals": "Geen rivalen",

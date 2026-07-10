@@ -37,6 +37,7 @@ import { useGameStore } from '../store/useGameStore';
 import { useTeamRealtime } from '../hooks/useRealtime';
 import { useTeamSync } from '../hooks/useTeamSync';
 import { useConnectionStatus } from '../hooks/useConnectionStatus';
+import { NewMessageBanner } from './NewMessageBanner';
 import api from '../services/api';
 import { mockApi } from '../services/mockApi';
 import { config } from '../config';
@@ -204,6 +205,8 @@ export function TeamLayout({ children }: TeamLayoutProps) {
           {t('participant.dashboard.noConnection')}
         </Alert>
       )}
+
+      <NewMessageBanner />
 
       <Drawer anchor="left" open={drawerOpen} onClose={() => setDrawerOpen(false)}>
         <Box sx={{ width: 250 }} role="presentation">

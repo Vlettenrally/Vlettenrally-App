@@ -19,7 +19,12 @@ interface MessageState {
   unreadCount: number;
   isLoading: boolean;
   error: string | null;
-  
+  // Signal for the most recent genuinely-new message added via addMessage.
+  // Bumped only on real live arrivals (WebSocket / push), never on bulk load,
+  // so UI (e.g. the in-app new-message banner) can react without banner-spam on
+  // refresh. The nonce re-fires consumers even for otherwise-equal arrivals.
+  latestArrival: { message: Message; nonce: number } | null;
+
   setMessages: (messages: Message[]) => void;
   addMessage: (message: Message) => void;
   updateMessageStatus: (messageId: string, delivered: boolean, read: boolean) => void;
@@ -35,6 +40,7 @@ export const useMessageStore = create<MessageState>((set) => ({
   unreadCount: 0,
   isLoading: false,
   error: null,
+  latestArrival: null,
 
   setMessages: (messages) =>
     set({
@@ -52,6 +58,7 @@ export const useMessageStore = create<MessageState>((set) => ({
       return {
         messages,
         unreadCount: messages.filter((m) => !m.read).length,
+        latestArrival: { message, nonce: state.latestArrival ? state.latestArrival.nonce + 1 : 1 },
       };
     }),
 
@@ -88,5 +95,5 @@ export const useMessageStore = create<MessageState>((set) => ({
 
   setLoading: (isLoading) => set({ isLoading }),
   setError: (error) => set({ error }),
-  reset: () => set({ messages: [], unreadCount: 0, isLoading: false, error: null }),
+  reset: () => set({ messages: [], unreadCount: 0, isLoading: false, error: null, latestArrival: null }),
 }));
