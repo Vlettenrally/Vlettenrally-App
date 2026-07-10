@@ -198,13 +198,13 @@ public class LocationBackfillPersister {
 
     /**
      * Whether a fix at {@code t} could legitimately have been a checkpoint crossing: at/after the
-     * game's start signal, at/before its end time (or within the post-end tail window), and before the
+     * game's start time, at/before its end time (or within the post-end tail window), and before the
      * team's recorded finish instant (if any). Mirrors {@link Game#isWithinPollingLeadWindow} /
      * {@link Game#isWithinPollingTailWindow}'s convention that a missing boundary means the window never
      * applies, so an unconfigured/never-started game never yields checkpoint credit.
      */
     private boolean isCheckpointEligible(Game game, Team team, Instant t) {
-        Instant start = game.getStartSignalTime();
+        Instant start = game.getStartTime();
         if (start == null || t.isBefore(start)) {
             return false;
         }

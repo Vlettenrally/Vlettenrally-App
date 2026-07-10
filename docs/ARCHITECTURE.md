@@ -266,7 +266,6 @@ CREATE TABLE games (
   start_time TIMESTAMP NOT NULL,
   end_time TIMESTAMP NOT NULL,
   check_in_start_time TIMESTAMP,
-  start_signal_time TIMESTAMP,
   status VARCHAR(50) DEFAULT 'planned', -- planned, active, completed
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()

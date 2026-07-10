@@ -710,11 +710,11 @@ class AutomationEngineTest {
 
     // ==================== Scheduled time trigger ====================
 
-    private Game activeGame(Instant startSignal, Instant end) {
+    private Game activeGame(Instant start, Instant end) {
         Game game = new Game();
         game.setId(gameId);
         game.setStatus(Game.GameStatus.ACTIVE);
-        game.setStartSignalTime(startSignal);
+        game.setStartTime(start);
         game.setEndTime(end);
         lenient().when(gameService.findById(gameId)).thenReturn(Optional.of(game));
         return game;

@@ -21,7 +21,6 @@ public class Game {
     private Instant startTime;
     private Instant endTime;
     private Instant checkInStartTime;
-    private Instant startSignalTime;
     private GameStatus status;
     private Instant createdAt;
     private Instant updatedAt;
@@ -36,7 +35,7 @@ public class Game {
     private String locationEndpointUrl;
     private Integer locationPollingFrequency;
     private Boolean locationEndpointActive;
-    /** Minutes before {@link #startSignalTime} to begin polling/ingesting locations. 0 = off. */
+    /** Minutes before {@link #startTime} to begin polling/ingesting locations. 0 = off. */
     private Integer locationPollingLeadMinutes;
     /**
      * Minutes after {@link #endTime} to keep polling/ingesting locations once the game is
@@ -79,7 +78,7 @@ public class Game {
         this.status = GameStatus.PLANNED;
         this.locationPollingFrequency = 30; // Matches Legendstracking 30 s cache
         this.locationEndpointActive = false;
-        this.locationPollingLeadMinutes = 30; // Start ingesting 30 min before the start signal
+        this.locationPollingLeadMinutes = 30; // Start ingesting 30 min before the start time
         this.locationPollingTailMinutes = 30; // Keep ingesting 30 min after the end (late-finish automations)
 
         this.rankingsPublished = false;
@@ -100,16 +99,16 @@ public class Game {
 
     /**
      * Whether {@code now} falls in the pre-start polling lead window: within
-     * {@link #locationPollingLeadMinutes} before {@link #startSignalTime} and before the signal
-     * itself. Window {@code [signal - lead, signal)}. A lead of 0/null (or no signal) disables it.
+     * {@link #locationPollingLeadMinutes} before {@link #startTime} and before the start
+     * itself. Window {@code [start - lead, start)}. A lead of 0/null (or no start time) disables it.
      */
     public boolean isWithinPollingLeadWindow(Instant now) {
         Integer lead = locationPollingLeadMinutes;
-        if (lead == null || lead <= 0 || startSignalTime == null) {
+        if (lead == null || lead <= 0 || startTime == null) {
             return false;
         }
-        return now.isBefore(startSignalTime)
-            && !now.isBefore(startSignalTime.minus(Duration.ofMinutes(lead)));
+        return now.isBefore(startTime)
+            && !now.isBefore(startTime.minus(Duration.ofMinutes(lead)));
     }
 
     /**

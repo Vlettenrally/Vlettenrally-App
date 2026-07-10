@@ -42,9 +42,6 @@ public class GameEntity {
     @Column(name = "check_in_start_time")
     private Instant checkInStartTime;
 
-    @Column(name = "start_signal_time")
-    private Instant startSignalTime;
-
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     private GameStatus status = GameStatus.PLANNED;

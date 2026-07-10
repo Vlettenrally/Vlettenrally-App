@@ -368,7 +368,7 @@ public class AutomationEngine {
         }
         if (config.relativeTo() == null || config.offsetMinutes() == null) return null;
         Instant anchor = config.relativeTo() == AutomationTriggerConfig.RelativeAnchor.GAME_START
-            ? game.getStartSignalTime()
+            ? game.getStartTime()
             : game.getEndTime();
         return anchor != null ? anchor.plus(Duration.ofMinutes(config.offsetMinutes())) : null;
     }
@@ -392,7 +392,7 @@ public class AutomationEngine {
                     // been running longer than the threshold.
                     Instant lastSeen = locationDataRepository.findLatestByTeamId(team.getId())
                         .map(LocationData::getLocationTime)
-                        .orElse(game.getStartSignalTime());
+                        .orElse(game.getStartTime());
                     if (lastSeen == null || lastSeen.isAfter(threshold)) continue;
                     fireForTeam(rule, team.getId(), null);
                 }

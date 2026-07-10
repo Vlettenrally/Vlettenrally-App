@@ -13,7 +13,6 @@ public record TeamGameResponse(
     String startTime,
     String endTime,
     String checkInStartTime,
-    String startSignalTime,
     String status,
     Boolean rankingsPublished,
     Boolean publicRankingsEnabled

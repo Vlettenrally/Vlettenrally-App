@@ -825,7 +825,6 @@
       "startTime": "Start Time",
       "endTime": "End Time",
       "checkInStart": "Check-in Start Time",
-      "startSignal": "Start Signal Time",
       "status": "Status",
       "teamImport": "Team Import Configuration",
       "externalEvent": "External Event",
@@ -867,7 +866,7 @@
       "guardMaxAccuracy": "Max. gps-nauwkeurigheid (m)",
       "guardStaleFix": "Verouderde-fix venster (s)",
       "checkInStartHint": "Wanneer het inchecken opent",
-      "startSignalHint": "Wanneer de race start (game wordt automatisch geactiveerd)",
+      "startTimeHint": "Wanneer de race start (game wordt automatisch geactiveerd)",
       "trackerBaseUrlHint": "Base URL van het Legendstracking event — zonder trailing slash en zonder /details, /participants_locations of /participants_checkpoints",
       "registrations": "{{count}} registraties",
       "participantInfoHint": "Getoond in de deelnemers-app voor deze game. Markdown wordt ondersteund."

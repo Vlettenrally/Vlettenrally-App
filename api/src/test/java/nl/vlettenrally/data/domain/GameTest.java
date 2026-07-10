@@ -15,47 +15,47 @@ import org.junit.jupiter.api.Test;
  */
 class GameTest {
 
-    private static final Instant SIGNAL = Instant.parse("2026-06-30T12:00:00Z");
+    private static final Instant START = Instant.parse("2026-06-30T12:00:00Z");
     private static final Instant END = Instant.parse("2026-06-30T18:00:00Z");
 
     private Game game() {
         Game game = new Game();
-        game.setStartSignalTime(SIGNAL);
+        game.setStartTime(START);
         game.setEndTime(END);
         return game;
     }
 
-    // --- Lead window: [signal - lead, signal) ---
+    // --- Lead window: [start - lead, start) ---
 
     @Test
-    void leadWindow_openJustBeforeSignal() {
+    void leadWindow_openJustBeforeStart() {
         Game game = game();
         game.setLocationPollingLeadMinutes(30);
-        assertTrue(game.isWithinPollingLeadWindow(SIGNAL.minus(Duration.ofMinutes(1))));
+        assertTrue(game.isWithinPollingLeadWindow(START.minus(Duration.ofMinutes(1))));
     }
 
     @Test
-    void leadWindow_closedAtSignal() {
+    void leadWindow_closedAtStart() {
         Game game = game();
         game.setLocationPollingLeadMinutes(30);
-        assertFalse(game.isWithinPollingLeadWindow(SIGNAL));
+        assertFalse(game.isWithinPollingLeadWindow(START));
     }
 
     @Test
     void leadWindow_lowerBoundInclusive() {
         Game game = game();
         game.setLocationPollingLeadMinutes(30);
-        assertTrue(game.isWithinPollingLeadWindow(SIGNAL.minus(Duration.ofMinutes(30))));
-        assertFalse(game.isWithinPollingLeadWindow(SIGNAL.minus(Duration.ofMinutes(30)).minusSeconds(1)));
+        assertTrue(game.isWithinPollingLeadWindow(START.minus(Duration.ofMinutes(30))));
+        assertFalse(game.isWithinPollingLeadWindow(START.minus(Duration.ofMinutes(30)).minusSeconds(1)));
     }
 
     @Test
     void leadWindow_zeroOrNullDisables() {
         Game game = game();
         game.setLocationPollingLeadMinutes(0);
-        assertFalse(game.isWithinPollingLeadWindow(SIGNAL.minus(Duration.ofMinutes(5))));
+        assertFalse(game.isWithinPollingLeadWindow(START.minus(Duration.ofMinutes(5))));
         game.setLocationPollingLeadMinutes(null);
-        assertFalse(game.isWithinPollingLeadWindow(SIGNAL.minus(Duration.ofMinutes(5))));
+        assertFalse(game.isWithinPollingLeadWindow(START.minus(Duration.ofMinutes(5))));
     }
 
     // --- Tail window: (endTime, endTime + tail] ---

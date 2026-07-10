@@ -12,7 +12,6 @@ public record GameRequest(
     Instant startTime,
     Instant endTime,
     Instant checkInStartTime,
-    Instant startSignalTime,
     String status,
     Integer externalEventId,
     String externalEventName,

@@ -79,13 +79,12 @@ public class LoadTestSeedService {
         Game game = new Game();
         game.setName(MARKER_PREFIX + DateTimeFormatter.ISO_INSTANT.format(now.truncatedTo(ChronoUnit.SECONDS)));
         game.setDescription("Automated load-test fixture. Safe to delete via DELETE /api/v1/admin/load-test/{gameId}.");
-        // PLANNED: GameStatusScheduler flips it to ACTIVE at startSignalTime, exercising the
+        // PLANNED: GameStatusScheduler flips it to ACTIVE at startTime, exercising the
         // GAME_STATUS_CHANGE path. Location polling still runs pre-start (within the lead window),
-        // so ingestion is stressed while teams mill about before the start signal.
+        // so ingestion is stressed while teams mill about before the start.
         game.setStatus(Game.GameStatus.PLANNED);
         game.setCheckInStartTime(now);
         game.setStartTime(startTime);
-        game.setStartSignalTime(startTime);
         game.setEndTime(startTime.plus(Duration.ofHours(4)));
         game.setLocationEndpointUrl(locationEndpointUrl);
         game.setLocationEndpointActive(true);

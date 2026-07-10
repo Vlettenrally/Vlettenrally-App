@@ -330,7 +330,6 @@ public class GameResource {
         game.setStartTime(request.startTime());
         game.setEndTime(request.endTime());
         game.setCheckInStartTime(request.checkInStartTime());
-        game.setStartSignalTime(request.startSignalTime());
 
         if (request.status() != null) {
             try {
@@ -380,7 +379,6 @@ public class GameResource {
                 if (request.startTime() != null) game.setStartTime(request.startTime());
                 if (request.endTime() != null) game.setEndTime(request.endTime());
                 if (request.checkInStartTime() != null) game.setCheckInStartTime(request.checkInStartTime());
-                if (request.startSignalTime() != null) game.setStartSignalTime(request.startSignalTime());
 
                 if (request.status() != null) {
                     try {
@@ -728,7 +726,6 @@ public class GameResource {
             game.getStartTime() != null ? game.getStartTime().toString() : null,
             game.getEndTime() != null ? game.getEndTime().toString() : null,
             game.getCheckInStartTime() != null ? game.getCheckInStartTime().toString() : null,
-            game.getStartSignalTime() != null ? game.getStartSignalTime().toString() : null,
             game.getStatus() != null ? game.getStatus().name().toLowerCase() : null,
             game.getExternalEventId(),
             game.getExternalEventName(),
@@ -787,7 +784,6 @@ public class GameResource {
             game.getStartTime() != null ? game.getStartTime().toString() : null,
             game.getEndTime() != null ? game.getEndTime().toString() : null,
             game.getCheckInStartTime() != null ? game.getCheckInStartTime().toString() : null,
-            game.getStartSignalTime() != null ? game.getStartSignalTime().toString() : null,
             game.getStatus() != null ? game.getStatus().name().toLowerCase() : null,
             game.getRankingsPublished() != null && game.getRankingsPublished(),
             game.getPublicRankingsEnabled() != null && game.getPublicRankingsEnabled()

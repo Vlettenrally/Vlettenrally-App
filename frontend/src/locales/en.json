@@ -825,7 +825,6 @@
       "startTime": "Start Time",
       "endTime": "End Time",
       "checkInStart": "Check-in Start Time",
-      "startSignal": "Start Signal Time",
       "status": "Status",
       "teamImport": "Team Import Configuration",
       "externalEvent": "External Event",
@@ -867,7 +866,7 @@
       "guardMaxAccuracy": "Max GPS accuracy (m)",
       "guardStaleFix": "Stale-fix window (s)",
       "checkInStartHint": "When the check-in area opens",
-      "startSignalHint": "When the race starts (auto-activates game)",
+      "startTimeHint": "When the race starts (auto-activates game)",
       "trackerBaseUrlHint": "Base URL of the Legendstracking event — without trailing slash and without /details, /participants_locations or /participants_checkpoints",
       "registrations": "{{count}} registrations",
       "participantInfoHint": "Shown in the participant app for this game. Markdown is supported."

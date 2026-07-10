@@ -4,7 +4,6 @@ export interface Game {
   startTime?: Date;
   endTime?: Date;
   checkInStartTime?: Date;
-  startSignalTime?: Date;
   description?: string;
   participantInfo?: string;
   status?: 'planned' | 'active' | 'completed';
@@ -19,7 +18,7 @@ export interface Game {
   locationEndpointUrl?: string;
   locationPollingFrequency?: number;
   locationEndpointActive?: boolean;
-  // Minutes before the start signal to begin polling/ingesting locations (0 = off).
+  // Minutes before the start time to begin polling/ingesting locations (0 = off).
   locationPollingLeadMinutes?: number;
   // Minutes after the end time to keep polling/ingesting once COMPLETED (0 = off).
   locationPollingTailMinutes?: number;
@@ -44,7 +43,6 @@ export interface GameRequest {
   startTime?: string;
   endTime?: string;
   checkInStartTime?: string;
-  startSignalTime?: string;
   status?: string;
   externalEventId?: number;
   externalEventName?: string;

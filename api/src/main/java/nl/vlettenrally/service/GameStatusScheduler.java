@@ -17,7 +17,7 @@ import java.util.Map;
  * Scheduler for automatic game status transitions.
  * <p>
  * Transitions:
- * - PLANNED → ACTIVE: When startSignalTime is reached
+ * - PLANNED → ACTIVE: When startTime is reached
  * - ACTIVE → COMPLETED: When endTime is reached
  * <p>
  * Runs on a single instance at a time — leader election via
@@ -59,7 +59,7 @@ public class GameStatusScheduler {
         // Check PLANNED games for transition to ACTIVE
         List<Game> plannedGames = gameService.findByStatus(Game.GameStatus.PLANNED);
         for (Game game : plannedGames) {
-            if (game.getStartSignalTime() != null && !now.isBefore(game.getStartSignalTime())) {
+            if (game.getStartTime() != null && !now.isBefore(game.getStartTime())) {
                 transitionToActive(game);
             }
         }

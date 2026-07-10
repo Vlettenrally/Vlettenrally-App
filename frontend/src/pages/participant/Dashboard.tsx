@@ -102,7 +102,7 @@ function GameStatusCard() {
   }
 
   // Planned: count down to the start.
-  const startTarget = game.startSignalTime ?? game.startTime;
+  const startTarget = game.startTime;
   const secondsToStart = startTarget ? getSecondsUntil(startTarget) : null;
   if (secondsToStart !== null && secondsToStart > 0) {
     return (

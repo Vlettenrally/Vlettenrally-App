@@ -13,7 +13,6 @@ public record GameResponse(
     String startTime,
     String endTime,
     String checkInStartTime,
-    String startSignalTime,
     String status,
     Integer externalEventId,
     String externalEventName,

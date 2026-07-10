@@ -167,10 +167,10 @@ class CheckpointServiceImplTest {
         assertEquals(Instant.parse("2026-06-10T18:00:00Z"), circle.getClosingTime());
     }
 
-    private Game gameWithStartSignal(UUID id, Instant startSignal) {
+    private Game gameWithStartTime(UUID id, Instant startTime) {
         Game game = new Game();
         game.setId(id);
-        game.setStartSignalTime(startSignal);
+        game.setStartTime(startTime);
         return game;
     }
 
@@ -195,8 +195,8 @@ class CheckpointServiceImplTest {
         Instant targetStart = Instant.parse("2026-06-01T10:00:00Z");
         Duration shift = Duration.between(sourceStart, targetStart);
 
-        when(gameService.findById(gameId)).thenReturn(Optional.of(gameWithStartSignal(gameId, sourceStart)));
-        when(gameService.findById(targetGameId)).thenReturn(Optional.of(gameWithStartSignal(targetGameId, targetStart)));
+        when(gameService.findById(gameId)).thenReturn(Optional.of(gameWithStartTime(gameId, sourceStart)));
+        when(gameService.findById(targetGameId)).thenReturn(Optional.of(gameWithStartTime(targetGameId, targetStart)));
 
         // Target already has a "Brug" zone, so the source "Brug" must be skipped.
         CircleCheckpoint targetExisting = new CircleCheckpoint(50);

@@ -111,7 +111,6 @@ export default function GameFormDialog({
     startTime: '',
     endTime: '',
     checkInStartTime: '',
-    startSignalTime: '',
     status: 'planned',
     externalEventId: undefined,
     externalEventName: '',
@@ -145,7 +144,6 @@ export default function GameFormDialog({
         startTime: game.startTime ? formatForDateTimeLocalInput(game.startTime) : '',
         endTime: game.endTime ? formatForDateTimeLocalInput(game.endTime) : '',
         checkInStartTime: game.checkInStartTime ? formatForDateTimeLocalInput(game.checkInStartTime) : '',
-        startSignalTime: game.startSignalTime ? formatForDateTimeLocalInput(game.startSignalTime) : '',
         status: game.status || 'planned',
         externalEventId: game.externalEventId,
         externalEventName: game.externalEventName || '',
@@ -170,7 +168,6 @@ export default function GameFormDialog({
         startTime: '',
         endTime: '',
         checkInStartTime: '',
-        startSignalTime: '',
         status: 'planned',
         externalEventId: undefined,
         externalEventName: '',
@@ -208,7 +205,6 @@ export default function GameFormDialog({
         startTime: formatToISOString(formData.startTime || ''),
         endTime: formatToISOString(formData.endTime || ''),
         checkInStartTime: formatToISOString(formData.checkInStartTime || ''),
-        startSignalTime: formatToISOString(formData.startSignalTime || ''),
       };
 
       let savedGame: Game;
@@ -331,6 +327,7 @@ export default function GameFormDialog({
               value={formData.startTime}
               onChange={handleChange('startTime')}
               slotProps={{ inputLabel: { shrink: true } }}
+              helperText={t('components.gameForm.startTimeHint')}
               fullWidth
             />
             <TextField
@@ -348,15 +345,6 @@ export default function GameFormDialog({
               onChange={handleChange('checkInStartTime')}
               slotProps={{ inputLabel: { shrink: true } }}
               helperText={t('components.gameForm.checkInStartHint')}
-              fullWidth
-            />
-            <TextField
-              label={t('components.gameForm.startSignal')}
-              type="datetime-local"
-              value={formData.startSignalTime}
-              onChange={handleChange('startSignalTime')}
-              slotProps={{ inputLabel: { shrink: true } }}
-              helperText={t('components.gameForm.startSignalHint')}
               fullWidth
             />
           </Box>

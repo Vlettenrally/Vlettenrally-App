@@ -17,7 +17,7 @@ public final class GameTimeShifter {
 
     /**
      * Shift an absolute timestamp by the gap between source and target for
-     * whichever game anchor (start signal or end time) it sits closest to in
+     * whichever game anchor (start time or end time) it sits closest to in
      * the source game. Leaves it unchanged when no usable anchor pair exists.
      */
     public static Instant adjust(Instant time, Game source, Game target) {
@@ -29,7 +29,7 @@ public final class GameTimeShifter {
         long bestDistance = Long.MAX_VALUE;
 
         Instant[][] anchorPairs = {
-            {source.getStartSignalTime(), target.getStartSignalTime()},
+            {source.getStartTime(), target.getStartTime()},
             {source.getEndTime(), target.getEndTime()},
         };
         for (Instant[] pair : anchorPairs) {

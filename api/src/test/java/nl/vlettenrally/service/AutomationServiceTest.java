@@ -441,9 +441,9 @@ class AutomationServiceTest {
 
     private UUID sourceGameId;
 
-    private Game game(Instant startSignal, Instant end) {
+    private Game game(Instant start, Instant end) {
         Game g = new Game();
-        g.setStartSignalTime(startSignal);
+        g.setStartTime(start);
         g.setEndTime(end);
         return g;
     }
