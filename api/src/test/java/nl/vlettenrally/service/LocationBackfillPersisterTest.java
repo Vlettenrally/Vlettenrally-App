@@ -93,7 +93,7 @@ class LocationBackfillPersisterTest {
         lenient().when(locationIngestService.passesGuards(any(), any(), any())).thenReturn(true);
         when(locationIngestService.computeGate(any(), any(), any()))
             .thenReturn(new LocationIngestService.IngestGate(false, false));
-        when(teamDistanceCalculator.recomputeFromScratch(team.getId())).thenReturn(42.0);
+        when(teamDistanceCalculator.recomputeAfter(eq(team.getId()), any(Instant.class))).thenReturn(42.0);
 
         // Two fixes already stored (t=0 and t=300).
         storeFix(4.90, 52.3700, 0);
@@ -113,7 +113,9 @@ class LocationBackfillPersisterTest {
         assertEquals(2, result.inserted());
         assertEquals(0, result.droppedByGuard());
         assertEquals(4, locationRepo.findByTeamId(team.getId()).size());
-        verify(teamDistanceCalculator).recomputeFromScratch(team.getId());
+        // The rebuild boundary is the earliest *accepted* fix (t=100) — the deduped
+        // t=0 candidate must not widen the recompute range.
+        verify(teamDistanceCalculator).recomputeAfter(team.getId(), BASE.plus(100, ChronoUnit.SECONDS));
         verify(automationEngine).onDistanceUpdate(eq(GAME_ID), eq(team.getId()), eq(42.0), eq(false));
     }
 
@@ -122,7 +124,7 @@ class LocationBackfillPersisterTest {
         when(locationIngestService.isValid(any())).thenReturn(true);
         when(locationIngestService.computeGate(any(), any(), any()))
             .thenReturn(new LocationIngestService.IngestGate(false, false));
-        lenient().when(teamDistanceCalculator.recomputeFromScratch(team.getId())).thenReturn(10.0);
+        lenient().when(teamDistanceCalculator.recomputeAfter(eq(team.getId()), any(Instant.class))).thenReturn(10.0);
 
         // A stored fix just before the gap makes the guard active for the first candidate.
         storeFix(4.90, 52.3700, 0);
@@ -146,7 +148,7 @@ class LocationBackfillPersisterTest {
         lenient().when(locationIngestService.passesGuards(any(), any(), any())).thenReturn(true);
         when(locationIngestService.computeGate(any(), any(), any()))
             .thenReturn(new LocationIngestService.IngestGate(true, true));
-        when(teamDistanceCalculator.recomputeFromScratch(team.getId())).thenReturn(500.0);
+        when(teamDistanceCalculator.recomputeAfter(eq(team.getId()), any(Instant.class))).thenReturn(500.0);
         // Each consecutive pair reports one newly-credited pass.
         when(locationIngestService.detectCheckpointPasses(any(), any())).thenReturn(1);
         game.setStartSignalTime(BASE.minus(1, ChronoUnit.HOURS));
@@ -171,7 +173,7 @@ class LocationBackfillPersisterTest {
         lenient().when(locationIngestService.passesGuards(any(), any(), any())).thenReturn(true);
         when(locationIngestService.computeGate(any(), any(), any()))
             .thenReturn(new LocationIngestService.IngestGate(true, true));
-        when(teamDistanceCalculator.recomputeFromScratch(team.getId())).thenReturn(500.0);
+        when(teamDistanceCalculator.recomputeAfter(eq(team.getId()), any(Instant.class))).thenReturn(500.0);
         when(locationIngestService.detectCheckpointPasses(any(), any())).thenReturn(1);
         // Backfill can replay the pre-start lead window; only pairs whose arrival is at/after the
         // start signal may be credited.
@@ -198,7 +200,7 @@ class LocationBackfillPersisterTest {
         lenient().when(locationIngestService.passesGuards(any(), any(), any())).thenReturn(true);
         when(locationIngestService.computeGate(any(), any(), any()))
             .thenReturn(new LocationIngestService.IngestGate(true, true));
-        when(teamDistanceCalculator.recomputeFromScratch(team.getId())).thenReturn(500.0);
+        when(teamDistanceCalculator.recomputeAfter(eq(team.getId()), any(Instant.class))).thenReturn(500.0);
         // In the real pipeline, a CHECKPOINT_ENTRY automation rule can finish the team synchronously
         // from inside detectCheckpointPasses (AutomationEngine.onCheckpointPass -> FinishTeam action).
         // Simulate that side effect on the first segment.
@@ -229,7 +231,7 @@ class LocationBackfillPersisterTest {
         lenient().when(locationIngestService.passesGuards(any(), any(), any())).thenReturn(true);
         when(locationIngestService.computeGate(any(), any(), any()))
             .thenReturn(new LocationIngestService.IngestGate(false, false));
-        when(teamDistanceCalculator.recomputeFromScratch(team.getId())).thenReturn(500.0);
+        when(teamDistanceCalculator.recomputeAfter(eq(team.getId()), any(Instant.class))).thenReturn(500.0);
         when(locationIngestService.detectCheckpointPasses(any(), any())).thenReturn(1);
         game.setStartSignalTime(BASE.minus(1, ChronoUnit.HOURS));
         // The team already finished (in an earlier, unrelated call) before this backfill even starts;
@@ -258,7 +260,7 @@ class LocationBackfillPersisterTest {
         lenient().when(locationIngestService.passesGuards(any(), any(), any())).thenReturn(true);
         when(locationIngestService.computeGate(any(), any(), any()))
             .thenReturn(new LocationIngestService.IngestGate(false, false));
-        when(teamDistanceCalculator.recomputeFromScratch(team.getId())).thenReturn(500.0);
+        when(teamDistanceCalculator.recomputeAfter(eq(team.getId()), any(Instant.class))).thenReturn(500.0);
         when(locationIngestService.detectCheckpointPasses(any(), any())).thenReturn(1);
         game.setStartSignalTime(BASE.minus(1, ChronoUnit.HOURS));
         // Game ended at t=150s; default locationPollingTailMinutes=30 keeps the tail window open

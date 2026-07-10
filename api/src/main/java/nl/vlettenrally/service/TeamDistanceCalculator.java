@@ -4,33 +4,34 @@ import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import nl.vlettenrally.data.domain.LocationData;
-import nl.vlettenrally.data.domain.TeamDistanceProgress;
+import nl.vlettenrally.data.domain.TeamDistanceSegment;
 import nl.vlettenrally.data.repository.LocationDataRepository;
-import nl.vlettenrally.data.repository.TeamDistanceProgressRepository;
+import nl.vlettenrally.data.repository.TeamDistanceSegmentRepository;
 import nl.vlettenrally.service.util.GeoDistance;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.locationtech.jts.geom.Point;
 
 import java.time.Instant;
-import java.util.List;
 import java.util.UUID;
 
 /**
  * Computes how far a team has travelled from its stored location fixes, replacing
  * the provider-reported distance.
  * <p>
- * State is kept per team in {@link TeamDistanceProgress}: a held "anchor" (the last
- * counted fix), the running cumulative metres, and a cursor (the GPS time of the
- * last consumed fix). Each call reads only the fixes newer than the cursor, so the
- * cost per poll is proportional to the handful of new fixes — not the whole track.
+ * State is the per-team chain of {@link TeamDistanceSegment} rows: the last segment's
+ * endpoint is the anchor (the last <em>counted</em> fix) and the travelled distance is
+ * simply the sum of segment meters. There is no separate accumulator to keep in sync —
+ * appending or rebuilding segments IS the update.
  * <p>
  * Movement only accrues once a new fix is at least {@code minSegmentMeters} from the
- * anchor; smaller jumps are treated as GPS jitter and the anchor is held. Because the
- * anchor is persisted, this yields the same total as walking the full track, while a
- * moored boat's wander accrues ~zero.
+ * anchor; smaller jumps are treated as GPS jitter and produce no segment, holding the
+ * anchor. This yields the same total as walking the full track, while a moored boat's
+ * wander accrues ~zero.
  * <p>
- * The returned value is a monotonically non-decreasing cumulative metre count, which
- * is exactly what {@link AutomationEngine#onDistanceUpdate} expects.
+ * Both methods must run inside the caller's transaction: they take the per-team
+ * advisory lock ({@link TeamDistanceSegmentRepository#lockTeam}) first, which
+ * serializes concurrent updates from the Legendstracking poller, the Traccar/OsmAnd
+ * endpoint and backfill's recompute for the same team.
  */
 @ApplicationScoped
 public class TeamDistanceCalculator {
@@ -39,120 +40,100 @@ public class TeamDistanceCalculator {
     LocationDataRepository locationDataRepository;
 
     @Inject
-    TeamDistanceProgressRepository progressRepository;
+    TeamDistanceSegmentRepository segmentRepository;
 
     @ConfigProperty(name = "vlettenrally.distance.min-segment-meters", defaultValue = "8")
     double minSegmentMeters;
 
     /**
-     * Accumulate any new fixes for the team and return the updated cumulative
-     * travelled distance in metres.
+     * Fold one just-stored live fix into the team's segment chain and return the
+     * updated total travelled distance in metres. The fix is passed in-hand, so the
+     * live path never re-reads {@code location_data}.
      */
-    public double computeTraveledMeters(UUID teamId) {
-        TeamDistanceProgress progress = progressRepository.findByTeamId(teamId)
-                .orElseGet(() -> newProgress(teamId));
-
-        Instant after = progress.getLastProcessedTime() != null
-                ? progress.getLastProcessedTime() : Instant.EPOCH;
-        List<LocationData> newFixes = locationDataRepository.findByTeamIdAfter(teamId, after);
-        if (newFixes.isEmpty()) {
-            return progress.getCumulativeMeters();
-        }
-
-        Double anchorLon = progress.getAnchorLon();
-        Double anchorLat = progress.getAnchorLat();
-        double cumulative = progress.getCumulativeMeters();
-        Instant cursor = progress.getLastProcessedTime();
-
-        for (LocationData fix : newFixes) {
-            Point p = fix.getLocation();
-            if (p != null) {
-                if (anchorLon == null || anchorLat == null) {
-                    // First fix ever: seed the anchor, no distance credited.
-                    anchorLon = p.getX();
-                    anchorLat = p.getY();
-                } else {
-                    double d = GeoDistance.haversineMeters(anchorLon, anchorLat, p.getX(), p.getY());
-                    if (d >= minSegmentMeters) {
-                        cumulative += d;
-                        anchorLon = p.getX();
-                        anchorLat = p.getY();
-                    }
-                    // else: jitter below the threshold — hold the anchor.
-                }
-            }
-            cursor = fix.getLocationTime();
-        }
-
-        progress.setAnchorLon(anchorLon);
-        progress.setAnchorLat(anchorLat);
-        progress.setCumulativeMeters(cumulative);
-        progress.setLastProcessedTime(cursor);
-        progress.setUpdatedAt(Instant.now());
-        progressRepository.save(progress);
-
-        return cumulative;
+    public double accrueFix(UUID teamId, LocationData fix) {
+        segmentRepository.lockTeam(teamId);
+        appendFix(teamId, segmentRepository.findLastByTeamId(teamId).orElse(null), fix);
+        return segmentRepository.sumMetersByTeamId(teamId);
     }
 
     /**
-     * Rewind the team's distance accumulator and re-walk its entire stored track, so points
-     * inserted into an <em>older</em> gap (e.g. by a backfill) are counted — the incremental
-     * {@link #computeTraveledMeters} would otherwise skip them because they predate the cursor.
+     * Rebuild the tail of the team's segment chain after fixes were inserted into an
+     * older gap (by a backfill): every segment from the earliest changed fix onward is
+     * deleted and re-derived by walking the stored fixes, so the inserted points are
+     * counted and the segments that previously spanned the gap are replaced. Segments
+     * before the gap are untouched — no whole-track recompute.
      * <p>
-     * The returned (and persisted) cumulative is clamped to never fall below the previous total:
-     * {@link AutomationEngine#onDistanceUpdate} treats a decrease as a rebaseline and would
-     * double-credit meters as the value climbed back. Adding vertices to a polyline almost always
-     * increases its length, but under the {@code minSegmentMeters} jitter threshold that is not
-     * guaranteed, so we clamp. The recomputed anchor is kept intact (only the scalar is clamped),
-     * so subsequent live increments stay correct.
-     * <p>
-     * O(n) over the whole track; acceptable because backfill is rare and throttled.
+     * A carryover seed (migrated pre-segment-table total) is never deleted: its meters
+     * may predate the {@code location_data} retention window and cannot be re-derived.
+     * The total can shrink slightly on a rebuild (adding vertices to a polyline almost
+     * always lengthens it, but under the {@code minSegmentMeters} jitter threshold that
+     * is not guaranteed); {@link AutomationEngine#onDistanceUpdate} absorbs a decrease
+     * by rebaselining without credit, so no clamp is needed here.
      */
-    public double recomputeFromScratch(UUID teamId) {
-        TeamDistanceProgress progress = progressRepository.findByTeamId(teamId)
-                .orElseGet(() -> newProgress(teamId));
-        double oldCumulative = progress.getCumulativeMeters();
+    public double recomputeAfter(UUID teamId, Instant earliestChangedTime) {
+        segmentRepository.lockTeam(teamId);
+        segmentRepository.deleteFromTime(teamId, earliestChangedTime);
 
-        // Reset the anchor + cursor so computeTraveledMeters re-walks from the first fix.
-        progress.setAnchorLon(null);
-        progress.setAnchorLat(null);
-        progress.setCumulativeMeters(0);
-        progress.setLastProcessedTime(null);
-        progress.setUpdatedAt(Instant.now());
-        progressRepository.save(progress);
-
-        double recomputed = computeTraveledMeters(teamId);
-        if (recomputed >= oldCumulative) {
-            return recomputed;
+        TeamDistanceSegment anchor = segmentRepository.findLastByTeamId(teamId).orElse(null);
+        Instant after = anchor != null ? anchor.getToTime() : Instant.EPOCH;
+        for (LocationData fix : locationDataRepository.findByTeamIdAfter(teamId, after)) {
+            anchor = appendFix(teamId, anchor, fix);
         }
-
-        // A full, independent re-derivation from location_data came out lower than what was
-        // already credited. A shortfall up to a couple of minSegmentMeters can happen legitimately
-        // (per the jitter-threshold caveat above, and floating-point rounding when the two are
-        // really equal); anything past that margin is not explainable by either and indicates
-        // prior drift/corruption of the accumulator (e.g. a cursor regression) — since re-walking
-        // the same or more fixes can never legitimately produce a materially shorter path. The
-        // clamp below applies either way to keep the fed value monotonic, but only log past the
-        // margin so routine, expected variance doesn't drown out a real signal.
-        double shortfall = oldCumulative - recomputed;
-        if (shortfall > 2 * minSegmentMeters) {
-            Log.warnf("Team %s distance recompute came out lower than stored total (recomputed=%.1fm, stored=%.1fm) "
-                    + "— clamping to stored value; this indicates prior drift/corruption in team_distance_progress",
-                teamId, recomputed, oldCumulative);
-        }
-
-        // Clamp the scalar up to the prior total to keep the fed value monotonic; leave the
-        // recomputed anchor/cursor in place for correct future increments.
-        TeamDistanceProgress clamped = progressRepository.findByTeamId(teamId).orElse(progress);
-        clamped.setCumulativeMeters(oldCumulative);
-        clamped.setUpdatedAt(Instant.now());
-        progressRepository.save(clamped);
-        return oldCumulative;
+        return segmentRepository.sumMetersByTeamId(teamId);
     }
 
-    private static TeamDistanceProgress newProgress(UUID teamId) {
-        TeamDistanceProgress progress = new TeamDistanceProgress();
-        progress.setTeamId(teamId);
-        return progress;
+    /**
+     * Apply the accrual rule for one fix against the current anchor (null when the
+     * chain is empty): seed the chain on the first fix, append a segment once the fix
+     * is at least {@code minSegmentMeters} from the anchor, or hold the anchor on
+     * jitter. Returns the (possibly advanced) anchor.
+     */
+    private TeamDistanceSegment appendFix(UUID teamId, TeamDistanceSegment anchor, LocationData fix) {
+        Point p = fix.getLocation();
+        if (p == null) {
+            // Ingest validation rejects these; skip defensively when walking stored fixes.
+            return anchor;
+        }
+
+        if (anchor == null) {
+            // First fix ever: seed the chain, no distance credited.
+            return segmentRepository.save(seed(teamId, fix, p));
+        }
+
+        if (!fix.getLocationTime().isAfter(anchor.getToTime())) {
+            // Out-of-order vs the anchor — only reachable in odd clock-skew corners; the
+            // dt<=0 ingest guard already blocks this whenever prior fixes exist. Skip
+            // rather than violate the chain's time-ordering constraint.
+            Log.infof("Skipping non-advancing fix for team %s: %s is not after anchor %s",
+                    teamId, fix.getLocationTime(), anchor.getToTime());
+            return anchor;
+        }
+
+        double d = GeoDistance.haversineMeters(anchor.getToLon(), anchor.getToLat(), p.getX(), p.getY());
+        if (d < minSegmentMeters) {
+            // Jitter below the threshold — hold the anchor, no segment.
+            return anchor;
+        }
+
+        TeamDistanceSegment segment = new TeamDistanceSegment();
+        segment.setTeamId(teamId);
+        segment.setFromTime(anchor.getToTime());
+        segment.setFromLon(anchor.getToLon());
+        segment.setFromLat(anchor.getToLat());
+        segment.setToTime(fix.getLocationTime());
+        segment.setToLon(p.getX());
+        segment.setToLat(p.getY());
+        segment.setMeters(d);
+        return segmentRepository.save(segment);
+    }
+
+    private static TeamDistanceSegment seed(UUID teamId, LocationData fix, Point p) {
+        TeamDistanceSegment segment = new TeamDistanceSegment();
+        segment.setTeamId(teamId);
+        segment.setToTime(fix.getLocationTime());
+        segment.setToLon(p.getX());
+        segment.setToLat(p.getY());
+        segment.setMeters(0);
+        return segment;
     }
 }

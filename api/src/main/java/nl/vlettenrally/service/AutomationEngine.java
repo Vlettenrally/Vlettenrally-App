@@ -274,7 +274,8 @@ public class AutomationEngine {
             }
             progress.setLeftoverMeters(leftover);
         }
-        // delta < 0: provider counter reset — rebaseline without credit.
+        // delta < 0: a segment-chain rebuild shrank the total slightly (jitter-threshold
+        // polyline caveat) — rebaseline without credit.
 
         progress.setUpdatedAt(Instant.now());
         distanceProgressRepository.save(progress);

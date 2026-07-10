@@ -103,7 +103,7 @@ class LocationIngestServiceTest {
 
         assertTrue(result.isPresent());
         verify(locationDataRepository).save(any(LocationData.class));
-        verify(teamDistanceCalculator).computeTraveledMeters(teamId);
+        verify(teamDistanceCalculator).accrueFix(eq(teamId), any(LocationData.class));
     }
 
     @Test

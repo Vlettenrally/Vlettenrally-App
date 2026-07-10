@@ -205,8 +205,8 @@ class TraccarResourceTest {
 
     @Test
     void report_backfillInProgress_doesNotIngest() {
-        // A full-track recompute is in flight for this team; a concurrent live insert here
-        // would race it (see JpaTeamDistanceProgressRepository / TeamDistanceCalculator).
+        // A backfill's segment-chain rebuild is in flight for this team; a concurrent live
+        // insert here would race it (see JpaTeamDistanceSegmentRepository / TeamDistanceCalculator).
         Team team = enabledTeam("secret-id");
         when(teamService.findByTraccarIdentifier("secret-id")).thenReturn(Optional.of(team));
         when(backfillThrottle.isLocked(teamId)).thenReturn(true);

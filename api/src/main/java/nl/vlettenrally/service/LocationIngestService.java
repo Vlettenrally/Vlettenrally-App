@@ -119,7 +119,7 @@ public class LocationIngestService {
         // comparing AFTER the game end). The rule itself still decides whether/how to act.
         IngestGate gate = computeGate(reading.getGameId(), reading.getTeamId(), reading.getLocationTime());
 
-        double cumulativeMeters = teamDistanceCalculator.computeTraveledMeters(reading.getTeamId());
+        double cumulativeMeters = teamDistanceCalculator.accrueFix(reading.getTeamId(), reading);
         automationEngine.onDistanceUpdate(reading.getGameId(), reading.getTeamId(), cumulativeMeters, gate.scoringActive());
 
         if (gate.scoringActive() && reading.getSpeed() != null) {

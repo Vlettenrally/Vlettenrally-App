@@ -31,8 +31,8 @@ import java.util.UUID;
  * outside the database transaction.
  * <p>
  * {@link #persist} inserts the previously-missing fixes in chronological order (running the outlier
- * guard with the true predecessor), recomputes travelled distance once, and replays checkpoint-pass
- * detection over the gap — all atomically.
+ * guard with the true predecessor), rebuilds the distance-segment chain from the gap onward, and
+ * replays checkpoint-pass detection over the gap — all atomically.
  */
 @ApplicationScoped
 public class LocationBackfillPersister {
@@ -127,9 +127,11 @@ public class LocationBackfillPersister {
             return BackfillResult.completed(0, dropped, 0);
         }
 
-        // Full pipeline: recompute distance once (monotonic), then replay checkpoints over the gap.
+        // Full pipeline: rebuild the distance-segment chain from the earliest inserted fix
+        // onward, then replay checkpoints over the gap.
         LocationIngestService.IngestGate gate = locationIngestService.computeGate(gameId, teamId, maxT);
-        double cumulative = teamDistanceCalculator.recomputeFromScratch(teamId);
+        double cumulative = teamDistanceCalculator.recomputeAfter(
+            teamId, accepted.getFirst().getLocationTime());
         automationEngine.onDistanceUpdate(gameId, teamId, cumulative, gate.scoringActive());
 
         // Checkpoint eligibility is decided per segment inside replayCheckpoints, not by this single
