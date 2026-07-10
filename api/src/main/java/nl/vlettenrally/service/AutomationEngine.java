@@ -261,7 +261,14 @@ public class AutomationEngine {
         }
 
         double delta = reportedMeters - progress.getLastReportedMeters();
-        progress.setLastReportedMeters(reportedMeters);
+        // High-water mark: never lower the baseline. The fed value is our own segment-chain
+        // sum, which never legitimately resets (a ledger reset deletes this row instead), so
+        // a decrease is always a re-measurement — a segment rebuild that shrank the total
+        // slightly (jitter-threshold polyline caveat). Lowering the baseline would credit
+        // the already-paid meters a second time as the total climbs back past it.
+        if (delta > 0) {
+            progress.setLastReportedMeters(reportedMeters);
+        }
 
         Integer pointsPer100m = rule.getTriggerConfig() != null
             ? rule.getTriggerConfig().pointsPer100m() : null;
@@ -274,8 +281,6 @@ public class AutomationEngine {
             }
             progress.setLeftoverMeters(leftover);
         }
-        // delta < 0: a segment-chain rebuild shrank the total slightly (jitter-threshold
-        // polyline caveat) — rebaseline without credit.
 
         progress.setUpdatedAt(Instant.now());
         distanceProgressRepository.save(progress);

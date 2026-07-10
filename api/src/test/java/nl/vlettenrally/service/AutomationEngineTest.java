@@ -664,7 +664,7 @@ class AutomationEngineTest {
     }
 
     @Test
-    void distance_negativeDelta_rebaselinesWithoutCredit() {
+    void distance_negativeDelta_holdsBaselineWithoutCredit() {
         AutomationRule rule = distanceRule(1);
         progress(rule, 5000, 40, 50, null);
 
@@ -674,8 +674,38 @@ class AutomationEngineTest {
         ArgumentCaptor<AutomationDistanceProgress> captor =
             ArgumentCaptor.forClass(AutomationDistanceProgress.class);
         verify(distanceProgressRepository).save(captor.capture());
-        assertEquals(1000, captor.getValue().getLastReportedMeters());
+        // High-water mark: the baseline is NOT lowered to the shrunk value, so the
+        // already-credited meters cannot be re-credited as the total climbs back.
+        assertEquals(5000, captor.getValue().getLastReportedMeters());
         assertEquals(40, captor.getValue().getLeftoverMeters(), 0.0001);
+    }
+
+    @Test
+    void distance_climbBackAfterShrink_doesNotDoubleCredit() {
+        AutomationRule rule = distanceRule(1);
+        AutomationDistanceProgress p = progress(rule, 5000, 40, 50, null);
+
+        // A segment-chain rebuild shrank the total, then the team climbs back to the
+        // old high-water mark: those meters were already credited before the shrink
+        // and must not be credited again.
+        engine.onDistanceUpdate(gameId, teamId, 4900, true);
+        engine.onDistanceUpdate(gameId, teamId, 5000, true);
+
+        verifyNoInteractions(pointsLedgerService);
+        assertEquals(5000, p.getLastReportedMeters());
+        assertEquals(40, p.getLeftoverMeters(), 0.0001);
+
+        // Only meters beyond the high-water mark earn: +60 → leftover 100 → 1 block.
+        PointEntry entry = new PointEntry();
+        when(pointsLedgerService.createEntry(eq(teamId), eq(gameId), eq(PointEntryType.DISTANCE_BONUS),
+                anyInt(), isNull(), anyString(), isNull(), isNull(), anyDouble())).thenReturn(entry);
+        engine.onDistanceUpdate(gameId, teamId, 5060, true);
+
+        // The ledger entry carries the running total: 50 already-credited points + 1 new.
+        verify(pointsLedgerService).createEntry(eq(teamId), eq(gameId), eq(PointEntryType.DISTANCE_BONUS),
+            eq(51), isNull(), eq("Afstandspunten"), isNull(), isNull(), eq(5100.0));
+        assertEquals(5060, p.getLastReportedMeters());
+        assertEquals(0, p.getLeftoverMeters(), 0.0001);
     }
 
     // ==================== Scheduled time trigger ====================

@@ -67,8 +67,9 @@ public class TeamDistanceCalculator {
      * may predate the {@code location_data} retention window and cannot be re-derived.
      * The total can shrink slightly on a rebuild (adding vertices to a polyline almost
      * always lengthens it, but under the {@code minSegmentMeters} jitter threshold that
-     * is not guaranteed); {@link AutomationEngine#onDistanceUpdate} absorbs a decrease
-     * by rebaselining without credit, so no clamp is needed here.
+     * is not guaranteed); {@link AutomationEngine#onDistanceUpdate} treats its baseline
+     * as a high-water mark — a decrease neither credits nor lowers the baseline, so the
+     * climb-back is not re-credited and no clamp is needed here.
      */
     public double recomputeAfter(UUID teamId, Instant earliestChangedTime) {
         segmentRepository.lockTeam(teamId);
