@@ -18,6 +18,7 @@ export const ADMIN_ROLE_VALUES: string[] = [
   AdminRole.MESSAGE_SENDER,
   AdminRole.CHECKPOINT_MANAGER,
   AdminRole.RALLY_DESK,
+  AdminRole.RANKING,
 ];
 
 /**
@@ -47,6 +48,7 @@ export const ADMIN_PAGE_ROLES: Record<string, string[]> = {
   '/admin/checkpoint-station': [AdminRole.CHECKPOINT_MANAGER],
   '/admin/inbox': [AdminRole.MESSAGE_SENDER, AdminRole.RALLY_DESK],
   '/admin/admin-users': [AdminRole.SUPER_ADMIN],
+  '/admin/ranking': [AdminRole.RANKING],
 };
 
 interface JwtPayload {

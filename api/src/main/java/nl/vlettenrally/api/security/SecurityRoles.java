@@ -25,6 +25,7 @@ public final class SecurityRoles {
     public static final String MESSAGE_SENDER = "message_sender";
     public static final String CHECKPOINT_MANAGER = "checkpoint_manager";
     public static final String RALLY_DESK = "rally_desk";
+    public static final String RANKING = "ranking";
     public static final String TEAM = "team";
 
     /**
@@ -36,6 +37,6 @@ public final class SecurityRoles {
      * All admin-type roles. Holding any of these grants the derived {@link #STAFF} role.
      */
     public static final Set<String> ADMIN_ROLES = Set.of(
-        ADMIN, SUPER_ADMIN, VIEWER, GAME_MASTER, MESSAGE_SENDER, CHECKPOINT_MANAGER, RALLY_DESK
+        ADMIN, SUPER_ADMIN, VIEWER, GAME_MASTER, MESSAGE_SENDER, CHECKPOINT_MANAGER, RALLY_DESK, RANKING
     );
 }

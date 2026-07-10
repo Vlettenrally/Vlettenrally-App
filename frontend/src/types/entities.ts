@@ -386,6 +386,7 @@ export const AdminRole = {
   MESSAGE_SENDER: 'message_sender',
   CHECKPOINT_MANAGER: 'checkpoint_manager',
   RALLY_DESK: 'rally_desk',
+  RANKING: 'ranking',
 } as const;
 
 export type AdminRole = (typeof AdminRole)[keyof typeof AdminRole];

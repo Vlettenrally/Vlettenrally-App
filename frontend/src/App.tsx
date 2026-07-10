@@ -56,6 +56,7 @@ const Settings = lazy(() => import('./pages/admin/Settings'));
 const AdminUsers = lazy(() => import('./pages/admin/AdminUsers'));
 const CheckpointStation = lazy(() => import('./pages/admin/CheckpointStation'));
 const PointsManagement = lazy(() => import('./pages/admin/PointsManagement'));
+const AdminRanking = lazy(() => import('./pages/admin/Ranking'));
 const AdminPictures = lazy(() => import('./pages/admin/Pictures'));
 
 /**
@@ -641,6 +642,18 @@ function App() {
                 <AdminLayout>
                   <Suspense fallback={<PageLoader />}>
                     <PointsManagement />
+                  </Suspense>
+                </AdminLayout>
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/ranking"
+            element={
+              <AdminRoute>
+                <AdminLayout>
+                  <Suspense fallback={<PageLoader />}>
+                    <AdminRanking />
                   </Suspense>
                 </AdminLayout>
               </AdminRoute>

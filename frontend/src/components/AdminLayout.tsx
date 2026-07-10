@@ -48,6 +48,7 @@ import {
   Place as PlaceIcon,
   Flag as FlagIcon,
   Scoreboard as ScoreboardIcon,
+  EmojiEvents as RankingIcon,
   PhotoLibrary as PhotoLibraryIcon,
 } from '@mui/icons-material';
 import { storage } from '../services/storage';
@@ -117,6 +118,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { text: t('admin.layout.teams'), icon: <TeamsIcon />, path: '/admin/teams' },
     { text: t('admin.layout.checkIn'), icon: <HowToRegIcon />, path: '/admin/check-in' },
     { text: t('admin.layout.pointsManagement'), icon: <ScoreboardIcon />, path: '/admin/points-management' },
+    { text: t('admin.layout.ranking'), icon: <RankingIcon />, path: '/admin/ranking' },
     { text: t('admin.layout.zones'), icon: <PlaceIcon />, path: '/admin/zones' },
     { text: t('admin.layout.adminUsers'), icon: <ManageAccountsIcon />, path: '/admin/admin-users' },
     { text: t('admin.layout.checkpointStation'), icon: <FlagIcon />, path: '/admin/checkpoint-station' },

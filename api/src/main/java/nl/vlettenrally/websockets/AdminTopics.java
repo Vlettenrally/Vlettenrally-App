@@ -30,6 +30,9 @@ public final class AdminTopics {
     /** Admin inbox — AUTOMATION_NOTIFICATION. Scope: game id. */
     public static final String INBOX = "inbox";
 
+    /** Ranking page — RANKING_UPDATE. Scope: game id. */
+    public static final String RANKING = "ranking";
+
     /** Checkpoint station — CHECKPOINT_DETECTION. Scope: checkpoint id (not game id). */
     public static final String CHECKPOINT = "checkpoint";
 
@@ -38,5 +41,5 @@ public final class AdminTopics {
      * game at once on game-switch / disconnect. Excludes {@link #CHECKPOINT}, which
      * is scoped by checkpoint id and torn down separately.
      */
-    public static final String[] GAME_SCOPED = { MAP, PICTURES, POINTS, MESSAGES, AUTOMATIONS, INBOX };
+    public static final String[] GAME_SCOPED = { MAP, PICTURES, POINTS, MESSAGES, AUTOMATIONS, INBOX, RANKING };
 }

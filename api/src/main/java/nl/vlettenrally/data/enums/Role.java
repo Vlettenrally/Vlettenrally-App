@@ -51,7 +51,12 @@ public enum Role {
     /**
      * Can manage team check-in, team details, and send messages
      */
-    RALLY_DESK;
+    RALLY_DESK,
+
+    /**
+     * Can view the live ranking / standings page
+     */
+    RANKING;
 
     /**
      * Serialize to lowercase for JSON output

@@ -403,6 +403,15 @@ public class PointsLedgerService {
      * through post-commit).
      */
     private void publishStandings(UUID gameId, Set<UUID> changedTeamIds, Map<UUID, Integer> totalOverrides) {
+        // Staff on the admin ranking page always see the full live standings, regardless of
+        // publish state or game status. Topic-gated: only sessions with a fresh ranking
+        // heartbeat receive this, so it costs nothing when nobody's on the page.
+        webSocketPublisher.sendToAdminTopic(
+            gameId,
+            AdminTopics.RANKING,
+            WebSocketMessageType.RANKING_UPDATE.getValue(),
+            rankingService.buildRanking(gameId));
+
         if (isRankingsPublished(gameId)) {
             // Standings are only player-visible once an admin has revealed them.
             // After that, a points correction re-broadcasts the updated ranking.

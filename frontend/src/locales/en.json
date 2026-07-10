@@ -239,6 +239,7 @@
       "teams": "Teams",
       "checkIn": "Check-in",
       "pointsManagement": "Points Management",
+      "ranking": "Ranking",
       "zones": "Zones",
       "adminUsers": "Admin Users",
       "checkpointStation": "Checkpoint Station",
@@ -558,6 +559,15 @@
       "deleteZone": "Delete zone",
       "deleteFailed": "Delete failed",
       "deleteConfirm": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone."
+    },
+    "ranking": {
+      "title": "Ranking",
+      "subtitle": "Live standings — updates automatically as points change.",
+      "selectGameFirst": "Select a game in the sidebar first.",
+      "rank": "Rank",
+      "team": "Team",
+      "points": "Points",
+      "noData": "No ranking data yet."
     },
     "pointsManagement": {
       "title": "Points management",

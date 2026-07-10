@@ -42,6 +42,7 @@ import nl.vlettenrally.data.dto.game.RankingResponse;
 import nl.vlettenrally.data.enums.PointEntryType;
 import nl.vlettenrally.data.repository.PointEntryRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
+import nl.vlettenrally.websockets.AdminTopics;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 import nl.vlettenrally.websockets.dto.WebSocketMessageType;
 
@@ -433,6 +434,65 @@ class PointsLedgerServiceTest {
         ledger.publishStandingsForTeams(gameId, java.util.Set.of());
         verify(webSocketPublisher, never()).broadcastToGame(any(), any(), any());
         verify(webSocketPublisher, never()).sendToTeamOnly(any(), any(), any(), any());
+    }
+
+    // ---- admin ranking topic (always live, independent of publish state) --
+
+    @Test
+    void createEntry_duringGame_streamsFullRankingToAdminRankingTopic_evenBeforeReveal() {
+        // Staff on the admin ranking page see the full live standings while the game
+        // is still running, before any reveal — unlike players, who only get rival views.
+        team.setCheckedIn(true);
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+        when(gameService.findById(gameId)).thenReturn(Optional.of(game(Game.GameStatus.ACTIVE)));
+        when(teamRepository.findByGameId(gameId)).thenReturn(List.of(team));
+        List<RankingResponse> full = List.of(new RankingResponse(1, teamId, "Test team", null, 150));
+        when(rankingService.buildRanking(gameId)).thenReturn(full);
+
+        ledger.createEntry(teamId, gameId, PointEntryType.CHECKPOINT_VERIFICATION,
+            50, null, "Checkpoint X", null, null);
+        fireAfterCommit();
+
+        // Full ranking goes to the admin ranking topic...
+        verify(webSocketPublisher).sendToAdminTopic(eq(gameId), eq(AdminTopics.RANKING),
+            eq(WebSocketMessageType.RANKING_UPDATE.getValue()), eq(full));
+        // ...but is never broadcast to players while the game is running.
+        verify(webSocketPublisher, never()).broadcastToGame(eq(gameId),
+            eq(WebSocketMessageType.RANKING_UPDATE.getValue()), any());
+    }
+
+    @Test
+    void createEntry_afterReveal_streamsToAdminRankingTopic_inAdditionToPlayerBroadcast() {
+        team.setCheckedIn(true);
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+        Game published = game(Game.GameStatus.COMPLETED);
+        published.setRankingsPublished(true);
+        when(gameService.findById(gameId)).thenReturn(Optional.of(published));
+        List<RankingResponse> full = List.of(new RankingResponse(1, teamId, "Test team", null, 150));
+        when(rankingService.buildRanking(gameId)).thenReturn(full);
+
+        ledger.createEntry(teamId, gameId, PointEntryType.CHECKPOINT_VERIFICATION,
+            50, null, "Checkpoint X", null, null);
+        fireAfterCommit();
+
+        verify(webSocketPublisher).sendToAdminTopic(eq(gameId), eq(AdminTopics.RANKING),
+            eq(WebSocketMessageType.RANKING_UPDATE.getValue()), eq(full));
+        verify(webSocketPublisher).broadcastToGame(eq(gameId),
+            eq(WebSocketMessageType.RANKING_UPDATE.getValue()), eq(full));
+    }
+
+    @Test
+    void publishStandingsForTeams_coalesced_alsoStreamsToAdminRankingTopic() {
+        team.setCheckedIn(true);
+        when(gameService.findById(gameId)).thenReturn(Optional.of(game(Game.GameStatus.ACTIVE)));
+        when(teamRepository.findByGameId(gameId)).thenReturn(List.of(team));
+        List<RankingResponse> full = List.of(new RankingResponse(1, teamId, "Test team", null, 150));
+        when(rankingService.buildRanking(gameId)).thenReturn(full);
+
+        ledger.publishStandingsForTeams(gameId, java.util.Set.of(teamId));
+
+        verify(webSocketPublisher).sendToAdminTopic(eq(gameId), eq(AdminTopics.RANKING),
+            eq(WebSocketMessageType.RANKING_UPDATE.getValue()), eq(full));
     }
 
     /** Run every post-commit synchronization the call registered, as a real commit would. */

@@ -8,6 +8,7 @@ import {
   getSubjectFromToken,
   getNameFromToken,
   isAdmin,
+  canAccessAdminPath,
 } from './auth';
 import { makeJwt, expSecondsFromNow } from '../test/jwt';
 
@@ -99,7 +100,7 @@ describe('role helpers', () => {
     expect(getUserRoleFromRoles(['unknown'])).toBeNull();
   });
 
-  it.each(['admin', 'super_admin', 'viewer', 'game_master', 'message_sender', 'checkpoint_manager'])(
+  it.each(['admin', 'super_admin', 'viewer', 'game_master', 'message_sender', 'checkpoint_manager', 'ranking'])(
     'treats %s as an admin role',
     (role) => {
       expect(getUserRoleFromRoles([role])).toBe('admin');
@@ -124,5 +125,25 @@ describe('role helpers', () => {
     expect(isAdmin(makeJwt({ groups: ['checkpoint_manager'] }))).toBe(true);
     expect(isAdmin(makeJwt({ groups: ['team'] }))).toBe(false);
     expect(isAdmin(makeJwt({ sub: 'x' }))).toBe(false);
+  });
+});
+
+describe('canAccessAdminPath — ranking page', () => {
+  it('grants access to holders of the ranking role', () => {
+    expect(canAccessAdminPath(makeJwt({ groups: ['ranking'] }), '/admin/ranking')).toBe(true);
+  });
+
+  it('grants access to a full admin (implicit capability role)', () => {
+    expect(canAccessAdminPath(makeJwt({ groups: ['admin'] }), '/admin/ranking')).toBe(true);
+  });
+
+  it('denies staff who lack the ranking role', () => {
+    expect(canAccessAdminPath(makeJwt({ groups: ['game_master'] }), '/admin/ranking')).toBe(false);
+    expect(canAccessAdminPath(makeJwt({ groups: ['viewer'] }), '/admin/ranking')).toBe(false);
+  });
+
+  it('does not let the ranking role reach unrelated gated pages', () => {
+    expect(canAccessAdminPath(makeJwt({ groups: ['ranking'] }), '/admin/admin-users')).toBe(false);
+    expect(canAccessAdminPath(makeJwt({ groups: ['ranking'] }), '/admin/games')).toBe(false);
   });
 });

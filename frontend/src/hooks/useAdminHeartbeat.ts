@@ -20,6 +20,7 @@ export const ADMIN_TOPICS = {
   MESSAGES: 'messages',
   AUTOMATIONS: 'automations',
   INBOX: 'inbox',
+  RANKING: 'ranking',
 } as const;
 
 export type AdminTopic = typeof ADMIN_TOPICS[keyof typeof ADMIN_TOPICS];
