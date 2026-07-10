@@ -383,14 +383,15 @@ public class PointsLedgerService {
      * flush — called by {@link nl.vlettenrally.websockets.StandingsBroadcastBuffer} on its flush
      * interval for continuous distance accrual. Totals are read from {@link PointsTotalsCache}
      * (fresh, since each accrual wrote through post-commit), so no explicit totals are passed.
-     * Wrapped in a transaction so the team/ranking reads have a session on the scheduler thread.
+     * Runs under a CDI request context (not a JTA transaction) so the team/ranking reads get a
+     * session on the scheduler thread without holding an enlisted JDBC connection across the blocking
+     * Valkey fan-out — the same pattern the discrete path uses in {@code broadcastRankingAfterCommit}.
      */
-    @Transactional
     public void publishStandingsForTeams(UUID gameId, Set<UUID> changedTeamIds) {
         if (changedTeamIds == null || changedTeamIds.isEmpty()) {
             return;
         }
-        publishStandings(gameId, changedTeamIds, Map.of());
+        withRequestContext(() -> publishStandings(gameId, changedTeamIds, Map.of()));
     }
 
     /**

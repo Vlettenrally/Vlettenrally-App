@@ -3,8 +3,8 @@ package nl.vlettenrally.service;
 import io.quarkus.logging.Log;
 import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.context.control.ActivateRequestContext;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
 import nl.vlettenrally.client.LocationApiClient;
 import nl.vlettenrally.client.dto.legendstracking.EventParticipantLocation;
 import nl.vlettenrally.client.dto.legendstracking.EventParticipantsLocationsResponse;
@@ -92,7 +92,7 @@ public class LocationPollingScheduler {
     Duration backfillGapThreshold;
 
     @Scheduled(every = "{vlettenrally.location.polling-interval}")
-    @Transactional
+    @ActivateRequestContext
     void pollLocations() {
         if (!pollingLeader.tryAcquireOrRenew()) {
             return;
