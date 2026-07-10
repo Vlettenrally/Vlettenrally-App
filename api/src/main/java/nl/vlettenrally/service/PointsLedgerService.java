@@ -1,5 +1,7 @@
 package nl.vlettenrally.service;
 
+import io.quarkus.arc.Arc;
+import io.quarkus.arc.ManagedContext;
 import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -339,13 +341,40 @@ public class PointsLedgerService {
                 @Override public void beforeCompletion() { }
                 @Override public void afterCompletion(int status) {
                     if (status == Status.STATUS_COMMITTED) {
-                        publishStandings(gameId, Set.of(changedTeamId), Map.of(changedTeamId, changedTeamTotal));
+                        withRequestContext(() ->
+                            publishStandings(gameId, Set.of(changedTeamId), Map.of(changedTeamId, changedTeamTotal)));
                     }
                 }
             });
         } catch (IllegalStateException noTx) {
             Log.warn("No active transaction for ranking broadcast; sending immediately");
-            publishStandings(gameId, Set.of(changedTeamId), Map.of(changedTeamId, changedTeamTotal));
+            withRequestContext(() ->
+                publishStandings(gameId, Set.of(changedTeamId), Map.of(changedTeamId, changedTeamTotal)));
+        }
+    }
+
+    /**
+     * Run an after-commit body that reads the database. In afterCompletion the transaction is
+     * already gone, so the EntityManager falls back to the CDI request context — which a bare
+     * worker thread (e.g. the auto-backfill) doesn't have. Activate one for the duration when
+     * missing; on request/scheduler threads the existing context is used as-is.
+     */
+    private void withRequestContext(Runnable body) {
+        if (Arc.container() == null) {
+            // No CDI container (plain unit tests invoking the callback directly).
+            body.run();
+            return;
+        }
+        ManagedContext requestContext = Arc.container().requestContext();
+        if (requestContext.isActive()) {
+            body.run();
+            return;
+        }
+        requestContext.activate();
+        try {
+            body.run();
+        } finally {
+            requestContext.terminate();
         }
     }
 
