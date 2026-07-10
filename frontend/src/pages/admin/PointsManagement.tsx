@@ -143,6 +143,14 @@ export default function PointsManagement() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedGameId, filterTeam, filterType]);
 
+  // Whether a live entry belongs in the currently-filtered view.
+  const matchesFilters = useCallback(
+    (entry: PointEntry) =>
+      (!filterTeam || entry.teamId === filterTeam.id) &&
+      (!filterType || entry.entryType === filterType),
+    [filterTeam, filterType],
+  );
+
   useAdminResync(() => void loadEntries());
 
   // Only receive point-ledger events from the backend while this page is mounted.
@@ -150,12 +158,14 @@ export default function PointsManagement() {
 
   // Live point-ledger updates: fold new/edited entries into the store.
   useEffect(() => {
-    const unsubCreated = websocket.on(WebSocketEventType.POINT_ENTRY_CREATED, (m) =>
-      addEntry(m.payload as PointEntry),
-    );
-    const unsubUpdated = websocket.on(WebSocketEventType.POINT_ENTRY_UPDATED, (m) =>
-      updateEntry(m.payload as PointEntry),
-    );
+    const unsubCreated = websocket.on(WebSocketEventType.POINT_ENTRY_CREATED, (m) => {
+      const entry = m.payload as PointEntry;
+      if (matchesFilters(entry)) addEntry(entry);
+    });
+    const unsubUpdated = websocket.on(WebSocketEventType.POINT_ENTRY_UPDATED, (m) => {
+      const entry = m.payload as PointEntry;
+      if (matchesFilters(entry)) updateEntry(entry);
+    });
     const unsubReset = websocket.on(WebSocketEventType.TEAM_LEDGER_RESET, () =>
       void loadEntries({ page: 0 }),
     );
@@ -164,7 +174,7 @@ export default function PointsManagement() {
       unsubUpdated();
       unsubReset();
     };
-  }, [addEntry, updateEntry, loadEntries]);
+  }, [addEntry, updateEntry, loadEntries, matchesFilters]);
 
   const teamNameById = useMemo(() => {
     const map = new Map<string, string>();
