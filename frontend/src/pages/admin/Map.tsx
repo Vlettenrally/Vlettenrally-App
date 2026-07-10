@@ -18,6 +18,7 @@ import {useAdminTopicHeartbeat, ADMIN_TOPICS} from '../../hooks/useAdminHeartbea
 import api from '../../services/api';
 import MapLegendSidebar, {type TrackWindowMinutes} from './MapLegendSidebar';
 import {STALE_AFTER_MS, TEAM_COLOR} from './mapConstants';
+import {appendTrackPoints, mergeLocations, partitionTrackedUpdates, toTrackPoints} from './trackUtils';
 
 const MapView = lazy(() => import('../../components/MapView'));
 
@@ -50,6 +51,10 @@ export default function AdminMap() {
   trackTeamIdsRef.current = trackTeamIds;
   const windowMinutesRef = useRef(windowMinutes);
   windowMinutesRef.current = windowMinutes;
+  // Latest locations, kept in a ref so the WebSocket handler can compare a new fix's
+  // timestamp against the previously-known one without re-subscribing on every update.
+  const teamLocationsRef = useRef(teamLocations);
+  teamLocationsRef.current = teamLocations;
 
   const mapRef = useRef<MapViewHandle>(null);
 
@@ -97,47 +102,46 @@ export default function AdminMap() {
 
   useAdminResync(fetchData);
 
+  // Refetch the full history for specific tracked teams and merge it into the tracks,
+  // replacing only those teams' polylines. Used when a live gap means appending would
+  // skip points. Responses are dropped if the team was untoggled or the window changed
+  // while in flight.
+  const refetchTracks = useCallback((ids: string[]) => {
+    if (!selectedGameId || ids.length === 0) return;
+    const windowAtRequest = windowMinutesRef.current;
+    for (const teamId of ids) {
+      void (async () => {
+        try {
+          const resp = await api.getTeamLocationHistory(selectedGameId, teamId, windowAtRequest);
+          if (!trackTeamIdsRef.current.has(teamId) || windowMinutesRef.current !== windowAtRequest) return;
+          setTeamTracks(prev => ({ ...prev, [teamId]: toTrackPoints(resp.data ?? []) }));
+        } catch (err) {
+          console.error('Failed to refetch track for stale team', teamId, err);
+        }
+      })();
+    }
+  }, [selectedGameId]);
+
   // Subscribe to real-time location updates
   const handleLocationUpdate = useCallback((message: { payload: unknown }) => {
     const payload = message.payload;
 
-    if (Array.isArray(payload)) {
+    // The admin map always receives batched arrays (see LocationBroadcastBuffer), but
+    // handle a lone object defensively too. Both paths update markers and grow tracks.
+    const incoming = (Array.isArray(payload) ? payload : [payload]) as TeamLocation[];
+    if (incoming.length === 0) return;
 
-      const incoming = payload as TeamLocation[];
-      if (incoming.length > 0) {
-        setTeamLocations(prev => {
-          const byId = new Map(prev.map(l => [l.teamId, l]));
-          for (const loc of incoming) {
-            byId.set(loc.teamId, loc);
-          }
-          return Array.from(byId.values());
-        });
-      }
-    } else {
-      // Single team update - merge into existing locations
-      const teamLoc = payload as TeamLocation;
-      setTeamLocations(prev => {
-        const updated = prev.filter(l => l.teamId !== teamLoc.teamId);
-        return [...updated, teamLoc];
-      });
+    // Tracked teams with a gap larger than the stale threshold likely have backfilled
+    // points we never saw live, so extend the rest and refetch those whole tracks.
+    const prevById = new Map(teamLocationsRef.current.map(l => [l.teamId, l]));
+    const { staleTracked, freshUpdates } = partitionTrackedUpdates(
+      incoming, prevById, trackTeamIdsRef.current, STALE_AFTER_MS,
+    );
 
-      // Extend the polyline for this team if it is currently tracked.
-      if (trackTeamIdsRef.current.has(teamLoc.teamId)) {
-        setTeamTracks(prev => {
-          const existing = prev[teamLoc.teamId];
-          if (!existing) return prev;
-          const last = existing[existing.length - 1];
-          if (last && last[0] === teamLoc.longitude && last[1] === teamLoc.latitude) {
-            return prev;
-          }
-          return {
-            ...prev,
-            [teamLoc.teamId]: [...existing, [teamLoc.longitude, teamLoc.latitude]],
-          };
-        });
-      }
-    }
-  }, []);
+    setTeamLocations(prev => mergeLocations(prev, incoming));
+    setTeamTracks(prev => appendTrackPoints(prev, freshUpdates, trackTeamIdsRef.current));
+    refetchTracks(staleTracked);
+  }, [refetchTracks]);
 
   useEffect(() => {
     if (!selectedGameId) return;
@@ -236,7 +240,7 @@ export default function AdminMap() {
 
       const next: Record<string, Array<[number, number]>> = {};
       for (const { teamId, points } of results) {
-        next[teamId] = points.map(p => [p.longitude, p.latitude] as [number, number]);
+        next[teamId] = toTrackPoints(points);
       }
       setTeamTracks(next);
     })();

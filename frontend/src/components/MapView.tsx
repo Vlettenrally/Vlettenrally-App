@@ -268,6 +268,10 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       zoneSource.setData({ type: 'FeatureCollection', features: zoneFeatures });
     }
   }, [markers, t]);
+  // Kept in a ref so the (once-created) map 'load' handler calls the latest updater
+  // with current markers, not the empty-markers closure captured at mount.
+  const updateMarkersRef = useRef(updateMarkers);
+  updateMarkersRef.current = updateMarkers;
 
   const updateTracks = useCallback(() => {
     const map = mapRef.current;
@@ -292,6 +296,9 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       trackSource.setData({ type: 'FeatureCollection', features: trackFeatures });
     }
   }, [tracks]);
+  // Ref to the latest updateTracks, for the same reason as updateMarkersRef above.
+  const updateTracksRef = useRef(updateTracks);
+  updateTracksRef.current = updateTracks;
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -595,8 +602,8 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           });
 
           markersSourceRef.current = true;
-          updateMarkers();
-          updateTracks();
+          updateMarkersRef.current();
+          updateTracksRef.current();
           maybeAutoFitRef.current();
         });
 

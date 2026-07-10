@@ -10,7 +10,6 @@ import {lazy, Suspense, useCallback, useEffect, useState} from 'react';
 import { useTranslation } from 'react-i18next';
 import {Alert, Box, CircularProgress, Typography} from '@mui/material';
 import type {MapMarker} from '../../components/MapView';
-import {getTeamColor} from '../../utils/teamColors';
 import type {TeamLocation} from '../../types/entities';
 import {useTeamStore} from '../../store/useTeamStore';
 import {useGameStore} from '../../store/useGameStore';
@@ -20,6 +19,9 @@ import api from '../../services/api';
 import {DEFAULT_CENTER, DEFAULT_ZOOM} from '../../utils/mapStyle';
 
 const MapView = lazy(() => import('../../components/MapView'));
+
+// Standard "your location" blue (app primary), matching MapView's PIN_SVG and follow button.
+const OWN_LOCATION_COLOR = '#1976d2';
 
 export default function ParticipantMap() {
   const { team } = useTeamStore();
@@ -105,7 +107,7 @@ export default function ParticipantMap() {
       lat: myLocation.latitude,
       lng: myLocation.longitude,
       label: myLocation.teamName || team?.name || t('participant.map.myTeam'),
-      color: getTeamColor(myLocation.teamId),
+      color: OWN_LOCATION_COLOR,
       type: 'team' as const,
     }] : []),
     ...checkpoints
