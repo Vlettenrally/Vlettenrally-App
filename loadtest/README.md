@@ -27,7 +27,7 @@ loadtest/
 | `POST /api/v1/admin/load-test/seed` | super_admin API endpoint. Creates a **marked** game (`⚠ LOAD TEST …`), N pre-checked-in teams (numeric `trackerId`s, no phone numbers), M checkpoints, and (by default) automation rules. Returns the scenario. |
 | `DELETE /api/v1/admin/load-test/{gameId}` | Deletes a marked game + its S3 picture objects; refuses unmarked games. |
 | `scripts/seed.mjs` | Logs in as admin, calls seed, writes `scenario/scenario.json`. |
-| `mock-location-server` | Serves `/api/event/:id/{details,participants_locations}` with live positions. |
+| `mock-location-server` | Serves `/api/event/:id/{details,participants_locations}` with live positions, plus `/api/event/:participantId/participant_track` for backfills. Simulates periodic tracker outages so the backfill path is exercised. |
 | `k6/app-load.js` | Ramps app VUs; register-device → ws PING → poll → picture upload. |
 
 ## Prerequisites
@@ -93,6 +93,40 @@ Seed with `LOCATION_ENDPOINT_URL=http://localhost:8080/api/event/1` (or `host.do
 
 Movement knobs (env): `SPEED_MIN_KMH`/`SPEED_MAX_KMH` (default 6–22, kept **below the API's 25 km/h
 guard**), `STAGGER_WINDOW_SECONDS` (default 1200), `GPS_ACCURACY_MIN_M`/`MAX_M`, `JITTER_METERS`.
+
+### Tracker outages & backfill
+
+A fraction of teams periodically "go dark" so the API's backfill pipeline (gap detection →
+`/participant_track` fetch → dedupe/guards → distance recompute → checkpoint replay) is exercised
+under load, not just steady ingest. The boat keeps moving during an outage — only reporting stops —
+so the served track contains the buffered stretch the backfill exists to recover. Outage schedules
+are a pure function of team + time (deterministic across restarts).
+
+How it plays out per affected team: while dark, `/participants_locations` repeats the last
+pre-outage fix with a frozen `location_time` (which also exercises the ingest dedupe), or omits the
+team with `OUTAGE_MODE=omit`. When the outage ends, the next poll carries a fix newer than the
+API's `vlettenrally.location.backfill.gap-threshold` (PT5M) → the poller fires an auto-backfill,
+which fetches `/api/event/{participantId}/participant_track` from this server.
+
+Knobs (env), defaults sized to the API's PT5M gap-threshold and PT15M per-team cooldown:
+
+| Env | Default | Meaning |
+|-----|---------|---------|
+| `OUTAGE_TEAM_FRACTION` | `0.25` | Share of teams that are outage-prone. `0` disables (pure-ingest baseline). |
+| `OUTAGE_CYCLE_SECONDS` | `1800` | Outages repeat per cycle; keep > cooldown (900s) + max outage. |
+| `OUTAGE_MIN_SECONDS` / `OUTAGE_MAX_SECONDS` | `390` / `600` | Per-team outage duration band; keep > gap-threshold (300s). |
+| `OUTAGE_MODE` | `stale` | `stale` = repeat last fix (matches real upstream), `omit` = drop from response. |
+| `TRACK_SAMPLE_SECONDS` | `30` | Sampling interval of the served `/participant_track` history. |
+
+With the defaults and 250 teams, expect roughly 20 auto-backfills during a 10-minute hold (the
+~62 prone teams recover uniformly over the 30-min cycle); longer soaks re-hit teams past their
+cooldown. `GET /health` reports `outages: { mode, proneTeams, darkTeams }` for a live view.
+
+To verify backfills ran: watch the leader pod's logs for the auto-backfill trigger and the
+persister's inserted/dropped counts, or force one via
+`POST /api/v1/games/{gameId}/teams/{teamId}/backfill-track` (admin) and check `inserted > 0`. In
+the DB, the team's `location_data` gap fills in and `team_distance_segment` is rebuilt from the
+gap onward.
 
 ## 3. k6 app load
 

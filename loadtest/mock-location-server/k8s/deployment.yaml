@@ -38,6 +38,23 @@ spec:
               value: "22"
             - name: STAGGER_WINDOW_SECONDS
               value: "1200"
+            # Tracker outages so the API's auto-backfill path is exercised. Durations must
+            # exceed the API's backfill gap-threshold (PT5M) or no backfill ever fires; the
+            # cycle must exceed the per-team cooldown (PT15M) + max outage. OUTAGE_MODE:
+            # "stale" repeats the last fix with a frozen timestamp, "omit" drops the team.
+            # Set OUTAGE_TEAM_FRACTION=0 for a pure-ingest baseline run.
+            - name: OUTAGE_TEAM_FRACTION
+              value: "0.25"
+            - name: OUTAGE_CYCLE_SECONDS
+              value: "1800"
+            - name: OUTAGE_MIN_SECONDS
+              value: "390"
+            - name: OUTAGE_MAX_SECONDS
+              value: "600"
+            - name: OUTAGE_MODE
+              value: stale
+            - name: TRACK_SAMPLE_SECONDS
+              value: "30"
           resources:
             requests:
               cpu: 50m

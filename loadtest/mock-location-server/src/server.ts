@@ -1,5 +1,5 @@
 import Fastify from "fastify";
-import { configFromEnv, MovementEngine } from "./engine.js";
+import { configFromEnv, MovementEngine, type Fix } from "./engine.js";
 import { loadScenario, waypointsOf } from "./scenario.js";
 
 const PORT = Number(process.env.PORT ?? 8080);
@@ -16,6 +16,23 @@ const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? "info" } });
 
 function isoNow(): string {
   return new Date().toISOString();
+}
+
+/** One fix in the Legendstracking wire shape shared by live locations and track points. */
+function toWireLocation(fix: Fix) {
+  const iso = new Date(fix.timestampMs).toISOString();
+  return {
+    event_participants_id: fix.participantId,
+    status_id: 1,
+    tracker_id: fix.trackerId,
+    location_time: iso,
+    report_time: iso,
+    location: { x: fix.position.lng, y: fix.position.lat },
+    battery_percentage: 100,
+    is_sos_report: 0,
+    gps_accuracy: Math.round(fix.accuracyMeters),
+    speed: Number(fix.speedKmh.toFixed(1)),
+  };
 }
 
 /** GET {base}/details — event metadata, participants and checkpoints (EventDetailsResponse). */
@@ -58,25 +75,38 @@ app.get("/api/event/:id/details", async () => {
   };
 });
 
-/** GET {base}/participants_locations — live positions (EventParticipantsLocationsResponse). */
+/**
+ * GET {base}/participants_locations — live positions (EventParticipantsLocationsResponse).
+ * Teams in a simulated tracker outage report their last pre-outage fix with a frozen
+ * location_time (OUTAGE_MODE=stale) or are absent (omit); either way the API sees a growing
+ * gap and auto-triggers a backfill once the tracker "comes back".
+ */
 app.get("/api/event/:id/participants_locations", async () => {
-  const now = isoNow();
   const fixes = engine.fixesAt(Date.now());
   return {
     event: {
-      eventParticipantLocations: fixes.map((fix) => ({
-        event_participants_id: fix.participantId,
-        status_id: 1,
-        tracker_id: fix.trackerId,
-        location_time: now,
-        report_time: now,
-        location: { x: fix.position.lng, y: fix.position.lat },
-        battery_percentage: 100,
-        is_sos_report: 0,
-        gps_accuracy: Math.round(fix.accuracyMeters),
-        speed: Number(fix.speedKmh.toFixed(1)),
-      })),
+      eventParticipantLocations: fixes.map(toWireLocation),
       eventParticipantDistances: [],
+    },
+  };
+});
+
+/**
+ * GET /api/event/{eventParticipantId}/participant_track — one participant's full history
+ * (EventParticipantTrackResponse), fetched by the API's backfill. Note the path parameter is
+ * the participant id, not the event id (matches LocationApiClient.participantTrackUrl).
+ */
+app.get("/api/event/:id/participant_track", async (request, reply) => {
+  const participantId = Number((request.params as { id: string }).id);
+  const track = Number.isInteger(participantId)
+    ? engine.trackFor(participantId, Date.now())
+    : null;
+  if (!track) {
+    return reply.code(404).send({ error: `unknown participant ${participantId}` });
+  }
+  return {
+    participantTrack: {
+      participantTrack: track.map((fix) => ({ ...toWireLocation(fix), is_buffered: 1 })),
     },
   };
 });
@@ -87,13 +117,16 @@ app.get("/health", async () => ({
   teams: engine.teamCount,
   checkpoints: scenario.checkpoints.length,
   simStartMs,
+  outages: engine.outageStats(Date.now()),
 }));
 
 app
   .listen({ port: PORT, host: HOST })
   .then(() => {
+    const outages = engine.outageStats(Date.now());
     app.log.info(
-      `mock location server up: ${engine.teamCount} teams, ${scenario.checkpoints.length} checkpoints, event ${EVENT_ID}`,
+      `mock location server up: ${engine.teamCount} teams, ${scenario.checkpoints.length} checkpoints, event ${EVENT_ID}, ` +
+        `${outages.proneTeams} outage-prone teams (mode=${outages.mode})`,
     );
   })
   .catch((err) => {
