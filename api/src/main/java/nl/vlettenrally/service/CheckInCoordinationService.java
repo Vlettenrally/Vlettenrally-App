@@ -30,11 +30,13 @@ public interface CheckInCoordinationService {
      * Idempotent on (teamId, deviceId). Atomically claims the main-device slot
      * if no device has claimed it yet.
      * <p>
-     * Additional-device gate: once a team has a main device, a brand-new device
-     * registering more than the configured window after the team's initial check-in
-     * is rejected with {@link CheckInWindowClosedException} — UNLESS a valid
+     * Check-in gates (new registrations only; resumed idempotent registrations are never
+     * gated): a device may register only for a team that has been physically checked in
+     * at the rally desk — otherwise {@link TeamNotCheckedInException}. Once checked in, a
+     * new device (first or additional) registering more than the configured window after
+     * that check-in is rejected with {@link CheckInWindowClosedException} — UNLESS a valid
      * {@code inviteToken} for this team is supplied (the team/admin QR path), which
-     * always bypasses the gate. The first device and resumed devices are never gated.
+     * bypasses the time window (but not the physical-check-in requirement).
      *
      * @param inviteToken optional signed team-invite token from a scanned QR; null for
      *                    the regular game/team selection path
@@ -49,10 +51,10 @@ public interface CheckInCoordinationService {
 
     /**
      * For every team in the game, whether the regular game/team selection screen may
-     * still be used to register an ADDITIONAL device: {@code true} when the team has no
-     * main device yet, or its initial check-in was within the configured window;
-     * {@code false} once that window has closed (such teams are then only joinable via
-     * the invite QR). Keyed by teamId.
+     * still be used to register a device: {@code true} only when the team has been
+     * physically checked in AND that check-in was within the configured window;
+     * {@code false} before physical check-in or once the window has closed (such teams
+     * are then only joinable via the invite QR or an admin). Keyed by teamId.
      */
     Map<UUID, Boolean> acceptingNewDevicesByTeam(UUID gameId);
 

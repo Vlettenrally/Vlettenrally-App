@@ -89,6 +89,9 @@ class TeamServiceImplTest {
         assertTrue(result.isCheckedIn());
         assertTrue(result.isCheckedInDigitally());
         assertNotNull(result.getUpdatedAt());
+        // The false -> true transition stamps the physical check-in time, which anchors
+        // the digital check-in window.
+        assertNotNull(result.getCheckedInAt());
 
         ArgumentCaptor<Team> teamCaptor = ArgumentCaptor.forClass(Team.class);
         verify(teamRepository).save(teamCaptor.capture());
@@ -121,6 +124,10 @@ class TeamServiceImplTest {
         Team team = createTeam(true);
         team.setCheckedInDigitally(false);
         team.getEmergencyPhoneNumbers().clear();
+        // Physical check-in already recorded earlier (e.g. by an admin); completing the
+        // digital step must not move the window anchor.
+        Instant physicalCheckInAt = Instant.now().minusSeconds(600);
+        team.setCheckedInAt(physicalCheckInAt);
 
         when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
         when(teamRepository.save(any(Team.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -132,6 +139,7 @@ class TeamServiceImplTest {
         assertTrue(result.isCheckedIn());
         assertTrue(result.isCheckedInDigitally());
         assertNotNull(result.getUpdatedAt());
+        assertEquals(physicalCheckInAt, result.getCheckedInAt());
 
         ArgumentCaptor<Team> teamCaptor = ArgumentCaptor.forClass(Team.class);
         verify(teamRepository).save(teamCaptor.capture());

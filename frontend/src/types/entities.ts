@@ -499,8 +499,9 @@ export interface TeamOption {
   description?: string;
   checkedIn?: boolean;
   hasMainDevice?: boolean;
-  // False once the team's 15-min additional-device window has closed — the team is
-  // then only joinable via its invite QR, not the regular selection screen.
+  // False once the team's digital check-in window (measured from its physical
+  // check-in) has closed — the team is then only joinable via its invite QR or an
+  // admin, not the regular selection screen.
   acceptingNewDevices?: boolean;
 }
 

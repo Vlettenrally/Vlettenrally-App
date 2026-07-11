@@ -65,6 +65,9 @@ public class TeamEntity {
     @Column(name = "checked_in_digitally", nullable = false)
     private boolean checkedInDigitally = false;
 
+    @Column(name = "checked_in_at")
+    private Instant checkedInAt;
+
     @Column(name = "finished", nullable = false)
     private boolean finished = false;
 

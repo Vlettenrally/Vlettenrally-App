@@ -40,6 +40,7 @@ import nl.vlettenrally.service.TrackerAssignmentService;
 import nl.vlettenrally.websockets.WebSocketEventTypes;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -299,10 +300,18 @@ public class TeamResource {
             // Handle check-in status updates with reset logic
             // If checkedIn is explicitly set to false, also reset checkedInDigitally
             if (request.checkedIn() != null) {
+                boolean wasCheckedIn = team.isCheckedIn();
                 team.setCheckedIn(request.checkedIn());
-                if (!request.checkedIn()) {
-                    // Reset digital check-in when unchecking
+                if (request.checkedIn()) {
+                    // Stamp the physical check-in time on the false -> true transition;
+                    // the digital check-in window is measured from here.
+                    if (!wasCheckedIn) {
+                        team.setCheckedInAt(Instant.now());
+                    }
+                } else {
+                    // Reset digital check-in and the window anchor when unchecking
                     team.setCheckedInDigitally(false);
+                    team.setCheckedInAt(null);
                 }
                 checkInCacheService.invalidate(team.getGameId());
             }
@@ -486,7 +495,7 @@ public class TeamResource {
 
     /**
      * Admin: mint a team-scoped invite token + URL to render as a QR. Scanning it lets a
-     * teammate join this team directly and bypass the additional-device time gate — the
+     * teammate join this team directly and bypass the digital check-in time gate — the
      * same QR a team can generate for itself.
      */
     @POST

@@ -30,6 +30,7 @@ import nl.vlettenrally.service.AuthService;
 import nl.vlettenrally.service.CheckInCacheService;
 import nl.vlettenrally.service.CheckInCoordinationService;
 import nl.vlettenrally.service.CheckInWindowClosedException;
+import nl.vlettenrally.service.TeamNotCheckedInException;
 import nl.vlettenrally.service.TeamService;
 
 import java.util.List;
@@ -119,8 +120,14 @@ public class CheckInResource {
             return Response.status(Response.Status.BAD_REQUEST)
                 .entity(new ErrorResponse(e.getMessage()))
                 .build();
+        } catch (TeamNotCheckedInException e) {
+            // Team hasn't been physically checked in at the rally desk yet. 409 (not 403)
+            // for the same reason as below — the frontend treats 401/403 as an auth failure.
+            return Response.status(Response.Status.CONFLICT)
+                .entity(new ErrorResponse(e.getMessage()))
+                .build();
         } catch (CheckInWindowClosedException e) {
-            // Additional-device time gate closed for the manual selection path. 409 (not
+            // Digital check-in time gate closed for the manual selection path. 409 (not
             // 403) is deliberate: this is a public endpoint and the frontend treats 401/403
             // as an auth failure that triggers a token refresh + login redirect.
             return Response.status(Response.Status.CONFLICT)
@@ -152,7 +159,7 @@ public class CheckInResource {
     /**
      * Mint a team-scoped invite token for the authenticated team. The team shows the
      * returned URL as a QR; teammates who scan it join this team directly and bypass
-     * the additional-device time gate.
+     * the digital check-in time gate.
      */
     @POST
     @RolesAllowed({"team"})

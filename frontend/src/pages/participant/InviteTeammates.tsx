@@ -4,7 +4,7 @@
  * The QR encodes a `/check-in?invite=<token>` URL. A fresh, generously-scoped invite
  * token is minted every time this page mounts, so there is nothing to refresh by hand.
  * Scanning the QR skips the game/team pickers (jumps to the nickname step) and bypasses
- * the additional-device time gate.
+ * the digital check-in time gate.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';

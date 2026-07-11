@@ -17,7 +17,7 @@ public record RegisterDeviceRequest(
     UUID deviceId,
     String nickname,
     // Optional signed team-invite token from a scanned team/admin QR. When valid for
-    // this team it bypasses the additional-device time gate; null for the regular
+    // this team it bypasses the digital check-in time gate; null for the regular
     // game/team selection path.
     String inviteToken
 ) {}

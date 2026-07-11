@@ -152,7 +152,7 @@ export function CheckInPage() {
 
   const legacyTokenRef = useRef<string | null>(null);
   // Invite token from a scanned team/admin QR (?invite=). Threaded into register-device
-  // so the backend bypasses the additional-device time gate.
+  // so the backend bypasses the digital check-in time gate.
   const inviteTokenRef = useRef<string | null>(null);
 
   const persistTeamData = useCallback((teamData: PlayerTeam) => {
@@ -347,9 +347,9 @@ export function CheckInPage() {
       return;
     }
 
-    // Additional-device window: once a team's initial check-in was more than 15 min ago,
-    // the regular selection screen no longer lets extra phones join — they must scan the
-    // team's (or an admin's) invite QR instead.
+    // Digital check-in window: once a team's physical check-in was more than the
+    // configured window ago, the regular selection screen no longer lets devices join —
+    // they must scan the team's (or an admin's) invite QR instead.
     if (selectedTeam.acceptingNewDevices === false) {
       setFormError(t('participant.checkin.windowClosed'));
       return;
@@ -428,7 +428,7 @@ export function CheckInPage() {
         deviceId: deviceId ?? null,
         nickname: trimmed,
         // Present only when this phone arrived via a team/admin QR — lets the backend
-        // bypass the additional-device time gate.
+        // bypass the digital check-in time gate.
         inviteToken: inviteTokenRef.current,
       });
       if (response.error || !response.data) {

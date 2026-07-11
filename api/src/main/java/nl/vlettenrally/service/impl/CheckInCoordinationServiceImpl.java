@@ -16,6 +16,7 @@ import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.service.AuthService;
 import nl.vlettenrally.service.CheckInCoordinationService;
 import nl.vlettenrally.service.CheckInWindowClosedException;
+import nl.vlettenrally.service.TeamNotCheckedInException;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 import nl.vlettenrally.websockets.dto.WebSocketMessageType;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -29,7 +30,6 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -42,8 +42,8 @@ public class CheckInCoordinationServiceImpl implements CheckInCoordinationServic
     @ConfigProperty(name = "vlettenrally.checkin.max-devices-per-team", defaultValue = "10")
     int maxDevicesPerTeam;
 
-    @ConfigProperty(name = "vlettenrally.checkin.additional-device-window-minutes", defaultValue = "15")
-    int additionalDeviceWindowMinutes;
+    @ConfigProperty(name = "vlettenrally.checkin.digital-checkin-window-minutes", defaultValue = "30")
+    int digitalCheckinWindowMinutes;
 
     @Inject
     GameRepository gameRepository;
@@ -112,21 +112,26 @@ public class CheckInCoordinationServiceImpl implements CheckInCoordinationServic
             // New registration.
             List<DeviceRegistration> teamDevices = deviceRegistrationRepository.findAllByTeamId(teamId);
 
-            // Additional-device gate: once the team has a main device, a brand-new device
-            // is an "additional phone". Via the regular game/team picker it may only join
-            // within the window after the team's initial check-in; a valid invite token
-            // (the team/admin QR path) always bypasses the gate.
-            if (team.getMainDeviceId() != null && !inviteGrantsAccess(inviteToken, teamId)) {
-                Instant initialCheckInAt = teamDevices.stream()
-                    .map(DeviceRegistration::getCreatedAt)
-                    .filter(Objects::nonNull)
-                    .min(Comparator.naturalOrder())
-                    .orElse(null);
-                if (initialCheckInAt != null
-                    && Instant.now().isAfter(initialCheckInAt.plus(additionalDeviceWindowMinutes, ChronoUnit.MINUTES))) {
-                    throw new CheckInWindowClosedException(
-                        "This team's check-in window has closed. Ask your team to share their QR code, or ask an admin.");
-                }
+            // Physical check-in is a hard prerequisite: a device may only register for a
+            // team that has been checked in at the rally desk. This is NOT bypassable by
+            // an invite token — an invite lets a teammate join a team that is already
+            // present, it does not stand in for the team being present.
+            if (!team.isCheckedIn()) {
+                throw new TeamNotCheckedInException(
+                    "This team has not been checked in at the rally desk yet. See an admin to check in first.");
+            }
+
+            // Digital check-in window: once physically checked in, every new device (the
+            // first phone and any additional phone) may only register through the regular
+            // game/team picker within the configured window after that check-in. A valid
+            // invite token (the team/admin QR path) bypasses this time window (but not the
+            // physical-check-in requirement above).
+            Instant checkedInAt = team.getCheckedInAt();
+            if (checkedInAt != null
+                && !inviteGrantsAccess(inviteToken, teamId)
+                && Instant.now().isAfter(checkedInAt.plus(digitalCheckinWindowMinutes, ChronoUnit.MINUTES))) {
+                throw new CheckInWindowClosedException(
+                    "This team's check-in window has closed. Ask your team to share their QR code, or ask an admin.");
             }
 
             // Enforce the per-team cap.
@@ -193,27 +198,16 @@ public class CheckInCoordinationServiceImpl implements CheckInCoordinationServic
     public Map<UUID, Boolean> acceptingNewDevicesByTeam(UUID gameId) {
         Instant now = Instant.now();
 
-        // Earliest device registration per team = the team's "initial check-in" time.
-        // One scan over the device table rather than a per-team query.
-        Map<UUID, Instant> earliestByTeam = new HashMap<>();
-        for (DeviceRegistration d : deviceRegistrationRepository.findAll()) {
-            if (d.getTeamId() == null || !gameId.equals(d.getGameId()) || d.getCreatedAt() == null) {
-                continue;
-            }
-            earliestByTeam.merge(d.getTeamId(), d.getCreatedAt(),
-                (a, b) -> a.isBefore(b) ? a : b);
-        }
-
+        // A team accepts new devices through the regular picker only once it has been
+        // physically checked in, and then only until its digital check-in window
+        // (measured from that check-in) closes. Teams not yet checked in, or past the
+        // window, are only joinable via an invite QR or an admin.
         Map<UUID, Boolean> result = new HashMap<>();
         for (Team team : teamRepository.findByGameId(gameId)) {
-            boolean accepting;
-            if (team.getMainDeviceId() == null) {
-                accepting = true; // No main device yet — first phone can always join.
-            } else {
-                Instant earliest = earliestByTeam.get(team.getId());
-                accepting = earliest == null
-                    || !now.isAfter(earliest.plus(additionalDeviceWindowMinutes, ChronoUnit.MINUTES));
-            }
+            Instant checkedInAt = team.getCheckedInAt();
+            boolean accepting = team.isCheckedIn()
+                && (checkedInAt == null
+                    || !now.isAfter(checkedInAt.plus(digitalCheckinWindowMinutes, ChronoUnit.MINUTES)));
             result.put(team.getId(), accepting);
         }
         return result;
@@ -271,6 +265,7 @@ public class CheckInCoordinationServiceImpl implements CheckInCoordinationServic
         team.setMainDeviceId(null);
         team.setCheckedIn(false);
         team.setCheckedInDigitally(false);
+        team.setCheckedInAt(null);
         team.setParticipants(new ArrayList<>());
         team.setEmergencyPhoneNumbers(new ArrayList<>());
         team.setUpdatedAt(Instant.now());

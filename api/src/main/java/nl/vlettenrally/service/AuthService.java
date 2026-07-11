@@ -130,7 +130,7 @@ public interface AuthService {
     /**
      * Mint a team-scoped invite token + URL. Scanning the resulting QR lets a
      * teammate's phone join this team directly (skipping the game/team pickers) and
-     * bypass the additional-device time gate. A fresh token is minted per call, so
+     * bypass the digital check-in time gate. A fresh token is minted per call, so
      * the token carries a generous expiry (game end when set, else a fixed fallback).
      *
      * @param teamId The ID of the team the invite grants access to

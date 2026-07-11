@@ -115,9 +115,11 @@ public class TeamServiceImpl implements TeamService {
                 if (team.getEmergencyPhoneNumbers() == null || team.getEmergencyPhoneNumbers().isEmpty()) {
                     throw new IllegalArgumentException("At least one emergency phone number is required for check-in");
                 }
+                Instant now = Instant.now();
                 team.setCheckedIn(true);
                 team.setCheckedInDigitally(true);
-                team.setUpdatedAt(Instant.now());
+                team.setCheckedInAt(now);
+                team.setUpdatedAt(now);
                 return teamRepository.save(team);
             })
             .orElseThrow(() -> new IllegalArgumentException("Team not found: " + teamId));

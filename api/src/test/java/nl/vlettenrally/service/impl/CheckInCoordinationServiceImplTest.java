@@ -33,12 +33,16 @@ import nl.vlettenrally.data.repository.GameRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.service.AuthService;
 import nl.vlettenrally.service.CheckInWindowClosedException;
+import nl.vlettenrally.service.TeamNotCheckedInException;
 
 /**
- * Unit tests for the additional-device time gate in registerDevice, plus the
- * per-team acceptingNewDevices computation. The first phone and resumed devices are
- * never gated; extra phones through the regular picker are gated after the window,
- * but a valid invite token (the team/admin QR path) always bypasses the gate.
+ * Unit tests for the check-in gates in registerDevice, plus the per-team
+ * acceptingNewDevices computation. A device may only register for a team that has been
+ * physically checked in ({@code isCheckedIn()}); once checked in, the digital check-in
+ * window — measured from the physical check-in ({@code checkedInAt}) — applies to every
+ * new device (first or additional). Resumed devices are never gated, and a valid invite
+ * token (the team/admin QR path) bypasses the time window but not the physical-check-in
+ * requirement.
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -63,7 +67,8 @@ class CheckInCoordinationServiceImplTest {
         service.teamRepository = teamRepository;
         service.deviceRegistrationRepository = deviceRegistrationRepository;
         service.authService = authService;
-        service.additionalDeviceWindowMinutes = 15;
+        // Explicit value so the tests are independent of the configured default.
+        service.digitalCheckinWindowMinutes = 15;
         service.maxDevicesPerTeam = 10;
 
         gameId = UUID.randomUUID();
@@ -83,15 +88,39 @@ class CheckInCoordinationServiceImplTest {
             .thenReturn(new TokenResult("access", "refresh", 3600L, teamId.toString(), team.getName(), "team"));
     }
 
-    private DeviceRegistration deviceRegisteredAgo(long minutes) {
-        DeviceRegistration d = new DeviceRegistration(UUID.randomUUID(), teamId, gameId, "main");
-        d.setCreatedAt(Instant.now().minus(minutes, ChronoUnit.MINUTES));
-        return d;
+    /** Mark the shared team physically checked in {@code minutesAgo} minutes ago. */
+    private void physicallyCheckedIn(long minutesAgo) {
+        team.setCheckedIn(true);
+        team.setCheckedInAt(Instant.now().minus(minutesAgo, ChronoUnit.MINUTES));
+    }
+
+    private DeviceRegistration existingDevice() {
+        return new DeviceRegistration(UUID.randomUUID(), teamId, gameId, "main");
     }
 
     @Test
-    void firstDevice_isAllowed_andClaimsMain() {
-        // No main device yet, no existing devices.
+    void registration_whenNotPhysicallyCheckedIn_isRejected() {
+        // Team has never been checked in at the rally desk -> no digital check-in allowed.
+        when(deviceRegistrationRepository.findAllByTeamId(teamId)).thenReturn(List.of());
+
+        assertThrows(TeamNotCheckedInException.class,
+            () -> service.registerDevice(gameId, teamId, null, "Lisa's phone", null));
+    }
+
+    @Test
+    void registration_whenNotCheckedIn_isRejectedEvenWithInvite() {
+        // A valid invite does not stand in for the team being physically present.
+        when(deviceRegistrationRepository.findAllByTeamId(teamId)).thenReturn(List.of());
+        when(authService.validateTeamInviteToken("good-token"))
+            .thenReturn(Optional.of(new TeamInvite(gameId, teamId)));
+
+        assertThrows(TeamNotCheckedInException.class,
+            () -> service.registerDevice(gameId, teamId, null, "Phone via QR", "good-token"));
+    }
+
+    @Test
+    void firstDevice_whenCheckedIn_withinWindow_isAllowed_andClaimsMain() {
+        physicallyCheckedIn(5);
         when(deviceRegistrationRepository.findAllByTeamId(teamId)).thenReturn(List.of());
 
         RegisterDeviceResponse response =
@@ -102,9 +131,21 @@ class CheckInCoordinationServiceImplTest {
     }
 
     @Test
-    void additionalDevice_withinWindow_isAllowed() {
-        DeviceRegistration main = deviceRegisteredAgo(5);
+    void firstDevice_afterWindow_isRejected() {
+        // Physically checked in 20 min ago, window is 15 min, no device registered yet:
+        // even the first phone is now too late through the regular picker.
+        physicallyCheckedIn(20);
+        when(deviceRegistrationRepository.findAllByTeamId(teamId)).thenReturn(List.of());
+
+        assertThrows(CheckInWindowClosedException.class,
+            () -> service.registerDevice(gameId, teamId, null, "Late first phone", null));
+    }
+
+    @Test
+    void device_withinWindow_isAllowed() {
+        DeviceRegistration main = existingDevice();
         team.setMainDeviceId(main.getId());
+        physicallyCheckedIn(5);
         when(deviceRegistrationRepository.findAllByTeamId(teamId)).thenReturn(List.of(main));
         when(deviceRegistrationRepository.findByTeamIdAndId(teamId, main.getId()))
             .thenReturn(Optional.of(main));
@@ -116,9 +157,10 @@ class CheckInCoordinationServiceImplTest {
     }
 
     @Test
-    void additionalDevice_afterWindow_isRejected() {
-        DeviceRegistration main = deviceRegisteredAgo(20);
+    void device_afterWindow_isRejected() {
+        DeviceRegistration main = existingDevice();
         team.setMainDeviceId(main.getId());
+        physicallyCheckedIn(20);
         when(deviceRegistrationRepository.findAllByTeamId(teamId)).thenReturn(List.of(main));
 
         assertThrows(CheckInWindowClosedException.class,
@@ -126,9 +168,10 @@ class CheckInCoordinationServiceImplTest {
     }
 
     @Test
-    void additionalDevice_afterWindow_withValidInvite_isAllowed() {
-        DeviceRegistration main = deviceRegisteredAgo(20);
+    void device_afterWindow_withValidInvite_isAllowed() {
+        DeviceRegistration main = existingDevice();
         team.setMainDeviceId(main.getId());
+        physicallyCheckedIn(20);
         when(deviceRegistrationRepository.findAllByTeamId(teamId)).thenReturn(List.of(main));
         when(deviceRegistrationRepository.findByTeamIdAndId(teamId, main.getId()))
             .thenReturn(Optional.of(main));
@@ -142,9 +185,10 @@ class CheckInCoordinationServiceImplTest {
     }
 
     @Test
-    void additionalDevice_afterWindow_withInviteForOtherTeam_isRejected() {
-        DeviceRegistration main = deviceRegisteredAgo(20);
+    void device_afterWindow_withInviteForOtherTeam_isRejected() {
+        DeviceRegistration main = existingDevice();
         team.setMainDeviceId(main.getId());
+        physicallyCheckedIn(20);
         when(deviceRegistrationRepository.findAllByTeamId(teamId)).thenReturn(List.of(main));
         // Invite is valid but scoped to a different team — must not bypass this team's gate.
         when(authService.validateTeamInviteToken("wrong-team"))
@@ -156,10 +200,11 @@ class CheckInCoordinationServiceImplTest {
 
     @Test
     void resumedDevice_afterWindow_isAllowed() {
-        DeviceRegistration existing = deviceRegisteredAgo(20);
+        DeviceRegistration existing = existingDevice();
         team.setMainDeviceId(UUID.randomUUID());
+        physicallyCheckedIn(20);
         // Client's deviceId hint matches an existing row for this team -> idempotent resume,
-        // gate is skipped entirely.
+        // both check-in gates are skipped entirely.
         when(deviceRegistrationRepository.findByTeamIdAndId(teamId, existing.getId()))
             .thenReturn(Optional.of(existing));
 
@@ -170,29 +215,25 @@ class CheckInCoordinationServiceImplTest {
     }
 
     @Test
-    void acceptingNewDevicesByTeam_reflectsMainAndWindow() {
-        // Team A: no main device -> always accepting.
+    void acceptingNewDevicesByTeam_reflectsCheckInWindow() {
+        // Team A: not physically checked in -> not accepting (must see the rally desk).
         Team a = new Team(teamId, gameId, "A", "");
-        // Team B: main device, initial check-in 5 min ago -> still accepting.
+        // Team B: checked in 5 min ago -> accepting.
         UUID teamBId = UUID.randomUUID();
         Team b = new Team(teamBId, gameId, "B", "");
-        b.setMainDeviceId(UUID.randomUUID());
-        // Team C: main device, initial check-in 30 min ago -> window closed.
+        b.setCheckedIn(true);
+        b.setCheckedInAt(Instant.now().minus(5, ChronoUnit.MINUTES));
+        // Team C: checked in 30 min ago -> window closed.
         UUID teamCId = UUID.randomUUID();
         Team c = new Team(teamCId, gameId, "C", "");
-        c.setMainDeviceId(UUID.randomUUID());
-
-        DeviceRegistration bDev = new DeviceRegistration(UUID.randomUUID(), teamBId, gameId, "b");
-        bDev.setCreatedAt(Instant.now().minus(5, ChronoUnit.MINUTES));
-        DeviceRegistration cDev = new DeviceRegistration(UUID.randomUUID(), teamCId, gameId, "c");
-        cDev.setCreatedAt(Instant.now().minus(30, ChronoUnit.MINUTES));
+        c.setCheckedIn(true);
+        c.setCheckedInAt(Instant.now().minus(30, ChronoUnit.MINUTES));
 
         when(teamRepository.findByGameId(gameId)).thenReturn(List.of(a, b, c));
-        when(deviceRegistrationRepository.findAll()).thenReturn(List.of(bDev, cDev));
 
         Map<UUID, Boolean> result = service.acceptingNewDevicesByTeam(gameId);
 
-        assertTrue(result.get(teamId));   // A
+        assertFalse(result.get(teamId));  // A, not checked in
         assertTrue(result.get(teamBId));  // B within window
         assertFalse(result.get(teamCId)); // C past window
     }

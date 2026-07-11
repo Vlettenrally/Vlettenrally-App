@@ -29,6 +29,10 @@ public class Team {
     private UUID mainDeviceId;
     private boolean checkedIn;
     private boolean checkedInDigitally;
+    // Timestamp of the team's physical check-in (when checkedIn transitions to true).
+    // The digital check-in window (first phone registration) is measured from here.
+    // Cleared when checkedIn is reset to false. See CheckInCoordinationService.
+    private Instant checkedInAt;
     // Set once the team reaches its finish zone (via the FINISH_TEAM automation
     // action or an admin override). A finished team keeps its points and ranking
     // but stops accruing automatic points (checkpoint passes + distance).
