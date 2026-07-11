@@ -385,7 +385,7 @@ class PointsLedgerServiceTest {
         published.setRankingsPublished(true);
         when(gameService.findById(gameId)).thenReturn(Optional.of(published));
         List<RankingResponse> full = List.of(new RankingResponse(1, teamId, "Test team", null, 150));
-        when(rankingService.buildRanking(gameId)).thenReturn(full);
+        when(rankingService.buildRanking(eq(gameId), any())).thenReturn(full);
 
         ledger.createEntry(teamId, gameId, PointEntryType.CHECKPOINT_VERIFICATION,
             50, null, "Checkpoint X", null, null);
@@ -447,7 +447,7 @@ class PointsLedgerServiceTest {
         when(gameService.findById(gameId)).thenReturn(Optional.of(game(Game.GameStatus.ACTIVE)));
         when(teamRepository.findByGameId(gameId)).thenReturn(List.of(team));
         List<RankingResponse> full = List.of(new RankingResponse(1, teamId, "Test team", null, 150));
-        when(rankingService.buildRanking(gameId)).thenReturn(full);
+        when(rankingService.buildRanking(eq(gameId), any())).thenReturn(full);
 
         ledger.createEntry(teamId, gameId, PointEntryType.CHECKPOINT_VERIFICATION,
             50, null, "Checkpoint X", null, null);
@@ -462,6 +462,24 @@ class PointsLedgerServiceTest {
     }
 
     @Test
+    void createEntry_buildsRankingWithFreshTotalOverride_independentOfCacheWriteOrdering() {
+        // The ranking payload must reflect the just-changed team's new total (100 + 50 = 150)
+        // via an explicit override, so it is correct even if the separate post-commit cache
+        // write (cacheTotalAfterCommit) has not run yet. Without the override, buildRanking
+        // would read the stale cached 100 and the standings would not appear to change.
+        team.setCheckedIn(true);
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+        when(gameService.findById(gameId)).thenReturn(Optional.of(game(Game.GameStatus.ACTIVE)));
+        when(teamRepository.findByGameId(gameId)).thenReturn(List.of(team));
+
+        ledger.createEntry(teamId, gameId, PointEntryType.MANUAL_ADJUSTMENT,
+            50, null, "Bonus", null, null);
+        fireAfterCommit();
+
+        verify(rankingService).buildRanking(gameId, Map.of(teamId, 150));
+    }
+
+    @Test
     void createEntry_afterReveal_streamsToAdminRankingTopic_inAdditionToPlayerBroadcast() {
         team.setCheckedIn(true);
         when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
@@ -469,7 +487,7 @@ class PointsLedgerServiceTest {
         published.setRankingsPublished(true);
         when(gameService.findById(gameId)).thenReturn(Optional.of(published));
         List<RankingResponse> full = List.of(new RankingResponse(1, teamId, "Test team", null, 150));
-        when(rankingService.buildRanking(gameId)).thenReturn(full);
+        when(rankingService.buildRanking(eq(gameId), any())).thenReturn(full);
 
         ledger.createEntry(teamId, gameId, PointEntryType.CHECKPOINT_VERIFICATION,
             50, null, "Checkpoint X", null, null);
@@ -487,7 +505,7 @@ class PointsLedgerServiceTest {
         when(gameService.findById(gameId)).thenReturn(Optional.of(game(Game.GameStatus.ACTIVE)));
         when(teamRepository.findByGameId(gameId)).thenReturn(List.of(team));
         List<RankingResponse> full = List.of(new RankingResponse(1, teamId, "Test team", null, 150));
-        when(rankingService.buildRanking(gameId)).thenReturn(full);
+        when(rankingService.buildRanking(eq(gameId), any())).thenReturn(full);
 
         ledger.publishStandingsForTeams(gameId, java.util.Set.of(teamId));
 
