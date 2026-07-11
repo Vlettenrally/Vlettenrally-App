@@ -410,7 +410,7 @@ public class PointsLedgerService {
             gameId,
             AdminTopics.RANKING,
             WebSocketMessageType.RANKING_UPDATE.getValue(),
-            rankingService.buildRanking(gameId));
+            rankingService.buildRanking(gameId, totalOverrides));
 
         if (isRankingsPublished(gameId)) {
             // Standings are only player-visible once an admin has revealed them.
@@ -418,7 +418,7 @@ public class PointsLedgerService {
             webSocketPublisher.broadcastToGame(
                 gameId,
                 WebSocketMessageType.RANKING_UPDATE.getValue(),
-                rankingService.buildRanking(gameId));
+                rankingService.buildRanking(gameId, totalOverrides));
         } else if (!isGameCompleted(gameId)) {
             // During the game, never send the full ranking. Refresh only the
             // rival views that include a changed team: each changed team itself

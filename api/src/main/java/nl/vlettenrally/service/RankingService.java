@@ -35,12 +35,25 @@ public class RankingService {
      * carrying its global (1-based, ties-share-position) ranking position.
      */
     public List<RankingResponse> buildRanking(UUID gameId) {
+        return buildRanking(gameId, Map.of());
+    }
+
+    /**
+     * As {@link #buildRanking(UUID)}, but a team's total is taken from
+     * {@code totalOverrides} when present instead of from {@link PointsTotalsCache}.
+     * A points change broadcast supplies the just-computed total for the changed
+     * team(s) here, so the ranking reflects it regardless of whether the separate
+     * post-commit cache write has run yet — see the rival-payload note in
+     * {@link PointsLedgerService}.
+     */
+    public List<RankingResponse> buildRanking(UUID gameId, Map<UUID, Integer> totalOverrides) {
         List<Team> checkedIn = teamRepository.findByGameId(gameId).stream()
             .filter(Team::isCheckedIn)
             .toList();
 
         Map<UUID, Integer> totals = checkedIn.stream()
-            .collect(Collectors.toMap(Team::getId, t -> pointsTotalsCache.get(t.getId())));
+            .collect(Collectors.toMap(Team::getId,
+                t -> totalOverrides.getOrDefault(t.getId(), pointsTotalsCache.get(t.getId()))));
 
         List<Team> sorted = checkedIn.stream()
             .sorted(Comparator.comparingInt((Team t) -> totals.get(t.getId())).reversed())

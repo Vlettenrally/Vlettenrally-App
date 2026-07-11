@@ -5,6 +5,7 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import nl.vlettenrally.data.domain.Team;
@@ -73,5 +74,25 @@ class RankingServiceTest {
 
         assertEquals(List.of(1, 2, 3), ranking.stream().map(RankingResponse::position).toList());
         assertEquals(List.of(30, 20, 10), ranking.stream().map(RankingResponse::points).toList());
+    }
+
+    @Test
+    void buildRanking_overrideTakesPrecedenceOverCache_forTotalAndPosition() {
+        // Z is last per the cache (10). An override lifts it to 40 — it must sort to the top
+        // (points 40, position 1) even though the cache still reports 10. This is the
+        // ordering-independence a points-change broadcast relies on.
+        Team x = team("X", 30, true);
+        Team y = team("Y", 20, true);
+        Team z = team("Z", 10, true);
+        when(teamRepository.findByGameId(gameId)).thenReturn(List.of(z, x, y));
+
+        List<RankingResponse> ranking = rankingService.buildRanking(gameId, Map.of(z.getId(), 40));
+
+        assertEquals(z.getId(), ranking.getFirst().teamId());
+        assertEquals(40, ranking.getFirst().points(), "override total is used, not the cached 10");
+        assertEquals(1, ranking.getFirst().position(), "override moves the team to the top");
+        // The non-overridden teams keep their cached totals and shift down.
+        assertEquals(List.of(40, 30, 20), ranking.stream().map(RankingResponse::points).toList());
+        assertEquals(List.of(1, 2, 3), ranking.stream().map(RankingResponse::position).toList());
     }
 }
