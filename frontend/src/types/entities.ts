@@ -499,6 +499,27 @@ export interface TeamOption {
   description?: string;
   checkedIn?: boolean;
   hasMainDevice?: boolean;
+  // False once the team's 15-min additional-device window has closed — the team is
+  // then only joinable via its invite QR, not the regular selection screen.
+  acceptingNewDevices?: boolean;
+}
+
+/**
+ * A team-scoped invite link (POST /check-in/invite-token or
+ * POST /teams/{teamId}/invite-token). Rendered as a QR teammates scan to join.
+ */
+export interface TeamInviteLink {
+  url: string;
+  token: string;
+}
+
+/**
+ * Resolved contents of a scanned invite token (GET /check-in/invite/{token}).
+ */
+export interface TeamInviteResolve {
+  gameId: string;
+  teamId: string;
+  teamName: string;
 }
 
 /**

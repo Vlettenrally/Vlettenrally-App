@@ -87,6 +87,9 @@ public class TeamResource {
     @Inject
     PointsLedgerService pointsLedgerService;
 
+    @Inject
+    nl.vlettenrally.service.AuthService authService;
+
     /**
      * Get all teams
      */
@@ -479,6 +482,24 @@ public class TeamResource {
             ))
             .toList();
         return Response.ok(devices).build();
+    }
+
+    /**
+     * Admin: mint a team-scoped invite token + URL to render as a QR. Scanning it lets a
+     * teammate join this team directly and bypass the additional-device time gate — the
+     * same QR a team can generate for itself.
+     */
+    @POST
+    @Path("/teams/{teamId}/invite-token")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER, SecurityRoles.RALLY_DESK})
+    public Response createTeamInviteToken(@PathParam("teamId") UUID teamId) {
+        try {
+            return Response.ok(authService.generateTeamInviteToken(teamId)).build();
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.NOT_FOUND)
+                .entity(new ErrorResponse(e.getMessage()))
+                .build();
+        }
     }
 
     /**

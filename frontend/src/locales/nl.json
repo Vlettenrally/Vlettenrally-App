@@ -39,7 +39,8 @@
     "noConnection": "Geen verbinding met server. Sommige gegevens kunnen verouderd zijn.",
     "logout": "Uitloggen",
     "updateAvailable": "Nieuwe versie beschikbaar",
-    "reload": "Herladen"
+    "reload": "Herladen",
+    "retry": "Opnieuw proberen"
   },
   "participant": {
     "dashboard": {
@@ -165,7 +166,9 @@
       "selectRivalsDescription": "Kies maximaal {{count}} teams om hun stand bij te houden tijdens de Vlettenrally. Dit kan later nog aangepast worden via het dashboard.",
       "maxRivalsError": "Je kunt maximaal {{count}} rivalen kiezen.",
       "waitingDetails": "Zodra de gegevens zijn ingevuld krijg je hier automatisch de volgende stap.",
-      "notificationsDesc": "Sta meldingen toe zodat je updates en berichten ontvangt tijdens de rally."
+      "notificationsDesc": "Sta meldingen toe zodat je updates en berichten ontvangt tijdens de rally.",
+      "inviteExpired": "Deze uitnodigingslink is verlopen of ongeldig. Vraag je team om een nieuwe QR-code te tonen.",
+      "windowClosed": "Extra telefoons kunnen niet meer via dit scherm inchecken voor dit team. Laat je team de QR-code tonen of vraag een beheerder."
     },
     "rankings": {
       "title": "Eindstand",
@@ -229,6 +232,15 @@
       "myTeam": "Mijn team",
       "locationAvailable": "Locatie beschikbaar",
       "waitingForLocation": "Wachten op locatie..."
+    },
+    "invite": {
+      "title": "Teamgenoten uitnodigen",
+      "subtitle": "Laat teamgenoten deze QR-code scannen om direct in te loggen bij {{team}}.",
+      "instructions": "Open de camera van je teamgenoot en scan deze code. Ze hoeven alleen hun telefoon een naam te geven.",
+      "copyLink": "Link kopiëren",
+      "linkCopied": "Link gekopieerd!",
+      "copyFailed": "Kon de link niet kopiëren.",
+      "error": "Kon de uitnodigingscode niet laden."
     }
   },
   "admin": {
@@ -720,7 +732,8 @@
       "rankings": "Eindstand",
       "rivals": "Rivaal",
       "logout": "Uitloggen",
-      "menuAriaLabel": "menu"
+      "menuAriaLabel": "menu",
+      "invite": "Uitnodigen"
     },
     "sendMessage": {
       "typeGeneral": "Algemeen",
@@ -823,7 +836,10 @@
       "cancel": "Annuleer",
       "deleteForever": "Verwijder definitief",
       "resetLedger": "Ledger resetten",
-      "confirmLedgerResetMessage": "Dit verwijdert alle puntregels voor dit team. Dit kan niet ongedaan worden gemaakt."
+      "confirmLedgerResetMessage": "Dit verwijdert alle puntregels voor dit team. Dit kan niet ongedaan worden gemaakt.",
+      "showInviteQr": "Uitnodigings-QR tonen",
+      "inviteQrHint": "Laat een teamgenoot deze QR-code scannen om aan dit team toe te voegen.",
+      "inviteQrError": "Kon de uitnodigings-QR niet genereren."
     },
     "gameForm": {
       "createTitle": "Create New Game",

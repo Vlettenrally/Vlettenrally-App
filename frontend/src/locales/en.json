@@ -39,7 +39,8 @@
     "noConnection": "No connection to server. Some data may be outdated.",
     "logout": "Logout",
     "updateAvailable": "New version available",
-    "reload": "Reload"
+    "reload": "Reload",
+    "retry": "Try again"
   },
   "participant": {
     "dashboard": {
@@ -165,7 +166,9 @@
       "selectRivalsDescription": "Choose up to {{count}} teams to keep track of during the Vlettenrally. This can be changed later via the dashboard.",
       "maxRivalsError": "You can choose a maximum of {{count}} rivals.",
       "waitingDetails": "Once the details have been filled in, you will automatically get the next step here.",
-      "notificationsDesc": "Allow notifications so you receive updates and messages during the rally."
+      "notificationsDesc": "Allow notifications so you receive updates and messages during the rally.",
+      "inviteExpired": "This invite link has expired or is invalid. Ask your team to show a fresh QR code.",
+      "windowClosed": "Extra phones can no longer check in for this team from this screen. Ask your team to show their QR code, or ask an admin."
     },
     "rankings": {
       "title": "Final standings",
@@ -229,6 +232,15 @@
       "myTeam": "My team",
       "locationAvailable": "Location available",
       "waitingForLocation": "Waiting for location..."
+    },
+    "invite": {
+      "title": "Invite teammates",
+      "subtitle": "Let teammates scan this QR code to log in to {{team}} straight away.",
+      "instructions": "Open your teammate's camera and scan this code. They only need to name their phone.",
+      "copyLink": "Copy link",
+      "linkCopied": "Link copied!",
+      "copyFailed": "Could not copy the link.",
+      "error": "Could not load the invite code."
     }
   },
   "admin": {
@@ -720,7 +732,8 @@
       "rankings": "Final standings",
       "rivals": "Rivals",
       "logout": "Logout",
-      "menuAriaLabel": "menu"
+      "menuAriaLabel": "menu",
+      "invite": "Invite"
     },
     "sendMessage": {
       "typeGeneral": "General",
@@ -823,7 +836,10 @@
       "cancel": "Cancel",
       "deleteForever": "Delete permanently",
       "resetLedger": "Reset points ledger",
-      "confirmLedgerResetMessage": "This will permanently delete all point entries for this team. This cannot be undone."
+      "confirmLedgerResetMessage": "This will permanently delete all point entries for this team. This cannot be undone.",
+      "showInviteQr": "Show invite QR",
+      "inviteQrHint": "Have a teammate scan this QR code to add them to this team.",
+      "inviteQrError": "Could not generate the invite QR."
     },
     "gameForm": {
       "createTitle": "Create New Game",

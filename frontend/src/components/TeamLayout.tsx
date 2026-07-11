@@ -29,6 +29,7 @@ import {
   Map as MapIcon,
   Description as DescriptionIcon,
   PhotoCamera as PhotoCameraIcon,
+  QrCode2 as QrCodeIcon,
   WifiOff as WifiOffIcon,
 } from '@mui/icons-material';
 import { storage } from '../services/storage';
@@ -107,6 +108,7 @@ export function TeamLayout({ children }: TeamLayoutProps) {
       ? [{ text: t('components.teamLayout.info'), icon: <DescriptionIcon />, path: '/info' }]
       : []),
     { text: t('components.teamLayout.map'), icon: <MapIcon />, path: '/map' },
+    { text: t('components.teamLayout.invite'), icon: <QrCodeIcon />, path: '/invite' },
     { text: t('components.teamLayout.pictures'), icon: <PhotoCameraIcon />, path: '/pictures' },
     ...(game?.rankingsPublished
       ? [{ text: t('components.teamLayout.rankings'), icon: <LeaderboardIcon />, path: '/rankings' }]

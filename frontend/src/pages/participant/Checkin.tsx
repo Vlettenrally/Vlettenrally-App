@@ -151,6 +151,9 @@ export function CheckInPage() {
   const [notificationsDone, setNotificationsDone] = useState(false);
 
   const legacyTokenRef = useRef<string | null>(null);
+  // Invite token from a scanned team/admin QR (?invite=). Threaded into register-device
+  // so the backend bypasses the additional-device time gate.
+  const inviteTokenRef = useRef<string | null>(null);
 
   const persistTeamData = useCallback((teamData: PlayerTeam) => {
     storage.setTeamId(teamData.id);
@@ -204,6 +207,29 @@ export function CheckInPage() {
   const beginCheckIn = useCallback(() => {
     setStep('loading');
     const init = async () => {
+      // Teammate joining via a scanned team/admin QR: resolve the invite, then jump
+      // straight to the nickname step (skipping the game/team pickers).
+      const invite = searchParams.get('invite');
+      if (invite) {
+        inviteTokenRef.current = invite;
+        try {
+          const inviteResponse = await api.resolveCheckInInvite(invite);
+          if (inviteResponse.error || !inviteResponse.data) {
+            setError(t('participant.checkin.inviteExpired'));
+            return;
+          }
+          const data = inviteResponse.data;
+          setResolvedTeam({ id: data.teamId, gameId: data.gameId, name: data.teamName });
+          setSelectedGameId(data.gameId);
+          setStep('nickname');
+          return;
+        } catch (err) {
+          console.error('Invite resolve error:', err);
+          setError(t('participant.checkin.inviteExpired'));
+          return;
+        }
+      }
+
       const token = searchParams.get('token');
       if (token) {
         legacyTokenRef.current = token;
@@ -320,7 +346,15 @@ export function CheckInPage() {
       setFormError(t('participant.checkin.needsRallyDeskFull'));
       return;
     }
-    
+
+    // Additional-device window: once a team's initial check-in was more than 15 min ago,
+    // the regular selection screen no longer lets extra phones join — they must scan the
+    // team's (or an admin's) invite QR instead.
+    if (selectedTeam.acceptingNewDevices === false) {
+      setFormError(t('participant.checkin.windowClosed'));
+      return;
+    }
+
     setResolvedTeam({ id: selectedTeam.id, gameId: selectedGameId, name: selectedTeam.name });
     setFormError(null);
     setStep('nickname');
@@ -393,6 +427,9 @@ export function CheckInPage() {
         // server allocates a fresh UUID. May be null on first visit.
         deviceId: deviceId ?? null,
         nickname: trimmed,
+        // Present only when this phone arrived via a team/admin QR — lets the backend
+        // bypass the additional-device time gate.
+        inviteToken: inviteTokenRef.current,
       });
       if (response.error || !response.data) {
         setFormError(t('participant.checkin.registerFailed') + ' ' + (response.error ?? t('common.unknown')));

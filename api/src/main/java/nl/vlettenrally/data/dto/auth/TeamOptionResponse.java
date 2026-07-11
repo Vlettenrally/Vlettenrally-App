@@ -9,9 +9,13 @@ public record TeamOptionResponse(
     String name,
     String description,
     boolean checkedIn,
-    boolean hasMainDevice
+    boolean hasMainDevice,
+    // Whether the regular game/team selection screen may still be used to register an
+    // additional device for this team (false once the 15-min window has closed; such
+    // teams are then only joinable via the invite QR).
+    boolean acceptingNewDevices
 ) {
     public TeamOptionResponse(UUID id, String name) {
-        this(id, name, null, false, false);
+        this(id, name, null, false, false, true);
     }
 }

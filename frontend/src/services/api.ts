@@ -45,6 +45,8 @@ import type {
   RegisterDeviceResponse,
   CheckInState,
   CheckInDevice,
+  TeamInviteLink,
+  TeamInviteResolve,
   FcmTokenRegistrationResponse,
   AutomationRule,
   AutomationRuleRequest,
@@ -426,12 +428,29 @@ class ApiService {
     teamId: string;
     deviceId: string | null;
     nickname: string;
+    // Present when joining via a scanned team/admin QR — bypasses the time gate.
+    inviteToken?: string | null;
   }): Promise<ApiResponse<RegisterDeviceResponse>> {
     return this.post('/check-in/register-device', payload);
   }
 
   async getCheckInState(): Promise<ApiResponse<CheckInState>> {
     return this.get('/check-in/state');
+  }
+
+  // Resolve a scanned invite token to its game/team so the flow can skip the pickers.
+  async resolveCheckInInvite(token: string): Promise<ApiResponse<TeamInviteResolve>> {
+    return this.get(`/check-in/invite/${encodeURIComponent(token)}`);
+  }
+
+  // Team self-service: mint an invite link/QR to share with teammates.
+  async getTeamInviteToken(): Promise<ApiResponse<TeamInviteLink>> {
+    return this.post('/check-in/invite-token', {});
+  }
+
+  // Admin: mint the same kind of invite link/QR for any team.
+  async getAdminTeamInviteToken(teamId: string): Promise<ApiResponse<TeamInviteLink>> {
+    return this.post(`/teams/${teamId}/invite-token`, {});
   }
 
   // Admin: per-team device coordination

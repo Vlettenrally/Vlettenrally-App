@@ -15,6 +15,7 @@ import nl.vlettenrally.data.repository.GameRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.service.AuthService;
 import nl.vlettenrally.service.CheckInCoordinationService;
+import nl.vlettenrally.service.CheckInWindowClosedException;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 import nl.vlettenrally.websockets.dto.WebSocketMessageType;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -22,10 +23,13 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -37,6 +41,9 @@ public class CheckInCoordinationServiceImpl implements CheckInCoordinationServic
 
     @ConfigProperty(name = "vlettenrally.checkin.max-devices-per-team", defaultValue = "10")
     int maxDevicesPerTeam;
+
+    @ConfigProperty(name = "vlettenrally.checkin.additional-device-window-minutes", defaultValue = "15")
+    int additionalDeviceWindowMinutes;
 
     @Inject
     GameRepository gameRepository;
@@ -74,7 +81,7 @@ public class CheckInCoordinationServiceImpl implements CheckInCoordinationServic
     }
 
     @Override
-    public RegisterDeviceResponse registerDevice(UUID gameId, UUID teamId, UUID deviceIdHint, String nickname) {
+    public RegisterDeviceResponse registerDevice(UUID gameId, UUID teamId, UUID deviceIdHint, String nickname, String inviteToken) {
         if (gameId == null || teamId == null) {
             throw new IllegalArgumentException("gameId and teamId are required");
         }
@@ -102,9 +109,28 @@ public class CheckInCoordinationServiceImpl implements CheckInCoordinationServic
         if (existing.isPresent()) {
             device = existing.get();
         } else {
-            // New registration — enforce the per-team cap.
-            int currentDeviceCount = deviceRegistrationRepository.findAllByTeamId(teamId).size();
-            if (currentDeviceCount >= maxDevicesPerTeam) {
+            // New registration.
+            List<DeviceRegistration> teamDevices = deviceRegistrationRepository.findAllByTeamId(teamId);
+
+            // Additional-device gate: once the team has a main device, a brand-new device
+            // is an "additional phone". Via the regular game/team picker it may only join
+            // within the window after the team's initial check-in; a valid invite token
+            // (the team/admin QR path) always bypasses the gate.
+            if (team.getMainDeviceId() != null && !inviteGrantsAccess(inviteToken, teamId)) {
+                Instant initialCheckInAt = teamDevices.stream()
+                    .map(DeviceRegistration::getCreatedAt)
+                    .filter(Objects::nonNull)
+                    .min(Comparator.naturalOrder())
+                    .orElse(null);
+                if (initialCheckInAt != null
+                    && Instant.now().isAfter(initialCheckInAt.plus(additionalDeviceWindowMinutes, ChronoUnit.MINUTES))) {
+                    throw new CheckInWindowClosedException(
+                        "This team's check-in window has closed. Ask your team to share their QR code, or ask an admin.");
+                }
+            }
+
+            // Enforce the per-team cap.
+            if (teamDevices.size() >= maxDevicesPerTeam) {
                 throw new IllegalStateException("Team has reached the maximum number of registered devices ("
                     + maxDevicesPerTeam + "). Ask an admin to remove an unused device.");
             }
@@ -161,6 +187,46 @@ public class CheckInCoordinationServiceImpl implements CheckInCoordinationServic
             traccarIdentifier,
             traccarServerUrl
         );
+    }
+
+    @Override
+    public Map<UUID, Boolean> acceptingNewDevicesByTeam(UUID gameId) {
+        Instant now = Instant.now();
+
+        // Earliest device registration per team = the team's "initial check-in" time.
+        // One scan over the device table rather than a per-team query.
+        Map<UUID, Instant> earliestByTeam = new HashMap<>();
+        for (DeviceRegistration d : deviceRegistrationRepository.findAll()) {
+            if (d.getTeamId() == null || !gameId.equals(d.getGameId()) || d.getCreatedAt() == null) {
+                continue;
+            }
+            earliestByTeam.merge(d.getTeamId(), d.getCreatedAt(),
+                (a, b) -> a.isBefore(b) ? a : b);
+        }
+
+        Map<UUID, Boolean> result = new HashMap<>();
+        for (Team team : teamRepository.findByGameId(gameId)) {
+            boolean accepting;
+            if (team.getMainDeviceId() == null) {
+                accepting = true; // No main device yet — first phone can always join.
+            } else {
+                Instant earliest = earliestByTeam.get(team.getId());
+                accepting = earliest == null
+                    || !now.isAfter(earliest.plus(additionalDeviceWindowMinutes, ChronoUnit.MINUTES));
+            }
+            result.put(team.getId(), accepting);
+        }
+        return result;
+    }
+
+    /** True only when the invite token is present, valid, and scoped to this exact team. */
+    private boolean inviteGrantsAccess(String inviteToken, UUID teamId) {
+        if (inviteToken == null || inviteToken.isBlank()) {
+            return false;
+        }
+        return authService.validateTeamInviteToken(inviteToken)
+            .map(invite -> teamId.equals(invite.teamId()))
+            .orElse(false);
     }
 
     @Override

@@ -10,6 +10,8 @@ import nl.vlettenrally.data.enums.Role;
 import nl.vlettenrally.data.enums.TokenType;
 import nl.vlettenrally.data.dto.auth.GameCheckInLinkResponse;
 import nl.vlettenrally.data.domain.Team;
+import nl.vlettenrally.data.dto.auth.TeamInvite;
+import nl.vlettenrally.data.dto.auth.TeamInviteLinkResponse;
 import nl.vlettenrally.data.dto.auth.TokenResult;
 
 /**
@@ -35,7 +37,7 @@ public interface AuthService {
     /**
      * Issue access + refresh tokens for a team without the check-in-token expiry check.
      * Used by the public multi-device check-in coordinator after a device has self-selected a team.
-     *
+     * <p>
      * When deviceId is non-null, the issued access token carries a `did` claim so that
      * the device's tokens can be revoked individually (admin "remove device" action).
      */
@@ -59,7 +61,7 @@ public interface AuthService {
     void revokeTokens(UUID teamId);
 
     /**
-     * Returns true if access tokens for the given team subject were revoked AFTER the
+     * Returns Uni<true></true> if access tokens for the given team subject were revoked AFTER the
      * supplied issued-at instant — i.e. the access token must be rejected.
      */
     Uni<Boolean> isAccessTokenRevoked(String subject, Instant issuedAt);
@@ -72,7 +74,7 @@ public interface AuthService {
     void revokeDeviceTokens(UUID teamId, UUID deviceId);
 
     /**
-     * Returns true if the (subject, deviceId) pair was revoked AFTER the supplied
+     * Returns Uni<true></true> if the (subject, deviceId) pair was revoked AFTER the supplied
      * issued-at instant.
      */
     Uni<Boolean> isDeviceTokenRevoked(String subject, UUID deviceId, Instant issuedAt);
@@ -124,4 +126,24 @@ public interface AuthService {
      * @return GameCheckInLinkResponse containing the full URL and token details
      */
     GameCheckInLinkResponse generateGameCheckInLink(UUID gameId);
+
+    /**
+     * Mint a team-scoped invite token + URL. Scanning the resulting QR lets a
+     * teammate's phone join this team directly (skipping the game/team pickers) and
+     * bypass the additional-device time gate. A fresh token is minted per call, so
+     * the token carries a generous expiry (game end when set, else a fixed fallback).
+     *
+     * @param teamId The ID of the team the invite grants access to
+     * @return TeamInviteLinkResponse containing the full URL and the signed token
+     */
+    TeamInviteLinkResponse generateTeamInviteToken(UUID teamId);
+
+    /**
+     * Validate a team invite token. Verifies the signature/issuer/expiry and that it
+     * is a {@code team-invite} token, returning the game + team it grants access to.
+     *
+     * @param token The signed invite token from the QR / invite URL
+     * @return the decoded {@link TeamInvite}, or empty if the token is missing/invalid/expired
+     */
+    Optional<TeamInvite> validateTeamInviteToken(String token);
 }

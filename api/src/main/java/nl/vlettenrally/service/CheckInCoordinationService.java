@@ -5,11 +5,12 @@ import nl.vlettenrally.data.dto.auth.CheckInStateResponse;
 import nl.vlettenrally.data.dto.auth.RegisterDeviceResponse;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
  * Multi-device check-in coordination.
- *
+ * <p>
  * Public check-in is keyed on a localStorage-generated device UUID. The first device
  * to register for a team becomes the "main device" and fills participants + emergency
  * phone numbers; subsequent devices wait. Admins can reset the team's coordination
@@ -28,14 +29,32 @@ public interface CheckInCoordinationService {
      * Register a device for a team and issue team access + refresh tokens.
      * Idempotent on (teamId, deviceId). Atomically claims the main-device slot
      * if no device has claimed it yet.
+     * <p>
+     * Additional-device gate: once a team has a main device, a brand-new device
+     * registering more than the configured window after the team's initial check-in
+     * is rejected with {@link CheckInWindowClosedException} — UNLESS a valid
+     * {@code inviteToken} for this team is supplied (the team/admin QR path), which
+     * always bypasses the gate. The first device and resumed devices are never gated.
+     *
+     * @param inviteToken optional signed team-invite token from a scanned QR; null for
+     *                    the regular game/team selection path
      */
-    RegisterDeviceResponse registerDevice(UUID gameId, UUID teamId, UUID deviceId, String nickname);
+    RegisterDeviceResponse registerDevice(UUID gameId, UUID teamId, UUID deviceId, String nickname, String inviteToken);
 
     /**
      * Current coordination state for a team — main device, whether the details step
      * is complete, and the list of registered devices in registration order.
      */
     CheckInStateResponse getState(UUID teamId);
+
+    /**
+     * For every team in the game, whether the regular game/team selection screen may
+     * still be used to register an ADDITIONAL device: {@code true} when the team has no
+     * main device yet, or its initial check-in was within the configured window;
+     * {@code false} once that window has closed (such teams are then only joinable via
+     * the invite QR). Keyed by teamId.
+     */
+    Map<UUID, Boolean> acceptingNewDevicesByTeam(UUID gameId);
 
     /**
      * Admin action: wipe every device for the team, clear participants + emergency

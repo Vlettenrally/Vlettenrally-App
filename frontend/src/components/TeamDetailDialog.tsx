@@ -18,8 +18,10 @@ import {
   Select,
   MenuItem,
 } from '@mui/material';
-import { useCallback, useState, useEffect } from 'react';
+import { QrCode2 as QrCodeIcon } from '@mui/icons-material';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import QRCode from 'qrcode';
 import type { AdminTeam, CheckInDevice } from '../types/entities';
 import { teamService } from '../services/teamService';
 import { gameService } from '../services/gameService';
@@ -50,6 +52,11 @@ export default function TeamDetailDialog({
   const [deviceActionPending, setDeviceActionPending] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const [deviceError, setDeviceError] = useState<string | null>(null);
+  const [qrOpen, setQrOpen] = useState(false);
+  const [qrPending, setQrPending] = useState(false);
+  const [qrError, setQrError] = useState<string | null>(null);
+  const [qrLink, setQrLink] = useState<string | null>(null);
+  const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmLedgerReset, setConfirmLedgerReset] = useState(false);
@@ -157,6 +164,9 @@ export default function TeamDetailDialog({
     }
     setConfirmDelete(false);
     setError(null);
+    setQrOpen(false);
+    setQrLink(null);
+    setQrError(null);
   }, [team, gameId, t]);
 
   const refreshDevices = useCallback(async () => {
@@ -223,6 +233,37 @@ export default function TeamDetailDialog({
       setDeviceActionPending(false);
     }
   };
+
+  // Mint + reveal a team invite QR. A fresh token is minted each time it's opened.
+  const handleShowQr = async () => {
+    if (!team) return;
+    setQrOpen(true);
+    setQrPending(true);
+    setQrError(null);
+    setQrLink(null);
+    try {
+      const { url, error: linkError } = await teamService.getInviteLink(team.id);
+      if (linkError || !url) {
+        setQrError(t('components.teamDetail.inviteQrError'));
+        return;
+      }
+      setQrLink(url);
+    } catch {
+      setQrError(t('components.teamDetail.inviteQrError'));
+    } finally {
+      setQrPending(false);
+    }
+  };
+
+  // Render the invite URL into the canvas once both the link and element are ready.
+  useEffect(() => {
+    if (!qrOpen || !qrLink || !qrCanvasRef.current) return;
+    QRCode.toCanvas(qrCanvasRef.current, qrLink, {
+      width: 240,
+      margin: 2,
+      errorCorrectionLevel: 'Q',
+    }).catch(() => setQrError(t('components.teamDetail.inviteQrError')));
+  }, [qrOpen, qrLink, t]);
 
   const handleResetLedger = async () => {
     if (!team) return;
@@ -691,6 +732,38 @@ export default function TeamDetailDialog({
                 <Typography variant="subtitle2" gutterBottom>
                   {t('components.teamDetail.devices')}
                 </Typography>
+
+                <Box sx={{ mb: 2 }}>
+                  {!qrOpen ? (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={<QrCodeIcon />}
+                      onClick={handleShowQr}
+                    >
+                      {t('components.teamDetail.showInviteQr')}
+                    </Button>
+                  ) : (
+                    <Stack spacing={1} alignItems="center" sx={{ py: 1 }}>
+                      <Typography variant="caption" color="text.secondary" align="center">
+                        {t('components.teamDetail.inviteQrHint')}
+                      </Typography>
+                      {qrPending ? (
+                        <CircularProgress size={24} />
+                      ) : qrError ? (
+                        <Alert severity="error" sx={{ width: '100%' }}>{qrError}</Alert>
+                      ) : (
+                        <Box sx={{ bgcolor: '#fff', p: 1.5, borderRadius: 1, lineHeight: 0 }}>
+                          <canvas ref={qrCanvasRef} />
+                        </Box>
+                      )}
+                      <Button size="small" onClick={() => setQrOpen(false)}>
+                        {t('common.close')}
+                      </Button>
+                    </Stack>
+                  )}
+                </Box>
+
                 {deviceError && (
                   <Alert severity="error" sx={{ mb: 1 }}>{deviceError}</Alert>
                 )}

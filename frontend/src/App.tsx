@@ -40,6 +40,7 @@ const ParticipantMap = lazy(() => import('./pages/participant/Map'));
 const RivalsPage = lazy(() => import('./pages/participant/Rivals'));
 const RankingsPage = lazy(() => import('./pages/participant/Rankings'));
 const PicturesPage = lazy(() => import('./pages/participant/Pictures'));
+const InviteTeammatesPage = lazy(() => import('./pages/participant/InviteTeammates'));
 
 // Lazy-loaded admin pages
 const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'));
@@ -547,6 +548,18 @@ function App() {
                 <TeamLayout>
                   <Suspense fallback={<PageLoader />}>
                     <PicturesPage />
+                  </Suspense>
+                </TeamLayout>
+              </TeamRoute>
+            }
+          />
+          <Route
+            path="/invite"
+            element={
+              <TeamRoute>
+                <TeamLayout>
+                  <Suspense fallback={<PageLoader />}>
+                    <InviteTeammatesPage />
                   </Suspense>
                 </TeamLayout>
               </TeamRoute>

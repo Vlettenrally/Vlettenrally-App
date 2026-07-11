@@ -17,17 +17,24 @@ import nl.vlettenrally.data.dto.auth.AuthTokenResponse;
 import nl.vlettenrally.data.dto.auth.CheckInStateResponse;
 import nl.vlettenrally.data.dto.auth.RegisterDeviceRequest;
 import nl.vlettenrally.data.dto.auth.RegisterDeviceResponse;
+import nl.vlettenrally.data.dto.auth.TeamInvite;
+import nl.vlettenrally.data.dto.auth.TeamInviteLinkResponse;
+import nl.vlettenrally.data.dto.auth.TeamInviteResolveResponse;
 import nl.vlettenrally.data.dto.auth.TeamOptionResponse;
 import nl.vlettenrally.data.dto.auth.TeamSelectionRequest;
 import nl.vlettenrally.data.dto.auth.TeamSelectionResponse;
 import nl.vlettenrally.data.dto.auth.TodayGameResponse;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
+import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.service.AuthService;
 import nl.vlettenrally.service.CheckInCacheService;
 import nl.vlettenrally.service.CheckInCoordinationService;
+import nl.vlettenrally.service.CheckInWindowClosedException;
 import nl.vlettenrally.service.TeamService;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -80,16 +87,18 @@ public class CheckInResource {
     @PermitAll
     @Path("/games/{gameId}/teams")
     public Response getTeamsForGame(@PathParam("gameId") UUID gameId) {
-        List<TeamOptionResponse> teams = checkInCacheService.getOrLoad(gameId, () ->
-            teamService.findByGameId(gameId).stream()
+        List<TeamOptionResponse> teams = checkInCacheService.getOrLoad(gameId, () -> {
+            Map<UUID, Boolean> acceptingByTeam = coordinationService.acceptingNewDevicesByTeam(gameId);
+            return teamService.findByGameId(gameId).stream()
                 .map(team -> new TeamOptionResponse(
                     team.getId(),
                     team.getName(),
                     team.getDescription(),
                     team.isCheckedIn(),
-                    team.getMainDeviceId() != null))
-                .toList()
-        );
+                    team.getMainDeviceId() != null,
+                    acceptingByTeam.getOrDefault(team.getId(), true)))
+                .toList();
+        });
         return Response.ok(teams).build();
     }
 
@@ -104,10 +113,17 @@ public class CheckInResource {
         }
         try {
             RegisterDeviceResponse response = coordinationService.registerDevice(
-                request.gameId(), request.teamId(), request.deviceId(), request.nickname());
+                request.gameId(), request.teamId(), request.deviceId(), request.nickname(), request.inviteToken());
             return Response.ok(response).build();
         } catch (IllegalArgumentException e) {
             return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse(e.getMessage()))
+                .build();
+        } catch (CheckInWindowClosedException e) {
+            // Additional-device time gate closed for the manual selection path. 409 (not
+            // 403) is deliberate: this is a public endpoint and the frontend treats 401/403
+            // as an auth failure that triggers a token refresh + login redirect.
+            return Response.status(Response.Status.CONFLICT)
                 .entity(new ErrorResponse(e.getMessage()))
                 .build();
         } catch (IllegalStateException e) {
@@ -131,6 +147,53 @@ public class CheckInResource {
                 .entity(new ErrorResponse(e.getMessage()))
                 .build();
         }
+    }
+
+    /**
+     * Mint a team-scoped invite token for the authenticated team. The team shows the
+     * returned URL as a QR; teammates who scan it join this team directly and bypass
+     * the additional-device time gate.
+     */
+    @POST
+    @RolesAllowed({"team"})
+    @Path("/invite-token")
+    public Response createInviteToken(@Context SecurityContext securityContext) {
+        try {
+            UUID teamId = UUID.fromString(securityContext.getUserPrincipal().getName());
+            TeamInviteLinkResponse response = authService.generateTeamInviteToken(teamId);
+            return Response.ok(response).build();
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse(e.getMessage()))
+                .build();
+        }
+    }
+
+    /**
+     * Resolve a scanned invite token to the game + team it grants access to, so the
+     * public check-in flow can skip the game/team pickers and jump to the nickname step.
+     */
+    @GET
+    @PermitAll
+    @Path("/invite/{token}")
+    public Response resolveInvite(@PathParam("token") String token) {
+        Optional<TeamInvite> invite = authService.validateTeamInviteToken(token);
+        if (invite.isEmpty()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("Invalid or expired invite link"))
+                .build();
+        }
+        TeamInvite decoded = invite.get();
+        Optional<Team> team = teamService.findById(decoded.teamId());
+        if (team.isEmpty()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("Team no longer exists"))
+                .build();
+        }
+        return Response.ok(new TeamInviteResolveResponse(
+            decoded.gameId(),
+            decoded.teamId(),
+            team.get().getName())).build();
     }
 
     // ---------------------------------------------------------------------
@@ -159,7 +222,8 @@ public class CheckInResource {
                     team.getName(),
                     team.getDescription(),
                     team.isCheckedIn(),
-                    team.getMainDeviceId() != null))
+                    team.getMainDeviceId() != null,
+                    true))
                 .toList();
             return Response.ok(new TeamSelectionResponse(gameId.toString(), teamOptions)).build();
 

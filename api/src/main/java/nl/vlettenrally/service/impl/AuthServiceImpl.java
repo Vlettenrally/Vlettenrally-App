@@ -1,7 +1,10 @@
 package nl.vlettenrally.service.impl;
 
+import io.smallrye.jwt.auth.principal.JWTParser;
+import io.smallrye.jwt.auth.principal.ParseException;
 import io.smallrye.jwt.build.Jwt;
 import io.smallrye.mutiny.Uni;
+import org.eclipse.microprofile.jwt.JsonWebToken;
 import io.quarkus.scheduler.Scheduled;
 import io.quarkus.logging.Log;
 import io.quarkus.elytron.security.common.BcryptUtil;
@@ -20,6 +23,7 @@ import nl.vlettenrally.service.TokenRevocationStore;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.List;
@@ -31,6 +35,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import nl.vlettenrally.data.dto.auth.GameCheckInLinkResponse;
 import nl.vlettenrally.data.dto.auth.RegistrationTokenData;
+import nl.vlettenrally.data.dto.auth.TeamInvite;
+import nl.vlettenrally.data.dto.auth.TeamInviteLinkResponse;
 import nl.vlettenrally.data.dto.auth.TokenResult;
 import nl.vlettenrally.data.domain.RefreshToken;
 import nl.vlettenrally.data.repository.RefreshTokenRepository;
@@ -81,6 +87,17 @@ public class AuthServiceImpl implements AuthService {
 
     @ConfigProperty(name = "vlettenrally.frontend.base-url", defaultValue = "http://localhost:5173")
     String frontendBaseUrl;
+
+    @ConfigProperty(name = "vlettenrally.checkin.invite-token-expiry-hours", defaultValue = "24")
+    int inviteTokenExpiryHours;
+
+    @Inject
+    JWTParser jwtParser;
+
+    /** Marks a JWT as a team-invite token (see generateTeamInviteToken). */
+    private static final String INVITE_PURPOSE = "team-invite";
+    private static final String INVITE_PURPOSE_CLAIM = "purpose";
+    private static final String INVITE_GAME_CLAIM = "gid";
 
     // In-memory storage for registration tokens (short-lived, can remain in-memory)
     private final Map<String, RegistrationTokenData> registrationTokens = new ConcurrentHashMap<>();
@@ -600,6 +617,60 @@ public class AuthServiceImpl implements AuthService {
             gameId, game.getName(), Instant.ofEpochSecond(expiresAt));
 
         return new GameCheckInLinkResponse(checkInUrl, registrationToken, expiresAt, expiryReason);
+    }
+
+    @Override
+    public TeamInviteLinkResponse generateTeamInviteToken(UUID teamId) {
+        Team team = teamRepository.findById(teamId)
+            .orElseThrow(() -> new IllegalArgumentException("Team not found: " + teamId));
+
+        UUID gameId = team.getGameId();
+        if (gameId == null) {
+            throw new IllegalArgumentException("Team is not assigned to a game: " + teamId);
+        }
+
+        // Generous expiry: at least the fixed fallback from now, extended to the game's
+        // end time when that is later. A fresh token is minted on every call, so we never
+        // need a short-lived token here.
+        Instant fallback = Instant.now().plus(inviteTokenExpiryHours, ChronoUnit.HOURS);
+        Instant expiry = gameRepository.findById(gameId)
+            .map(Game::getEndTime)
+            .filter(end -> end.isAfter(fallback))
+            .orElse(fallback);
+
+        String token = Jwt.issuer(issuer)
+            .subject(teamId.toString())
+            .claim("name", team.getName())
+            .claim(INVITE_PURPOSE_CLAIM, INVITE_PURPOSE)
+            .claim(INVITE_GAME_CLAIM, gameId.toString())
+            .expiresAt(expiry)
+            .sign();
+
+        String url = frontendBaseUrl + "/check-in?invite=" + token;
+
+        Log.infof("Team invite token generated - teamId: %s, gameId: %s, expiresAt: %s",
+            teamId, gameId, expiry);
+
+        return new TeamInviteLinkResponse(url, token);
+    }
+
+    @Override
+    public Optional<TeamInvite> validateTeamInviteToken(String token) {
+        if (token == null || token.isBlank()) {
+            return Optional.empty();
+        }
+        try {
+            JsonWebToken jwt = jwtParser.parse(token);
+            if (!INVITE_PURPOSE.equals(jwt.getClaim(INVITE_PURPOSE_CLAIM))) {
+                return Optional.empty();
+            }
+            UUID teamId = UUID.fromString(jwt.getSubject());
+            UUID gameId = UUID.fromString(jwt.getClaim(INVITE_GAME_CLAIM));
+            return Optional.of(new TeamInvite(gameId, teamId));
+        } catch (ParseException | IllegalArgumentException | NullPointerException e) {
+            Log.debugf("Invalid team invite token: %s", e.getMessage());
+            return Optional.empty();
+        }
     }
 
     /**

@@ -133,6 +133,12 @@ export const teamService = {
     return !response.error;
   },
 
+  // Mint a team invite link/QR (admin action) — same kind a team can generate itself.
+  getInviteLink: async (teamId: string): Promise<{ url: string | null; error: string | null }> => {
+    const response = await api.getAdminTeamInviteToken(teamId);
+    return { url: response.data?.url ?? null, error: response.error ?? null };
+  },
+
   resetPointsLedger: async (teamId: string, gameId: string): Promise<{ error: string | null }> => {
     const response = await api.resetTeamPointsLedger(teamId, gameId);
     return { error: response.error ?? null };
