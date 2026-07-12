@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -103,7 +104,20 @@ class LocationIngestServiceTest {
 
         assertTrue(result.isPresent());
         verify(locationDataRepository).save(any(LocationData.class));
-        verify(teamDistanceCalculator).accrueFix(eq(teamId), any(LocationData.class));
+        verify(teamDistanceCalculator).accrueFix(eq(teamId), any(), any(LocationData.class));
+    }
+
+    @Test
+    void ingest_loadsGameOnce_andPassesItToTheCalculator() {
+        when(locationDataRepository.findRecentByTeamId(teamId, 2)).thenReturn(List.of());
+        Game game = activeGame();
+        when(gameService.findById(gameId)).thenReturn(Optional.of(game));
+
+        service.ingest(reading(52.0, 5.0, Instant.now()), "Team", null);
+
+        // One lookup per fix, and the calculator gets that same instance for its window check.
+        verify(gameService).findById(gameId);
+        verify(teamDistanceCalculator).accrueFix(eq(teamId), same(game), any(LocationData.class));
     }
 
     @Test
@@ -213,7 +227,8 @@ class LocationIngestServiceTest {
         assertTrue(result.isPresent());
         // Late finish-zone crossing is still detected so its automation can fire...
         verify(achievementService).recordVerifiedPass(teamId, checkpointId, now);
-        // ...but scoring stays off after the game ends (no distance points).
+        // ...but scoring stays off after the game ends (no distance points) — and the fix
+        // is past endTime, so the calculator's window filter accrues no meters either.
         verify(automationEngine).onDistanceUpdate(eq(gameId), eq(teamId), anyDouble(), eq(false));
     }
 

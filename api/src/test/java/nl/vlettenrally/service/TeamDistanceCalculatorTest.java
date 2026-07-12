@@ -8,6 +8,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 
+import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.LocationData;
 import nl.vlettenrally.data.domain.TeamDistanceSegment;
 import nl.vlettenrally.data.repository.mock.MockLocationDataRepository;
@@ -35,6 +36,7 @@ class TeamDistanceCalculatorTest {
     private MockTeamDistanceSegmentRepository segmentRepo;
     private TeamDistanceCalculator calculator;
     private Instant base;
+    private Game game;
 
     @BeforeEach
     void setUp() {
@@ -48,6 +50,12 @@ class TeamDistanceCalculatorTest {
         calculator.minSegmentMeters = MIN_SEGMENT_METERS;
 
         base = Instant.parse("2026-06-11T10:00:00Z");
+        // Unbounded window by default so tests about the accrual rule itself stay window-free.
+        game = game(null, null);
+    }
+
+    private static Game game(Instant start, Instant end) {
+        return new Game(GAME, "Test game", null, start, end, Game.GameStatus.ACTIVE);
     }
 
     private LocationData fix(double lon, double lat, int secondsFromBase) {
@@ -63,7 +71,7 @@ class TeamDistanceCalculatorTest {
     private double ingest(double lon, double lat, int secondsFromBase) {
         LocationData f = fix(lon, lat, secondsFromBase);
         locationRepo.save(f);
-        return calculator.accrueFix(TEAM, f);
+        return calculator.accrueFix(TEAM, game, f);
     }
 
     @Test
@@ -150,7 +158,7 @@ class TeamDistanceCalculatorTest {
         fullCalc.locationDataRepository = locationRepo;
         fullCalc.segmentRepository = new MockTeamDistanceSegmentRepository();
         fullCalc.minSegmentMeters = MIN_SEGMENT_METERS;
-        double fullPass = fullCalc.recomputeAfter(TEAM, Instant.EPOCH);
+        double fullPass = fullCalc.recomputeAfter(TEAM, game, Instant.EPOCH);
 
         assertEquals(fullPass, incremental, 1e-6);
     }
@@ -161,8 +169,8 @@ class TeamDistanceCalculatorTest {
         double total = ingest(4.9000, 52.3702, 30);
 
         // Same timestamp as the anchor (and an older one): skipped, chain untouched.
-        double replayed = calculator.accrueFix(TEAM, fix(4.9000, 52.3710, 30));
-        double older = calculator.accrueFix(TEAM, fix(4.9000, 52.3710, 10));
+        double replayed = calculator.accrueFix(TEAM, game, fix(4.9000, 52.3710, 30));
+        double older = calculator.accrueFix(TEAM, game, fix(4.9000, 52.3710, 10));
 
         assertEquals(total, replayed, 1e-9);
         assertEquals(total, older, 1e-9);
@@ -181,7 +189,7 @@ class TeamDistanceCalculatorTest {
         // the spanning segment is replaced by two chained ones.
         LocationData gapFix = fix(4.9000, 52.3710, 30);
         locationRepo.save(gapFix);
-        double recomputed = calculator.recomputeAfter(TEAM, gapFix.getLocationTime());
+        double recomputed = calculator.recomputeAfter(TEAM, game, gapFix.getLocationTime());
         assertEquals(incremental, recomputed, 1e-6);
 
         List<TeamDistanceSegment> segments = segmentRepo.findByTeamId(TEAM);
@@ -189,7 +197,7 @@ class TeamDistanceCalculatorTest {
         assertEquals(gapFix.getLocationTime(), segments.get(1).getToTime());
 
         // Idempotent: rebuilding the same tail again changes nothing.
-        assertEquals(recomputed, calculator.recomputeAfter(TEAM, gapFix.getLocationTime()), 1e-9);
+        assertEquals(recomputed, calculator.recomputeAfter(TEAM, game, gapFix.getLocationTime()), 1e-9);
         assertEquals(3, segmentRepo.findByTeamId(TEAM).size());
     }
 
@@ -206,12 +214,98 @@ class TeamDistanceCalculatorTest {
         carryover.setMeters(1234.0);
         segmentRepo.save(carryover);
 
-        double rebuilt = calculator.recomputeAfter(TEAM, base.minusSeconds(3600));
+        double rebuilt = calculator.recomputeAfter(TEAM, game, base.minusSeconds(3600));
         assertEquals(1234.0, rebuilt, 1e-9);
 
         // Live accrual continues on top of the carried total, anchored at the seed endpoint.
         double afterMove = ingest(4.9000, 52.3702, 30);
         assertEquals(1234.0 + GeoDistance.haversineMeters(4.9000, 52.3700, 4.9000, 52.3702),
             afterMove, 0.01);
+    }
+
+    @Test
+    void preStartFixes_neitherSeedNorAccrue() {
+        game = game(base, base.plus(1, ChronoUnit.HOURS));
+
+        // Milling about during the pre-start lead window, well south of the start line.
+        ingest(4.9000, 52.3640, -120);
+        double preStart = ingest(4.9000, 52.3660, -60);
+        assertEquals(0.0, preStart, 1e-9);
+        assertTrue(segmentRepo.findByTeamId(TEAM).isEmpty(), "no seed before the window opens");
+
+        // Exactly at startTime (inclusive): seeds the chain, and the hop from the last
+        // pre-start position to the seed is not credited.
+        assertEquals(0.0, ingest(4.9000, 52.3700, 0), 1e-9);
+        assertEquals(1, segmentRepo.findByTeamId(TEAM).size());
+
+        double moved = ingest(4.9000, 52.3702, 30);
+        assertEquals(GeoDistance.haversineMeters(4.9000, 52.3700, 4.9000, 52.3702), moved, 0.01);
+    }
+
+    @Test
+    void postEndFixes_holdAnchorAndTotal() {
+        game = game(base, base.plus(60, ChronoUnit.SECONDS));
+
+        ingest(4.9000, 52.3700, 0);
+        // Exactly at endTime (inclusive): still counted.
+        double atEnd = ingest(4.9000, 52.3702, 60);
+        assertEquals(GeoDistance.haversineMeters(4.9000, 52.3700, 4.9000, 52.3702), atEnd, 0.01);
+
+        // Tail-window / overtime movement: stored but never counted, chain untouched.
+        double afterEnd = ingest(4.9000, 52.3720, 90);
+        assertEquals(atEnd, afterEnd, 1e-9);
+        assertEquals(2, segmentRepo.findByTeamId(TEAM).size());
+    }
+
+    @Test
+    void nullGame_behavesUnbounded() {
+        // Defensive path only — the fix's game FK guarantees the row exists in production.
+        game = null;
+        ingest(4.9000, 52.3700, 0);
+        double total = ingest(4.9000, 52.3702, 30);
+        assertEquals(GeoDistance.haversineMeters(4.9000, 52.3700, 4.9000, 52.3702), total, 0.01);
+    }
+
+    @Test
+    void recomputeAfter_skipsOutOfWindowStoredFixes() {
+        game = game(base, base.plus(60, ChronoUnit.SECONDS));
+
+        // Stored fixes straddle both bounds; only the t=0..60 run may count.
+        locationRepo.save(fix(4.9000, 52.3690, -60));
+        locationRepo.save(fix(4.9000, 52.3700, 0));
+        locationRepo.save(fix(4.9000, 52.3702, 30));
+        locationRepo.save(fix(4.9000, 52.3704, 60));
+        locationRepo.save(fix(4.9000, 52.3720, 90));
+
+        double rebuilt = calculator.recomputeAfter(TEAM, game, Instant.EPOCH);
+        double expected = GeoDistance.haversineMeters(4.9000, 52.3700, 4.9000, 52.3702)
+                        + GeoDistance.haversineMeters(4.9000, 52.3702, 4.9000, 52.3704);
+        assertEquals(expected, rebuilt, 0.01);
+
+        List<TeamDistanceSegment> segments = segmentRepo.findByTeamId(TEAM);
+        assertEquals(3, segments.size(), "seed at the first in-window fix + two segments");
+        assertEquals(base, segments.getFirst().getToTime());
+    }
+
+    @Test
+    void boundedWindow_incrementalAccrualMatchesFullRecompute() {
+        // The key invariant of the window filter: skipping live must equal skipping on rebuild.
+        game = game(base, base.plus(90, ChronoUnit.SECONDS));
+
+        double incremental = 0;
+        int[] seconds = {-60, 0, 30, 60, 90, 120};
+        double[] lats = {52.3690, 52.3700, 52.3702, 52.3704, 52.3706, 52.3720};
+        for (int i = 0; i < seconds.length; i++) {
+            incremental = ingest(4.9000, lats[i], seconds[i]);
+        }
+
+        TeamDistanceCalculator fullCalc = new TeamDistanceCalculator();
+        fullCalc.locationDataRepository = locationRepo;
+        fullCalc.segmentRepository = new MockTeamDistanceSegmentRepository();
+        fullCalc.minSegmentMeters = MIN_SEGMENT_METERS;
+        double fullPass = fullCalc.recomputeAfter(TEAM, game, Instant.EPOCH);
+
+        assertTrue(incremental > 0);
+        assertEquals(fullPass, incremental, 1e-6);
     }
 }

@@ -64,7 +64,14 @@ public class LocationBackfillPersister {
         UUID gameId = game.getId();
         UUID teamId = team.getId();
 
-        // Build valid candidates, chronological ascending.
+        // Build valid candidates, chronological ascending. Points outside the game's time envelope
+        // are dropped: the provider track spans the tracker's whole power-on period, and pre-start
+        // (or, once the game has COMPLETED, post-tail-window) movement has no business entering
+        // location_data. This is the storage envelope; the accrual envelope is narrower still —
+        // TeamDistanceCalculator only counts fixes inside [startTime, endTime], so stored
+        // tail-window points never inflate the travelled distance either.
+        Instant start = game.getStartTime();
+        Instant storageCeiling = completedTailWindowEnd(game);
         List<LocationData> candidates = new ArrayList<>();
         for (EventParticipantLocation pl : providerPoints) {
             if (pl.getLocation() == null) {
@@ -72,6 +79,12 @@ public class LocationBackfillPersister {
             }
             Instant t = parseInstant(pl.getLocationTime());
             if (t == null) {
+                continue;
+            }
+            if (start != null && t.isBefore(start)) {
+                continue;
+            }
+            if (storageCeiling != null && t.isAfter(storageCeiling)) {
                 continue;
             }
             LocationData ld = toLocationData(gameId, teamId, pl, t);
@@ -129,15 +142,17 @@ public class LocationBackfillPersister {
 
         // Full pipeline: rebuild the distance-segment chain from the earliest inserted fix
         // onward, then replay checkpoints over the gap.
-        LocationIngestService.IngestGate gate = locationIngestService.computeGate(gameId, teamId, maxT);
+        LocationIngestService.IngestGate gate = locationIngestService.computeGate(game, teamId, maxT);
         double cumulative = teamDistanceCalculator.recomputeAfter(
-            teamId, accepted.getFirst().getLocationTime());
+            teamId, game, accepted.getFirst().getLocationTime());
         automationEngine.onDistanceUpdate(gameId, teamId, cumulative, gate.scoringActive());
 
         // Checkpoint eligibility is decided per segment inside replayCheckpoints, not by this single
         // gate.detectCheckpoints() snapshot: unlike the live poller (one fix, evaluated at its own
-        // arrival time), a single backfill batch can span the game's pre-start lead window, its
-        // post-end tail window, and a team's actual finish instant, all in one call.
+        // arrival time), a single backfill batch can span the game's end into its post-end tail
+        // window and a team's actual finish instant, all in one call. (Pre-start points never get
+        // here — the candidate filter above drops them — though a stored pre-start fix can still
+        // serve as the boundary neighbour opening the first segment.)
         int passes = replayCheckpoints(game, team, neighbourBefore, accepted, maxT);
         return BackfillResult.completed(accepted.size(), dropped, passes);
     }
@@ -214,6 +229,22 @@ public class LocationBackfillPersister {
         }
         Instant finishedAt = team.getFinishedAt();
         return finishedAt == null || t.isBefore(finishedAt);
+    }
+
+    /**
+     * Upper storage bound for backfilled fixes: once the game has COMPLETED, live polling stops
+     * when the post-end tail window closes ({@link Game#isWithinPollingTailWindow}), so backfill
+     * must not import past that point either. Null (no bound) while the game is still
+     * PLANNED/ACTIVE — a game running past its planned end time keeps ingesting live, and
+     * backfill must match — or when no end time is configured.
+     */
+    private static Instant completedTailWindowEnd(Game game) {
+        if (game.getStatus() != Game.GameStatus.COMPLETED || game.getEndTime() == null) {
+            return null;
+        }
+        Integer tail = game.getLocationPollingTailMinutes();
+        long tailMinutes = tail != null && tail > 0 ? tail : 0;
+        return game.getEndTime().plus(Duration.ofMinutes(tailMinutes));
     }
 
     private static LocationData toLocationData(UUID gameId, UUID teamId, EventParticipantLocation pl, Instant time) {

@@ -3,6 +3,7 @@ package nl.vlettenrally.service;
 import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.LocationData;
 import nl.vlettenrally.data.domain.TeamDistanceSegment;
 import nl.vlettenrally.data.repository.LocationDataRepository;
@@ -28,6 +29,13 @@ import java.util.UUID;
  * anchor. This yields the same total as walking the full track, while a moored boat's
  * wander accrues ~zero.
  * <p>
+ * Only fixes inside the game's playing window {@code [startTime, endTime]} (inclusive,
+ * a null bound is unbounded on that side) count: fixes from the pre-start polling lead
+ * window, the post-end tail window, or a game running late past its planned end are
+ * stored in {@code location_data} but never seed the chain nor advance the anchor. The
+ * window is derived purely from timestamps, never from the game's (mutable) status, so
+ * a live accrual and a later rebuild always agree.
+ * <p>
  * Both methods must run inside the caller's transaction: they take the per-team
  * advisory lock ({@link TeamDistanceSegmentRepository#lockTeam}) first, which
  * serializes concurrent updates from the Legendstracking poller, the Traccar/OsmAnd
@@ -50,9 +58,9 @@ public class TeamDistanceCalculator {
      * updated total travelled distance in metres. The fix is passed in-hand, so the
      * live path never re-reads {@code location_data}.
      */
-    public double accrueFix(UUID teamId, LocationData fix) {
+    public double accrueFix(UUID teamId, Game game, LocationData fix) {
         segmentRepository.lockTeam(teamId);
-        appendFix(teamId, segmentRepository.findLastByTeamId(teamId).orElse(null), fix);
+        appendFix(teamId, game, segmentRepository.findLastByTeamId(teamId).orElse(null), fix);
         return segmentRepository.sumMetersByTeamId(teamId);
     }
 
@@ -70,15 +78,20 @@ public class TeamDistanceCalculator {
      * is not guaranteed); {@link AutomationEngine#onDistanceUpdate} treats its baseline
      * as a high-water mark — a decrease neither credits nor lowers the baseline, so the
      * climb-back is not re-credited and no clamp is needed here.
+     * <p>
+     * An admin editing the game's start/end time after fixes were accrued (or skipped)
+     * is not reconciled here on its own: segments already written past a shortened end
+     * remain, and fixes skipped past an extended end stay uncounted, until a backfill
+     * of that range triggers this rebuild.
      */
-    public double recomputeAfter(UUID teamId, Instant earliestChangedTime) {
+    public double recomputeAfter(UUID teamId, Game game, Instant earliestChangedTime) {
         segmentRepository.lockTeam(teamId);
         segmentRepository.deleteFromTime(teamId, earliestChangedTime);
 
         TeamDistanceSegment anchor = segmentRepository.findLastByTeamId(teamId).orElse(null);
         Instant after = anchor != null ? anchor.getToTime() : Instant.EPOCH;
         for (LocationData fix : locationDataRepository.findByTeamIdAfter(teamId, after)) {
-            anchor = appendFix(teamId, anchor, fix);
+            anchor = appendFix(teamId, game, anchor, fix);
         }
         return segmentRepository.sumMetersByTeamId(teamId);
     }
@@ -88,8 +101,21 @@ public class TeamDistanceCalculator {
      * chain is empty): seed the chain on the first fix, append a segment once the fix
      * is at least {@code minSegmentMeters} from the anchor, or hold the anchor on
      * jitter. Returns the (possibly advanced) anchor.
+     * <p>
+     * A fix outside the game window is skipped outright, so the chain seeds at the
+     * first in-window fix and the hop from a pre-start position to it is not credited.
+     * That first-counted-fix-seeds rule applies only to an empty chain: a migrated
+     * team's carryover seed is already the anchor, so its first in-window fix chains
+     * from the carryover endpoint and the pre-start gap is credited (pre-existing
+     * legacy behaviour, accepted).
      */
-    private TeamDistanceSegment appendFix(UUID teamId, TeamDistanceSegment anchor, LocationData fix) {
+    private TeamDistanceSegment appendFix(UUID teamId, Game game, TeamDistanceSegment anchor, LocationData fix) {
+        if (!countsForDistance(game, fix.getLocationTime())) {
+            // Lead/tail-window fix (or overtime past a strict end): stored, never counted.
+            // Deliberately quiet — pre-start polling skips one fix per team per cycle.
+            return anchor;
+        }
+
         Point p = fix.getLocation();
         if (p == null) {
             // Ingest validation rejects these; skip defensively when walking stored fixes.
@@ -126,6 +152,29 @@ public class TeamDistanceCalculator {
         segment.setToLat(p.getY());
         segment.setMeters(d);
         return segmentRepository.save(segment);
+    }
+
+    /**
+     * Whether a fix at {@code t} falls inside the game's playing window
+     * {@code [startTime, endTime]}, inclusive on both ends. A null bound is unbounded
+     * on that side (mirroring {@link Game#isWithinPollingLeadWindow}'s convention; a
+     * game without an end time never auto-completes and keeps accruing). A null game
+     * is unbounded too — defensive only, the fix's game FK guarantees the row exists.
+     */
+    private static boolean countsForDistance(Game game, Instant t) {
+        if (t == null) {
+            // Ingest validation rejects these; skip defensively like a null location.
+            return false;
+        }
+        if (game == null) {
+            return true;
+        }
+        Instant start = game.getStartTime();
+        if (start != null && t.isBefore(start)) {
+            return false;
+        }
+        Instant end = game.getEndTime();
+        return end == null || !t.isAfter(end);
     }
 
     private static TeamDistanceSegment seed(UUID teamId, LocationData fix, Point p) {

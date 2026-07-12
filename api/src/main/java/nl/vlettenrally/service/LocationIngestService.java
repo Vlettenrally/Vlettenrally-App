@@ -108,18 +108,20 @@ public class LocationIngestService {
             teamLocation
         );
 
-        // The game status drives both distance crediting and checkpoint detection;
-        // look it up once here, the single choke point for every fix. A team that
-        // has finished (reached its finish zone) is gated out the same way an
-        // inactive game is — its meters advance the baseline but earn no points.
+        // The game drives distance accrual, scoring and checkpoint detection; look it
+        // up once here, the single choke point for every fix.
         //
-        // Scoring (distance + speed) is ACTIVE-only. Checkpoint detection additionally runs
+        // Distance only accrues for fixes inside the game's [startTime, endTime] window
+        // (enforced in TeamDistanceCalculator) — lead/tail-window fixes are stored and
+        // broadcast but never counted. Point scoring (distance + speed) is additionally
+        // ACTIVE-only and gated out for a finished team. Checkpoint detection also runs
         // while a COMPLETED game is inside its post-end tail window, so a late finish-zone
         // crossing is still detected and its automation fires (e.g. a CHECKPOINT_ENTRY rule
         // comparing AFTER the game end). The rule itself still decides whether/how to act.
-        IngestGate gate = computeGate(reading.getGameId(), reading.getTeamId(), reading.getLocationTime());
+        Game game = gameService.findById(reading.getGameId()).orElse(null);
+        IngestGate gate = computeGate(game, reading.getTeamId(), reading.getLocationTime());
 
-        double cumulativeMeters = teamDistanceCalculator.accrueFix(reading.getTeamId(), reading);
+        double cumulativeMeters = teamDistanceCalculator.accrueFix(reading.getTeamId(), game, reading);
         automationEngine.onDistanceUpdate(reading.getGameId(), reading.getTeamId(), cumulativeMeters, gate.scoringActive());
 
         if (gate.scoringActive() && reading.getSpeed() != null) {
@@ -223,8 +225,7 @@ public class LocationIngestService {
      * Scoring (distance + speed) is ACTIVE-only; checkpoint detection additionally runs while a
      * COMPLETED game is inside its post-end tail window. A finished team is gated out of both.
      */
-    IngestGate computeGate(UUID gameId, UUID teamId, Instant atTime) {
-        Game game = gameService.findById(gameId).orElse(null);
+    IngestGate computeGate(Game game, UUID teamId, Instant atTime) {
         boolean gameActive = game != null && game.getStatus() == Game.GameStatus.ACTIVE;
         boolean inTailWindow = game != null && game.getStatus() == Game.GameStatus.COMPLETED
             && game.isWithinPollingTailWindow(atTime);
