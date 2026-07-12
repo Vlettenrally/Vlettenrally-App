@@ -214,6 +214,74 @@ class LocationBackfillPersisterTest {
     }
 
     @Test
+    void persist_filtersOutPointsBeforeTrackerAssignment() {
+        when(locationIngestService.isValid(any())).thenReturn(true);
+        lenient().when(locationIngestService.passesGuards(any(), any(), any())).thenReturn(true);
+        when(locationIngestService.computeGate(any(), any(), any()))
+            .thenReturn(new LocationIngestService.IngestGate(false, false));
+        when(teamDistanceCalculator.recomputeAfter(eq(team.getId()), same(game), any(Instant.class))).thenReturn(500.0);
+        game.setStartTime(BASE.minus(1, ChronoUnit.HOURS));
+        // Tracker was reassigned to this team mid-track: everything before that moment is the
+        // previous holder's movement and must not be imported.
+        team.setTrackerAssignedAt(BASE.plus(150, ChronoUnit.SECONDS));
+
+        List<EventParticipantLocation> track = List.of(
+            providerPoint(4.90, 52.3700, 50),   // pre-assignment
+            providerPoint(4.90, 52.3710, 100),  // pre-assignment
+            providerPoint(4.90, 52.3720, 200),  // post-assignment
+            providerPoint(4.90, 52.3730, 300)   // post-assignment
+        );
+
+        LocationBackfillService.BackfillResult result = persister.persist(game, team, track);
+
+        assertEquals(2, result.inserted());
+        assertEquals(2, locationRepo.findByTeamId(team.getId()).size());
+        // The rebuild boundary is the earliest accepted fix (t=200) — the filtered pre-assignment
+        // candidates must not widen the recompute range.
+        verify(teamDistanceCalculator).recomputeAfter(team.getId(), game, BASE.plus(200, ChronoUnit.SECONDS));
+    }
+
+    @Test
+    void persist_returnsZeroWhenAllPointsPreAssignment() {
+        game.setStartTime(BASE.minus(1, ChronoUnit.HOURS));
+        team.setTrackerAssignedAt(BASE.plus(150, ChronoUnit.SECONDS));
+
+        List<EventParticipantLocation> track = List.of(
+            providerPoint(4.90, 52.3700, 50),
+            providerPoint(4.90, 52.3710, 100)
+        );
+
+        LocationBackfillService.BackfillResult result = persister.persist(game, team, track);
+
+        assertEquals(LocationBackfillService.Status.COMPLETED, result.status());
+        assertEquals(0, result.inserted());
+        assertEquals(0, locationRepo.findByTeamId(team.getId()).size());
+        verifyNoInteractions(teamDistanceCalculator, automationEngine);
+    }
+
+    @Test
+    void persist_gameStartWinsWhenTrackerAssignedEarlier() {
+        when(locationIngestService.isValid(any())).thenReturn(true);
+        lenient().when(locationIngestService.passesGuards(any(), any(), any())).thenReturn(true);
+        when(locationIngestService.computeGate(any(), any(), any()))
+            .thenReturn(new LocationIngestService.IngestGate(false, false));
+        when(teamDistanceCalculator.recomputeAfter(eq(team.getId()), same(game), any(Instant.class))).thenReturn(500.0);
+        // Assignment predates the game start; the later of the two bounds (startTime) applies.
+        team.setTrackerAssignedAt(BASE);
+        game.setStartTime(BASE.plus(150, ChronoUnit.SECONDS));
+
+        List<EventParticipantLocation> track = List.of(
+            providerPoint(4.90, 52.3700, 50),   // post-assignment but pre-start
+            providerPoint(4.90, 52.3720, 200)   // post-start
+        );
+
+        LocationBackfillService.BackfillResult result = persister.persist(game, team, track);
+
+        assertEquals(1, result.inserted());
+        verify(teamDistanceCalculator).recomputeAfter(team.getId(), game, BASE.plus(200, ChronoUnit.SECONDS));
+    }
+
+    @Test
     void persist_usesStoredPreStartNeighbourForBoundarySegment() {
         when(locationIngestService.isValid(any())).thenReturn(true);
         lenient().when(locationIngestService.passesGuards(any(), any(), any())).thenReturn(true);

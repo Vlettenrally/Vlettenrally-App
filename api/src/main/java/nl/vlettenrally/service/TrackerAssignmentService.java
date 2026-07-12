@@ -7,13 +7,8 @@ import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.data.repository.TrackerPoolRepository;
 
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.UUID;
+import java.time.Instant;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -25,6 +20,10 @@ import java.util.stream.Collectors;
  * unique tracker. The admin pastes the IDs and we hand them out automatically to
  * teams that don't have one yet. Re-pasting is safe: IDs already in use are
  * skipped, so it never double-assigns.
+ *
+ * <p>Every (re)assignment stamps {@code trackerAssignedAt}, which bounds location
+ * backfill so a reassigned tracker's earlier movement stays with its previous
+ * holder. Re-assigning a team's current tracker leaves the stamp untouched.
  */
 @ApplicationScoped
 public class TrackerAssignmentService {
@@ -49,7 +48,7 @@ public class TrackerAssignmentService {
         // Tracker IDs already assigned to a team in this game must never be handed out again.
         Set<String> alreadyAssigned = teams.stream()
                 .map(t -> normalize(t.getTrackerId()))
-                .filter(id -> id != null)
+                .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
 
         // Persist every pasted ID into the game's pool so that any not auto-assigned
@@ -75,7 +74,7 @@ public class TrackerAssignmentService {
 
         List<Team> freeTeams = teams.stream()
                 .filter(t -> normalize(t.getTrackerId()) == null)
-                .collect(Collectors.toList());
+                .toList();
 
         List<String> assignedPairs = new ArrayList<>();
         List<String> remainingTrackers = new ArrayList<>(candidates);
@@ -85,6 +84,7 @@ public class TrackerAssignmentService {
             Team team = freeTeams.get(i);
             String trackerId = remainingTrackers.get(i);
             team.setTrackerId(trackerId);
+            team.setTrackerAssignedAt(Instant.now());
             teamRepository.save(team);
             assignedPairs.add(trackerId + " -> " + boatLabel(team));
         }
@@ -114,7 +114,7 @@ public class TrackerAssignmentService {
     public List<String> availableTrackers(UUID gameId) {
         Set<String> assigned = teamRepository.findByGameId(gameId).stream()
                 .map(t -> normalize(t.getTrackerId()))
-                .filter(id -> id != null)
+                .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
         Set<String> available = new TreeSet<>(trackerPoolRepository.findTrackerIdsByGameId(gameId));
         available.removeAll(assigned);
@@ -136,6 +136,7 @@ public class TrackerAssignmentService {
         String id = normalize(trackerId);
         if (id == null) {
             team.setTrackerId(null);
+            team.setTrackerAssignedAt(null);
             return teamRepository.save(team);
         }
 
@@ -150,6 +151,12 @@ public class TrackerAssignmentService {
             throw new IllegalArgumentException("Tracker " + id + " is not in this game's pool");
         }
 
+        // Re-picking the tracker the team already holds must not re-stamp: the
+        // assignment moment bounds location backfill, and shrinking it would lose
+        // legitimately-owned track history.
+        if (!id.equals(normalize(team.getTrackerId()))) {
+            team.setTrackerAssignedAt(Instant.now());
+        }
         team.setTrackerId(id);
         return teamRepository.save(team);
     }

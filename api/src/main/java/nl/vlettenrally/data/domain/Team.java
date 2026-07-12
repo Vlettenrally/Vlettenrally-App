@@ -48,6 +48,11 @@ public class Team {
     // Physical GPS tracker ID from the external provider, auto-assigned in bulk
     // and exported back to them. Independent of traccarIdentifier above.
     private String trackerId;
+    // When trackerId was last (re)assigned; lower bound for location backfill so a
+    // reassigned tracker's earlier movement (recorded for another team) is never
+    // imported. Cleared with trackerId; re-assigning the same tracker after a clear
+    // re-stamps (while unassigned it may have served another team). Null = no bound.
+    private Instant trackerAssignedAt;
 
     @Setter(AccessLevel.NONE)
     private List<String> emergencyPhoneNumbers;

@@ -85,6 +85,10 @@ public class TeamEntity {
     @Column(name = "tracker_id", length = 64)
     private String trackerId;
 
+    // When trackerId was last (re)assigned; lower bound for location backfill.
+    @Column(name = "tracker_assigned_at")
+    private Instant trackerAssignedAt;
+
     @Version
     @Column(name = "version", nullable = false)
     private long version;

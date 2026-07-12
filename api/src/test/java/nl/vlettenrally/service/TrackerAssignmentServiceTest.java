@@ -7,6 +7,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -53,13 +54,17 @@ class TrackerAssignmentServiceTest {
         when(teamRepository.findByGameId(gameId)).thenReturn(List.of(a, b));
         when(teamRepository.save(any(Team.class))).thenAnswer(inv -> inv.getArgument(0));
 
+        Instant before = Instant.now();
         TrackerAssignmentResult result = service.assignTrackers(gameId, List.of("T1", "T2"));
+        Instant after = Instant.now();
 
         assertEquals(2, result.assigned());
         assertEquals(0, result.teamsWithoutTracker());
         assertEquals(0, result.unused());
         assertEquals("T1", a.getTrackerId());
         assertEquals("T2", b.getTrackerId());
+        assertStampedBetween(a.getTrackerAssignedAt(), before, after);
+        assertStampedBetween(b.getTrackerAssignedAt(), before, after);
         assertEquals(List.of("T1 -> 7", "T2 -> 12"), result.assignedPairs());
         verify(teamRepository, times(2)).save(any(Team.class));
     }
@@ -146,9 +151,11 @@ class TrackerAssignmentServiceTest {
         String csv = service.exportCsv(gameId);
 
         assertEquals(
-            "trackerId,boatNumber,scoutingGroup\n"
-                + "T1,7,Scouting Delft\n"
-                + "T2,12,\"Scouting, Gouda\"\n",
+                """
+                        trackerId,boatNumber,scoutingGroup
+                        T1,7,Scouting Delft
+                        T2,12,"Scouting, Gouda"
+                        """,
             csv);
     }
 
@@ -181,20 +188,61 @@ class TrackerAssignmentServiceTest {
         when(trackerPoolRepository.findTrackerIdsByGameId(gameId)).thenReturn(Set.of("T1"));
         when(teamRepository.save(any(Team.class))).thenAnswer(inv -> inv.getArgument(0));
 
+        Instant before = Instant.now();
         Team result = service.assignToTeam(team.getId(), "T1");
+        Instant after = Instant.now();
 
         assertEquals("T1", result.getTrackerId());
+        assertStampedBetween(result.getTrackerAssignedAt(), before, after);
     }
 
     @Test
     void assignToTeam_clearsTrackerWhenBlank() {
         Team team = team("7", "T1");
+        team.setTrackerAssignedAt(Instant.now());
         when(teamRepository.findById(team.getId())).thenReturn(Optional.of(team));
         when(teamRepository.save(any(Team.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Team result = service.assignToTeam(team.getId(), "  ");
 
         assertNull(result.getTrackerId());
+        assertNull(result.getTrackerAssignedAt());
+    }
+
+    @Test
+    void assignToTeam_reassigningSameTrackerKeepsTimestamp() {
+        Instant original = Instant.now().minusSeconds(3600);
+        Team team = team("7", "T1");
+        team.setTrackerAssignedAt(original);
+        when(teamRepository.findById(team.getId())).thenReturn(Optional.of(team));
+        when(teamRepository.findByGameId(gameId)).thenReturn(List.of(team));
+        when(trackerPoolRepository.findTrackerIdsByGameId(gameId)).thenReturn(Set.of("T1"));
+        when(teamRepository.save(any(Team.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Re-picking the tracker the team already holds is idempotent: it must not re-stamp,
+        // or a later backfill would lose the team's earlier (legitimately-owned) track.
+        Team result = service.assignToTeam(team.getId(), "T1");
+
+        assertEquals("T1", result.getTrackerId());
+        assertEquals(original, result.getTrackerAssignedAt());
+    }
+
+    @Test
+    void assignToTeam_swappingToDifferentTrackerRestamps() {
+        Instant original = Instant.now().minusSeconds(3600);
+        Team team = team("7", "T1");
+        team.setTrackerAssignedAt(original);
+        when(teamRepository.findById(team.getId())).thenReturn(Optional.of(team));
+        when(teamRepository.findByGameId(gameId)).thenReturn(List.of(team));
+        when(trackerPoolRepository.findTrackerIdsByGameId(gameId)).thenReturn(Set.of("T1", "T2"));
+        when(teamRepository.save(any(Team.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Instant before = Instant.now();
+        Team result = service.assignToTeam(team.getId(), "T2");
+        Instant after = Instant.now();
+
+        assertEquals("T2", result.getTrackerId());
+        assertStampedBetween(result.getTrackerAssignedAt(), before, after);
     }
 
     @Test
@@ -225,6 +273,12 @@ class TrackerAssignmentServiceTest {
         when(teamRepository.findById(missing)).thenReturn(Optional.empty());
 
         assertThrows(IllegalArgumentException.class, () -> service.assignToTeam(missing, "T1"));
+    }
+
+    private static void assertStampedBetween(Instant stamp, Instant before, Instant after) {
+        assertNotNull(stamp);
+        assertFalse(stamp.isBefore(before));
+        assertFalse(stamp.isAfter(after));
     }
 
     private Team team(String boatNumber, String trackerId) {

@@ -67,10 +67,13 @@ public class LocationBackfillPersister {
         // Build valid candidates, chronological ascending. Points outside the game's time envelope
         // are dropped: the provider track spans the tracker's whole power-on period, and pre-start
         // (or, once the game has COMPLETED, post-tail-window) movement has no business entering
-        // location_data. This is the storage envelope; the accrual envelope is narrower still —
-        // TeamDistanceCalculator only counts fixes inside [startTime, endTime], so stored
+        // location_data. A second lower bound is the tracker-assignment moment: points recorded
+        // before this team held the tracker belong to its previous holder and must not be imported
+        // as this team's movement. This is the storage envelope; the accrual envelope is narrower
+        // still — TeamDistanceCalculator only counts fixes inside [startTime, endTime], so stored
         // tail-window points never inflate the travelled distance either.
         Instant start = game.getStartTime();
+        Instant assignedAt = team.getTrackerAssignedAt();
         Instant storageCeiling = completedTailWindowEnd(game);
         List<LocationData> candidates = new ArrayList<>();
         for (EventParticipantLocation pl : providerPoints) {
@@ -82,6 +85,9 @@ public class LocationBackfillPersister {
                 continue;
             }
             if (start != null && t.isBefore(start)) {
+                continue;
+            }
+            if (assignedAt != null && t.isBefore(assignedAt)) {
                 continue;
             }
             if (storageCeiling != null && t.isAfter(storageCeiling)) {
@@ -150,9 +156,9 @@ public class LocationBackfillPersister {
         // Checkpoint eligibility is decided per segment inside replayCheckpoints, not by this single
         // gate.detectCheckpoints() snapshot: unlike the live poller (one fix, evaluated at its own
         // arrival time), a single backfill batch can span the game's end into its post-end tail
-        // window and a team's actual finish instant, all in one call. (Pre-start points never get
-        // here — the candidate filter above drops them — though a stored pre-start fix can still
-        // serve as the boundary neighbour opening the first segment.)
+        // window and a team's actual finish instant, all in one call. (Pre-start / pre-assignment
+        // points never get here — the candidate filter above drops them — though a stored pre-start
+        // fix can still serve as the boundary neighbour opening the first segment.)
         int passes = replayCheckpoints(game, team, neighbourBefore, accepted, maxT);
         return BackfillResult.completed(accepted.size(), dropped, passes);
     }
