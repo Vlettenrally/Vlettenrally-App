@@ -29,6 +29,7 @@ public class RefreshTokenMapper {
         domain.setExpiresAt(entity.getExpiresAt());
         domain.setRevoked(entity.isRevoked());
         domain.setRevokedAt(entity.getRevokedAt());
+        domain.setReplacedByToken(entity.getReplacedByToken());
         domain.setCreatedAt(entity.getCreatedAt());
         domain.setUpdatedAt(entity.getUpdatedAt());
 
@@ -52,6 +53,7 @@ public class RefreshTokenMapper {
         entity.setExpiresAt(domain.getExpiresAt());
         entity.setRevoked(domain.isRevoked());
         entity.setRevokedAt(domain.getRevokedAt());
+        entity.setReplacedByToken(domain.getReplacedByToken());
         entity.setCreatedAt(domain.getCreatedAt());
         entity.setUpdatedAt(domain.getUpdatedAt());
 
@@ -73,5 +75,6 @@ public class RefreshTokenMapper {
         entity.setExpiresAt(domain.getExpiresAt());
         entity.setRevoked(domain.isRevoked());
         entity.setRevokedAt(domain.getRevokedAt());
+        entity.setReplacedByToken(domain.getReplacedByToken());
     }
 }

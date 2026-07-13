@@ -95,7 +95,7 @@ public class MockRefreshTokenRepository implements RefreshTokenRepository {
     public void deleteBySubject(String subject) {
         List<RefreshToken> toDelete = tokensById.values().stream()
                 .filter(t -> t.getSubject().equals(subject))
-                .collect(Collectors.toList());
+                .toList();
         
         for (RefreshToken token : toDelete) {
             tokensById.remove(token.getId());
@@ -104,10 +104,22 @@ public class MockRefreshTokenRepository implements RefreshTokenRepository {
     }
 
     @Override
+    public synchronized int markRevokedIfActive(UUID id, Instant revokedAt, String replacedByToken) {
+        RefreshToken token = tokensById.get(id);
+        if (token == null || token.isRevoked()) {
+            return 0;
+        }
+        token.setRevoked(true);
+        token.setRevokedAt(revokedAt);
+        token.setReplacedByToken(replacedByToken);
+        return 1;
+    }
+
+    @Override
     public void deleteExpiredTokens(Instant now) {
         List<RefreshToken> toDelete = tokensById.values().stream()
                 .filter(t -> t.getExpiresAt().isBefore(now))
-                .collect(Collectors.toList());
+                .toList();
         
         for (RefreshToken token : toDelete) {
             tokensById.remove(token.getId());

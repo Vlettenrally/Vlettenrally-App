@@ -25,9 +25,17 @@ public interface RefreshTokenRepository {
     void delete(UUID id);
     
     void deleteByToken(String token);
-    
+
     void deleteBySubject(String subject);
-    
+
+    /**
+     * Atomically mark a still-active token as revoked, recording the successor token
+     * that replaces it. Returns the number of rows affected: 1 if this caller won the
+     * rotation, 0 if the token was already revoked (concurrent rotation or replay).
+     * This makes refresh-token rotation race-safe without a separate lock.
+     */
+    int markRevokedIfActive(UUID id, Instant revokedAt, String replacedByToken);
+
     /**
      * Delete all expired tokens (cleanup)
      */

@@ -10,6 +10,7 @@ import io.quarkus.logging.Log;
 import io.quarkus.elytron.security.common.BcryptUtil;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import nl.vlettenrally.data.domain.Admin;
 import nl.vlettenrally.data.enums.Role;
 import nl.vlettenrally.data.enums.TokenType;
@@ -84,6 +85,12 @@ public class AuthServiceImpl implements AuthService {
 
     @ConfigProperty(name = "vlettenrally.jwt.refresh-token-reuse-grace-seconds", defaultValue = "30")
     int refreshTokenReuseGraceSeconds;
+
+    // How long after rotation a client may re-present the old refresh token and still get the
+    // live successor back (idempotent replay), rather than triggering a family-wide revocation.
+    // Covers the common "refresh response lost on a flaky mobile network" case.
+    @ConfigProperty(name = "vlettenrally.jwt.refresh-token-replay-window-seconds", defaultValue = "300")
+    int refreshTokenReplayWindowSeconds;
 
     @ConfigProperty(name = "vlettenrally.frontend.base-url", defaultValue = "http://localhost:5173")
     String frontendBaseUrl;
@@ -208,6 +215,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional
     public Optional<TokenResult> refreshToken(String refreshTokenStr) {
         Optional<RefreshToken> tokenOpt = refreshTokenRepository.findByToken(refreshTokenStr);
 
@@ -217,30 +225,6 @@ public class AuthServiceImpl implements AuthService {
 
         RefreshToken tokenData = tokenOpt.get();
 
-        // Check if token is already revoked (replay attack detection with grace period)
-        if (tokenData.isRevoked()) {
-            // If the token was revoked very recently, this is likely a duplicate request (race condition)
-            // rather than a genuine replay attack. Return empty without revoking all tokens.
-            Instant revokedAt = tokenData.getRevokedAt();
-            if (revokedAt != null && Instant.now().isBefore(revokedAt.plusSeconds(refreshTokenReuseGraceSeconds))) {
-                Log.warnf("Duplicate refresh token usage within grace period - subject: %s, name: %s, revokedAt: %s",
-                    tokenData.getSubject(), tokenData.getName(), revokedAt);
-                return Optional.empty();
-            }
-
-            Log.warnf("SECURITY: Replay attack detected - subject: %s, name: %s, revoking all tokens",
-                tokenData.getSubject(), tokenData.getName());
-            // Possible token replay attack - revoke all tokens for this user
-            try {
-                UUID userId = UUID.fromString(tokenData.getSubject());
-                revokeTokens(userId);
-            } catch (IllegalArgumentException e) {
-                // Invalid UUID, just delete this token
-                refreshTokenRepository.deleteByToken(refreshTokenStr);
-            }
-            return Optional.empty();
-        }
-
         if (Instant.now().isAfter(tokenData.getExpiresAt())) {
             Log.warnf("Token refresh failed - expired token - subject: %s, name: %s",
                 tokenData.getSubject(), tokenData.getName());
@@ -248,8 +232,8 @@ public class AuthServiceImpl implements AuthService {
             return Optional.empty();
         }
 
-        // Fetch current user data from database to ensure fresh roles/permissions
-        // Try to fetch as Admin first, then as Team
+        // Resolve the subject's current identity (fresh roles/name from the DB). Needed both
+        // for normal rotation and for minting a fresh access token on idempotent replay.
         UUID userId;
         try {
             userId = UUID.fromString(tokenData.getSubject());
@@ -258,64 +242,47 @@ public class AuthServiceImpl implements AuthService {
             return Optional.empty();
         }
 
-        String newAccessToken;
-        String newRefreshTokenStr;
-        Set<String> rolesForStorage;
+        ResolvedIdentity identity = resolveIdentity(userId);
+        if (identity == null) {
+            Log.warnf("Token refresh failed - user not found - userId: %s", userId);
+            return Optional.empty();
+        }
+
         long accessTokenExpirySeconds = accessTokenExpiryMinutes * 60L;
         long refreshTokenExpirySeconds = refreshTokenExpiryDays * 86400L;
 
-        // Try to get as Admin first
-        Optional<Admin> adminOpt = adminRepository.findById(userId);
-
-        if (adminOpt.isPresent()) {
-            Admin admin = adminOpt.get();
-
-            // Use roles from database, not from stored token
-            Set<Role> currentRoles = admin.getRoles();
-            newAccessToken = generateToken(admin.getId().toString(), admin.getUsername(), currentRoles,
-                Instant.now().plusSeconds(accessTokenExpirySeconds), TokenType.ACCESS);
-            newRefreshTokenStr = generateRefreshTokenValue();
-
-            // Store roles as lowercase strings
-            rolesForStorage = currentRoles.stream()
-                .map(Role::toString)
-                .collect(Collectors.toSet());
-        } else {
-            // Try to get as Team
-            Optional<Team> teamOpt = teamRepository.findById(userId);
-
-            if (teamOpt.isEmpty()) {
-                Log.warnf("Token refresh failed - user not found - userId: %s", userId);
-                return Optional.empty();
-            }
-
-            Team team = teamOpt.get();
-
-            // Use data from database
-            newAccessToken = generateToken(team.getId().toString(), team.getName(), "team",
-                Instant.now().plusSeconds(accessTokenExpirySeconds), TokenType.ACCESS);
-            newRefreshTokenStr = generateRefreshTokenValue();
-
-            rolesForStorage = java.util.Collections.singleton("team");
+        // Token was already rotated before we even looked -> concurrent refresh or a replayed
+        // (possibly lost-response) token. Never nuke on the happy path; try idempotent replay.
+        if (tokenData.isRevoked()) {
+            return handleReplay(tokenData, identity, accessTokenExpirySeconds);
         }
 
-        // Mark old refresh token as revoked (token rotation)
-        tokenData.setRevoked(true);
-        tokenData.setRevokedAt(Instant.now());
-        refreshTokenRepository.save(tokenData);
+        // Atomically claim the rotation. Exactly one concurrent caller flips revoked=false->true
+        // and records the successor token; everyone else gets 0 rows and replays instead.
+        String newRefreshTokenStr = generateRefreshTokenValue();
+        int rowsWon = refreshTokenRepository.markRevokedIfActive(
+            tokenData.getId(), Instant.now(), newRefreshTokenStr);
 
-        // Store new refresh token with fresh data
+        if (rowsWon == 0) {
+            // A concurrent request won the rotation between our read and update.
+            RefreshToken reread = refreshTokenRepository.findById(tokenData.getId()).orElse(tokenData);
+            return handleReplay(reread, identity, accessTokenExpirySeconds);
+        }
+
+        // We won the rotation: mint the new access token and persist the successor refresh token.
+        String newAccessToken = mintAccessToken(identity, accessTokenExpirySeconds);
+
         RefreshToken newRefreshToken = new RefreshToken();
         newRefreshToken.setToken(newRefreshTokenStr);
         newRefreshToken.setSubject(userId.toString());
         newRefreshToken.setName(tokenData.getName()); // Keep original name for logging
-        newRefreshToken.setRoles(rolesForStorage);
+        newRefreshToken.setRoles(identity.rolesForStorage);
         newRefreshToken.setExpiresAt(Instant.now().plusSeconds(refreshTokenExpirySeconds));
         newRefreshToken.setRevoked(false);
         refreshTokenRepository.save(newRefreshToken);
 
         Log.infof("Token refresh completed - subject: %s, name: %s, role(s): %s",
-            userId, tokenData.getName(), rolesForStorage);
+            userId, tokenData.getName(), identity.rolesForStorage);
 
         return Optional.of(new TokenResult(
             newAccessToken,
@@ -323,8 +290,109 @@ public class AuthServiceImpl implements AuthService {
             accessTokenExpirySeconds,
             userId.toString(),
             tokenData.getName(),
-            String.join(",", rolesForStorage)
+            String.join(",", identity.rolesForStorage)
         ));
+    }
+
+    /**
+     * Handle a refresh request against an already-rotated (revoked) refresh token.
+     *
+     * <p>Within the replay window, if the token has a still-live successor, return that successor
+     * plus a freshly minted access token. This makes refresh idempotent: a client that lost the
+     * rotation response (common on flaky mobile networks) converges on the current live token
+     * instead of locking the whole team out. Only a genuinely stale reuse — no live successor and
+     * past the window — is treated as a replay attack and triggers a family-wide revocation.
+     */
+    private Optional<TokenResult> handleReplay(RefreshToken revokedToken, ResolvedIdentity identity,
+                                               long accessTokenExpirySeconds) {
+        Instant revokedAt = revokedToken.getRevokedAt();
+        String successorTokenStr = revokedToken.getReplacedByToken();
+
+        boolean withinReplayWindow = revokedAt == null
+            || Instant.now().isBefore(revokedAt.plusSeconds(refreshTokenReplayWindowSeconds));
+
+        if (withinReplayWindow && successorTokenStr != null) {
+            Optional<RefreshToken> successorOpt = refreshTokenRepository.findByToken(successorTokenStr);
+            if (successorOpt.isPresent()) {
+                RefreshToken successor = successorOpt.get();
+                if (!successor.isRevoked() && Instant.now().isBefore(successor.getExpiresAt())) {
+                    String freshAccess = mintAccessToken(identity, accessTokenExpirySeconds);
+                    Log.infof("Idempotent refresh replay - returning live successor token - subject: %s, name: %s",
+                        revokedToken.getSubject(), revokedToken.getName());
+                    return Optional.of(new TokenResult(
+                        freshAccess,
+                        successor.getToken(),
+                        accessTokenExpirySeconds,
+                        revokedToken.getSubject(),
+                        revokedToken.getName(),
+                        String.join(",", identity.rolesForStorage)
+                    ));
+                }
+            }
+        }
+
+        // No usable successor but still within the short reuse grace: almost certainly a duplicate
+        // in-flight request. Fail this one softly without revoking anything.
+        if (revokedAt != null && Instant.now().isBefore(revokedAt.plusSeconds(refreshTokenReuseGraceSeconds))) {
+            Log.warnf("Duplicate refresh token usage within grace period - subject: %s, name: %s, revokedAt: %s",
+                revokedToken.getSubject(), revokedToken.getName(), revokedAt);
+            return Optional.empty();
+        }
+
+        // Stale reuse of a long-revoked token with no live successor -> treat as a replay attack.
+        Log.warnf("SECURITY: Replay attack detected - subject: %s, name: %s, revoking all tokens",
+            revokedToken.getSubject(), revokedToken.getName());
+        try {
+            revokeTokens(UUID.fromString(revokedToken.getSubject()));
+        } catch (IllegalArgumentException e) {
+            refreshTokenRepository.deleteByToken(revokedToken.getToken());
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * The current identity of a refresh token's subject, resolved fresh from the DB so rotated
+     * access tokens always carry up-to-date roles. Returns null if the subject no longer exists.
+     */
+    private ResolvedIdentity resolveIdentity(UUID userId) {
+        Optional<Admin> adminOpt = adminRepository.findById(userId);
+        if (adminOpt.isPresent()) {
+            Admin admin = adminOpt.get();
+            Set<Role> roles = admin.getRoles();
+            Set<String> rolesForStorage = roles.stream()
+                .map(Role::toString)
+                .collect(Collectors.toSet());
+            return new ResolvedIdentity(admin.getId().toString(), admin.getUsername(), roles, rolesForStorage);
+        }
+
+        Optional<Team> teamOpt = teamRepository.findById(userId);
+        if (teamOpt.isPresent()) {
+            Team team = teamOpt.get();
+            return new ResolvedIdentity(team.getId().toString(), team.getName(),
+                Set.of(Role.fromValue("team")), java.util.Collections.singleton("team"));
+        }
+
+        return null;
+    }
+
+    private String mintAccessToken(ResolvedIdentity identity, long accessTokenExpirySeconds) {
+        return generateToken(identity.subjectId, identity.displayName, identity.roles,
+            Instant.now().plusSeconds(accessTokenExpirySeconds), TokenType.ACCESS);
+    }
+
+    /** Immutable view of a refresh-token subject used to mint rotated access tokens. */
+    private static final class ResolvedIdentity {
+        final String subjectId;
+        final String displayName;
+        final Set<Role> roles;
+        final Set<String> rolesForStorage;
+
+        ResolvedIdentity(String subjectId, String displayName, Set<Role> roles, Set<String> rolesForStorage) {
+            this.subjectId = subjectId;
+            this.displayName = displayName;
+            this.roles = roles;
+            this.rolesForStorage = rolesForStorage;
+        }
     }
 
     @Override

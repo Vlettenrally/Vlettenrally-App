@@ -49,6 +49,9 @@ public class RefreshTokenEntity {
     @Column(name = "revoked_at")
     private Instant revokedAt;
 
+    @Column(name = "replaced_by_token", columnDefinition = "TEXT")
+    private String replacedByToken;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

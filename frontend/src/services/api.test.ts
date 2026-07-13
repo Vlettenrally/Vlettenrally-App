@@ -120,11 +120,11 @@ describe('reactive refresh on 401', () => {
     expect(result.data).toEqual({ ok: true });
   });
 
-  it('redirects to login when the refresh itself fails', async () => {
+  it('redirects to login when the refresh token is rejected (401)', async () => {
     tokens.access = makeJwt({ exp: expSecondsFromNow(3600) });
     tokens.refresh = 'refresh-1';
     fetchMock.mockImplementation(async (url: string) => {
-      if (REFRESH_URL.test(url)) return jsonResponse(500, {});
+      if (REFRESH_URL.test(url)) return jsonResponse(401, { message: 'invalid refresh token' });
       return jsonResponse(401, { message: 'expired' });
     });
 
@@ -134,6 +134,40 @@ describe('reactive refresh on 401', () => {
     expect(result.status).toBe(401);
     expect(storageMock.clearSession).toHaveBeenCalled();
     expect(window.location.href).toBe('/check-in'); // role 'team'
+  });
+
+  it('does NOT clear the session on a transient refresh failure (5xx)', async () => {
+    // A flaky-network / server-blip refresh failure must never log a team out; the tokens
+    // are kept so a later request can retry.
+    tokens.access = makeJwt({ exp: expSecondsFromNow(3600) });
+    tokens.refresh = 'refresh-1';
+    fetchMock.mockImplementation(async (url: string) => {
+      if (REFRESH_URL.test(url)) return jsonResponse(503, {});
+      return jsonResponse(401, { message: 'expired' });
+    });
+
+    const api = await loadApi();
+    const result = await api.get('/games');
+
+    expect(storageMock.clearSession).not.toHaveBeenCalled();
+    expect(window.location.href).toBe(''); // no redirect
+    expect(tokens.refresh).toBe('refresh-1'); // token preserved
+    expect(result.status).toBe(401);
+  });
+
+  it('does NOT clear the session when the refresh request throws (network error)', async () => {
+    tokens.access = makeJwt({ exp: expSecondsFromNow(3600) });
+    tokens.refresh = 'refresh-1';
+    fetchMock.mockImplementation(async (url: string) => {
+      if (REFRESH_URL.test(url)) throw new TypeError('Failed to fetch');
+      return jsonResponse(401, { message: 'expired' });
+    });
+
+    const api = await loadApi();
+    await api.get('/games');
+
+    expect(storageMock.clearSession).not.toHaveBeenCalled();
+    expect(tokens.refresh).toBe('refresh-1');
   });
 
   it('does not retry again when the retried request also 401s', async () => {
@@ -195,5 +229,60 @@ describe('concurrent refresh deduplication', () => {
     expect(refreshCallCount()).toBe(1); // deduped
     expect(r1.data).toEqual({ ok: true });
     expect(r2.data).toEqual({ ok: true });
+  });
+});
+
+describe('cross-tab refresh coordination', () => {
+  it('serialises refresh through the Web Locks API when available', async () => {
+    tokens.access = makeJwt({ exp: expSecondsFromNow(60) }); // expiring -> proactive refresh
+    tokens.refresh = 'refresh-1';
+    const newToken = makeJwt({ exp: expSecondsFromNow(3600) });
+
+    const locksMock = {
+      request: vi.fn(async (_name: string, cb: () => Promise<unknown>) => cb()),
+    };
+    vi.stubGlobal('navigator', { locks: locksMock });
+
+    fetchMock.mockImplementation(async (url: string) => {
+      if (REFRESH_URL.test(url)) {
+        return jsonResponse(200, { accessToken: newToken, refreshToken: 'refresh-2' });
+      }
+      return jsonResponse(200, { ok: true });
+    });
+
+    const api = await loadApi();
+    const result = await api.get('/games');
+
+    expect(locksMock.request).toHaveBeenCalledWith('vlettenrally-token-refresh', expect.any(Function));
+    expect(refreshCallCount()).toBe(1);
+    expect(result.data).toEqual({ ok: true });
+  });
+
+  it('reuses a token another tab already rotated instead of calling /auth/refresh', async () => {
+    const expiring = makeJwt({ exp: expSecondsFromNow(60) });
+    const fresh = makeJwt({ exp: expSecondsFromNow(3600) });
+    tokens.access = expiring;
+    tokens.refresh = 'refresh-1';
+
+    // Another tab rotates the stored token the instant we acquire the refresh lock.
+    const locksMock = {
+      request: vi.fn(async (_name: string, cb: () => Promise<unknown>) => {
+        tokens.access = fresh;
+        return cb();
+      }),
+    };
+    vi.stubGlobal('navigator', { locks: locksMock });
+
+    fetchMock.mockImplementation(async () => jsonResponse(200, { ok: true }));
+
+    const api = await loadApi();
+    const result = await api.get('/games');
+
+    expect(refreshCallCount()).toBe(0); // reused the other tab's fresh token, no network refresh
+    expect(result.data).toEqual({ ok: true });
+    const gamesCall = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/games'))!;
+    expect((gamesCall[1] as RequestInit).headers).toMatchObject({
+      Authorization: `Bearer ${fresh}`,
+    });
   });
 });

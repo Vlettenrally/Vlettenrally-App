@@ -114,6 +114,23 @@ public class JpaRefreshTokenRepository extends ReadReplicaAwareRepository implem
 
     @Override
     @Transactional
+    public int markRevokedIfActive(UUID id, Instant revokedAt, String replacedByToken) {
+        // Single conditional UPDATE: only the caller that flips revoked=false -> true wins
+        // the rotation. Concurrent refreshes with the same token get 0 rows and fall back
+        // to the idempotent-replay path instead of both issuing successors.
+        return getWriteEntityManager()
+                .createQuery("UPDATE RefreshTokenEntity r SET r.revoked = true, r.revokedAt = :revokedAt, "
+                        + "r.replacedByToken = :replacedByToken, r.updatedAt = :now "
+                        + "WHERE r.id = :id AND r.revoked = false")
+                .setParameter("revokedAt", revokedAt)
+                .setParameter("replacedByToken", replacedByToken)
+                .setParameter("now", Instant.now())
+                .setParameter("id", id)
+                .executeUpdate();
+    }
+
+    @Override
+    @Transactional
     public void deleteExpiredTokens(Instant now) {
         getWriteEntityManager()
                 .createQuery("DELETE FROM RefreshTokenEntity r WHERE r.expiresAt < :now")

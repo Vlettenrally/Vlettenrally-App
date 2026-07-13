@@ -70,8 +70,18 @@ interface ApiResponse<T> {
   status: number;
 }
 
+/**
+ * Outcome of a refresh attempt.
+ * - `ok`: refresh succeeded (or another tab already produced a fresh token).
+ * - `invalid`: the refresh token was definitively rejected (401) — the session must end.
+ * - `network`: a transient failure (network error / 5xx). Tokens are KEPT so a later
+ *   request can retry; we must not log the user out over a blip.
+ */
+type RefreshReason = 'ok' | 'invalid' | 'network';
+
 interface RefreshResult {
   success: boolean;
+  reason: RefreshReason;
   accessToken?: string;
   refreshToken?: string;
 }
@@ -83,8 +93,8 @@ class ApiService {
   private cachedRefreshToken: string | null = null;
 
   /**
-   * Refresh token if needed (proactive refresh)
-   * Returns refresh result with new tokens if successful
+   * Refresh token if needed (proactive refresh).
+   * Returns a refresh result; only refreshes when the access token is expiring soon.
    */
   private async refreshTokenIfNeeded(): Promise<RefreshResult> {
     const token = storage.getAuthToken();
@@ -92,69 +102,117 @@ class ApiService {
 
     // No tokens, can't refresh
     if (!token || !refreshToken) {
-      return { success: false };
+      return { success: false, reason: 'invalid' };
     }
 
     // Token not expiring soon, no need to refresh
     if (!isTokenExpiringSoon(token)) {
-      return { success: true };
+      return { success: true, reason: 'ok' };
     }
 
-    // If already refreshing, wait for the existing refresh to complete
+    return this.coordinatedRefresh(token);
+  }
+
+  /**
+   * Coordinate a single refresh across concurrent requests (per-tab) AND across browser
+   * tabs (via the Web Locks API). This prevents two callers from presenting the same
+   * rotating refresh token at once, which the backend would otherwise treat as reuse.
+   */
+  private coordinatedRefresh(triggeringAccessToken: string | null): Promise<RefreshResult> {
+    // Per-tab single-flight: reuse an in-flight refresh.
     if (this.isRefreshing && this.refreshPromise) {
-      console.log('[API] Refresh already in progress, waiting...');
       return this.refreshPromise;
     }
 
-    // Start refresh process
     this.isRefreshing = true;
-    this.refreshPromise = (async () => {
-      try {
-        console.log('[API] Token expiring soon, refreshing...');
-        const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refreshToken }),
-        });
-
-        if (!response.ok) {
-          console.error('[API] Token refresh failed:', response.status);
-          return { success: false };
-        }
-
-        const data = await response.json();
-
-        // Cache tokens in memory for concurrent requests
-        this.cachedAccessToken = data.accessToken;
-        this.cachedRefreshToken = data.refreshToken || null;
-
-        // Update stored tokens
-        storage.setAuthToken(data.accessToken);
-        if (data.refreshToken) {
-          storage.setRefreshToken(data.refreshToken);
-        }
-
-        console.log('[API] Token refreshed successfully');
-        return {
-          success: true,
-          accessToken: data.accessToken,
-          refreshToken: data.refreshToken
-        };
-      } catch (error) {
-        console.error('[API] Token refresh error:', error);
-        return { success: false };
-      } finally {
-        this.isRefreshing = false;
-        this.refreshPromise = null;
-        // Clear cached tokens after a short delay to allow concurrent requests to use them
-        setTimeout(() => {
-          this.cachedAccessToken = null;
-          this.cachedRefreshToken = null;
-        }, 1000);
-      }
-    })();
-
+    this.refreshPromise = this.runRefreshWithLock(triggeringAccessToken);
     return this.refreshPromise;
+  }
+
+  private async runRefreshWithLock(triggeringAccessToken: string | null): Promise<RefreshResult> {
+    try {
+      const locks =
+        typeof navigator !== 'undefined' && navigator.locks && typeof navigator.locks.request === 'function'
+          ? navigator.locks
+          : null;
+
+      // Cross-tab single-flight: only one tab holds the lock and hits /auth/refresh; the
+      // others wait, then re-read the freshly-rotated token from storage inside performRefresh.
+      if (locks) {
+        return await locks.request('vlettenrally-token-refresh', () =>
+          this.performRefresh(triggeringAccessToken)
+        );
+      }
+      return await this.performRefresh(triggeringAccessToken);
+    } finally {
+      this.isRefreshing = false;
+      this.refreshPromise = null;
+      // Keep the just-issued tokens available to concurrent in-flight requests briefly.
+      setTimeout(() => {
+        this.cachedAccessToken = null;
+        this.cachedRefreshToken = null;
+      }, 1000);
+    }
+  }
+
+  /**
+   * Perform the actual refresh. Always re-reads tokens from storage so that a token another
+   * tab rotated while we waited for the lock is picked up instead of a stale captured value.
+   */
+  private async performRefresh(triggeringAccessToken: string | null): Promise<RefreshResult> {
+    // Another tab already rotated while we waited for the lock: use its fresh token, no network.
+    const currentAccess = storage.getAuthToken();
+    if (currentAccess && currentAccess !== triggeringAccessToken && !isTokenExpiringSoon(currentAccess)) {
+      console.log('[API] Token already refreshed by another tab, reusing');
+      return { success: true, reason: 'ok', accessToken: currentAccess };
+    }
+
+    const refreshToken = storage.getRefreshToken();
+    if (!refreshToken) {
+      return { success: false, reason: 'invalid' };
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
+
+      // Definitive rejection: the refresh token is invalid/expired/revoked. End the session.
+      if (response.status === 401) {
+        console.error('[API] Refresh token rejected (401)');
+        return { success: false, reason: 'invalid' };
+      }
+
+      // Transient failure (5xx, etc.): keep tokens so a later request can retry.
+      if (!response.ok) {
+        console.warn('[API] Token refresh transient failure:', response.status);
+        return { success: false, reason: 'network' };
+      }
+
+      const data = await response.json();
+
+      // Cache tokens in memory for concurrent requests, then persist.
+      this.cachedAccessToken = data.accessToken;
+      this.cachedRefreshToken = data.refreshToken || null;
+      storage.setAuthToken(data.accessToken);
+      if (data.refreshToken) {
+        storage.setRefreshToken(data.refreshToken);
+      }
+
+      console.log('[API] Token refreshed successfully');
+      return {
+        success: true,
+        reason: 'ok',
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
+      };
+    } catch (error) {
+      // Network error — do NOT discard tokens; this is exactly the flaky-network case.
+      console.error('[API] Token refresh network error:', error);
+      return { success: false, reason: 'network' };
+    }
   }
 
   private async request<T>(
@@ -194,86 +252,26 @@ class ApiService {
         // Store the original access token to detect if refresh actually happened
         const originalAccessToken = storage.getAuthToken();
 
-        // If a refresh is already in progress, wait for it instead of starting a new one
-        // This prevents multiple concurrent requests from using the same (soon-to-be-revoked) refresh token
-        let refreshResult: RefreshResult;
+        // Coordinated refresh (single-flight per tab + cross-tab via Web Locks). This is the
+        // only place we hit /auth/refresh for a 401/403, so the rotating refresh token is
+        // never presented twice concurrently.
+        const refreshResult = await this.coordinatedRefresh(originalAccessToken);
 
-        if (this.isRefreshing && this.refreshPromise) {
-          console.log('[API] Waiting for in-flight refresh to complete...');
-          refreshResult = await this.refreshPromise;
-        } else {
-          // No refresh in progress, start one
-          // Use cached refresh token if available (from a recent refresh), otherwise get from storage
-          const refreshToken = this.cachedRefreshToken || storage.getRefreshToken();
-          if (!refreshToken) {
-            console.error('[API] No refresh token available, redirecting to login');
+        if (!refreshResult.success) {
+          if (refreshResult.reason === 'invalid') {
+            // The refresh token itself was rejected — the session is genuinely over.
+            console.error('[API] Refresh token invalid, redirecting to login');
             this.redirectToLogin();
             return {
-              error: 'Authentication failed',
+              error: 'Session expired',
               status: response.status,
             };
           }
-
-          // Gate concurrent 401/403 handlers with isRefreshing flag
-          if (this.isRefreshing && this.refreshPromise) {
-            console.log('[API] Refresh started by another request, waiting...');
-            refreshResult = await this.refreshPromise;
-          } else {
-            this.isRefreshing = true;
-            this.refreshPromise = (async () => {
-              try {
-                const refreshResponse = await fetch(`${API_BASE_URL}/auth/refresh`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ refreshToken }),
-                });
-
-                if (!refreshResponse.ok) {
-                  console.error('[API] Token refresh failed, redirecting to login');
-                  return { success: false };
-                }
-
-                const refreshData = await refreshResponse.json();
-
-                // Cache tokens in memory for concurrent requests
-                this.cachedAccessToken = refreshData.accessToken;
-                this.cachedRefreshToken = refreshData.refreshToken || null;
-
-                // Update stored tokens
-                storage.setAuthToken(refreshData.accessToken);
-                if (refreshData.refreshToken) {
-                  storage.setRefreshToken(refreshData.refreshToken);
-                }
-
-                console.log('[API] Token refreshed successfully in 401 handler');
-                return {
-                  success: true,
-                  accessToken: refreshData.accessToken,
-                  refreshToken: refreshData.refreshToken
-                };
-              } catch (error) {
-                console.error('[API] Token refresh error:', error);
-                return { success: false };
-              } finally {
-                this.isRefreshing = false;
-                this.refreshPromise = null;
-                // Clear cached tokens after a short delay
-                setTimeout(() => {
-                  this.cachedAccessToken = null;
-                  this.cachedRefreshToken = null;
-                }, 1000);
-              }
-            })();
-
-            refreshResult = await this.refreshPromise;
-          }
-        }
-
-        if (!refreshResult.success) {
-          console.error('[API] Token refresh failed, redirecting to login');
-          this.redirectToLogin();
+          // Transient/network failure: keep tokens so the next request can retry. Do NOT
+          // clear the session — a network blip must never log a team out.
+          console.warn('[API] Token refresh failed transiently, keeping session');
           return {
-            error: 'Session expired',
+            error: 'Network error',
             status: response.status,
           };
         }
@@ -282,7 +280,7 @@ class ApiService {
         const newAccessToken = refreshResult.accessToken || this.cachedAccessToken || storage.getAuthToken();
 
         // Safety check: verify the token actually changed to prevent infinite retry loops
-        if (newAccessToken === originalAccessToken) {
+        if (!newAccessToken || newAccessToken === originalAccessToken) {
           console.warn('[API] Token refresh did not produce a new token, not retrying');
           return {
             error: 'Authentication failed',
