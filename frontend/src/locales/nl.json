@@ -177,7 +177,9 @@
       "points": "Punten",
       "rank": "#",
       "noData": "Geen ranglijstgegevens beschikbaar.",
-      "you": "Jij"
+      "you": "Jij",
+      "goToMyTeam": "Naar mijn team",
+      "backToTop": "Naar boven"
     },
     "pictures": {
       "pending": "In behandeling",

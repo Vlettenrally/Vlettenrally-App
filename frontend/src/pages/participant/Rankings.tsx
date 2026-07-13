@@ -3,10 +3,11 @@
  * revealed the standings at the award ceremony (game.rankingsPublished);
  * App.tsx's RankingsRoute redirects elsewhere before the reveal.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Container,
+  Fab,
   Paper,
   Stack,
   Table,
@@ -17,7 +18,9 @@ import {
   TableRow,
   Typography,
   Chip,
+  Zoom,
 } from '@mui/material';
+import { ArrowUpward as ArrowUpwardIcon, MyLocation as MyLocationIcon } from '@mui/icons-material';
 import { useTeamStore } from '../../store/useTeamStore';
 import { useGameStore } from '../../store/useGameStore';
 import api from '../../services/api';
@@ -28,6 +31,9 @@ export default function Rankings() {
   const { game } = useGameStore();
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
+  const ownRowRef = useRef<HTMLTableRowElement | null>(null);
+  const [ownRowVisible, setOwnRowVisible] = useState(true);
+  const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
     const gameId = game?.id;
@@ -47,8 +53,44 @@ export default function Rankings() {
     };
   }, [game?.id, setRankings]);
 
+  // The sticky AppBar covers the top of the viewport, so a row scrolled behind
+  // it does not count as visible.
+  useEffect(() => {
+    const node = ownRowRef.current;
+    if (!node) {
+      setOwnRowVisible(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => setOwnRowVisible(entry.isIntersecting),
+      { rootMargin: '-64px 0px 0px 0px' },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [rankings, team?.id]);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 100);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  const fabMode = !ownRowVisible ? 'me' : scrolled ? 'top' : 'hidden';
+  const fabLabel = t(
+    fabMode === 'me' ? 'participant.rankings.goToMyTeam' : 'participant.rankings.backToTop',
+  );
+
+  const handleFabClick = () => {
+    if (fabMode === 'me') {
+      ownRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
   return (
-    <Container maxWidth="md" sx={{ mt: 3, mb: 6 }}>
+    <Container maxWidth="md" sx={{ mt: 3, mb: 12 }}>
       <Stack spacing={2}>
         <Typography variant="h4" component="h1">
           {t('participant.rankings.title')}
@@ -76,7 +118,11 @@ export default function Rankings() {
                   </TableRow>
                 )}
                 {rankings.map((row) => (
-                  <TableRow key={row.teamId} selected={row.teamId === team?.id}>
+                  <TableRow
+                    key={row.teamId}
+                    ref={row.teamId === team?.id ? ownRowRef : undefined}
+                    selected={row.teamId === team?.id}
+                  >
                     <TableCell>{row.position}</TableCell>
                     <TableCell>
                       {row.teamName}
@@ -92,6 +138,28 @@ export default function Rankings() {
           </TableContainer>
         </Paper>
       </Stack>
+
+      <Zoom in={fabMode !== 'hidden'} unmountOnExit>
+        <Fab
+          variant="extended"
+          color="primary"
+          onClick={handleFabClick}
+          aria-label={fabLabel}
+          sx={{
+            position: 'fixed',
+            bottom: 24,
+            right: 24,
+            zIndex: (theme) => theme.zIndex.fab,
+          }}
+        >
+          {fabMode === 'me' ? (
+            <MyLocationIcon sx={{ mr: 1 }} />
+          ) : (
+            <ArrowUpwardIcon sx={{ mr: 1 }} />
+          )}
+          {fabLabel}
+        </Fab>
+      </Zoom>
     </Container>
   );
 }

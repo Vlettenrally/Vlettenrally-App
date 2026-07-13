@@ -177,7 +177,9 @@
       "points": "Points",
       "rank": "#",
       "noData": "No ranking data available.",
-      "you": "You"
+      "you": "You",
+      "goToMyTeam": "Go to my team",
+      "backToTop": "Back to top"
     },
     "pictures": {
       "pending": "Pending",
