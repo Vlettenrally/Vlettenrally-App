@@ -3,7 +3,7 @@
  */
 import type {ReactNode} from 'react';
 import {lazy, Suspense, useCallback, useEffect, useState} from 'react';
-import {BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate} from 'react-router-dom';
+import {BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useParams} from 'react-router-dom';
 import {Alert, Box, Button, CircularProgress, Container, createTheme, CssBaseline, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Paper, Snackbar, Stack, ThemeProvider, Typography} from '@mui/material';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import {TeamLayout} from './components/TeamLayout';
@@ -277,6 +277,21 @@ function AdminRoute({ children }: Readonly<{ children: ReactNode }>) {
 }
 
 /**
+ * Landing route for a scanned team invite QR.
+ *
+ * The QR encodes the short, uppercase `/I/<CODE>` form (see TeamInviteLinkResponse) because
+ * that is what keeps the symbol small enough to scan; this hands the code to the regular
+ * check-in flow, which takes it as `?invite=`.
+ */
+export function InviteCodeRedirect() {
+  const { code } = useParams<{ code: string }>();
+  if (!code) {
+    return <Navigate to="/check-in" replace />;
+  }
+  return <Navigate to={`/check-in?invite=${encodeURIComponent(code.toUpperCase())}`} replace />;
+}
+
+/**
  * Root redirect based on authentication state and role
  */
 function RootRedirect() {
@@ -506,6 +521,9 @@ function App() {
             path="/check-in"
             element={import.meta.env.DEV && config.useMocks ? <MockModeLauncher /> : <Suspense fallback={<PageLoader />}><CheckInPage /></Suspense>}
           />
+          {/* Scanned invite QR: /i/<CODE>. Matched case-insensitively, so the uppercase
+              /I/<CODE> the camera hands over lands here too. */}
+          <Route path="/i/:code" element={<InviteCodeRedirect />} />
           <Route
             path="/dashboard"
             element={

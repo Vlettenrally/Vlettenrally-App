@@ -1,10 +1,13 @@
 /**
  * Team-facing invite page: shows a QR that teammates scan to join this team directly.
  *
- * The QR encodes a `/check-in?invite=<token>` URL. A fresh, generously-scoped invite
- * token is minted every time this page mounts, so there is nothing to refresh by hand.
- * Scanning the QR skips the game/team pickers (jumps to the nickname step) and bypasses
- * the digital check-in time gate.
+ * The QR encodes a short `/I/<CODE>` URL — short and uppercase so the QR stays coarse
+ * enough for a phone to read off another phone's screen. Scanning it skips the game/team
+ * pickers (jumps to the nickname step) and bypasses the digital check-in time gate.
+ *
+ * The code is short-lived, so this page re-mints it before it expires (and whenever the tab
+ * comes back to the foreground, since phones suspend timers while backgrounded). The backend
+ * hands back the team's existing code with a slid TTL, so the QR on screen does not change.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -31,24 +34,34 @@ export default function InviteTeammatesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [link, setLink] = useState<string | null>(null);
+  const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  // Wrapped in an object so that re-minting reschedules the refresh even when the TTL
+  // comes back unchanged (which is the normal case — the backend slides the same code).
+  const [expiry, setExpiry] = useState<{ seconds: number } | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    setCopied(false);
+  // `silent` is for the background re-mints: they must not flash the spinner or clear the
+  // "copied" confirmation out from under the user.
+  const load = useCallback(async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+      setError(null);
+      setCopied(false);
+    }
     try {
       const response = await api.getTeamInviteToken();
       if (response.error || !response.data) {
-        setError(t('participant.invite.error'));
+        if (!silent) setError(t('participant.invite.error'));
         return;
       }
       setLink(response.data.url);
+      setQrUrl(response.data.qrUrl);
+      setExpiry({ seconds: response.data.expiresInSeconds });
     } catch (err) {
       console.error('invite token error:', err);
-      setError(t('participant.invite.error'));
+      if (!silent) setError(t('participant.invite.error'));
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [t]);
 
@@ -56,15 +69,34 @@ export default function InviteTeammatesPage() {
     void load();
   }, [load]);
 
-  // Render the invite URL into the canvas once we have both a link and the element.
+  // The code expires, so re-mint a minute before it does. A team can leave this page open
+  // on a table for the whole rally; the QR has to still work when someone finally scans it.
   useEffect(() => {
-    if (!link || !canvasRef.current) return;
-    QRCode.toCanvas(canvasRef.current, link, {
+    if (!expiry) return;
+    const delayMs = Math.max(30, expiry.seconds - 60) * 1000;
+    const timer = window.setTimeout(() => { void load(true); }, delayMs);
+    return () => window.clearTimeout(timer);
+  }, [expiry, load]);
+
+  // Phones suspend timers for backgrounded tabs, so the timeout above cannot be relied on
+  // alone — re-mint whenever the page comes back to the foreground.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void load(true);
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [load]);
+
+  // Render the QR-optimised (uppercase, short) URL into the canvas — not `link`.
+  useEffect(() => {
+    if (!qrUrl || !canvasRef.current) return;
+    QRCode.toCanvas(canvasRef.current, qrUrl, {
       width: 288,
       margin: 2,
       errorCorrectionLevel: 'Q',
     }).catch(() => setError(t('participant.invite.error')));
-  }, [link, t]);
+  }, [qrUrl, t]);
 
   const handleCopy = async () => {
     if (!link) return;
@@ -94,7 +126,7 @@ export default function InviteTeammatesPage() {
           ) : error ? (
             <Stack spacing={2} alignItems="center">
               <Alert severity="error" sx={{ width: '100%' }}>{error}</Alert>
-              <Button variant="outlined" onClick={load}>{t('common.retry')}</Button>
+              <Button variant="outlined" onClick={() => void load()}>{t('common.retry')}</Button>
             </Stack>
           ) : (
             <Stack spacing={2} alignItems="center">

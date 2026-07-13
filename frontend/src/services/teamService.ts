@@ -134,9 +134,16 @@ export const teamService = {
   },
 
   // Mint a team invite link/QR (admin action) — same kind a team can generate itself.
-  getInviteLink: async (teamId: string): Promise<{ url: string | null; error: string | null }> => {
+  // `qrUrl` is the short uppercase form to encode in the QR; `url` is the shareable one.
+  getInviteLink: async (
+    teamId: string,
+  ): Promise<{ url: string | null; qrUrl: string | null; error: string | null }> => {
     const response = await api.getAdminTeamInviteToken(teamId);
-    return { url: response.data?.url ?? null, error: response.error ?? null };
+    return {
+      url: response.data?.url ?? null,
+      qrUrl: response.data?.qrUrl ?? null,
+      error: response.error ?? null,
+    };
   },
 
   resetPointsLedger: async (teamId: string, gameId: string): Promise<{ error: string | null }> => {

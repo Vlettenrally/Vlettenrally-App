@@ -128,22 +128,27 @@ public interface AuthService {
     GameCheckInLinkResponse generateGameCheckInLink(UUID gameId);
 
     /**
-     * Mint a team-scoped invite token + URL. Scanning the resulting QR lets a
-     * teammate's phone join this team directly (skipping the game/team pickers) and
-     * bypass the digital check-in time gate. A fresh token is minted per call, so
-     * the token carries a generous expiry (game end when set, else a fixed fallback).
+     * Mint a team-scoped invite code + URL. Scanning the resulting QR lets a teammate's
+     * phone join this team directly (skipping the game/team pickers) and bypass the
+     * digital check-in time gate.
+     * <p>
+     * The code is short and short-lived (see {@code InviteCodeStore}). Calling this again
+     * for a team that already has a live code returns that same code with its TTL slid
+     * forward, so the QR on screen stays stable — but the caller displaying it must keep
+     * calling within {@code expiresInSeconds} or the code on screen goes dead.
      *
      * @param teamId The ID of the team the invite grants access to
-     * @return TeamInviteLinkResponse containing the full URL and the signed token
+     * @return TeamInviteLinkResponse with the shareable URL, the QR-optimised URL, and the code
      */
     TeamInviteLinkResponse generateTeamInviteToken(UUID teamId);
 
     /**
-     * Validate a team invite token. Verifies the signature/issuer/expiry and that it
-     * is a {@code team-invite} token, returning the game + team it grants access to.
+     * Resolve a team invite code to the game + team it grants access to, sliding its TTL so
+     * the rest of the check-in flow has a full window to complete. Does not consume the code:
+     * one QR is scanned by several teammates.
      *
-     * @param token The signed invite token from the QR / invite URL
-     * @return the decoded {@link TeamInvite}, or empty if the token is missing/invalid/expired
+     * @param token The invite code from the QR / invite URL (case-insensitive)
+     * @return the decoded {@link TeamInvite}, or empty if the code is missing/invalid/expired
      */
     Optional<TeamInvite> validateTeamInviteToken(String token);
 }

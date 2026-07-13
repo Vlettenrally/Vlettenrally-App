@@ -234,7 +234,8 @@ export default function TeamDetailDialog({
     }
   };
 
-  // Mint + reveal a team invite QR. A fresh token is minted each time it's opened.
+  // Mint + reveal a team invite QR. The code is short-lived, but this dialog is too — it is
+  // minted when the QR is opened, which is when it gets scanned.
   const handleShowQr = async () => {
     if (!team) return;
     setQrOpen(true);
@@ -242,12 +243,12 @@ export default function TeamDetailDialog({
     setQrError(null);
     setQrLink(null);
     try {
-      const { url, error: linkError } = await teamService.getInviteLink(team.id);
-      if (linkError || !url) {
+      const { qrUrl, error: linkError } = await teamService.getInviteLink(team.id);
+      if (linkError || !qrUrl) {
         setQrError(t('components.teamDetail.inviteQrError'));
         return;
       }
-      setQrLink(url);
+      setQrLink(qrUrl);
     } catch {
       setQrError(t('components.teamDetail.inviteQrError'));
     } finally {
@@ -255,7 +256,7 @@ export default function TeamDetailDialog({
     }
   };
 
-  // Render the invite URL into the canvas once both the link and element are ready.
+  // Render the QR-optimised (short, uppercase) invite URL once link and element are ready.
   useEffect(() => {
     if (!qrOpen || !qrLink || !qrCanvasRef.current) return;
     QRCode.toCanvas(qrCanvasRef.current, qrLink, {

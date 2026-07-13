@@ -541,8 +541,14 @@ export interface TeamOption {
  * POST /teams/{teamId}/invite-token). Rendered as a QR teammates scan to join.
  */
 export interface TeamInviteLink {
+  /** Shareable form, e.g. https://app/i/K7QM4X9BTD — use this for copy-to-clipboard. */
   url: string;
+  /** Uppercase form — encode THIS in the QR; it lets the QR use alphanumeric mode and stay small. */
+  qrUrl: string;
+  /** The bare invite code. */
   token: string;
+  /** Remaining lifetime of the code; re-request before this elapses to keep a displayed QR alive. */
+  expiresInSeconds: number;
 }
 
 /**
