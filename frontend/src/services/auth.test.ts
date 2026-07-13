@@ -147,3 +147,19 @@ describe('canAccessAdminPath — ranking page', () => {
     expect(canAccessAdminPath(makeJwt({ groups: ['ranking'] }), '/admin/games')).toBe(false);
   });
 });
+
+describe('canAccessAdminPath — trackers page', () => {
+  it('grants access to holders of the rally_desk role', () => {
+    expect(canAccessAdminPath(makeJwt({ groups: ['rally_desk'] }), '/admin/trackers')).toBe(true);
+  });
+
+  it('grants access to a full admin (implicit capability role)', () => {
+    expect(canAccessAdminPath(makeJwt({ groups: ['admin'] }), '/admin/trackers')).toBe(true);
+  });
+
+  it('denies staff who lack the rally_desk role', () => {
+    expect(canAccessAdminPath(makeJwt({ groups: ['game_master'] }), '/admin/trackers')).toBe(false);
+    expect(canAccessAdminPath(makeJwt({ groups: ['viewer'] }), '/admin/trackers')).toBe(false);
+    expect(canAccessAdminPath(makeJwt({ groups: ['message_sender'] }), '/admin/trackers')).toBe(false);
+  });
+});

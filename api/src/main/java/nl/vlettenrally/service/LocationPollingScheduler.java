@@ -15,6 +15,7 @@ import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.dto.game.TeamLocationResponse;
 import nl.vlettenrally.data.repository.LocationDataRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
+import nl.vlettenrally.data.repository.TrackerStatusUpdate;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
@@ -25,6 +26,7 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -49,10 +51,12 @@ import java.util.stream.Collectors;
  * <p>
  * Teams are matched to participants by Team.trackerId (the physical tracker ID
  * from the external provider). Participant tracker IDs without a matching team
- * are silently skipped.
+ * are skipped for ingestion, but every tracker in the feed still gets its health
+ * status (last seen, battery, last position) recorded on the global tracker pool
+ * via {@link TrackerStatusRecorder}.
  * <p>
- * NOTE: status_id, tracker_id, battery_percentage and is_sos_report from the
- * locations endpoint are not persisted yet — see plan "Out of scope" section.
+ * NOTE: status_id and is_sos_report from the locations endpoint are not
+ * persisted yet — see plan "Out of scope" section.
  */
 @ApplicationScoped
 public class LocationPollingScheduler {
@@ -85,6 +89,9 @@ public class LocationPollingScheduler {
 
     @Inject
     PollingLeader pollingLeader;
+
+    @Inject
+    TrackerStatusRecorder trackerStatusRecorder;
 
     /** A fresh fix this much newer than a team's last stored fix means the tracker was offline —
      *  automatically fetch its buffered history to fill the gap (throttled per team). */
@@ -182,11 +189,26 @@ public class LocationPollingScheduler {
         // Persist + notify each fix through the shared ingest path (guards, distance,
         // per-team WS), collecting the accepted ones for a single admin-map broadcast.
         List<TeamLocationResponse> broadcasts = new ArrayList<>();
+        Map<String, TrackerStatusUpdate> statusByTracker = new HashMap<>();
         int totalCount = 0;
         for (EventParticipantLocation pl : response.getEvent().getEventParticipantLocations()) {
             if (pl.getLocation() == null) {
                 Log.debugf("Game %s: skipping participant with null location (trackerId=%s)", game.getId(), pl.getTrackerId());
                 continue;
+            }
+
+            // Record tracker health before any team matching: trackers in the feed
+            // that are not (yet) assigned to a team still get their pool status
+            // refreshed. Newest fix per tracker wins within this poll.
+            if (pl.getTrackerId() != null) {
+                TrackerStatusUpdate update = new TrackerStatusUpdate(
+                    String.valueOf(pl.getTrackerId()),
+                    parseInstant(pl.getLocationTime()),
+                    pl.getBatteryPercentage(),
+                    pl.getLocation().getLatitude(),
+                    pl.getLocation().getLongitude());
+                statusByTracker.merge(update.trackerId(), update,
+                    (a, b) -> a.lastSeenAt().isAfter(b.lastSeenAt()) ? a : b);
             }
 
             Team team = pl.getTrackerId() != null
@@ -235,6 +257,7 @@ public class LocationPollingScheduler {
         }
 
         Log.infof("Game %s: polled %d participant locations, accepted %d", game.getId(), totalCount, broadcasts.size());
+        trackerStatusRecorder.record(statusByTracker.values());
         locationIngestService.broadcastToMap(game.getId(), broadcasts);
     }
 

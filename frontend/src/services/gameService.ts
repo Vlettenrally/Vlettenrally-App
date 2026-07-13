@@ -75,8 +75,8 @@ export const gameService = {
     return response.data!;
   },
 
-  assignTrackers: async (gameId: string, trackerIds: string[]): Promise<TrackerAssignResult> => {
-    const response = await api.assignTrackers(gameId, trackerIds);
+  assignTrackers: async (gameId: string): Promise<TrackerAssignResult> => {
+    const response = await api.assignTrackers(gameId);
     if (response.error) {
       throw new Error(response.error);
     }

@@ -4,22 +4,26 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import nl.vlettenrally.data.domain.Team;
+import nl.vlettenrally.data.domain.Tracker;
 import nl.vlettenrally.data.repository.TeamRepository;
-import nl.vlettenrally.data.repository.TrackerPoolRepository;
+import nl.vlettenrally.data.repository.TrackerRepository;
 
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Assigns a batch of physical GPS tracker IDs to a game's teams and exports the
- * resulting tracker -> boat mapping.
+ * Assigns physical GPS trackers from the global pool to a game's teams and
+ * exports the resulting tracker -> boat mapping.
  *
- * <p>The external provider hands us a batch of interchangeable trackers; the exact
- * tracker-to-boat pairing does not matter, only that every boat ends up with a
- * unique tracker. The admin pastes the IDs and we hand them out automatically to
- * teams that don't have one yet. Re-pasting is safe: IDs already in use are
- * skipped, so it never double-assigns.
+ * <p>Trackers are interchangeable; the exact tracker-to-boat pairing does not
+ * matter, only that every boat ends up with a unique tracker. Trackers are
+ * handed out automatically to teams that don't have one yet. A tracker is
+ * eligible when it is enabled in the pool and not held by another team in the
+ * same game. Uniqueness is per game on purpose: the rally desk prepares the
+ * next (planned) game while the current one is still running, so the same
+ * tracker may be assigned in multiple games at once. Re-running is safe: it
+ * never double-assigns within a game.
  *
  * <p>Every (re)assignment stamps {@code trackerAssignedAt}, which bounds location
  * backfill so a reassigned tracker's earlier movement stays with its previous
@@ -32,45 +36,22 @@ public class TrackerAssignmentService {
     TeamRepository teamRepository;
 
     @Inject
-    TrackerPoolRepository trackerPoolRepository;
+    TrackerRepository trackerRepository;
 
     /**
-     * Auto-distribute the pasted tracker IDs across teams without a tracker.
+     * Auto-distribute free trackers from the global pool across teams without a tracker.
      *
-     * @param gameId     the game whose teams receive trackers
-     * @param trackerIds the pasted tracker IDs (raw; trimmed and de-duplicated here)
+     * @param gameId the game whose teams receive trackers
      * @return counts and detail lists describing what was assigned, left unassigned, and unused
      */
     @Transactional
-    public TrackerAssignmentResult assignTrackers(UUID gameId, List<String> trackerIds) {
+    public TrackerAssignmentResult assignTrackers(UUID gameId) {
         List<Team> teams = teamRepository.findByGameId(gameId);
 
-        // Tracker IDs already assigned to a team in this game must never be handed out again.
-        Set<String> alreadyAssigned = teams.stream()
-                .map(t -> normalize(t.getTrackerId()))
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-
-        // Persist every pasted ID into the game's pool so that any not auto-assigned
-        // here stay available to pick per team later. De-duped in the repository.
-        LinkedHashSet<String> normalizedPasted = new LinkedHashSet<>();
-        if (trackerIds != null) {
-            for (String raw : trackerIds) {
-                String id = normalize(raw);
-                if (id != null) {
-                    normalizedPasted.add(id);
-                }
-            }
-        }
-        trackerPoolRepository.addAll(gameId, normalizedPasted);
-
-        // Candidate IDs: those just pasted that aren't already assigned to a team.
-        LinkedHashSet<String> candidates = new LinkedHashSet<>();
-        for (String id : normalizedPasted) {
-            if (!alreadyAssigned.contains(id)) {
-                candidates.add(id);
-            }
-        }
+        // Enabled trackers not held by a team in THIS game; sorted so repeated
+        // runs hand them out in a deterministic order.
+        Set<String> candidates = new TreeSet<>(trackerRepository.findEnabledTrackerIds());
+        candidates.removeAll(assignedInGame(teams));
 
         List<Team> freeTeams = teams.stream()
                 .filter(t -> normalize(t.getTrackerId()) == null)
@@ -108,25 +89,22 @@ public class TrackerAssignmentService {
     }
 
     /**
-     * Tracker IDs in the game's pool that are not currently assigned to any team,
-     * i.e. the ones still pickable for a team. Sorted for a stable picker.
+     * Enabled trackers in the global pool that are not held by another team in
+     * this game, i.e. the ones still pickable here. Sorted for a stable picker.
      */
     public List<String> availableTrackers(UUID gameId) {
-        Set<String> assigned = teamRepository.findByGameId(gameId).stream()
-                .map(t -> normalize(t.getTrackerId()))
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-        Set<String> available = new TreeSet<>(trackerPoolRepository.findTrackerIdsByGameId(gameId));
-        available.removeAll(assigned);
+        Set<String> available = new TreeSet<>(trackerRepository.findEnabledTrackerIds());
+        available.removeAll(assignedInGame(teamRepository.findByGameId(gameId)));
         return new ArrayList<>(available);
     }
 
     /**
      * Assign a single tracker to a team, or clear it when {@code trackerId} is blank.
-     * The tracker must already be in the game's pool and not assigned to another team.
+     * The tracker must be enabled in the global pool and not held by another team
+     * in the same game (holding it in a different game is fine).
      *
-     * @throws IllegalArgumentException if the team is unknown or the tracker is not in the pool
-     * @throws IllegalStateException    if the tracker is already assigned to a different team
+     * @throws IllegalArgumentException if the team is unknown or the tracker is not an enabled pool member
+     * @throws IllegalStateException    if the tracker is already assigned to a different team in this game
      */
     @Transactional
     public Team assignToTeam(UUID teamId, String trackerId) {
@@ -140,15 +118,18 @@ public class TrackerAssignmentService {
             return teamRepository.save(team);
         }
 
-        List<Team> teams = teamRepository.findByGameId(team.getGameId());
-        Optional<Team> holder = teams.stream()
+        Optional<Team> holder = teamRepository.findByGameId(team.getGameId()).stream()
                 .filter(t -> !t.getId().equals(teamId) && id.equals(normalize(t.getTrackerId())))
                 .findFirst();
         if (holder.isPresent()) {
             throw new IllegalStateException("Tracker " + id + " is already assigned to boat " + boatLabel(holder.get()));
         }
-        if (!trackerPoolRepository.findTrackerIdsByGameId(team.getGameId()).contains(id)) {
-            throw new IllegalArgumentException("Tracker " + id + " is not in this game's pool");
+        Optional<Tracker> tracker = trackerRepository.findByTrackerId(id);
+        if (tracker.isEmpty()) {
+            throw new IllegalArgumentException("Tracker " + id + " is not in the tracker pool");
+        }
+        if (!tracker.get().isEnabled()) {
+            throw new IllegalArgumentException("Tracker " + id + " is disabled");
         }
 
         // Re-picking the tracker the team already holds must not re-stamp: the
@@ -174,6 +155,14 @@ public class TrackerAssignmentService {
                         .append(csv(t.getName())).append(',')
                         .append(csv(t.getDescription())).append('\n'));
         return sb.toString();
+    }
+
+    /** Tracker IDs held by the given (single game's) teams. */
+    private Set<String> assignedInGame(List<Team> teams) {
+        return teams.stream()
+                .map(t -> normalize(t.getTrackerId()))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
     }
 
     /** Trim a tracker ID; blank/null becomes {@code null} so it is ignored. */

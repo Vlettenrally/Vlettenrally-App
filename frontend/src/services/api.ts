@@ -12,6 +12,8 @@ import type {
   ExternalEvent,
   TeamImportResult,
   TrackerAssignResult,
+  Tracker,
+  AddTrackersResult,
   LocationTestResult,
   BackfillResult,
   TeamLocation,
@@ -592,13 +594,28 @@ async getGames() : Promise<ApiResponse<Game[]>> {
     return this.post(`/games/${gameId}/import-teams`);
   }
 
-  async assignTrackers(gameId: string, trackerIds: string[]) : Promise<ApiResponse<TrackerAssignResult>> {
-    return this.post(`/games/${gameId}/assign-trackers`, { trackerIds });
+  // Distribute free trackers from the global pool to teams without one.
+  async assignTrackers(gameId: string) : Promise<ApiResponse<TrackerAssignResult>> {
+    return this.post(`/games/${gameId}/assign-trackers`);
   }
 
-  // Tracker IDs in the game's pool not yet assigned to any team (picker options).
+  // Enabled trackers in the global pool not assigned to any team (picker options).
   async getAvailableTrackers(gameId: string) : Promise<ApiResponse<string[]>> {
     return this.get(`/games/${gameId}/trackers/available`);
+  }
+
+  // ==================== Global tracker pool ====================
+
+  async getTrackers() : Promise<ApiResponse<Tracker[]>> {
+    return this.get('/trackers');
+  }
+
+  async addTrackers(trackerIds: string[]) : Promise<ApiResponse<AddTrackersResult>> {
+    return this.post('/trackers', { trackerIds });
+  }
+
+  async setTrackerEnabled(trackerId: string, enabled: boolean) : Promise<ApiResponse<Tracker>> {
+    return this.put(`/trackers/${encodeURIComponent(trackerId)}/enabled`, { enabled });
   }
 
   // Returns the raw CSV text (not the JSON envelope); the caller triggers the download.

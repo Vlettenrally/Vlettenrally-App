@@ -50,6 +50,7 @@ import {
   Scoreboard as ScoreboardIcon,
   EmojiEvents as RankingIcon,
   PhotoLibrary as PhotoLibraryIcon,
+  GpsFixed as TrackerIcon,
 } from '@mui/icons-material';
 import { storage } from '../services/storage';
 import { useGameStore } from '../store/useGameStore';
@@ -117,6 +118,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { text: t('admin.layout.games'), icon: <GamesIcon />, path: '/admin/games' },
     { text: t('admin.layout.teams'), icon: <TeamsIcon />, path: '/admin/teams' },
     { text: t('admin.layout.checkIn'), icon: <HowToRegIcon />, path: '/admin/check-in' },
+    { text: t('admin.layout.trackers'), icon: <TrackerIcon />, path: '/admin/trackers' },
     { text: t('admin.layout.pointsManagement'), icon: <ScoreboardIcon />, path: '/admin/points-management' },
     { text: t('admin.layout.ranking'), icon: <RankingIcon />, path: '/admin/ranking' },
     { text: t('admin.layout.zones'), icon: <PlaceIcon />, path: '/admin/zones' },

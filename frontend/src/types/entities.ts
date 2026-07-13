@@ -84,7 +84,38 @@ export interface TeamImportResult {
 }
 
 /**
- * Result of auto-assigning a pasted batch of tracker IDs to a game's teams.
+ * One team — game pair holding a tracker. A tracker may be assigned in
+ * multiple non-completed games at once (per-game uniqueness).
+ */
+export interface TrackerAssignment {
+  teamName: string | null;
+  gameName: string | null;
+}
+
+/**
+ * A physical GPS tracker in the global pool, with the health status last
+ * reported by the location feed and every team/game currently holding it.
+ */
+export interface Tracker {
+  trackerId: string;
+  enabled: boolean;
+  batteryPercentage: number | null;
+  lastSeenAt: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  assignments: TrackerAssignment[];
+}
+
+/**
+ * Result of bulk-adding tracker IDs to the global pool.
+ */
+export interface AddTrackersResult {
+  added: number;
+  duplicates: number;
+}
+
+/**
+ * Result of auto-assigning free trackers from the global pool to a game's teams.
  */
 export interface TrackerAssignResult {
   assigned: number;

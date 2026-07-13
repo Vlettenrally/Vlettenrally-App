@@ -29,7 +29,6 @@ export default function Teams() {
 
   // Tracker assignment state
   const [trackerDialogOpen, setTrackerDialogOpen] = useState(false);
-  const [trackerInput, setTrackerInput] = useState('');
   const [assigning, setAssigning] = useState(false);
   const [assignResult, setAssignResult] = useState<TrackerAssignResult | null>(null);
   const [assignError, setAssignError] = useState<string | null>(null);
@@ -129,22 +128,14 @@ export default function Teams() {
   const handleAssignTrackers = async () => {
     if (!selectedGameId) return;
 
-    // Split the pasted blob into individual tracker IDs (one per line, also
-    // tolerating commas/whitespace between IDs); the backend de-dupes and trims.
-    const trackerIds = trackerInput
-      .split(/[\s,;]+/)
-      .map((id) => id.trim())
-      .filter((id) => id.length > 0);
-
     setAssigning(true);
     setAssignResult(null);
     setAssignError(null);
 
     try {
-      const result = await gameService.assignTrackers(selectedGameId, trackerIds);
+      const result = await gameService.assignTrackers(selectedGameId);
       setAssignResult(result);
       setTrackerDialogOpen(false);
-      setTrackerInput('');
       // Refresh teams so the assigned tracker IDs show up.
       teamService.getTeamsByGame(selectedGameId).then(setTeams);
     } catch (err) {
@@ -413,26 +404,21 @@ export default function Teams() {
       <Dialog open={trackerDialogOpen} onClose={() => setTrackerDialogOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{t('admin.teams.trackerDialogTitle')}</DialogTitle>
         <DialogContent dividers>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            {t('admin.teams.trackerDialogConfirm', {
+              count: teams.filter((team) => !team.trackerId).length,
+            })}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
             {t('admin.teams.trackerDialogHint')}
           </Typography>
-          <TextField
-            label={t('admin.teams.trackerIdsLabel')}
-            value={trackerInput}
-            onChange={(e) => setTrackerInput(e.target.value)}
-            multiline
-            rows={10}
-            fullWidth
-            autoFocus
-            placeholder={'860123456789012\n860123456789013\n860123456789014'}
-          />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setTrackerDialogOpen(false)}>{t('common.cancel')}</Button>
           <Button
             variant="contained"
             onClick={handleAssignTrackers}
-            disabled={assigning || trackerInput.trim().length === 0}
+            disabled={assigning}
             startIcon={assigning ? <CircularProgress size={20} /> : <TrackerIcon />}
           >
             {assigning ? t('admin.teams.assigning') : t('admin.teams.assign')}

@@ -30,7 +30,6 @@ import nl.vlettenrally.data.dto.game.GameResponse;
 import nl.vlettenrally.data.dto.game.TeamGameResponse;
 import nl.vlettenrally.data.dto.game.LocationTestResponse;
 import nl.vlettenrally.data.dto.game.TeamImportResponse;
-import nl.vlettenrally.data.dto.game.AssignTrackersRequest;
 import nl.vlettenrally.data.dto.game.AssignTrackersResponse;
 import nl.vlettenrally.data.dto.game.BackfillResponse;
 import nl.vlettenrally.data.converter.TeamConverter;
@@ -517,18 +516,17 @@ public class GameResource {
     }
 
     /**
-     * Auto-assign a pasted batch of physical tracker IDs to this game's teams.
-     * Trackers are handed out to teams without one yet; re-pasting is a no-op for
-     * IDs already in use.
+     * Auto-assign free trackers from the global pool to this game's teams.
+     * Trackers are handed out to teams without one yet; re-running is a no-op for
+     * IDs already in use. The pool itself is managed via /api/v1/trackers.
      */
     @POST
     @Path("/{gameId}/assign-trackers")
-    @RolesAllowed("admin")
-    public Response assignTrackers(@PathParam("gameId") UUID gameId, AssignTrackersRequest request) {
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.RALLY_DESK})
+    public Response assignTrackers(@PathParam("gameId") UUID gameId) {
         return gameService.findById(gameId)
             .map(game -> {
-                TrackerAssignmentResult result = trackerAssignmentService.assignTrackers(
-                    gameId, request != null ? request.trackerIds() : List.of());
+                TrackerAssignmentResult result = trackerAssignmentService.assignTrackers(gameId);
                 return Response.ok(new AssignTrackersResponse(
                     result.assigned(),
                     result.teamsWithoutTracker(),
@@ -542,12 +540,12 @@ public class GameResource {
     }
 
     /**
-     * Tracker IDs in the game's pool that are not yet assigned to any team — the
-     * options for the per-team tracker picker.
+     * Enabled trackers in the global pool that are not assigned to any team in a
+     * non-completed game — the options for the per-team tracker picker.
      */
     @GET
     @Path("/{gameId}/trackers/available")
-    @RolesAllowed("admin")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.RALLY_DESK})
     public Response availableTrackers(@PathParam("gameId") UUID gameId) {
         if (gameService.findById(gameId).isEmpty()) {
             return gameNotFoundResponse();
@@ -560,7 +558,7 @@ public class GameResource {
      */
     @GET
     @Path("/{gameId}/trackers/export")
-    @RolesAllowed("admin")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.RALLY_DESK})
     @Produces("text/csv")
     public Response exportTrackers(@PathParam("gameId") UUID gameId) {
         if (gameService.findById(gameId).isEmpty()) {

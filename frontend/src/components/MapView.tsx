@@ -107,6 +107,9 @@ interface MapViewProps {
   markerStyle?: 'circle' | 'pin';
   /** When true: always add TeamLocateControl instead of GeolocateControl. Set at mount time. */
   followTeamLocation?: boolean;
+  /** Fired once the maplibre instance finished loading — imperative handle calls
+   *  (flyToPoint etc.) issued before this are silent no-ops. */
+  onMapReady?: () => void;
 }
 
 
@@ -118,7 +121,7 @@ const PIN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="44" 
 const PIN_IMAGE_ID = 'team-pin';
 
 export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
-  { markers, center, zoom, className, teamLocation, tracks, markerStyle = 'circle', followTeamLocation = false },
+  { markers, center, zoom, className, teamLocation, tracks, markerStyle = 'circle', followTeamLocation = false, onMapReady },
   ref,
 ) {
   const { t } = useTranslation();
@@ -136,6 +139,10 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   // current data without being re-created (mirrors teamLocationRef above).
   const markersRef = useRef(markers);
   markersRef.current = markers;
+  // Latest onMapReady, kept in a ref so the (once-created) load handler calls
+  // the current callback without re-creating the map.
+  const onMapReadyRef = useRef(onMapReady);
+  onMapReadyRef.current = onMapReady;
   // True once the map has auto-fit; reset to false whenever markers go empty so
   // the next non-empty batch (initial load, or admin game switch) re-fits.
   const hasContentRef = useRef(false);
@@ -153,6 +160,10 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   }, []);
 
   const flyToPoint = useCallback((lng: number, lat: number, zoomLevel = 15) => {
+    // An explicit camera command also claims the one-time auto-fit: without this,
+    // markers arriving just after a fly-to (e.g. the ?flyTo= handoff on a cold
+    // map load) would fitBounds right over it.
+    hasContentRef.current = true;
     mapRef.current?.flyTo({ center: [lng, lat], zoom: zoomLevel });
   }, []);
 
@@ -605,6 +616,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           updateMarkersRef.current();
           updateTracksRef.current();
           maybeAutoFitRef.current();
+          onMapReadyRef.current?.();
         });
 
         // Popup on team marker click (works for both circle and pin layers)

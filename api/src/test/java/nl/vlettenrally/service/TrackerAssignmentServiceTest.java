@@ -21,12 +21,16 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import nl.vlettenrally.data.domain.Team;
+import nl.vlettenrally.data.domain.Tracker;
 import nl.vlettenrally.data.repository.TeamRepository;
-import nl.vlettenrally.data.repository.TrackerPoolRepository;
+import nl.vlettenrally.data.repository.TrackerRepository;
 
 /**
- * Unit tests for TrackerAssignmentService: a pasted batch of tracker IDs is
- * auto-distributed across teams without a tracker, and the mapping is exported.
+ * Unit tests for TrackerAssignmentService: enabled trackers from the global
+ * pool are auto-distributed across teams without a tracker. Uniqueness is per
+ * game — the same tracker may be assigned in another game at the same time
+ * (the desk prepares the next game while the current one runs) — and the
+ * mapping is exported.
  */
 @ExtendWith(MockitoExtension.class)
 class TrackerAssignmentServiceTest {
@@ -35,7 +39,7 @@ class TrackerAssignmentServiceTest {
     TeamRepository teamRepository;
 
     @Mock
-    TrackerPoolRepository trackerPoolRepository;
+    TrackerRepository trackerRepository;
 
     @InjectMocks
     TrackerAssignmentService service;
@@ -48,14 +52,15 @@ class TrackerAssignmentServiceTest {
     }
 
     @Test
-    void assignTrackers_distributesToFreeTeams() {
+    void assignTrackers_distributesEnabledPoolToFreeTeams() {
         Team a = team("7", null);
         Team b = team("12", null);
         when(teamRepository.findByGameId(gameId)).thenReturn(List.of(a, b));
+        when(trackerRepository.findEnabledTrackerIds()).thenReturn(Set.of("T1", "T2"));
         when(teamRepository.save(any(Team.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Instant before = Instant.now();
-        TrackerAssignmentResult result = service.assignTrackers(gameId, List.of("T1", "T2"));
+        TrackerAssignmentResult result = service.assignTrackers(gameId);
         Instant after = Instant.now();
 
         assertEquals(2, result.assigned());
@@ -70,14 +75,15 @@ class TrackerAssignmentServiceTest {
     }
 
     @Test
-    void assignTrackers_skipsTeamsThatAlreadyHaveTracker_andDropsUsedIds() {
+    void assignTrackers_skipsTeamsThatAlreadyHaveTracker_andExcludesUsedIds() {
         Team assigned = team("7", "T1");
         Team free = team("12", null);
         when(teamRepository.findByGameId(gameId)).thenReturn(List.of(assigned, free));
+        when(trackerRepository.findEnabledTrackerIds()).thenReturn(Set.of("T1", "T2"));
         when(teamRepository.save(any(Team.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        // Re-paste T1 (already in use) plus a new T2: T1 dropped, T2 goes to the free team.
-        TrackerAssignmentResult result = service.assignTrackers(gameId, List.of("T1", "T2"));
+        // T1 is already in use in this game: only T2 is handed out.
+        TrackerAssignmentResult result = service.assignTrackers(gameId);
 
         assertEquals(1, result.assigned());
         assertEquals(0, result.unused());
@@ -87,25 +93,29 @@ class TrackerAssignmentServiceTest {
     }
 
     @Test
-    void assignTrackers_dedupesAndTrimsInput() {
+    void assignTrackers_trackerHeldInAnotherGameIsStillAssignable() {
+        // Uniqueness is per game: only THIS game's teams are consulted, so a
+        // tracker held by a team in another (e.g. still active) game is handed
+        // out again when preparing this one.
         Team free = team("7", null);
         when(teamRepository.findByGameId(gameId)).thenReturn(List.of(free));
+        when(trackerRepository.findEnabledTrackerIds()).thenReturn(Set.of("T1"));
         when(teamRepository.save(any(Team.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        TrackerAssignmentResult result = service.assignTrackers(gameId, List.of(" T1 ", "T1", "", "  "));
+        TrackerAssignmentResult result = service.assignTrackers(gameId);
 
         assertEquals(1, result.assigned());
         assertEquals("T1", free.getTrackerId());
-        assertEquals(0, result.unused());
     }
 
     @Test
     void assignTrackers_moreTrackersThanTeams_reportsUnused() {
         Team free = team("7", null);
         when(teamRepository.findByGameId(gameId)).thenReturn(List.of(free));
+        when(trackerRepository.findEnabledTrackerIds()).thenReturn(Set.of("T1", "T2", "T3"));
         when(teamRepository.save(any(Team.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        TrackerAssignmentResult result = service.assignTrackers(gameId, List.of("T1", "T2", "T3"));
+        TrackerAssignmentResult result = service.assignTrackers(gameId);
 
         assertEquals(1, result.assigned());
         assertEquals(2, result.unused());
@@ -119,9 +129,10 @@ class TrackerAssignmentServiceTest {
         Team b = team("12", null);
         Team c = team("103", null);
         when(teamRepository.findByGameId(gameId)).thenReturn(List.of(a, b, c));
+        when(trackerRepository.findEnabledTrackerIds()).thenReturn(Set.of("T1"));
         when(teamRepository.save(any(Team.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        TrackerAssignmentResult result = service.assignTrackers(gameId, List.of("T1"));
+        TrackerAssignmentResult result = service.assignTrackers(gameId);
 
         assertEquals(1, result.assigned());
         assertEquals(2, result.teamsWithoutTracker());
@@ -129,10 +140,11 @@ class TrackerAssignmentServiceTest {
     }
 
     @Test
-    void assignTrackers_emptyInput_isNoOp() {
+    void assignTrackers_emptyPool_isNoOp() {
         when(teamRepository.findByGameId(gameId)).thenReturn(List.of(team("7", null)));
+        when(trackerRepository.findEnabledTrackerIds()).thenReturn(Set.of());
 
-        TrackerAssignmentResult result = service.assignTrackers(gameId, List.of());
+        TrackerAssignmentResult result = service.assignTrackers(gameId);
 
         assertEquals(0, result.assigned());
         assertEquals(1, result.teamsWithoutTracker());
@@ -160,32 +172,20 @@ class TrackerAssignmentServiceTest {
     }
 
     @Test
-    void assignTrackers_persistsPastedIdsToPool() {
-        Team free = team("7", null);
-        when(teamRepository.findByGameId(gameId)).thenReturn(List.of(free));
-        when(teamRepository.save(any(Team.class))).thenAnswer(inv -> inv.getArgument(0));
-
-        service.assignTrackers(gameId, List.of("T1", "T2"));
-
-        // Both pasted IDs are stored in the pool, even though only one could be assigned.
-        verify(trackerPoolRepository).addAll(gameId, Set.of("T1", "T2"));
-    }
-
-    @Test
-    void availableTrackers_returnsPoolMinusAssigned_sorted() {
+    void availableTrackers_returnsEnabledMinusThisGamesAssigned_sorted() {
         Team assigned = team("7", "T2");
         when(teamRepository.findByGameId(gameId)).thenReturn(List.of(assigned, team("12", null)));
-        when(trackerPoolRepository.findTrackerIdsByGameId(gameId)).thenReturn(Set.of("T3", "T1", "T2"));
+        when(trackerRepository.findEnabledTrackerIds()).thenReturn(Set.of("T3", "T1", "T2"));
 
         assertEquals(List.of("T1", "T3"), service.availableTrackers(gameId));
     }
 
     @Test
-    void assignToTeam_assignsTrackerFromPool() {
+    void assignToTeam_assignsEnabledTrackerFromPool() {
         Team team = team("7", null);
         when(teamRepository.findById(team.getId())).thenReturn(Optional.of(team));
         when(teamRepository.findByGameId(gameId)).thenReturn(List.of(team));
-        when(trackerPoolRepository.findTrackerIdsByGameId(gameId)).thenReturn(Set.of("T1"));
+        when(trackerRepository.findByTrackerId("T1")).thenReturn(Optional.of(tracker("T1", true)));
         when(teamRepository.save(any(Team.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Instant before = Instant.now();
@@ -216,7 +216,7 @@ class TrackerAssignmentServiceTest {
         team.setTrackerAssignedAt(original);
         when(teamRepository.findById(team.getId())).thenReturn(Optional.of(team));
         when(teamRepository.findByGameId(gameId)).thenReturn(List.of(team));
-        when(trackerPoolRepository.findTrackerIdsByGameId(gameId)).thenReturn(Set.of("T1"));
+        when(trackerRepository.findByTrackerId("T1")).thenReturn(Optional.of(tracker("T1", true)));
         when(teamRepository.save(any(Team.class))).thenAnswer(inv -> inv.getArgument(0));
 
         // Re-picking the tracker the team already holds is idempotent: it must not re-stamp,
@@ -234,7 +234,7 @@ class TrackerAssignmentServiceTest {
         team.setTrackerAssignedAt(original);
         when(teamRepository.findById(team.getId())).thenReturn(Optional.of(team));
         when(teamRepository.findByGameId(gameId)).thenReturn(List.of(team));
-        when(trackerPoolRepository.findTrackerIdsByGameId(gameId)).thenReturn(Set.of("T1", "T2"));
+        when(trackerRepository.findByTrackerId("T2")).thenReturn(Optional.of(tracker("T2", true)));
         when(teamRepository.save(any(Team.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Instant before = Instant.now();
@@ -250,14 +250,25 @@ class TrackerAssignmentServiceTest {
         Team team = team("7", null);
         when(teamRepository.findById(team.getId())).thenReturn(Optional.of(team));
         when(teamRepository.findByGameId(gameId)).thenReturn(List.of(team));
-        when(trackerPoolRepository.findTrackerIdsByGameId(gameId)).thenReturn(Set.of());
+        when(trackerRepository.findByTrackerId("T9")).thenReturn(Optional.empty());
 
         assertThrows(IllegalArgumentException.class, () -> service.assignToTeam(team.getId(), "T9"));
         verify(teamRepository, never()).save(any(Team.class));
     }
 
     @Test
-    void assignToTeam_rejectsTrackerAssignedToAnotherTeam() {
+    void assignToTeam_rejectsDisabledTracker() {
+        Team team = team("7", null);
+        when(teamRepository.findById(team.getId())).thenReturn(Optional.of(team));
+        when(teamRepository.findByGameId(gameId)).thenReturn(List.of(team));
+        when(trackerRepository.findByTrackerId("T1")).thenReturn(Optional.of(tracker("T1", false)));
+
+        assertThrows(IllegalArgumentException.class, () -> service.assignToTeam(team.getId(), "T1"));
+        verify(teamRepository, never()).save(any(Team.class));
+    }
+
+    @Test
+    void assignToTeam_rejectsTrackerAssignedToAnotherTeamInSameGame() {
         Team target = team("7", null);
         Team other = team("12", "T1");
         when(teamRepository.findById(target.getId())).thenReturn(Optional.of(target));
@@ -265,6 +276,21 @@ class TrackerAssignmentServiceTest {
 
         assertThrows(IllegalStateException.class, () -> service.assignToTeam(target.getId(), "T1"));
         verify(teamRepository, never()).save(any(Team.class));
+    }
+
+    @Test
+    void assignToTeam_allowsTrackerHeldInAnotherGame() {
+        // Only this game's teams are consulted for conflicts; a holder in a
+        // different game does not block the assignment.
+        Team target = team("7", null);
+        when(teamRepository.findById(target.getId())).thenReturn(Optional.of(target));
+        when(teamRepository.findByGameId(gameId)).thenReturn(List.of(target));
+        when(trackerRepository.findByTrackerId("T1")).thenReturn(Optional.of(tracker("T1", true)));
+        when(teamRepository.save(any(Team.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Team result = service.assignToTeam(target.getId(), "T1");
+
+        assertEquals("T1", result.getTrackerId());
     }
 
     @Test
@@ -288,5 +314,13 @@ class TrackerAssignmentServiceTest {
         team.setName(boatNumber);
         team.setTrackerId(trackerId);
         return team;
+    }
+
+    private static Tracker tracker(String trackerId, boolean enabled) {
+        Tracker tracker = new Tracker();
+        tracker.setId(UUID.randomUUID());
+        tracker.setTrackerId(trackerId);
+        tracker.setEnabled(enabled);
+        return tracker;
     }
 }

@@ -39,6 +39,7 @@ export const PICTURE_UPLOAD_ROLES: string[] = [
 export const ADMIN_PAGE_ROLES: Record<string, string[]> = {
   '/admin/games': [AdminRole.GAME_MASTER],
   '/admin/teams': [AdminRole.GAME_MASTER, AdminRole.RALLY_DESK],
+  '/admin/trackers': [AdminRole.RALLY_DESK],
   '/admin/check-in': [AdminRole.GAME_MASTER, AdminRole.RALLY_DESK],
   '/admin/zones': [AdminRole.GAME_MASTER],
   '/admin/automations': [AdminRole.GAME_MASTER],

@@ -49,6 +49,7 @@ const AdminMessages = lazy(() => import('./pages/admin/Messages'));
 const AdminInbox = lazy(() => import('./pages/admin/Inbox'));
 const Games = lazy(() => import('./pages/admin/Games'));
 const Teams = lazy(() => import('./pages/admin/Teams'));
+const Trackers = lazy(() => import('./pages/admin/Trackers'));
 const CheckIn = lazy(() => import('./pages/admin/CheckIn'));
 const Zones = lazy(() => import('./pages/admin/Zones'));
 const Automations = lazy(() => import('./pages/admin/Automations'));
@@ -631,6 +632,18 @@ function App() {
                 <AdminLayout>
                   <Suspense fallback={<PageLoader />}>
                     <Teams />
+                  </Suspense>
+                </AdminLayout>
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/trackers"
+            element={
+              <AdminRoute>
+                <AdminLayout>
+                  <Suspense fallback={<PageLoader />}>
+                    <Trackers />
                   </Suspense>
                 </AdminLayout>
               </AdminRoute>
