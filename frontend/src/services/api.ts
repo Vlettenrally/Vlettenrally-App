@@ -90,7 +90,6 @@ class ApiService {
   private isRefreshing = false;
   private refreshPromise: Promise<RefreshResult> | null = null;
   private cachedAccessToken: string | null = null;
-  private cachedRefreshToken: string | null = null;
 
   /**
    * Refresh token if needed (proactive refresh).
@@ -147,10 +146,9 @@ class ApiService {
     } finally {
       this.isRefreshing = false;
       this.refreshPromise = null;
-      // Keep the just-issued tokens available to concurrent in-flight requests briefly.
+      // Keep the just-issued token available to concurrent in-flight requests briefly.
       setTimeout(() => {
         this.cachedAccessToken = null;
-        this.cachedRefreshToken = null;
       }, 1000);
     }
   }
@@ -193,9 +191,8 @@ class ApiService {
 
       const data = await response.json();
 
-      // Cache tokens in memory for concurrent requests, then persist.
+      // Cache the access token in memory for concurrent requests, then persist.
       this.cachedAccessToken = data.accessToken;
-      this.cachedRefreshToken = data.refreshToken || null;
       storage.setAuthToken(data.accessToken);
       if (data.refreshToken) {
         storage.setRefreshToken(data.refreshToken);
