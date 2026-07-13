@@ -35,7 +35,7 @@ import nl.vlettenrally.data.dto.auth.TeamInvite;
 
 /**
  * Unit tests for {@link InviteCodeStore}, with Valkey mocked out.
- *
+ * <p>
  * The behaviours that matter here are the ones the QR flow depends on: codes are short and
  * unambiguous (they are the whole QR payload), they are NOT consumed on resolve (one QR is
  * scanned by several teammates), and their TTL slides on every use (resolve → nickname →
