@@ -5,6 +5,7 @@ import io.quarkus.logging.Log;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import nl.vlettenrally.data.domain.Team;
+import nl.vlettenrally.data.enums.CheckInMethod;
 import nl.vlettenrally.data.repository.TeamRepository;
 
 import java.time.Instant;
@@ -33,6 +34,7 @@ public class MockTeamRepository implements TeamRepository {
     public static final UUID TEAM_WINDKRACHT_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
     public static final UUID TEAM_GORILLAS_ID = UUID.fromString("33333333-3333-3333-3333-333333333333");
     public static final UUID TEAM_HAAK_ID = UUID.fromString("44444444-4444-4444-4444-444444444444");
+    public static final UUID TEAM_ZEILZUSJES_ID = UUID.fromString("55555555-5555-5555-5555-555555555555");
 
     @PostConstruct
     void init() {
@@ -54,6 +56,7 @@ public class MockTeamRepository implements TeamRepository {
         team1.setDeviceId(UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"));
         team1.setCheckedIn(true);
         team1.setCheckedInDigitally(true);
+        team1.setCheckInMethod(CheckInMethod.DIGITAL);
         team1.setRivals(Collections.singletonList(TEAM_WINDKRACHT_ID));
         team1.setNotes("Favoriet voor de winst!");
         team1.setEmergencyPhoneNumbers(List.of("+31612345678", "+31687654321"));
@@ -71,13 +74,14 @@ public class MockTeamRepository implements TeamRepository {
         team2.setDeviceId(UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"));
         team2.setCheckedIn(true);
         team2.setCheckedInDigitally(true);
+        team2.setCheckInMethod(CheckInMethod.DIGITAL);
         team2.setRivals(Collections.singletonList(TEAM_WATERVLOOIEN_ID));
         team2.setEmergencyPhoneNumbers(List.of("+31687654321"));
         team2.setCreatedAt(now.minus(47, ChronoUnit.HOURS));
         team2.setUpdatedAt(now.minus(45, ChronoUnit.MINUTES));
         teams.put(team2.getId(), team2);
 
-        // Team 3 - De Grachtengorrillas
+        // Team 3 - De Grachtengorrillas (checked in manually at the rally desk)
         Team team3 = new Team();
         team3.setId(TEAM_GORILLAS_ID);
         team3.setGameId(MockGameRepository.GAME_2026_ID);
@@ -85,7 +89,8 @@ public class MockTeamRepository implements TeamRepository {
         team3.setDescription("Rustig maar doeltreffend");
         team3.setParticipants(List.of("Tom de Vries", "Henk Boot"));
         team3.setCheckedIn(true);
-        team3.setCheckedInDigitally(true);
+        team3.setCheckedInDigitally(false);
+        team3.setCheckInMethod(CheckInMethod.MANUAL);
         team3.setRivals(Collections.emptyList());
         team3.setEmergencyPhoneNumbers(List.of("+31612345678", "+31687654321"));
         team3.setCreatedAt(now.minus(46, ChronoUnit.HOURS));
@@ -108,6 +113,23 @@ public class MockTeamRepository implements TeamRepository {
         team4.setCreatedAt(now.minus(45, ChronoUnit.HOURS));
         team4.setUpdatedAt(now.minus(2, ChronoUnit.HOURS));
         teams.put(team4.getId(), team4);
+
+        // Team 5 - De Zeilzusjes (sent off to check in on their own phones, not finished yet)
+        Team team5 = new Team();
+        team5.setId(TEAM_ZEILZUSJES_ID);
+        team5.setGameId(MockGameRepository.GAME_2026_ID);
+        team5.setName("De Zeilzusjes");
+        team5.setDescription("Zusjes met de wind mee");
+        team5.setParticipants(List.of("Sanne Zeil", "Fleur Zeil"));
+        team5.setCheckedIn(true);
+        team5.setCheckedInDigitally(false);
+        team5.setCheckInMethod(CheckInMethod.DIGITAL);
+        team5.setCheckedInAt(now.minus(10, ChronoUnit.MINUTES));
+        team5.setRivals(Collections.emptyList());
+        team5.setEmergencyPhoneNumbers(List.of("+31612345678"));
+        team5.setCreatedAt(now.minus(44, ChronoUnit.HOURS));
+        team5.setUpdatedAt(now.minus(10, ChronoUnit.MINUTES));
+        teams.put(team5.getId(), team5);
 
         Log.info("🎭 MockTeamRepository initialized with " + teams.size() + " teams");
     }

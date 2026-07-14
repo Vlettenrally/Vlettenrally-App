@@ -8,12 +8,14 @@ import { teamService } from '../../services/teamService';
 import { gameService } from '../../services/gameService';
 import { websocket } from '../../services/websocket';
 import TeamDetailDialog from '../../components/TeamDetailDialog';
+import TeamCheckInChip from '../../components/TeamCheckInChip';
 import { teamMatchesQuery } from '../../utils/teamSearch';
+import { checkInStatusRank } from '../../utils/checkInStatus';
 import type { AdminTeam, Game, TeamImportResult, TrackerAssignResult } from '../../types/entities';
 
 type DetailDialog = { title: string; items: string[] };
 
-type SortColumn = 'name' | 'description' | 'trackerId' | 'totalPoints' | 'checkedIn' | 'checkedInDigitally' | 'finished';
+type SortColumn = 'name' | 'description' | 'trackerId' | 'totalPoints' | 'checkInStatus' | 'finished';
 type SortOrder = 'asc' | 'desc';
 
 const columns: { column: SortColumn; labelKey: string; align?: 'right' | 'center' }[] = [
@@ -21,8 +23,7 @@ const columns: { column: SortColumn; labelKey: string; align?: 'right' | 'center
   { column: 'description', labelKey: 'admin.teams.columnDescription' },
   { column: 'trackerId', labelKey: 'admin.teams.columnTracker' },
   { column: 'totalPoints', labelKey: 'admin.teams.columnPoints', align: 'right' },
-  { column: 'checkedIn', labelKey: 'admin.teams.columnCheckedIn', align: 'center' },
-  { column: 'checkedInDigitally', labelKey: 'admin.teams.columnDigital', align: 'center' },
+  { column: 'checkInStatus', labelKey: 'admin.teams.columnCheckInStatus', align: 'center' },
   { column: 'finished', labelKey: 'admin.teams.columnFinish', align: 'center' },
 ];
 
@@ -39,10 +40,8 @@ function compareTeams(a: AdminTeam, b: AdminTeam, column: SortColumn): number {
       return (a.trackerId ?? '').localeCompare(b.trackerId ?? '', 'nl', { sensitivity: 'base' });
     case 'totalPoints':
       return a.totalPoints - b.totalPoints;
-    case 'checkedIn':
-      return Number(a.checkedIn) - Number(b.checkedIn);
-    case 'checkedInDigitally':
-      return Number(a.checkedInDigitally) - Number(b.checkedInDigitally);
+    case 'checkInStatus':
+      return checkInStatusRank(a) - checkInStatusRank(b);
     case 'finished':
       return Number(a.finished) - Number(b.finished);
   }
@@ -416,21 +415,7 @@ export default function Teams() {
                     <TableCell>{team.trackerId || '—'}</TableCell>
                     <TableCell align="right">{team.totalPoints}</TableCell>
                     <TableCell align="center">
-                      <Chip
-                        label={team.checkedIn ? t('common.yes') : t('common.no')}
-                        color={team.checkedIn ? 'success' : 'default'}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      {team.checkedIn && (
-                        <Chip
-                          label={team.checkedInDigitally ? t('common.yes') : t('common.no')}
-                          color={team.checkedInDigitally ? 'info' : 'warning'}
-                          size="small"
-                          variant="outlined"
-                        />
-                      )}
+                      <TeamCheckInChip team={team} />
                     </TableCell>
                     <TableCell align="center">
                       {team.finished && (
@@ -441,7 +426,7 @@ export default function Teams() {
                 ))}
                 {filteredTeams.length === 0 && teams.length > 0 && (
                   <TableRow>
-                    <TableCell colSpan={7}>
+                    <TableCell colSpan={columns.length}>
                       <Typography variant="body2" color="text.secondary">
                         {t('admin.teams.noResults')}
                       </Typography>

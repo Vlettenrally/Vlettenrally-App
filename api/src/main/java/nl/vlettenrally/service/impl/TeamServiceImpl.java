@@ -4,6 +4,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.Team;
+import nl.vlettenrally.data.enums.CheckInMethod;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.service.AutomationEngine;
 import nl.vlettenrally.service.GameService;
@@ -108,6 +109,7 @@ public class TeamServiceImpl implements TeamService {
                         throw new IllegalStateException("Team is already checked in digitally");
                     }
                     team.setCheckedInDigitally(true);
+                    team.setCheckInMethod(CheckInMethod.DIGITAL);
                     team.setUpdatedAt(Instant.now());
                     return teamRepository.save(team);
                 }
@@ -118,6 +120,7 @@ public class TeamServiceImpl implements TeamService {
                 Instant now = Instant.now();
                 team.setCheckedIn(true);
                 team.setCheckedInDigitally(true);
+                team.setCheckInMethod(CheckInMethod.DIGITAL);
                 team.setCheckedInAt(now);
                 team.setUpdatedAt(now);
                 return teamRepository.save(team);

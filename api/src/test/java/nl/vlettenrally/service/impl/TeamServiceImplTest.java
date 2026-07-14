@@ -26,6 +26,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.Team;
+import nl.vlettenrally.data.enums.CheckInMethod;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.service.AutomationEngine;
 import nl.vlettenrally.service.GameService;
@@ -88,6 +89,7 @@ class TeamServiceImplTest {
         // Assert
         assertTrue(result.isCheckedIn());
         assertTrue(result.isCheckedInDigitally());
+        assertEquals(CheckInMethod.DIGITAL, result.getCheckInMethod());
         assertNotNull(result.getUpdatedAt());
         // The false -> true transition stamps the physical check-in time, which anchors
         // the digital check-in window.
@@ -97,6 +99,7 @@ class TeamServiceImplTest {
         verify(teamRepository).save(teamCaptor.capture());
         assertTrue(teamCaptor.getValue().isCheckedIn());
         assertTrue(teamCaptor.getValue().isCheckedInDigitally());
+        assertEquals(CheckInMethod.DIGITAL, teamCaptor.getValue().getCheckInMethod());
     }
 
     @Test
@@ -123,6 +126,7 @@ class TeamServiceImplTest {
         // Arrange
         Team team = createTeam(true);
         team.setCheckedInDigitally(false);
+        team.setCheckInMethod(CheckInMethod.MANUAL);
         team.getEmergencyPhoneNumbers().clear();
         // Physical check-in already recorded earlier (e.g. by an admin); completing the
         // digital step must not move the window anchor.
@@ -138,12 +142,15 @@ class TeamServiceImplTest {
         // Assert
         assertTrue(result.isCheckedIn());
         assertTrue(result.isCheckedInDigitally());
+        // Finishing the details step upgrades a desk check-in to a digital one.
+        assertEquals(CheckInMethod.DIGITAL, result.getCheckInMethod());
         assertNotNull(result.getUpdatedAt());
         assertEquals(physicalCheckInAt, result.getCheckedInAt());
 
         ArgumentCaptor<Team> teamCaptor = ArgumentCaptor.forClass(Team.class);
         verify(teamRepository).save(teamCaptor.capture());
         assertTrue(teamCaptor.getValue().isCheckedInDigitally());
+        assertEquals(CheckInMethod.DIGITAL, teamCaptor.getValue().getCheckInMethod());
     }
 
     @Test

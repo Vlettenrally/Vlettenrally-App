@@ -12,6 +12,7 @@ import nl.vlettenrally.data.domain.automation.AutomationTriggerConfig;
 import nl.vlettenrally.data.dto.admin.LoadTestScenarioResponse;
 import nl.vlettenrally.data.dto.game.CheckpointRequest;
 import nl.vlettenrally.data.enums.AutomationTriggerType;
+import nl.vlettenrally.data.enums.CheckInMethod;
 import nl.vlettenrally.data.enums.MessageType;
 import nl.vlettenrally.data.repository.TeamRepository;
 
@@ -117,6 +118,7 @@ public class LoadTestSeedService {
             // Pre-check-in so the app token exchange (register-device) works immediately.
             team.setCheckedIn(true);
             team.setCheckedInDigitally(true);
+            team.setCheckInMethod(CheckInMethod.DIGITAL);
             // No emergency phone numbers -> Twilio SMS fallback can never fire.
             team = teamRepository.save(team);
             savedTeams.add(team);

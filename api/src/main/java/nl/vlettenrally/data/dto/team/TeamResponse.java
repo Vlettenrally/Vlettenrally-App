@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.UUID;
 
 import io.quarkus.runtime.annotations.RegisterForReflection;
+import nl.vlettenrally.data.enums.CheckInMethod;
 
 @RegisterForReflection
 public record TeamResponse(
@@ -15,6 +16,7 @@ public record TeamResponse(
     UUID deviceId,
     boolean checkedIn,
     boolean checkedInDigitally,
+    CheckInMethod checkInMethod,
     boolean finished,
     boolean traccarEnabled,
     String traccarIdentifier,

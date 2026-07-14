@@ -221,6 +221,12 @@ export interface CheckpointImportResult {
 }
 
 /**
+ * How a team was checked in: by the rally desk on the team's behalf, or by the team
+ * itself on their own phones. See utils/checkInStatus.ts for the derived UI states.
+ */
+export type CheckInMethod = 'MANUAL' | 'DIGITAL';
+
+/**
  * Base team fields shared across all team types
  */
 interface TeamBase {
@@ -241,6 +247,8 @@ export interface AdminTeam extends TeamBase {
   externalId?: string;
   checkedIn: boolean;
   checkedInDigitally: boolean;
+  /** How the team was checked in. Null/absent while not checked in. */
+  checkInMethod?: CheckInMethod | null;
   finished: boolean;
   traccarEnabled: boolean;
   traccarIdentifier?: string | null;

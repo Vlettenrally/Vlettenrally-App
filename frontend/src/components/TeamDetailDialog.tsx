@@ -26,6 +26,13 @@ import type { AdminTeam, CheckInDevice } from '../types/entities';
 import { teamService } from '../services/teamService';
 import { gameService } from '../services/gameService';
 import { storage } from '../services/storage';
+import TeamCheckInChip from './TeamCheckInChip';
+import {
+  CHECK_IN_STATUSES,
+  checkInStatusToFields,
+  getCheckInStatus,
+  type CheckInStatus,
+} from '../utils/checkInStatus';
 
 interface TeamDetailDialogProps {
   open: boolean;
@@ -72,8 +79,7 @@ export default function TeamDetailDialog({
     participants: '',
     emergencyPhoneNumbers: '',
     notes: '',
-    checkedIn: false,
-    checkedInDigitally: false,
+    checkInStatus: 'notCheckedIn' as CheckInStatus,
     traccarEnabled: false,
     finished: false,
     trackerId: '',
@@ -91,8 +97,7 @@ export default function TeamDetailDialog({
         participants: team.participants ? team.participants.join('\n') : '',
         emergencyPhoneNumbers: team.emergencyPhoneNumbers ? team.emergencyPhoneNumbers.join('\n') : '',
         notes: team.notes || '',
-        checkedIn: team.checkedIn,
-        checkedInDigitally: team.checkedInDigitally,
+        checkInStatus: getCheckInStatus(team),
         traccarEnabled: team.traccarEnabled,
         finished: team.finished,
         trackerId: team.trackerId ?? '',
@@ -149,8 +154,7 @@ export default function TeamDetailDialog({
         participants: '',
         emergencyPhoneNumbers: '',
         notes: '',
-        checkedIn: false,
-        checkedInDigitally: false,
+        checkInStatus: 'notCheckedIn',
         traccarEnabled: false,
         finished: false,
         trackerId: '',
@@ -299,8 +303,7 @@ export default function TeamDetailDialog({
           participants: team.participants.join('\n'),
           emergencyPhoneNumbers: team.emergencyPhoneNumbers ? team.emergencyPhoneNumbers.join('\n') : '',
           notes: team.notes || '',
-          checkedIn: team.checkedIn,
-          checkedInDigitally: team.checkedInDigitally,
+          checkInStatus: getCheckInStatus(team),
           traccarEnabled: team.traccarEnabled,
           finished: team.finished,
           trackerId: team.trackerId ?? '',
@@ -331,8 +334,7 @@ export default function TeamDetailDialog({
         participants,
         emergencyPhoneNumbers,
         notes: formData.notes || undefined,
-        checkedIn: formData.checkedIn,
-        checkedInDigitally: formData.checkedInDigitally,
+        ...checkInStatusToFields(formData.checkInStatus),
         traccarEnabled: formData.traccarEnabled,
         finished: formData.finished,
       };
@@ -423,24 +425,14 @@ export default function TeamDetailDialog({
     }));
   };
 
-  const handleCheckboxChange = (field: 'checkedIn' | 'checkedInDigitally' | 'traccarEnabled' | 'finished') => (
+  const handleCheckboxChange = (field: 'traccarEnabled' | 'finished') => (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     const newValue = event.target.checked;
-    setFormData((prev) => {
-      // If unchecking checkedIn, also uncheck checkedInDigitally
-      if (field === 'checkedIn' && !newValue) {
-        return {
-          ...prev,
-          checkedIn: false,
-          checkedInDigitally: false,
-        };
-      }
-      return {
-        ...prev,
-        [field]: newValue,
-      };
-    });
+    setFormData((prev) => ({
+      ...prev,
+      [field]: newValue,
+    }));
   };
 
   return (
@@ -538,49 +530,35 @@ export default function TeamDetailDialog({
           {!isCreateMode && team && (
             <>
               {isEditing ? (
-                <Box>
-                  <Typography variant="subtitle2" gutterBottom>
+                <FormControl fullWidth size="small">
+                  <InputLabel id="check-in-status-label">
                     {t('components.teamDetail.checkInStatus')}
-                  </Typography>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={formData.checkedIn}
-                        onChange={handleCheckboxChange('checkedIn')}
-                      />
+                  </InputLabel>
+                  <Select
+                    labelId="check-in-status-label"
+                    label={t('components.teamDetail.checkInStatus')}
+                    value={formData.checkInStatus}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        checkInStatus: e.target.value as CheckInStatus,
+                      }))
                     }
-                    label={t('components.teamDetail.checkedIn')}
-                  />
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={formData.checkedInDigitally}
-                        onChange={handleCheckboxChange('checkedInDigitally')}
-                        disabled={!formData.checkedIn}
-                      />
-                    }
-                    label={t('components.teamDetail.checkedInDigitally')}
-                  />
-                </Box>
+                  >
+                    {CHECK_IN_STATUSES.map((status) => (
+                      <MenuItem key={status} value={status}>
+                        {t(`components.teamCheckInChip.${status}`)}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               ) : (
                 <Box>
                   <Typography variant="subtitle2" gutterBottom>
                     {t('components.teamDetail.status')}
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    <Chip
-                      label={team.checkedIn ? t('components.teamDetail.checkedIn') : t('components.teamDetail.notCheckedIn')}
-                      color={team.checkedIn ? 'success' : 'default'}
-                      size="small"
-                    />
-                    {team.checkedIn && (
-                      <Chip
-                        label={team.checkedInDigitally ? t('components.teamDetail.digitalCheckIn') : t('components.teamDetail.manualCheckIn')}
-                        color={team.checkedInDigitally ? 'info' : 'warning'}
-                        size="small"
-                        variant="outlined"
-                      />
-                    )}
+                    <TeamCheckInChip team={team} />
                   </Box>
                 </Box>
               )}

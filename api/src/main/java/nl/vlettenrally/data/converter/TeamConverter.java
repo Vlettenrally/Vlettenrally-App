@@ -38,6 +38,7 @@ public class TeamConverter {
                 domain.getDeviceId(),
                 domain.isCheckedIn(),
                 domain.isCheckedInDigitally(),
+                domain.getCheckInMethod(),
                 domain.isFinished(),
                 domain.isTraccarEnabled(),
                 domain.getTraccarIdentifier(),

@@ -31,6 +31,7 @@ import nl.vlettenrally.data.dto.team.RivalsUpdateRequest;
 import nl.vlettenrally.data.dto.team.TeamCreateRequest;
 import nl.vlettenrally.data.dto.team.TeamUpdateRequest;
 import nl.vlettenrally.data.dto.team.AssignTrackerRequest;
+import nl.vlettenrally.data.enums.CheckInMethod;
 import nl.vlettenrally.data.repository.DeviceRegistrationRepository;
 import nl.vlettenrally.service.CheckInCacheService;
 import nl.vlettenrally.service.CheckInCoordinationService;
@@ -308,12 +309,23 @@ public class TeamResource {
                     if (!wasCheckedIn) {
                         team.setCheckedInAt(Instant.now());
                     }
+                    // A check-in always has a method. Take the requested one, else keep the
+                    // one already recorded, else assume the desk did it for the team.
+                    if (request.checkInMethod() != null) {
+                        team.setCheckInMethod(request.checkInMethod());
+                    } else if (team.getCheckInMethod() == null) {
+                        team.setCheckInMethod(CheckInMethod.MANUAL);
+                    }
                 } else {
                     // Reset digital check-in and the window anchor when unchecking
                     team.setCheckedInDigitally(false);
                     team.setCheckedInAt(null);
+                    team.setCheckInMethod(null);
                 }
                 checkInCacheService.invalidate(team.getGameId());
+            } else if (request.checkInMethod() != null && team.isCheckedIn()) {
+                // Correct the method of an already checked-in team without re-checking it in.
+                team.setCheckInMethod(request.checkInMethod());
             }
 
             // Allow explicit setting of checkedInDigitally (admin override)
@@ -321,6 +333,10 @@ public class TeamResource {
             if (request.checkedInDigitally() != null &&
                 (request.checkedIn() == null || request.checkedIn())) {
                 team.setCheckedInDigitally(request.checkedInDigitally());
+                if (request.checkedInDigitally()) {
+                    // Submitted details means the team went through the digital flow.
+                    team.setCheckInMethod(CheckInMethod.DIGITAL);
+                }
             }
 
             // Toggle Traccar tracking. The identifier itself is generated lazily

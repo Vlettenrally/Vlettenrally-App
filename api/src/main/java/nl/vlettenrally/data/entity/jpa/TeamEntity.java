@@ -3,6 +3,7 @@ package nl.vlettenrally.data.entity.jpa;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import nl.vlettenrally.data.enums.CheckInMethod;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -67,6 +68,10 @@ public class TeamEntity {
 
     @Column(name = "checked_in_at")
     private Instant checkedInAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "check_in_method", length = 10)
+    private CheckInMethod checkInMethod;
 
     @Column(name = "finished", nullable = false)
     private boolean finished = false;

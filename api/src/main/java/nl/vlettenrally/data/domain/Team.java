@@ -6,6 +6,7 @@ import com.google.i18n.phonenumbers.Phonenumber.PhoneNumber;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
+import nl.vlettenrally.data.enums.CheckInMethod;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -29,6 +30,11 @@ public class Team {
     private UUID mainDeviceId;
     private boolean checkedIn;
     private boolean checkedInDigitally;
+    // How the team was checked in; null while not checked in. Tells a team that is still
+    // finishing check-in on their own phones (DIGITAL, not yet checkedInDigitally) apart
+    // from one the desk checked in on their behalf (MANUAL) — both are checkedIn without
+    // being checkedInDigitally.
+    private CheckInMethod checkInMethod;
     // Timestamp of the team's physical check-in (when checkedIn transitions to true).
     // The digital check-in window (first phone registration) is measured from here.
     // Cleared when checkedIn is reset to false. See CheckInCoordinationService.

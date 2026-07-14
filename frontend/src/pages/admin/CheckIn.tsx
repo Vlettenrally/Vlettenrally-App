@@ -16,7 +16,6 @@ import {
   Button,
   Card,
   CardContent,
-  Chip,
   CircularProgress,
   FormControl,
   InputLabel,
@@ -39,6 +38,7 @@ import { useGameStore } from '../../store/useGameStore';
 import { useAdminResync } from '../../hooks/useAdminSync';
 import { teamService } from '../../services/teamService';
 import { gameService } from '../../services/gameService';
+import TeamCheckInChip from '../../components/TeamCheckInChip';
 import { isPhoneNumber, validateParticipantNames } from '../../utils/validators';
 import { teamMatchesQuery } from '../../utils/teamSearch';
 import type { AdminTeam } from '../../types/entities';
@@ -112,14 +112,19 @@ export default function CheckIn() {
     setStep('overview');
   };
 
-  // --- Digital branch: just ensure the team is physically checked in. ---
+  // --- Digital branch: mark the team physically checked in and record that they finish
+  // check-in on their own phones, so the desk can see who still has to. ---
   const handleDigitalCheckIn = async () => {
     if (!selectedTeam) return;
     setSubmitting(true);
     setError(null);
     try {
-      if (!selectedTeam.checkedIn) {
-        const updated = await teamService.updateTeam(selectedTeam.id, { checkedIn: true });
+      const alreadyDigital = selectedTeam.checkedIn && selectedTeam.checkInMethod === 'DIGITAL';
+      if (!alreadyDigital) {
+        const updated = await teamService.updateTeam(selectedTeam.id, {
+          checkedIn: true,
+          checkInMethod: 'DIGITAL',
+        });
         if (!updated) {
           setError(t('admin.checkIn.failedCheckIn'));
           return;
@@ -206,6 +211,7 @@ export default function CheckIn() {
         notes: notes.trim() || undefined,
         checkedIn: true,
         checkedInDigitally: false,
+        checkInMethod: 'MANUAL',
       });
       if (!updated) {
         setError(t('admin.checkIn.failedCheckIn'));
@@ -298,14 +304,7 @@ export default function CheckIn() {
                           </Typography>
                         )}
                       </Box>
-                      {option.checkedIn ? (
-                        <Chip size="small" color="success" label={t('admin.checkIn.checkedIn')} />
-                      ) : (
-                        <Chip size="small" color="default" label={t('admin.checkIn.notYet')} />
-                      )}
-                      {option.checkedIn && option.checkedInDigitally && (
-                        <Chip size="small" color="info" variant="outlined" label={t('admin.checkIn.digital')} />
-                      )}
+                      <TeamCheckInChip team={option} />
                     </Box>
                   )}
                   renderInput={(params) => (
@@ -332,19 +331,7 @@ export default function CheckIn() {
                     {selectedTeam.name}
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
-                    <Chip
-                      label={selectedTeam.checkedIn ? t('admin.checkIn.checkedIn') : t('admin.checkIn.notCheckedIn')}
-                      color={selectedTeam.checkedIn ? 'success' : 'default'}
-                      size="small"
-                    />
-                    {selectedTeam.checkedIn && (
-                      <Chip
-                        label={selectedTeam.checkedInDigitally ? t('admin.checkIn.digital') : t('admin.checkIn.manual')}
-                        color={selectedTeam.checkedInDigitally ? 'info' : 'warning'}
-                        size="small"
-                        variant="outlined"
-                      />
-                    )}
+                    <TeamCheckInChip team={selectedTeam} />
                   </Box>
                 </Box>
 
