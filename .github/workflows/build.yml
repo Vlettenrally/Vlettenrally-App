@@ -170,7 +170,13 @@ jobs:
     if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
     runs-on: arc-runner-set-vlettenrally
     container:
-      image: ghcr.io/graalvm/native-image-community:25
+      # -muslib variant: ships the musl toolchain at /usr/local/musl, which the
+      # static build in application.properties needs. The plain image's glibc crt
+      # objects are stamped ISA_1_NEEDED=x86-64-v3; the linker pulls those into
+      # the binary, so ld.so rejected it on our v2-only nodes with "CPU ISA level
+      # is lower than required". musl's crt objects carry no ISA property, and a
+      # static binary is not loaded by ld.so at all.
+      image: ghcr.io/graalvm/native-image-community:25-muslib
     needs: [test-api, test-frontend]
     permissions:
       contents: read
