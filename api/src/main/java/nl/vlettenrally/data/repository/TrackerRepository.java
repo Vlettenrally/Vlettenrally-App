@@ -28,6 +28,13 @@ public interface TrackerRepository {
      */
     int addAll(Collection<String> trackerIds);
 
+    /**
+     * Remove tracker IDs from the pool, ignoring any that are not present.
+     *
+     * @return the number of trackers actually deleted
+     */
+    int deleteAll(Collection<String> trackerIds);
+
     /** @return the updated tracker, or empty if the ID is not in the pool */
     Optional<Tracker> setEnabled(String trackerId, boolean enabled);
 

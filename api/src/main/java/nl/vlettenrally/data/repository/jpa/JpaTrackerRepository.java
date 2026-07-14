@@ -74,6 +74,18 @@ public class JpaTrackerRepository extends ReadReplicaAwareRepository implements 
 
     @Override
     @Transactional
+    public int deleteAll(Collection<String> trackerIds) {
+        if (trackerIds == null || trackerIds.isEmpty()) {
+            return 0;
+        }
+        return getWriteEntityManager()
+                .createQuery("DELETE FROM TrackerEntity t WHERE t.trackerId IN :trackerIds")
+                .setParameter("trackerIds", trackerIds)
+                .executeUpdate();
+    }
+
+    @Override
+    @Transactional
     public Optional<Tracker> setEnabled(String trackerId, boolean enabled) {
         Optional<TrackerEntity> entity = getWriteEntityManager()
                 .createQuery("SELECT t FROM TrackerEntity t WHERE t.trackerId = :trackerId", TrackerEntity.class)

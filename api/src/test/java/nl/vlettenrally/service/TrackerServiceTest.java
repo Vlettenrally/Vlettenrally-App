@@ -1,14 +1,16 @@
 package nl.vlettenrally.service;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -26,8 +28,8 @@ import nl.vlettenrally.data.repository.TrackerRepository;
 
 /**
  * Unit tests for TrackerService: bulk-adding pasted tracker IDs to the global
- * pool, listing trackers decorated with their current assignment, and toggling
- * the enabled flag.
+ * pool, bulk-deleting them (unassigning any team that still holds one), listing
+ * trackers decorated with their current assignment, and toggling the enabled flag.
  */
 @ExtendWith(MockitoExtension.class)
 class TrackerServiceTest {
@@ -95,6 +97,88 @@ class TrackerServiceTest {
         when(trackerRepository.setEnabled("T9", false)).thenReturn(Optional.empty());
 
         assertTrue(service.setEnabled("T9", false).isEmpty());
+    }
+
+    @Test
+    void deleteTrackers_trimsDedupesAndCountsNotFound() {
+        when(trackerRepository.deleteAll(anyCollection())).thenReturn(2);
+
+        TrackerService.DeleteResult result = service.deleteTrackers(
+                List.of(" T1 ", "T1", "T2", "T3", "", "  "));
+
+        // Three distinct IDs reach the repository; only two were in the pool.
+        verify(trackerRepository).deleteAll(new LinkedHashSet<>(List.of("T1", "T2", "T3")));
+        assertEquals(2, result.deleted());
+        assertEquals(1, result.notFound());
+        assertEquals(List.of(), result.unassignedTeams());
+    }
+
+    @Test
+    void deleteTrackers_emptyInput_isNoOp() {
+        TrackerService.DeleteResult result = service.deleteTrackers(List.of("", "  "));
+
+        verify(trackerRepository, never()).deleteAll(anyCollection());
+        assertEquals(0, result.deleted());
+        assertEquals(0, result.notFound());
+    }
+
+    @Test
+    void deleteTrackers_unassignedTracker_leavesTeamsAlone() {
+        Game active = game("Vlettenrally 2026", Game.GameStatus.ACTIVE);
+        Team holder = team(active.getId(), "7", "T1");
+
+        when(gameRepository.findByStatus(Game.GameStatus.PLANNED)).thenReturn(List.of());
+        when(gameRepository.findByStatus(Game.GameStatus.ACTIVE)).thenReturn(List.of(active));
+        when(teamRepository.findByGameId(active.getId())).thenReturn(List.of(holder));
+        when(trackerRepository.deleteAll(anyCollection())).thenReturn(1);
+
+        // T2 is in the pool but nobody holds it.
+        TrackerService.DeleteResult result = service.deleteTrackers(List.of("T2"));
+
+        verify(teamRepository, never()).save(any());
+        assertEquals("T1", holder.getTrackerId());
+        assertEquals(1, result.deleted());
+        assertEquals(List.of(), result.unassignedTeams());
+    }
+
+    @Test
+    void deleteTrackers_assignedTracker_unassignsTheTeamFirst() {
+        // teams.tracker_id has no FK to the pool, so a team holding a deleted
+        // tracker would be left pointing at a tracker that no longer exists.
+        Game active = game("Vlettenrally 2026", Game.GameStatus.ACTIVE);
+        Team holder = team(active.getId(), "7", "T1");
+        holder.setTrackerAssignedAt(Instant.now());
+
+        when(gameRepository.findByStatus(Game.GameStatus.PLANNED)).thenReturn(List.of());
+        when(gameRepository.findByStatus(Game.GameStatus.ACTIVE)).thenReturn(List.of(active));
+        when(teamRepository.findByGameId(active.getId())).thenReturn(List.of(holder));
+        when(trackerRepository.deleteAll(anyCollection())).thenReturn(1);
+
+        TrackerService.DeleteResult result = service.deleteTrackers(List.of("T1"));
+
+        verify(teamRepository).save(holder);
+        assertNull(holder.getTrackerId());
+        assertNull(holder.getTrackerAssignedAt(), "the assignment stamp must not outlive the assignment");
+        assertEquals(1, result.deleted());
+        assertEquals(List.of("T1 -> 7 (Vlettenrally 2026)"), result.unassignedTeams());
+    }
+
+    @Test
+    void deleteTrackers_completedGameHolder_keepsItsHistoricalTrackerId() {
+        // A completed game's tracker IDs are the record of which tracker a boat
+        // carried; deleting the pool entry must not rewrite that history.
+        Game completed = game("Vlettenrally 2025", Game.GameStatus.COMPLETED);
+        Team pastHolder = team(completed.getId(), "7", "T1");
+
+        when(trackerRepository.deleteAll(anyCollection())).thenReturn(1);
+
+        TrackerService.DeleteResult result = service.deleteTrackers(List.of("T1"));
+
+        verify(gameRepository, never()).findByStatus(Game.GameStatus.COMPLETED);
+        verify(teamRepository, never()).save(any());
+        assertEquals("T1", pastHolder.getTrackerId());
+        assertEquals(1, result.deleted());
+        assertEquals(List.of(), result.unassignedTeams());
     }
 
     private static Game game(String name, Game.GameStatus status) {

@@ -3,6 +3,7 @@
  *
  * Features:
  * - Bulk-add pasted tracker IDs to the pool
+ * - Bulk-delete trackers, preselecting the ones not assigned to a game
  * - Per-tracker health: last seen, battery level, last known position
  * - Enable/disable a tracker so it is skipped when assigning trackers to teams
  * - Location button that jumps to the tracker's last position on the admin map
@@ -22,16 +23,24 @@ import {
   Chip,
   CircularProgress,
   Tooltip,
+  Alert,
+  Checkbox,
   Dialog,
   DialogTitle,
   DialogContent,
+  DialogContentText,
   DialogActions,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
   TextField,
   Switch,
   IconButton,
 } from '@mui/material';
 import {
   Add as AddIcon,
+  Delete as DeleteIcon,
   Error as ErrorIcon,
   CheckCircle as SuccessIcon,
   GpsFixed as TrackerIcon,
@@ -53,6 +62,15 @@ function batteryColor(percentage: number): 'success' | 'warning' | 'error' {
   return 'success';
 }
 
+// The teams/games holding this tracker, or null when it is free. Only teams in a
+// planned or active game count, so a completed game's trackers read as unassigned.
+function assignmentLabel(tracker: Tracker): string | null {
+  if (tracker.assignments.length === 0) return null;
+  return tracker.assignments
+    .map((a) => (a.gameName ? `${a.teamName} — ${a.gameName}` : a.teamName))
+    .join(', ');
+}
+
 export default function Trackers() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
@@ -68,6 +86,15 @@ export default function Trackers() {
   const [addResult, setAddResult] = useState<{ added: number; duplicates: number } | null>(null);
   const [addError, setAddError] = useState<string | null>(null);
 
+  // Delete-trackers dialog state. `selectedIds` survives a background refresh
+  // because it holds tracker IDs, not rows; IDs that vanish are filtered on submit.
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
+  const [deleteResult, setDeleteResult] = useState<{ deleted: number } | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   const loadTrackers = useCallback(async () => {
     try {
       setTrackers(await trackerService.getTrackers());
@@ -79,11 +106,19 @@ export default function Trackers() {
     }
   }, [t]);
 
+  // Hold the refresh while the delete dialogs are open, so rows don't shift
+  // under the user mid-selection.
+  const picking = deleteDialogOpen || confirmOpen;
+
   useEffect(() => {
     void loadTrackers();
+  }, [loadTrackers]);
+
+  useEffect(() => {
+    if (picking) return;
     const id = setInterval(() => void loadTrackers(), REFRESH_INTERVAL_MS);
     return () => clearInterval(id);
-  }, [loadTrackers]);
+  }, [loadTrackers, picking]);
 
   const handleAddTrackers = async () => {
     // Split the pasted blob into individual tracker IDs (one per line, also
@@ -126,6 +161,57 @@ export default function Trackers() {
         ),
       );
       setAddError(t('admin.trackers.updateFailed'));
+    }
+  };
+
+  // Preselect every tracker that no team currently holds — the common case is
+  // clearing out the ones nobody is using — but leave the user free to adjust.
+  const handleOpenDeleteDialog = () => {
+    setSelectedIds(
+      new Set(trackers.filter((tk) => tk.assignments.length === 0).map((tk) => tk.trackerId)),
+    );
+    setDeleteError(null);
+    setDeleteResult(null);
+    setDeleteDialogOpen(true);
+  };
+
+  const toggleSelected = (trackerId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(trackerId)) {
+        next.add(trackerId);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    setSelectedIds((prev) =>
+      prev.size === trackers.length ? new Set() : new Set(trackers.map((tk) => tk.trackerId)),
+    );
+  };
+
+  // Only trackers still in the list: one may have been deleted elsewhere between
+  // opening the dialog and confirming.
+  const selectedTrackers = trackers.filter((tk) => selectedIds.has(tk.trackerId));
+  const selectedAssigned = selectedTrackers.filter((tk) => tk.assignments.length > 0);
+
+  const handleDeleteConfirm = async () => {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const result = await trackerService.deleteTrackers(
+        selectedTrackers.map((tk) => tk.trackerId),
+      );
+      setDeleteResult(result);
+      setConfirmOpen(false);
+      setDeleteDialogOpen(false);
+      setSelectedIds(new Set());
+      await loadTrackers();
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : t('admin.trackers.deleteFailed'));
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -176,9 +262,27 @@ export default function Trackers() {
               onDelete={() => setAddError(null)}
             />
           )}
+          {deleteResult && (
+            <Chip
+              label={t('admin.trackers.deleteResult', deleteResult)}
+              color="success"
+              size="small"
+              icon={<SuccessIcon />}
+              onDelete={() => setDeleteResult(null)}
+            />
+          )}
           {loadError && (
             <Chip label={loadError} color="error" size="small" icon={<ErrorIcon />} />
           )}
+          <Button
+            variant="outlined"
+            color="error"
+            startIcon={<DeleteIcon />}
+            disabled={trackers.length === 0}
+            onClick={handleOpenDeleteDialog}
+          >
+            {t('admin.trackers.deleteTrackers')}
+          </Button>
           <Button
             variant="contained"
             startIcon={<AddIcon />}
@@ -248,13 +352,7 @@ export default function Trackers() {
                         )}
                       </TableCell>
                       <TableCell>{renderLastSeen(tracker)}</TableCell>
-                      <TableCell>
-                        {tracker.assignments.length > 0
-                          ? tracker.assignments
-                              .map((a) => (a.gameName ? `${a.teamName} — ${a.gameName}` : a.teamName))
-                              .join(', ')
-                          : '—'}
-                      </TableCell>
+                      <TableCell>{assignmentLabel(tracker) ?? '—'}</TableCell>
                       <TableCell align="center">
                         <Tooltip title={tracker.latitude != null ? t('admin.trackers.showOnMap') : ''} arrow>
                           <span>
@@ -304,6 +402,119 @@ export default function Trackers() {
             startIcon={adding ? <CircularProgress size={20} /> : <AddIcon />}
           >
             {adding ? t('admin.trackers.adding') : t('admin.trackers.add')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>{t('admin.trackers.deleteDialogTitle')}</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" color="text.secondary">
+            {t('admin.trackers.deleteDialogHint')}
+          </Typography>
+          {deleteError && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {deleteError}
+            </Alert>
+          )}
+          <List dense>
+            <ListItemButton onClick={toggleSelectAll}>
+              <ListItemIcon sx={{ minWidth: 42 }}>
+                <Checkbox
+                  edge="start"
+                  disableRipple
+                  tabIndex={-1}
+                  checked={trackers.length > 0 && selectedIds.size === trackers.length}
+                  indeterminate={selectedIds.size > 0 && selectedIds.size < trackers.length}
+                />
+              </ListItemIcon>
+              <ListItemText
+                primary={t('admin.trackers.selectAll')}
+                slotProps={{ primary: { fontWeight: 'bold' } }}
+              />
+            </ListItemButton>
+            {trackers.map((tracker) => {
+              const assignedTo = assignmentLabel(tracker);
+              return (
+                <ListItemButton
+                  key={tracker.trackerId}
+                  onClick={() => toggleSelected(tracker.trackerId)}
+                >
+                  <ListItemIcon sx={{ minWidth: 42 }}>
+                    <Checkbox
+                      edge="start"
+                      disableRipple
+                      tabIndex={-1}
+                      checked={selectedIds.has(tracker.trackerId)}
+                    />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={tracker.trackerId}
+                    secondary={assignedTo ?? t('admin.trackers.notAssigned')}
+                  />
+                  {assignedTo && (
+                    <Chip label={t('admin.trackers.columnAssignedTo')} color="warning" size="small" />
+                  )}
+                </ListItemButton>
+              );
+            })}
+          </List>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)}>{t('common.cancel')}</Button>
+          <Button
+            variant="contained"
+            color="error"
+            startIcon={<DeleteIcon />}
+            disabled={selectedTrackers.length === 0}
+            onClick={() => setConfirmOpen(true)}
+          >
+            {`${t('admin.trackers.delete')} (${selectedTrackers.length})`}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>
+          {t('admin.trackers.confirmDeleteTitle', { count: selectedTrackers.length })}
+        </DialogTitle>
+        <DialogContent dividers>
+          <DialogContentText>{t('admin.trackers.confirmDeleteBody')}</DialogContentText>
+          {selectedAssigned.length > 0 && (
+            <Alert severity="warning" sx={{ mt: 2 }}>
+              {t('admin.trackers.assignedWarning')}
+              <Box component="ul" sx={{ pl: 3, mb: 0, mt: 1 }}>
+                {selectedAssigned.map((tracker) => (
+                  <li key={tracker.trackerId}>
+                    {`${tracker.trackerId} → ${assignmentLabel(tracker)}`}
+                  </li>
+                ))}
+              </Box>
+            </Alert>
+          )}
+          {deleteError && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {deleteError}
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmOpen(false)} disabled={deleting}>
+            {t('common.cancel')}
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleDeleteConfirm}
+            disabled={deleting}
+            startIcon={deleting ? <CircularProgress size={20} /> : <DeleteIcon />}
+          >
+            {deleting ? t('admin.trackers.deleting') : t('admin.trackers.delete')}
           </Button>
         </DialogActions>
       </Dialog>

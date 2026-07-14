@@ -110,6 +110,20 @@ public class MockTrackerRepository implements TrackerRepository {
     }
 
     @Override
+    public int deleteAll(Collection<String> trackerIds) {
+        if (trackerIds == null || trackerIds.isEmpty()) {
+            return 0;
+        }
+        int deleted = 0;
+        for (String trackerId : trackerIds) {
+            if (trackerId != null && trackers.remove(trackerId) != null) {
+                deleted++;
+            }
+        }
+        return deleted;
+    }
+
+    @Override
     public Optional<Tracker> setEnabled(String trackerId, boolean enabled) {
         Tracker tracker = trackers.get(trackerId);
         if (tracker == null) {

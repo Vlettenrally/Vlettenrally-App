@@ -15,6 +15,8 @@ import nl.vlettenrally.api.security.SecurityRoles;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
 import nl.vlettenrally.data.dto.tracker.AddTrackersRequest;
 import nl.vlettenrally.data.dto.tracker.AddTrackersResponse;
+import nl.vlettenrally.data.dto.tracker.DeleteTrackersRequest;
+import nl.vlettenrally.data.dto.tracker.DeleteTrackersResponse;
 import nl.vlettenrally.data.dto.tracker.SetTrackerEnabledRequest;
 import nl.vlettenrally.data.dto.tracker.TrackerAssignmentResponse;
 import nl.vlettenrally.data.dto.tracker.TrackerResponse;
@@ -59,6 +61,27 @@ public class TrackerResource {
         TrackerService.AddResult result = trackerService.addTrackers(
                 request != null ? request.trackerIds() : List.of());
         return Response.ok(new AddTrackersResponse(result.added(), result.duplicates())).build();
+    }
+
+    /**
+     * Bulk-remove tracker IDs from the global pool. Teams in a planned or active
+     * game that hold one of the deleted trackers are unassigned first, so no team
+     * is left pointing at a tracker that is no longer in the pool.
+     * <p>
+     * Modelled as a POST because it carries a body of tracker IDs, mirroring the
+     * bulk-add above.
+     */
+    @POST
+    @Path("/delete")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.RALLY_DESK})
+    public Response deleteTrackers(DeleteTrackersRequest request) {
+        if (request == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ErrorResponse("Request body is required")).build();
+        }
+        TrackerService.DeleteResult result = trackerService.deleteTrackers(request.trackerIds());
+        return Response.ok(new DeleteTrackersResponse(
+                result.deleted(), result.notFound(), result.unassignedTeams())).build();
     }
 
     /**

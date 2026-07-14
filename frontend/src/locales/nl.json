@@ -376,7 +376,19 @@
       "columnLocation": "Locatie",
       "showOnMap": "Toon op kaart",
       "neverSeen": "Nooit gezien",
-      "disabledTooltip": "Uitgeschakelde trackers worden overgeslagen bij het toewijzen van trackers aan teams"
+      "disabledTooltip": "Uitgeschakelde trackers worden overgeslagen bij het toewijzen van trackers aan teams",
+      "deleteTrackers": "Trackers verwijderen",
+      "deleteDialogTitle": "Trackers uit de pool verwijderen",
+      "deleteDialogHint": "Trackers die niet aan een spel zijn toegewezen staan vast aangevinkt. Vink naar wens aan of uit.",
+      "selectAll": "Alles selecteren",
+      "notAssigned": "Niet toegewezen",
+      "confirmDeleteTitle": "{{count}} tracker(s) verwijderen?",
+      "confirmDeleteBody": "De geselecteerde trackers worden uit de pool verwijderd. Dit kan niet ongedaan worden gemaakt.",
+      "assignedWarning": "Nog toegewezen — deze teams blijven zonder tracker achter:",
+      "delete": "Verwijderen",
+      "deleting": "Verwijderen...",
+      "deleteResult": "{{deleted}} tracker(s) verwijderd",
+      "deleteFailed": "Trackers verwijderen mislukt"
     },
     "checkIn": {
       "title": "Inchecken",

@@ -14,6 +14,7 @@ import type {
   TrackerAssignResult,
   Tracker,
   AddTrackersResult,
+  DeleteTrackersResult,
   LocationTestResult,
   BackfillResult,
   TeamLocation,
@@ -607,6 +608,11 @@ async getGames() : Promise<ApiResponse<Game[]>> {
 
   async addTrackers(trackerIds: string[]) : Promise<ApiResponse<AddTrackersResult>> {
     return this.post('/trackers', { trackerIds });
+  }
+
+  // A POST rather than a DELETE because it carries a body of tracker IDs.
+  async deleteTrackers(trackerIds: string[]) : Promise<ApiResponse<DeleteTrackersResult>> {
+    return this.post('/trackers/delete', { trackerIds });
   }
 
   async setTrackerEnabled(trackerId: string, enabled: boolean) : Promise<ApiResponse<Tracker>> {

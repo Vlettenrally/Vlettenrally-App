@@ -115,6 +115,16 @@ export interface AddTrackersResult {
 }
 
 /**
+ * Result of bulk-deleting tracker IDs from the global pool. `unassignedTeams`
+ * names the teams whose tracker was deleted out from under them.
+ */
+export interface DeleteTrackersResult {
+  deleted: number;
+  notFound: number;
+  unassignedTeams: string[];
+}
+
+/**
  * Result of auto-assigning free trackers from the global pool to a game's teams.
  */
 export interface TrackerAssignResult {

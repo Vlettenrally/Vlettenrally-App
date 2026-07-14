@@ -376,7 +376,19 @@
       "columnLocation": "Location",
       "showOnMap": "Show on map",
       "neverSeen": "Never seen",
-      "disabledTooltip": "Disabled trackers are skipped when assigning trackers to teams"
+      "disabledTooltip": "Disabled trackers are skipped when assigning trackers to teams",
+      "deleteTrackers": "Delete trackers",
+      "deleteDialogTitle": "Delete trackers from the pool",
+      "deleteDialogHint": "Trackers that are not assigned to a game are preselected. Tick or untick as you like.",
+      "selectAll": "Select all",
+      "notAssigned": "Not assigned",
+      "confirmDeleteTitle": "Delete {{count}} tracker(s)?",
+      "confirmDeleteBody": "The selected trackers are removed from the pool. This cannot be undone.",
+      "assignedWarning": "Still assigned — these teams will be left without a tracker:",
+      "delete": "Delete",
+      "deleting": "Deleting...",
+      "deleteResult": "{{deleted}} tracker(s) deleted",
+      "deleteFailed": "Deleting trackers failed"
     },
     "checkIn": {
       "title": "Check-in",
