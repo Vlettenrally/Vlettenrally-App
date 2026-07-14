@@ -167,7 +167,7 @@ export default function TeamDetailDialog({
     setQrOpen(false);
     setQrLink(null);
     setQrError(null);
-  }, [team, gameId, t]);
+  }, [team, gameId, open, t]);
 
   const refreshDevices = useCallback(async () => {
     if (!team) return;
@@ -341,19 +341,6 @@ export default function TeamDetailDialog({
         await teamService.createTeam({
           ...teamData,
           gameId: gameId,
-        });
-        // useEffect won't re-run after close because team stays null; reset manually
-        setFormData({
-          name: '',
-          description: '',
-          participants: '',
-          emergencyPhoneNumbers: '',
-          notes: '',
-          checkedIn: false,
-          checkedInDigitally: false,
-          traccarEnabled: false,
-          finished: false,
-          trackerId: '',
         });
       } else if (team) {
         await teamService.updateTeam(team.id, teamData);
