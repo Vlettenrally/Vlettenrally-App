@@ -20,7 +20,7 @@ jobs:
     if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
     runs-on: arc-runner-set-vlettenrally
     container:
-      image: eclipse-temurin:21.0.11_10-jdk
+      image: eclipse-temurin:25.0.3_9-jdk
       options: --pull always
     defaults:
       run:
@@ -51,7 +51,7 @@ jobs:
     name: Test API
     runs-on: arc-runner-set-vlettenrally
     container:
-      image: eclipse-temurin:21.0.11_10-jdk
+      image: eclipse-temurin:25.0.3_9-jdk
     if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
     defaults:
       run:
@@ -170,7 +170,7 @@ jobs:
     if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
     runs-on: arc-runner-set-vlettenrally
     container:
-      image: ghcr.io/graalvm/native-image-community:21
+      image: ghcr.io/graalvm/native-image-community:25
     needs: [test-api, test-frontend]
     permissions:
       contents: read

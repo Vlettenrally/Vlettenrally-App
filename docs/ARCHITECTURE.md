@@ -780,7 +780,7 @@ cd backend
 JVM Mode (Fast build, larger image ~150MB):
 ```dockerfile
 # Dockerfile.jvm
-FROM registry.access.redhat.com/ubi8/openjdk-21:latest
+FROM registry.access.redhat.com/ubi9/openjdk-25:1.24
 
 ENV LANGUAGE='en_US:en'
 

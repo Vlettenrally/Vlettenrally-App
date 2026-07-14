@@ -21,7 +21,7 @@ jobs:
     name: Generate & Upload Tiles
     runs-on: arc-runner-set-vlettenrally
     container:
-      image: eclipse-temurin:21.0.10_7-jdk
+      image: eclipse-temurin:25.0.3_9-jdk
 
     steps:
       - name: Install uplink CLI
