@@ -1,4 +1,4 @@
-import { Box, Typography, Button, Card, CardContent, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, CircularProgress, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, TextField } from '@mui/material';
+import { Box, Typography, Button, Card, CardContent, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TableSortLabel, Chip, CircularProgress, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, TextField } from '@mui/material';
 import { Upload as ImportIcon, Add as AddIcon, CheckCircle as SuccessIcon, Error as ErrorIcon, GpsFixed as TrackerIcon, Download as DownloadIcon } from '@mui/icons-material';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -13,11 +13,48 @@ import type { AdminTeam, Game, TeamImportResult, TrackerAssignResult } from '../
 
 type DetailDialog = { title: string; items: string[] };
 
+type SortColumn = 'name' | 'description' | 'trackerId' | 'totalPoints' | 'checkedIn' | 'checkedInDigitally' | 'finished';
+type SortOrder = 'asc' | 'desc';
+
+const columns: { column: SortColumn; labelKey: string; align?: 'right' | 'center' }[] = [
+  { column: 'name', labelKey: 'admin.teams.columnTeamName' },
+  { column: 'description', labelKey: 'admin.teams.columnDescription' },
+  { column: 'trackerId', labelKey: 'admin.teams.columnTracker' },
+  { column: 'totalPoints', labelKey: 'admin.teams.columnPoints', align: 'right' },
+  { column: 'checkedIn', labelKey: 'admin.teams.columnCheckedIn', align: 'center' },
+  { column: 'checkedInDigitally', labelKey: 'admin.teams.columnDigital', align: 'center' },
+  { column: 'finished', labelKey: 'admin.teams.columnFinish', align: 'center' },
+];
+
+const compareByName = (a: AdminTeam, b: AdminTeam) =>
+  a.name.localeCompare(b.name, 'nl', { sensitivity: 'base' });
+
+function compareTeams(a: AdminTeam, b: AdminTeam, column: SortColumn): number {
+  switch (column) {
+    case 'name':
+      return compareByName(a, b);
+    case 'description':
+      return a.description.localeCompare(b.description, 'nl', { sensitivity: 'base' });
+    case 'trackerId':
+      return (a.trackerId ?? '').localeCompare(b.trackerId ?? '', 'nl', { sensitivity: 'base' });
+    case 'totalPoints':
+      return a.totalPoints - b.totalPoints;
+    case 'checkedIn':
+      return Number(a.checkedIn) - Number(b.checkedIn);
+    case 'checkedInDigitally':
+      return Number(a.checkedInDigitally) - Number(b.checkedInDigitally);
+    case 'finished':
+      return Number(a.finished) - Number(b.finished);
+  }
+}
+
 export default function Teams() {
   const { t } = useTranslation();
   const selectedGameId = useGameStore((s) => s.selectedGameId);
   const [teams, setTeams] = useState<AdminTeam[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [orderBy, setOrderBy] = useState<SortColumn>('name');
+  const [order, setOrder] = useState<SortOrder>('asc');
   const [selectedTeam, setSelectedTeam] = useState<AdminTeam | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [game, setGame] = useState<Game | null>(null);
@@ -180,10 +217,26 @@ export default function Teams() {
   const isCompleted = game?.status === 'completed';
   const canImport = game?.externalEventId && !isCompleted;
 
+  const handleSort = (column: SortColumn) => {
+    if (orderBy === column) {
+      setOrder(order === 'asc' ? 'desc' : 'asc');
+    } else {
+      setOrderBy(column);
+      setOrder('asc');
+    }
+  };
+
   const filteredTeams = useMemo(
     () => teams.filter((team) => teamMatchesQuery(team, searchQuery)),
     [teams, searchQuery],
   );
+
+  const sortedTeams = useMemo(() => {
+    const sign = order === 'asc' ? 1 : -1;
+    return [...filteredTeams].sort(
+      (a, b) => sign * compareTeams(a, b, orderBy) || compareByName(a, b),
+    );
+  }, [filteredTeams, orderBy, order]);
 
   return (
     <Box sx={{ p: 3 }}>
@@ -333,17 +386,25 @@ export default function Teams() {
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell><strong>{t('admin.teams.columnTeamName')}</strong></TableCell>
-                  <TableCell><strong>{t('admin.teams.columnDescription')}</strong></TableCell>
-                  <TableCell><strong>{t('admin.teams.columnTracker')}</strong></TableCell>
-                  <TableCell align="right"><strong>{t('admin.teams.columnPoints')}</strong></TableCell>
-                  <TableCell align="center"><strong>{t('admin.teams.columnCheckedIn')}</strong></TableCell>
-                  <TableCell align="center"><strong>{t('admin.teams.columnDigital')}</strong></TableCell>
-                  <TableCell align="center"><strong>{t('admin.teams.columnFinish')}</strong></TableCell>
+                  {columns.map(({ column, labelKey, align }) => (
+                    <TableCell
+                      key={column}
+                      align={align}
+                      sortDirection={orderBy === column ? order : false}
+                    >
+                      <TableSortLabel
+                        active={orderBy === column}
+                        direction={orderBy === column ? order : 'asc'}
+                        onClick={() => handleSort(column)}
+                      >
+                        <strong>{t(labelKey)}</strong>
+                      </TableSortLabel>
+                    </TableCell>
+                  ))}
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filteredTeams.map((team) => (
+                {sortedTeams.map((team) => (
                   <TableRow
                     key={team.id}
                     hover
