@@ -6,7 +6,7 @@
  * - Bulk-delete trackers, preselecting the ones not assigned to a game
  * - Per-tracker health: last seen, battery level, last known position
  * - Enable/disable a tracker so it is skipped when assigning trackers to teams
- * - Location button that jumps to the tracker's last position on the admin map
+ * - Location button that shows the tracker's last position on a map, in a popup
  */
 import {
   Box,
@@ -47,9 +47,9 @@ import {
   MyLocation as LocationIcon,
 } from '@mui/icons-material';
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { trackerService } from '../../services/trackerService';
+import MapPopupDialog from '../../components/admin/MapPopupDialog';
 import { STALE_AFTER_MS } from './mapConstants';
 import type { Tracker } from '../../types/entities';
 
@@ -73,11 +73,15 @@ function assignmentLabel(tracker: Tracker): string | null {
 
 export default function Trackers() {
   const { t, i18n } = useTranslation();
-  const navigate = useNavigate();
 
   const [trackers, setTrackers] = useState<Tracker[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Tracker whose position is shown in the map popup, or null when it is closed.
+  // Holds the row as it was clicked, so a background refresh cannot move the pin
+  // out from under the user.
+  const [mapTarget, setMapTarget] = useState<Tracker | null>(null);
 
   // Add-trackers dialog state
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -213,11 +217,6 @@ export default function Trackers() {
     } finally {
       setDeleting(false);
     }
-  };
-
-  const handleShowOnMap = (tracker: Tracker) => {
-    if (tracker.latitude == null || tracker.longitude == null) return;
-    navigate(`/admin/map?flyTo=${tracker.longitude},${tracker.latitude}`);
   };
 
   const renderLastSeen = (tracker: Tracker) => {
@@ -360,7 +359,7 @@ export default function Trackers() {
                               size="small"
                               color="primary"
                               disabled={tracker.latitude == null || tracker.longitude == null}
-                              onClick={() => handleShowOnMap(tracker)}
+                              onClick={() => setMapTarget(tracker)}
                             >
                               <LocationIcon fontSize="small" />
                             </IconButton>
@@ -518,6 +517,19 @@ export default function Trackers() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Mounted only while a tracker is picked: MapView takes `center` at mount
+          time, so the dialog has to unmount in between to recentre on the next one. */}
+      {mapTarget?.latitude != null && mapTarget.longitude != null && (
+        <MapPopupDialog
+          open
+          onClose={() => setMapTarget(null)}
+          lat={mapTarget.latitude}
+          lng={mapTarget.longitude}
+          label={mapTarget.trackerId}
+          title={t('admin.trackers.mapDialogTitle', { trackerId: mapTarget.trackerId })}
+        />
+      )}
     </Box>
   );
 }

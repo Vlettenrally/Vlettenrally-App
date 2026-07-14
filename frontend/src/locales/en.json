@@ -375,6 +375,7 @@
       "columnAssignedTo": "Assigned to",
       "columnLocation": "Location",
       "showOnMap": "Show on map",
+      "mapDialogTitle": "Tracker {{trackerId}}",
       "neverSeen": "Never seen",
       "disabledTooltip": "Disabled trackers are skipped when assigning trackers to teams",
       "deleteTrackers": "Delete trackers",

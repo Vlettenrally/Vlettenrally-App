@@ -161,8 +161,8 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
   const flyToPoint = useCallback((lng: number, lat: number, zoomLevel = 15) => {
     // An explicit camera command also claims the one-time auto-fit: without this,
-    // markers arriving just after a fly-to (e.g. the ?flyTo= handoff on a cold
-    // map load) would fitBounds right over it.
+    // markers arriving just after a fly-to (e.g. the legend's zoom-to-team on a
+    // cold map load) would fitBounds right over it.
     hasContentRef.current = true;
     mapRef.current?.flyTo({ center: [lng, lat], zoom: zoomLevel });
   }, []);

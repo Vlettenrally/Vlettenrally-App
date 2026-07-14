@@ -375,6 +375,7 @@
       "columnAssignedTo": "Toegewezen aan",
       "columnLocation": "Locatie",
       "showOnMap": "Toon op kaart",
+      "mapDialogTitle": "Tracker {{trackerId}}",
       "neverSeen": "Nooit gezien",
       "disabledTooltip": "Uitgeschakelde trackers worden overgeslagen bij het toewijzen van trackers aan teams",
       "deleteTrackers": "Trackers verwijderen",

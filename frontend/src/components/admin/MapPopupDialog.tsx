@@ -14,6 +14,8 @@ interface MapPopupDialogProps {
   lng: number;
   /** Label shown above the marker */
   label: string;
+  /** Dialog heading; defaults to the point-location wording. */
+  title?: string;
   color?: string;
   /** Optional checkpoint set to render zone shapes alongside the point. */
   checkpoints?: Checkpoint[];
@@ -21,9 +23,10 @@ interface MapPopupDialogProps {
 
 /**
  * Modal that renders a single map marker on top of the project's MapLibre map.
- * Used by the Points Management page to pinpoint where a ledger entry happened.
+ * Used by the Points Management page to pinpoint where a ledger entry happened,
+ * and by the Trackers page to show a tracker's last known position.
  */
-export default function MapPopupDialog({ open, onClose, lat, lng, label, color = '#1976d2', checkpoints = [] }: MapPopupDialogProps) {
+export default function MapPopupDialog({ open, onClose, lat, lng, label, title, color = '#1976d2', checkpoints = [] }: MapPopupDialogProps) {
   const { t } = useTranslation();
   const markers = useMemo<MapMarker[]>(() => {
     const teamMarker: MapMarker = { id: 'point-entry', lat, lng, label, color, type: 'team' };
@@ -46,7 +49,7 @@ export default function MapPopupDialog({ open, onClose, lat, lng, label, color =
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pr: 1 }}>
-        {t('components.mapPopup.title')}
+        {title ?? t('components.mapPopup.title')}
         <IconButton onClick={onClose} size="small" aria-label={t('components.mapPopup.close')}>
           <CloseIcon />
         </IconButton>

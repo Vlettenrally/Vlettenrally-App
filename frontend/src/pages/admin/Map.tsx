@@ -8,7 +8,6 @@
  * - Initial data loaded via REST API on mount
  */
 import {lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {useSearchParams} from 'react-router-dom';
 import {Alert, Box, ButtonBase, CircularProgress, Typography} from '@mui/material';
 import type {MapMarker, MapTrack, MapViewHandle} from '../../components/MapView';
 import type {Checkpoint, TeamLocation} from '../../types/entities';
@@ -58,31 +57,6 @@ export default function AdminMap() {
   teamLocationsRef.current = teamLocations;
 
   const mapRef = useRef<MapViewHandle>(null);
-
-  // Fly-to handoff (e.g. the tracker pool's location button): ?flyTo=lng,lat is
-  // parked in a ref until the maplibre instance reports ready, then consumed —
-  // an imperative flyToPoint before 'load' would be a silent no-op.
-  const [searchParams, setSearchParams] = useSearchParams();
-  const pendingFlyToRef = useRef<[number, number] | null>(null);
-  useEffect(() => {
-    const flyTo = searchParams.get('flyTo');
-    if (!flyTo) return;
-    const [lng, lat] = flyTo.split(',').map(Number);
-    if (Number.isFinite(lng) && Number.isFinite(lat)) {
-      pendingFlyToRef.current = [lng, lat];
-      // The map may already be up (client-side navigation with a warm page).
-      mapRef.current?.flyToPoint(lng, lat);
-    }
-    setSearchParams({}, { replace: true });
-  }, [searchParams, setSearchParams]);
-
-  const handleMapReady = useCallback(() => {
-    const pending = pendingFlyToRef.current;
-    if (pending) {
-      pendingFlyToRef.current = null;
-      mapRef.current?.flyToPoint(pending[0], pending[1]);
-    }
-  }, []);
 
   // Heartbeat so the backend streams location updates to this session only while the map is open.
   useAdminTopicHeartbeat(ADMIN_TOPICS.MAP);
@@ -371,7 +345,6 @@ export default function AdminMap() {
           <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1, height: '100%' }}><CircularProgress /></Box>}>
             <MapView
               ref={mapRef}
-              onMapReady={handleMapReady}
               markers={markers}
               tracks={tracks}
               zoom={10}
