@@ -168,7 +168,9 @@
       "waitingDetails": "Zodra de gegevens zijn ingevuld krijg je hier automatisch de volgende stap.",
       "notificationsDesc": "Sta meldingen toe zodat je updates en berichten ontvangt tijdens de rally.",
       "inviteExpired": "Deze uitnodigingslink is verlopen of ongeldig. Vraag je team om een nieuwe QR-code te tonen.",
-      "windowClosed": "Extra telefoons kunnen niet meer via dit scherm inchecken voor dit team. Laat je team de QR-code tonen of vraag een beheerder."
+      "windowClosed": "Extra telefoons kunnen niet meer via dit scherm inchecken voor dit team. Laat je team de QR-code tonen of vraag een beheerder.",
+      "haveInviteQr": "Ik heb een uitnodigings-QR",
+      "scanInviteQr": "QR-code scannen"
     },
     "rankings": {
       "title": "Eindstand",
@@ -238,7 +240,8 @@
     "invite": {
       "title": "Teamgenoten uitnodigen",
       "subtitle": "Laat teamgenoten deze QR-code scannen om direct in te loggen bij {{team}}.",
-      "instructions": "Open de camera van je teamgenoot en scan deze code. Ze hoeven alleen hun telefoon een naam te geven.",
+      "instructions": "Laat je teamgenoot de app openen, op \"Ik heb een uitnodigings-QR\" tikken en deze code scannen. Ze hoeven alleen hun telefoon een naam te geven.",
+      "codeLabel": "Of voer deze code in de app in",
       "copyLink": "Link kopiëren",
       "linkCopied": "Link gekopieerd!",
       "copyFailed": "Kon de link niet kopiëren.",
@@ -1165,7 +1168,18 @@
       "step2Caption": "(plus-icoon)",
       "step3": "Open de Vlettenrally-app vanaf je beginscherm en check daar in.",
       "done": "Ik heb het gedaan, ga verder",
-      "failNote": "Lukt het toevoegen niet? Je kunt ook hier verder inchecken, maar dan ontvang je geen meldingen op dit apparaat."
+      "failNote": "Lukt het toevoegen niet? Je kunt ook hier verder inchecken, maar dan ontvang je geen meldingen op dit apparaat.",
+      "inviteNote": "Sluit je met een QR-code aan bij een team? Zet de app eerst op je beginscherm, open hem daarvandaan en tik dan op \"Ik heb een uitnodigings-QR\". Scan je de code met je camera-app, dan opent hij buiten de app, waar meldingen niet werken."
+    },
+    "inviteScanner": {
+      "title": "Scan de QR-code van je team",
+      "hint": "Richt je camera op de QR-code op de telefoon van een teamgenoot. Zij vinden die onder \"Teamgenoten uitnodigen\".",
+      "cameraError": "De camera is niet beschikbaar. Geef toegang tot de camera in je instellingen, of voer hieronder de code in die onder de QR-code van je team staat.",
+      "manualDivider": "of voer de code in",
+      "manualLabel": "Uitnodigingscode",
+      "manualHint": "De code staat onder de QR-code op de telefoon van je teamgenoot.",
+      "invalidCode": "Dit lijkt geen geldige uitnodigingscode.",
+      "join": "Deelnemen aan team"
     }
   }
 }

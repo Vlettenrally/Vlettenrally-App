@@ -14,6 +14,7 @@ import {seedMockAdminSession, seedMockTeamSession} from './services/mockSession'
 import {useGameStore} from './store/useGameStore';
 import {useTeamStore} from './store/useTeamStore';
 import {canAccessAdminPath, getRolesFromToken, getUserRoleFromRoles} from './services/auth';
+import {parseInviteCode} from './utils/inviteCode';
 import {
   getNotificationPermission,
   initializePushNotifications,
@@ -285,10 +286,11 @@ function AdminRoute({ children }: Readonly<{ children: ReactNode }>) {
  */
 export function InviteCodeRedirect() {
   const { code } = useParams<{ code: string }>();
-  if (!code) {
+  const parsed = parseInviteCode(code);
+  if (!parsed) {
     return <Navigate to="/check-in" replace />;
   }
-  return <Navigate to={`/check-in?invite=${encodeURIComponent(code.toUpperCase())}`} replace />;
+  return <Navigate to={`/check-in?invite=${encodeURIComponent(parsed)}`} replace />;
 }
 
 /**

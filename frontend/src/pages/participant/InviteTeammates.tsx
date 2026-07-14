@@ -35,6 +35,7 @@ export default function InviteTeammatesPage() {
   const [error, setError] = useState<string | null>(null);
   const [link, setLink] = useState<string | null>(null);
   const [qrUrl, setQrUrl] = useState<string | null>(null);
+  const [code, setCode] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   // Wrapped in an object so that re-minting reschedules the refresh even when the TTL
   // comes back unchanged (which is the normal case — the backend slides the same code).
@@ -56,6 +57,7 @@ export default function InviteTeammatesPage() {
       }
       setLink(response.data.url);
       setQrUrl(response.data.qrUrl);
+      setCode(response.data.token);
       setExpiry({ seconds: response.data.expiresInSeconds });
     } catch (err) {
       console.error('invite token error:', err);
@@ -139,6 +141,22 @@ export default function InviteTeammatesPage() {
               >
                 <canvas ref={canvasRef} />
               </Box>
+              {/* A teammate whose camera won't cooperate can type this into the app instead — the
+                  codes are minted from an alphabet with no I/L/O/U precisely so that works. */}
+              {code && (
+                <Stack spacing={0.5} alignItems="center">
+                  <Typography variant="caption" color="text.secondary">
+                    {t('participant.invite.codeLabel')}
+                  </Typography>
+                  <Typography
+                    variant="h5"
+                    component="p"
+                    sx={{ fontFamily: 'monospace', letterSpacing: '0.15em', userSelect: 'all' }}
+                  >
+                    {code}
+                  </Typography>
+                </Stack>
+              )}
               {copied && (
                 <Alert severity="success" sx={{ width: '100%' }}>
                   {t('participant.invite.linkCopied')}

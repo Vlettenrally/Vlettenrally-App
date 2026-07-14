@@ -168,7 +168,9 @@
       "waitingDetails": "Once the details have been filled in, you will automatically get the next step here.",
       "notificationsDesc": "Allow notifications so you receive updates and messages during the rally.",
       "inviteExpired": "This invite link has expired or is invalid. Ask your team to show a fresh QR code.",
-      "windowClosed": "Extra phones can no longer check in for this team from this screen. Ask your team to show their QR code, or ask an admin."
+      "windowClosed": "Extra phones can no longer check in for this team from this screen. Ask your team to show their QR code, or ask an admin.",
+      "haveInviteQr": "I have an invite QR",
+      "scanInviteQr": "Scan QR code"
     },
     "rankings": {
       "title": "Final standings",
@@ -238,7 +240,8 @@
     "invite": {
       "title": "Invite teammates",
       "subtitle": "Let teammates scan this QR code to log in to {{team}} straight away.",
-      "instructions": "Open your teammate's camera and scan this code. They only need to name their phone.",
+      "instructions": "Let your teammate open the app and tap \"I have an invite QR\", then scan this code. They only need to name their phone.",
+      "codeLabel": "Or enter this code in the app",
       "copyLink": "Copy link",
       "linkCopied": "Link copied!",
       "copyFailed": "Could not copy the link.",
@@ -1165,7 +1168,18 @@
       "step2Caption": "(plus icon)",
       "step3": "Open the Vlettenrally app from your home screen and check in there.",
       "done": "Done, continue",
-      "failNote": "Can't add it? You can also continue checking in here, but you won't receive notifications on this device."
+      "failNote": "Can't add it? You can also continue checking in here, but you won't receive notifications on this device.",
+      "inviteNote": "Joining a team with a QR code? Add the app to your home screen first, open it from there, and then tap \"I have an invite QR\". Scanning the code with your camera app would open it outside the app, where notifications don't work."
+    },
+    "inviteScanner": {
+      "title": "Scan your team's QR code",
+      "hint": "Point your camera at the QR code on a teammate's phone. They can find it under \"Invite teammates\".",
+      "cameraError": "The camera isn't available. Grant camera access in your device settings, or enter the code shown under your team's QR code below.",
+      "manualDivider": "or enter the code",
+      "manualLabel": "Invite code",
+      "manualHint": "The code is shown under the QR code on your teammate's phone.",
+      "invalidCode": "That doesn't look like a valid invite code.",
+      "join": "Join team"
     }
   }
 }

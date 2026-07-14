@@ -7,7 +7,7 @@
  * Legacy `?token=` URLs (WordPress) skip the public game/team pickers and jump
  * straight to the nickname step for the pre-resolved team.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -30,6 +30,7 @@ import {
   Notifications as NotificationIcon,
   AccessTime as ClockIcon,
   Warning as WarningIcon,
+  QrCodeScanner as ScanIcon,
 } from '@mui/icons-material';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Pagination } from 'swiper/modules';
@@ -44,10 +45,14 @@ import { useTeamWebSocket } from '../../hooks/useWebSocket';
 import { useDeviceIdentity } from '../../hooks/useDeviceIdentity';
 import { isPhoneNumber, validateParticipantNames } from '../../utils/validators';
 import { teamMatchesQuery } from '../../utils/teamSearch';
+import { parseInviteCode } from '../../utils/inviteCode';
 import { initializePushNotificationsWithReason } from '../../services/firebaseMessaging';
 import { shouldPromptHomescreenInstall } from '../../utils/pwa';
 import { WebSocketEventType } from '../../services/websocket';
 import { IOSInstallGuide } from '../../components/IOSInstallGuide';
+
+// Pulls in the QR decoder and its worker only when a teammate actually needs to scan.
+const InviteScannerDialog = lazy(() => import('../../components/InviteScannerDialog'));
 import type {
   CheckInState,
   PlayerTeam,
@@ -150,6 +155,11 @@ export function CheckInPage() {
   const [notificationError, setNotificationError] = useState<string | null>(null);
   const [notificationsDone, setNotificationsDone] = useState(false);
 
+  const [scannerOpen, setScannerOpen] = useState(false);
+  // True once the user has said they have an invite QR — makes the install guide tell them to come
+  // back and scan from inside the app rather than with the camera app.
+  const [invitePending, setInvitePending] = useState(false);
+
   const legacyTokenRef = useRef<string | null>(null);
   // Invite token from a scanned team/admin QR (?invite=). Threaded into register-device
   // so the backend bypasses the digital check-in time gate.
@@ -203,31 +213,54 @@ export function CheckInPage() {
     }
   }, []);
 
+  /**
+   * Teammate joining an existing team: resolve the invite code and jump straight to the nickname
+   * step, skipping the game/team pickers. The code is also kept for register-device, which is what
+   * bypasses the digital check-in time gate.
+   *
+   * Reached two ways — a `?invite=` URL (scanned by the phone's camera app, lands in the browser)
+   * and the in-app scanner (the only route that works once the PWA is installed on iOS, since the
+   * camera app can't hand a URL to a home-screen app).
+   */
+  const resolveInvite = useCallback(async (code: string) => {
+    setStep('loading');
+    setError(null);
+    setFormError(null);
+    inviteTokenRef.current = code;
+
+    const fail = async () => {
+      inviteTokenRef.current = null;
+      // Don't strand them on a spinner behind a dead code — drop them into the normal picker,
+      // which is still a way in for a team whose window is open. loadTodayGames() clears `error`,
+      // so ours has to be set after it.
+      await loadTodayGames();
+      setError(t('participant.checkin.inviteExpired'));
+    };
+
+    try {
+      const inviteResponse = await api.resolveCheckInInvite(code);
+      if (inviteResponse.error || !inviteResponse.data) {
+        await fail();
+        return;
+      }
+      const data = inviteResponse.data;
+      setResolvedTeam({ id: data.teamId, gameId: data.gameId, name: data.teamName });
+      setSelectedGameId(data.gameId);
+      setStep('nickname');
+    } catch (err) {
+      console.error('Invite resolve error:', err);
+      await fail();
+    }
+  }, [loadTodayGames, t]);
+
   // Runs the actual check-in entry: legacy token shortcut OR public flow.
   const beginCheckIn = useCallback(() => {
     setStep('loading');
     const init = async () => {
-      // Teammate joining via a scanned team/admin QR: resolve the invite, then jump
-      // straight to the nickname step (skipping the game/team pickers).
-      const invite = searchParams.get('invite');
+      const invite = parseInviteCode(searchParams.get('invite'));
       if (invite) {
-        inviteTokenRef.current = invite;
-        try {
-          const inviteResponse = await api.resolveCheckInInvite(invite);
-          if (inviteResponse.error || !inviteResponse.data) {
-            setError(t('participant.checkin.inviteExpired'));
-            return;
-          }
-          const data = inviteResponse.data;
-          setResolvedTeam({ id: data.teamId, gameId: data.gameId, name: data.teamName });
-          setSelectedGameId(data.gameId);
-          setStep('nickname');
-          return;
-        } catch (err) {
-          console.error('Invite resolve error:', err);
-          setError(t('participant.checkin.inviteExpired'));
-          return;
-        }
+        await resolveInvite(invite);
+        return;
       }
 
       const token = searchParams.get('token');
@@ -277,7 +310,33 @@ export function CheckInPage() {
       console.error('Check-in init error:', err);
       setError(t('participant.checkin.generalError'));
     });
-  }, [searchParams, loadTodayGames, t]);
+  }, [searchParams, loadTodayGames, resolveInvite, t]);
+
+  /**
+   * "I have an invite QR". On iOS-not-yet-installed we send them through the install guide first
+   * (push only works from the home screen) — nothing is lost by the detour, because unlike a URL
+   * the QR is still on their teammate's screen to scan again once they're in the app.
+   *
+   * Only ever divert once, though: in the browser `shouldPromptHomescreenInstall()` stays true
+   * forever, so a second tap has to open the scanner instead or the user is stuck bouncing off the
+   * install guide. Scanning in the browser still checks them in — just without notifications, which
+   * is the same trade-off the guide's "can't add it?" note already offers.
+   */
+  const installPromptedRef = useRef(false);
+  const handleScanInvite = useCallback(() => {
+    if (shouldPromptHomescreenInstall() && !installPromptedRef.current) {
+      installPromptedRef.current = true;
+      setInvitePending(true);
+      setStep('install-app');
+      return;
+    }
+    setScannerOpen(true);
+  }, []);
+
+  const handleScannedCode = useCallback((code: string) => {
+    setScannerOpen(false);
+    void resolveInvite(code);
+  }, [resolveInvite]);
 
   // Entry: Show welcome screen for first-time users, then proceed to install-app or check-in.
   useEffect(() => {
@@ -1117,6 +1176,16 @@ export function CheckInPage() {
                       >
                         {t('participant.checkin.startCheckin')}
                       </Button>
+                      <Button
+                        variant="outlined"
+                        size="large"
+                        fullWidth
+                        startIcon={<ScanIcon />}
+                        onClick={handleScanInvite}
+                        sx={{ py: 1.5, fontWeight: 600 }}
+                      >
+                        {t('participant.checkin.haveInviteQr')}
+                      </Button>
                       <Typography variant="caption" color="text.secondary" align="center">
                         {t('participant.checkin.alreadyCheckedIn')}
                       </Typography>
@@ -1127,7 +1196,12 @@ export function CheckInPage() {
             )}
 
             {step === 'install-app' && (
-              <IOSInstallGuide onComplete={beginCheckIn} />
+              <IOSInstallGuide
+                showInviteNote={invitePending}
+                // Someone who came here from "I have an invite QR" is not looking for the team
+                // picker — the picker is exactly what their closed check-in window rejects.
+                onComplete={invitePending ? () => setScannerOpen(true) : beginCheckIn}
+              />
             )}
 
             {step === 'loading' && (
@@ -1192,7 +1266,28 @@ export function CheckInPage() {
                   autoHighlight
                   openOnFocus
                 />
-                {formError && <Alert severity="error">{formError}</Alert>}
+                {formError && (
+                  <Alert severity="error">
+                    <Stack spacing={1} alignItems="flex-start">
+                      <span>{formError}</span>
+                      {/* The closed-window message tells them to go get their team's QR — so give
+                          them the scanner right here. The welcome screen's scan button is skipped
+                          entirely for anyone who has opened the app before, and this is where they
+                          would otherwise dead-end. */}
+                      {selectedTeam?.acceptingNewDevices === false && (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="inherit"
+                          startIcon={<ScanIcon />}
+                          onClick={handleScanInvite}
+                        >
+                          {t('participant.checkin.scanInviteQr')}
+                        </Button>
+                      )}
+                    </Stack>
+                  </Alert>
+                )}
                 <Button
                   variant="contained"
                   size="large"
@@ -1501,6 +1596,16 @@ export function CheckInPage() {
           </Stack>
         </Paper>
       </Box>
+
+      {scannerOpen && (
+        <Suspense fallback={null}>
+          <InviteScannerDialog
+            open={scannerOpen}
+            onClose={() => setScannerOpen(false)}
+            onCode={handleScannedCode}
+          />
+        </Suspense>
+      )}
     </Container>
   );
 }
