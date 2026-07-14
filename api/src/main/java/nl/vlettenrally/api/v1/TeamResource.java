@@ -36,6 +36,7 @@ import nl.vlettenrally.data.repository.DeviceRegistrationRepository;
 import nl.vlettenrally.service.CheckInCacheService;
 import nl.vlettenrally.service.CheckInCoordinationService;
 import nl.vlettenrally.service.PointsLedgerService;
+import nl.vlettenrally.service.RivalsCooldownException;
 import nl.vlettenrally.service.TeamService;
 import nl.vlettenrally.service.TrackerAssignmentService;
 import nl.vlettenrally.websockets.WebSocketEventTypes;
@@ -129,7 +130,8 @@ public class TeamResource {
 
     /**
      * Replace the team's rival list. Up to 5 rivals from the same game; never self.
-     * Locked once the game is COMPLETED.
+     * Locked once the game is COMPLETED. Rate-limited per team: an accepted change opens a
+     * cooldown window (see {@link RivalsCooldown}); a change inside it returns HTTP 429.
      */
     @PUT
     @RolesAllowed({"team"})
@@ -144,6 +146,11 @@ public class TeamResource {
         try {
             List<Team> rivals = teamService.setRivals(teamId, request.rivalTeamIds());
             return Response.ok(rivals.stream().map(teamConverter::toPublicResponse).toList()).build();
+        } catch (RivalsCooldownException e) {
+            return Response.status(429)
+                .header("Retry-After", e.getRetryAfterSeconds())
+                .entity(new ErrorResponse(e.getMessage()))
+                .build();
         } catch (IllegalArgumentException e) {
             return Response.status(Response.Status.BAD_REQUEST)
                 .entity(new ErrorResponse(e.getMessage()))

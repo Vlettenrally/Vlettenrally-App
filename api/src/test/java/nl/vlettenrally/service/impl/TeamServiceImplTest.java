@@ -32,6 +32,8 @@ import nl.vlettenrally.service.AutomationEngine;
 import nl.vlettenrally.service.GameService;
 import nl.vlettenrally.service.PictureService;
 import nl.vlettenrally.service.PointsTotalsCache;
+import nl.vlettenrally.service.RivalsCooldown;
+import nl.vlettenrally.service.RivalsCooldownException;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 
 /**
@@ -58,6 +60,9 @@ class TeamServiceImplTest {
 
     @Mock
     PointsTotalsCache pointsTotalsCache;
+
+    @Mock
+    RivalsCooldown rivalsCooldown;
 
     @InjectMocks
     TeamServiceImpl teamService;
@@ -331,6 +336,7 @@ class TeamServiceImplTest {
         when(teamRepository.findById(rivalAId)).thenReturn(Optional.of(rivalA));
         when(teamRepository.findById(rivalBId)).thenReturn(Optional.of(rivalB));
         when(teamRepository.save(any(Team.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(rivalsCooldown.tryStartCooldown(teamId)).thenReturn(true);
 
         List<Team> result = teamService.setRivals(teamId, List.of(rivalAId, rivalBId));
 
@@ -387,6 +393,24 @@ class TeamServiceImplTest {
 
         assertThrows(IllegalStateException.class,
             () -> teamService.setRivals(teamId, List.of(UUID.randomUUID())));
+        verify(teamRepository, never()).save(any(Team.class));
+    }
+
+    @Test
+    void setRivals_cooldownActive_throwsAndDoesNotSave() {
+        Team self = createTeam(true);
+        UUID rivalId = UUID.randomUUID();
+        Team rival = makeTeamInGame(rivalId, gameId, "Rival");
+
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(self));
+        when(gameService.findById(gameId)).thenReturn(Optional.of(makeGame(Game.GameStatus.ACTIVE)));
+        when(teamRepository.findById(rivalId)).thenReturn(Optional.of(rival));
+        when(rivalsCooldown.tryStartCooldown(teamId)).thenReturn(false);
+        when(rivalsCooldown.cooldownRemainingSeconds(teamId)).thenReturn(7L);
+
+        RivalsCooldownException ex = assertThrows(RivalsCooldownException.class,
+            () -> teamService.setRivals(teamId, List.of(rivalId)));
+        assertEquals(7L, ex.getRetryAfterSeconds());
         verify(teamRepository, never()).save(any(Team.class));
     }
 

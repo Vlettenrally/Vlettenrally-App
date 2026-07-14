@@ -10,6 +10,8 @@ import nl.vlettenrally.service.AutomationEngine;
 import nl.vlettenrally.service.GameService;
 import nl.vlettenrally.service.PictureService;
 import nl.vlettenrally.service.PointsTotalsCache;
+import nl.vlettenrally.service.RivalsCooldown;
+import nl.vlettenrally.service.RivalsCooldownException;
 import nl.vlettenrally.service.TeamService;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 import nl.vlettenrally.websockets.dto.WebSocketMessageType;
@@ -48,6 +50,9 @@ public class TeamServiceImpl implements TeamService {
 
     @Inject
     PointsTotalsCache pointsTotalsCache;
+
+    @Inject
+    RivalsCooldown rivalsCooldown;
 
     @ConfigProperty(name = "vlettenrally.rivals.max-per-team", defaultValue = "5")
     int maxRivals;
@@ -197,6 +202,12 @@ public class TeamServiceImpl implements TeamService {
                 throw new IllegalArgumentException("Rival must belong to the same game: " + rivalId);
             }
             validated.add(rival);
+        }
+
+        // Rate-limit accepted changes per team so a client cannot storm the save + broadcast.
+        // Checked only after validation, so a malformed request never consumes the window.
+        if (!rivalsCooldown.tryStartCooldown(teamId)) {
+            throw new RivalsCooldownException(rivalsCooldown.cooldownRemainingSeconds(teamId));
         }
 
         team.setRivals(new ArrayList<>(rivalIds));
