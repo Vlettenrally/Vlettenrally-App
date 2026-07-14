@@ -18,7 +18,7 @@ import {
   Select,
   MenuItem,
 } from '@mui/material';
-import { QrCode2 as QrCodeIcon } from '@mui/icons-material';
+import { QrCode2 as QrCodeIcon, ContentCopy as CopyIcon } from '@mui/icons-material';
 import { useCallback, useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import QRCode from 'qrcode';
@@ -63,6 +63,11 @@ export default function TeamDetailDialog({
   const [qrPending, setQrPending] = useState(false);
   const [qrError, setQrError] = useState<string | null>(null);
   const [qrLink, setQrLink] = useState<string | null>(null);
+  // The shareable (mixed-case) link and bare code, for the desk to copy or read out when a phone
+  // can't scan. Distinct from qrLink, which is the uppercase URL encoded into the QR itself.
+  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [inviteCopied, setInviteCopied] = useState(false);
   const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -171,6 +176,9 @@ export default function TeamDetailDialog({
     setQrOpen(false);
     setQrLink(null);
     setQrError(null);
+    setInviteUrl(null);
+    setInviteCode(null);
+    setInviteCopied(false);
   }, [team, gameId, open, t]);
 
   const refreshDevices = useCallback(async () => {
@@ -246,13 +254,18 @@ export default function TeamDetailDialog({
     setQrPending(true);
     setQrError(null);
     setQrLink(null);
+    setInviteUrl(null);
+    setInviteCode(null);
+    setInviteCopied(false);
     try {
-      const { qrUrl, error: linkError } = await teamService.getInviteLink(team.id);
+      const { url, qrUrl, code, error: linkError } = await teamService.getInviteLink(team.id);
       if (linkError || !qrUrl) {
         setQrError(t('components.teamDetail.inviteQrError'));
         return;
       }
       setQrLink(qrUrl);
+      setInviteUrl(url);
+      setInviteCode(code);
     } catch {
       setQrError(t('components.teamDetail.inviteQrError'));
     } finally {
@@ -269,6 +282,17 @@ export default function TeamDetailDialog({
       errorCorrectionLevel: 'Q',
     }).catch(() => setQrError(t('components.teamDetail.inviteQrError')));
   }, [qrOpen, qrLink, t]);
+
+  const handleCopyInvite = async () => {
+    if (!inviteUrl) return;
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      setInviteCopied(true);
+    } catch {
+      // Clipboard access can be refused; the code is shown as text alongside, so this is recoverable.
+      setInviteCopied(false);
+    }
+  };
 
   const handleResetLedger = async () => {
     if (!team) return;
@@ -719,9 +743,35 @@ export default function TeamDetailDialog({
                       ) : qrError ? (
                         <Alert severity="error" sx={{ width: '100%' }}>{qrError}</Alert>
                       ) : (
-                        <Box sx={{ bgcolor: '#fff', p: 1.5, borderRadius: 1, lineHeight: 0 }}>
-                          <canvas ref={qrCanvasRef} />
-                        </Box>
+                        <>
+                          <Box sx={{ bgcolor: '#fff', p: 1.5, borderRadius: 1, lineHeight: 0 }}>
+                            <canvas ref={qrCanvasRef} />
+                          </Box>
+                          {inviteCode && (
+                            <Stack spacing={0.5} alignItems="center">
+                              <Typography variant="caption" color="text.secondary">
+                                {t('components.teamDetail.inviteCodeLabel')}
+                              </Typography>
+                              <Typography
+                                variant="h6"
+                                component="p"
+                                sx={{ fontFamily: 'monospace', letterSpacing: '0.15em', userSelect: 'all' }}
+                              >
+                                {inviteCode}
+                              </Typography>
+                            </Stack>
+                          )}
+                          {inviteCopied && (
+                            <Alert severity="success" sx={{ width: '100%' }}>
+                              {t('components.teamDetail.inviteLinkCopied')}
+                            </Alert>
+                          )}
+                          {inviteUrl && (
+                            <Button size="small" startIcon={<CopyIcon />} onClick={handleCopyInvite}>
+                              {t('components.teamDetail.copyInviteLink')}
+                            </Button>
+                          )}
+                        </>
                       )}
                       <Button size="small" onClick={() => setQrOpen(false)}>
                         {t('common.close')}

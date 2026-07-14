@@ -876,7 +876,10 @@
       "resetLedger": "Ledger resetten",
       "confirmLedgerResetMessage": "Dit verwijdert alle puntregels voor dit team. Dit kan niet ongedaan worden gemaakt.",
       "showInviteQr": "Uitnodigings-QR tonen",
-      "inviteQrHint": "Laat een teamgenoot deze QR-code scannen om aan dit team toe te voegen.",
+      "inviteQrHint": "Laat iemand van het team de app openen, op \"Ik heb een uitnodigings-QR\" tikken en deze code scannen om hun telefoon toe te voegen.",
+      "inviteCodeLabel": "Of laat ze deze code in de app invoeren",
+      "copyInviteLink": "Uitnodigingslink kopiëren",
+      "inviteLinkCopied": "Uitnodigingslink gekopieerd!",
       "inviteQrError": "Kon de uitnodigings-QR niet genereren."
     },
     "gameForm": {

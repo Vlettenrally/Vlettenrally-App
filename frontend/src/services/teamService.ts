@@ -137,11 +137,12 @@ export const teamService = {
   // `qrUrl` is the short uppercase form to encode in the QR; `url` is the shareable one.
   getInviteLink: async (
     teamId: string,
-  ): Promise<{ url: string | null; qrUrl: string | null; error: string | null }> => {
+  ): Promise<{ url: string | null; qrUrl: string | null; code: string | null; error: string | null }> => {
     const response = await api.getAdminTeamInviteToken(teamId);
     return {
       url: response.data?.url ?? null,
       qrUrl: response.data?.qrUrl ?? null,
+      code: response.data?.token ?? null,
       error: response.error ?? null,
     };
   },

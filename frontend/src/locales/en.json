@@ -876,7 +876,10 @@
       "resetLedger": "Reset points ledger",
       "confirmLedgerResetMessage": "This will permanently delete all point entries for this team. This cannot be undone.",
       "showInviteQr": "Show invite QR",
-      "inviteQrHint": "Have a teammate scan this QR code to add them to this team.",
+      "inviteQrHint": "Have someone from the team open the app, tap \"I have an invite QR\", and scan this code to add their phone.",
+      "inviteCodeLabel": "Or have them enter this code in the app",
+      "copyInviteLink": "Copy invite link",
+      "inviteLinkCopied": "Invite link copied!",
       "inviteQrError": "Could not generate the invite QR."
     },
     "gameForm": {
