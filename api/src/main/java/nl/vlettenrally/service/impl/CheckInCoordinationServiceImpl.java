@@ -16,6 +16,7 @@ import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.service.AuthService;
 import nl.vlettenrally.service.CheckInCoordinationService;
 import nl.vlettenrally.service.CheckInWindowClosedException;
+import nl.vlettenrally.service.NicknameSanitizer;
 import nl.vlettenrally.service.TeamNotCheckedInException;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 import nl.vlettenrally.websockets.dto.WebSocketMessageType;
@@ -85,7 +86,8 @@ public class CheckInCoordinationServiceImpl implements CheckInCoordinationServic
         if (gameId == null || teamId == null) {
             throw new IllegalArgumentException("gameId and teamId are required");
         }
-        String normalizedNickname = nickname == null ? "" : nickname.trim();
+        String sanitized = NicknameSanitizer.sanitize(nickname);
+        String normalizedNickname = sanitized == null ? "" : sanitized;
 
         Game game = gameRepository.findById(gameId)
             .orElseThrow(() -> new IllegalArgumentException("Game not found: " + gameId));

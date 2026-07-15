@@ -8,6 +8,7 @@ import nl.vlettenrally.data.domain.FcmToken;
 import nl.vlettenrally.data.repository.DeviceRegistrationRepository;
 import nl.vlettenrally.data.repository.FcmTokenRepository;
 import nl.vlettenrally.service.FcmTokenService;
+import nl.vlettenrally.service.NicknameSanitizer;
 
 import java.sql.SQLException;
 import java.util.Optional;
@@ -35,9 +36,10 @@ public class FcmTokenServiceImpl implements FcmTokenService {
         // Apply a nickname only when the row doesn't already have one — admins can
         // rename via PATCH /admin/me/devices/{id} and we don't want repeated FCM
         // registrations to clobber that.
-        if (nickname != null && !nickname.isBlank()
+        String sanitizedNickname = NicknameSanitizer.sanitize(nickname);
+        if (sanitizedNickname != null && !sanitizedNickname.isBlank()
                 && (deviceRegistration.getNickname() == null || deviceRegistration.getNickname().isBlank())) {
-            deviceRegistration.setNickname(nickname.trim());
+            deviceRegistration.setNickname(sanitizedNickname);
         }
 
         // Update last seen

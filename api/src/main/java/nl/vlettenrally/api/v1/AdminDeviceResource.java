@@ -21,6 +21,7 @@ import nl.vlettenrally.data.dto.common.ErrorResponse;
 import nl.vlettenrally.data.dto.device.DeviceRenameRequest;
 import nl.vlettenrally.data.repository.DeviceRegistrationRepository;
 import nl.vlettenrally.data.repository.FcmTokenRepository;
+import nl.vlettenrally.service.NicknameSanitizer;
 
 import java.util.List;
 import java.util.Optional;
@@ -86,8 +87,8 @@ public class AdminDeviceResource {
         }
 
         DeviceRegistration device = deviceOpt.get();
-        String trimmed = request.nickname() == null ? null : request.nickname().trim();
-        device.setNickname(trimmed == null || trimmed.isEmpty() ? null : trimmed);
+        String cleaned = NicknameSanitizer.sanitize(request.nickname());
+        device.setNickname(cleaned == null || cleaned.isEmpty() ? null : cleaned);
         DeviceRegistration saved = deviceRegistrationRepository.save(device);
 
         return Response.ok(new DeviceResponse(
