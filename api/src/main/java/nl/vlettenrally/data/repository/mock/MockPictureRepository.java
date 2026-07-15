@@ -53,6 +53,17 @@ public class MockPictureRepository implements PictureRepository {
             MockTeamRepository.TEAM_WINDKRACHT_ID, MockGameRepository.GAME_2026_ID,
             PictureStatus.PENDING, now.minus(5, ChronoUnit.MINUTES), now.minus(4, ChronoUnit.MINUTES), null));
 
+        // A few more approved pictures from both teams so the players' photowall is populated.
+        put(picture("cccc0005-0000-0000-0000-000000000005",
+            MockTeamRepository.TEAM_WINDKRACHT_ID, MockGameRepository.GAME_2026_ID,
+            PictureStatus.APPROVED, now.minus(75, ChronoUnit.MINUTES), now.minus(73, ChronoUnit.MINUTES), now.minus(40, ChronoUnit.MINUTES)));
+        put(picture("cccc0006-0000-0000-0000-000000000006",
+            MockTeamRepository.TEAM_WATERVLOOIEN_ID, MockGameRepository.GAME_2026_ID,
+            PictureStatus.APPROVED, now.minus(50, ChronoUnit.MINUTES), now.minus(48, ChronoUnit.MINUTES), now.minus(20, ChronoUnit.MINUTES)));
+        put(picture("cccc0007-0000-0000-0000-000000000007",
+            MockTeamRepository.TEAM_WINDKRACHT_ID, MockGameRepository.GAME_2026_ID,
+            PictureStatus.APPROVED, now.minus(30, ChronoUnit.MINUTES), now.minus(28, ChronoUnit.MINUTES), now.minus(10, ChronoUnit.MINUTES)));
+
         Log.info("🎭 MockPictureRepository initialized with " + pictures.size() + " pictures");
     }
 

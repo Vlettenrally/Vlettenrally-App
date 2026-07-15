@@ -511,6 +511,19 @@ export interface Picture {
 }
 
 /**
+ * A minimal, public-safe projection of an approved picture, used by the players'
+ * photowall. Deliberately omits moderation metadata (team, status, notes) so a shared
+ * wall never leaks one team's moderation details to another.
+ */
+export interface PublicPicture {
+  id: string;
+  gameId: string;
+  contentType: string | null;
+  viewUrl: string | null;
+  uploadedAt: string | null;
+}
+
+/**
  * Response when reserving an upload slot: the pre-signed PUT URL plus the limits the
  * client should enforce before uploading.
  */

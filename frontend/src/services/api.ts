@@ -57,6 +57,7 @@ import type {
   CopyAutomationsResult,
   CopyCheckpointsResult,
   Picture,
+  PublicPicture,
   PictureUploadResponse,
 } from '../types/entities';
 import storage from './storage';
@@ -968,6 +969,12 @@ async getGames() : Promise<ApiResponse<Game[]>> {
 
   async deletePicture(teamId: string, pictureId: string): Promise<ApiResponse<void>> {
     return this.delete(`/teams/${teamId}/pictures/${pictureId}`);
+  }
+
+  // Players' photowall: all approved pictures for the team's game, newest first.
+  // Returns the public-safe projection (no moderation metadata) — it's a shared wall.
+  async getPhotowall(teamId: string): Promise<ApiResponse<PublicPicture[]>> {
+    return this.get(`/teams/${teamId}/pictures/approved`);
   }
 
   // Admin moderation

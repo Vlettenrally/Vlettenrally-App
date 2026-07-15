@@ -90,6 +90,15 @@ public interface PictureService {
     List<Picture> findApprovedByGame(UUID gameId);
 
     /**
+     * Approved pictures for the game a team belongs to, newest first. Powers the players'
+     * photowall: a team sees every team's approved pictures for its own game (the game is
+     * resolved server-side, so a team cannot request another game's pictures).
+     *
+     * @throws PictureException 404 if the team does not exist.
+     */
+    List<Picture> findApprovedForTeamGame(UUID teamId);
+
+    /**
      * Approved pictures for the most recent game that has any approved picture, newest first.
      * Empty when no approved pictures exist. Lets a public consumer show a gallery without
      * having to pick a game.

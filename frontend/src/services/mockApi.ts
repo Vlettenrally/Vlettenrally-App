@@ -153,6 +153,28 @@ const mockPictures: Picture[] = [
     uploadedAt: new Date(Date.now() - 4 * 60 * 1000).toISOString(),
     moderatedAt: null, notes: null,
   },
+  // A few more approved pictures (incl. another team's) so the players' photowall is populated.
+  {
+    id: 'pic-4', teamId: '22222222-2222-2222-2222-222222222222', gameId: MOCK_GAME_ID, status: 'APPROVED',
+    contentType: 'image/jpeg', sizeBytes: 530000, viewUrl: 'https://picsum.photos/seed/pic-4/600/400',
+    createdAt: new Date(Date.now() - 75 * 60 * 1000).toISOString(),
+    uploadedAt: new Date(Date.now() - 73 * 60 * 1000).toISOString(),
+    moderatedAt: new Date(Date.now() - 40 * 60 * 1000).toISOString(), notes: null,
+  },
+  {
+    id: 'pic-5', teamId: MOCK_TEAM_ID, gameId: MOCK_GAME_ID, status: 'APPROVED',
+    contentType: 'image/jpeg', sizeBytes: 610000, viewUrl: 'https://picsum.photos/seed/pic-5/600/400',
+    createdAt: new Date(Date.now() - 50 * 60 * 1000).toISOString(),
+    uploadedAt: new Date(Date.now() - 48 * 60 * 1000).toISOString(),
+    moderatedAt: new Date(Date.now() - 20 * 60 * 1000).toISOString(), notes: null,
+  },
+  {
+    id: 'pic-6', teamId: '22222222-2222-2222-2222-222222222222', gameId: MOCK_GAME_ID, status: 'APPROVED',
+    contentType: 'image/jpeg', sizeBytes: 580000, viewUrl: 'https://picsum.photos/seed/pic-6/600/400',
+    createdAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+    uploadedAt: new Date(Date.now() - 28 * 60 * 1000).toISOString(),
+    moderatedAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(), notes: null,
+  },
 ];
 
 export const mockApi = {
@@ -275,6 +297,24 @@ export const mockApi = {
   async getApprovedPictures(gameId?: string) {
     return {
       data: mockPictures.filter((p) => p.status === 'APPROVED' && (!gameId || p.gameId === gameId)).map((p) => ({ ...p })),
+      status: 200,
+    };
+  },
+
+  // Players' photowall: approved pictures for the (single mock) game, newest first.
+  // Mirrors the public-safe projection returned by the real endpoint.
+  async getPhotowall() {
+    return {
+      data: mockPictures
+        .filter((p) => p.status === 'APPROVED')
+        .sort((a, b) => (b.uploadedAt ?? '').localeCompare(a.uploadedAt ?? ''))
+        .map((p) => ({
+          id: p.id,
+          gameId: p.gameId,
+          contentType: p.contentType,
+          viewUrl: p.viewUrl,
+          uploadedAt: p.uploadedAt,
+        })),
       status: 200,
     };
   },

@@ -207,6 +207,13 @@
       "uploadRetry": "Uploaden mislukt. Probeer het opnieuw.",
       "deleteFailed": "Verwijderen mislukt."
     },
+    "photowall": {
+      "title": "Fotomuur",
+      "loadingTeam": "Team laden…",
+      "empty": "Nog geen foto's om te tonen.",
+      "photoAlt": "Foto",
+      "loadError": "Kon de foto's niet laden."
+    },
     "rivals": {
       "loadingTeam": "Team laden…",
       "title": "Rivalen",
@@ -772,6 +779,7 @@
       "info": "Spelinformatie",
       "map": "Kaart",
       "pictures": "Foto's",
+      "photowall": "Fotomuur",
       "rankings": "Eindstand",
       "rivals": "Rivaal",
       "logout": "Uitloggen",

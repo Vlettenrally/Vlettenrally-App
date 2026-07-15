@@ -271,6 +271,13 @@ public class PictureServiceImpl implements PictureService {
     }
 
     @Override
+    public List<Picture> findApprovedForTeamGame(UUID teamId) {
+        Team team = teamRepository.findById(teamId)
+            .orElseThrow(() -> new PictureException(Response.Status.NOT_FOUND, "Team not found: " + teamId));
+        return pictureRepository.findApprovedByGameId(team.getGameId());
+    }
+
+    @Override
     public List<Picture> findApprovedForLatestGame() {
         // findByStatus returns approved pictures newest first, so the first element belongs to
         // the most recently active game; keep just that game's pictures (order preserved).

@@ -23,6 +23,7 @@ import nl.vlettenrally.data.dto.picture.PictureRejectRequest;
 import nl.vlettenrally.data.dto.picture.PictureResponse;
 import nl.vlettenrally.data.dto.picture.PictureUploadRequest;
 import nl.vlettenrally.data.dto.picture.PictureUploadResponse;
+import nl.vlettenrally.data.dto.picture.PublicPictureResponse;
 import nl.vlettenrally.data.enums.PictureStatus;
 import nl.vlettenrally.service.PictureException;
 import nl.vlettenrally.service.PictureService;
@@ -105,6 +106,30 @@ public class PictureResource {
     @TeamScopedOrAdmin
     public Response getTeamPictures(@PathParam("teamId") UUID teamId) {
         return Response.ok(pictureService.findByTeamId(teamId).stream().map(this::toDto).toList()).build();
+    }
+
+    /**
+     * The players' photowall: all approved pictures for the team's game, newest first.
+     * The game is resolved server-side from the team, so a team only ever sees its own game.
+     * <p>
+     * Returns the minimal {@link PublicPictureResponse} projection: this is a shared wall of
+     * every team's photos, so one team must not see another team's moderation metadata
+     * (status, notes, moderator).
+     */
+    @GET
+    @Path("/teams/{teamId}/pictures/approved")
+    @RolesAllowed({SecurityRoles.STAFF, SecurityRoles.TEAM})
+    @TeamScopedOrAdmin
+    public Response getPhotowall(@PathParam("teamId") UUID teamId) {
+        try {
+            return Response.ok(
+                pictureService.findApprovedForTeamGame(teamId).stream()
+                    .map(p -> PublicPictureResponse.from(p, pictureService.viewUrlFor(p)))
+                    .toList()
+            ).build();
+        } catch (PictureException e) {
+            return error(e);
+        }
     }
 
     /**

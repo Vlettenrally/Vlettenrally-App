@@ -350,6 +350,29 @@ class PictureServiceImplTest {
         assertEquals(expected, service.findAllByGame(gameId));
     }
 
+    // ==================== findApprovedForTeamGame ====================
+
+    @Test
+    void findApprovedForTeamGame_resolvesTeamGame_andDelegates() {
+        List<Picture> expected = List.of(approvedFor(gameId));
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+        when(pictureRepository.findApprovedByGameId(gameId)).thenReturn(expected);
+
+        assertEquals(expected, service.findApprovedForTeamGame(teamId));
+        // A team can only ever see its own game's approved pictures.
+        verify(pictureRepository).findApprovedByGameId(gameId);
+    }
+
+    @Test
+    void findApprovedForTeamGame_unknownTeam_with404() {
+        when(teamRepository.findById(teamId)).thenReturn(Optional.empty());
+
+        PictureException ex = assertThrows(PictureException.class,
+            () -> service.findApprovedForTeamGame(teamId));
+        assertEquals(404, ex.getStatusCode());
+        verify(pictureRepository, never()).findApprovedByGameId(any());
+    }
+
     // ==================== findApprovedForLatestGame ====================
 
     @Test

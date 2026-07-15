@@ -207,6 +207,13 @@
       "uploadRetry": "Upload failed. Please try again.",
       "deleteFailed": "Delete failed."
     },
+    "photowall": {
+      "title": "Photo Wall",
+      "loadingTeam": "Loading team…",
+      "empty": "No photos to show yet.",
+      "photoAlt": "photo",
+      "loadError": "Could not load the photos."
+    },
     "rivals": {
       "loadingTeam": "Loading team…",
       "title": "Rivals",
@@ -772,6 +779,7 @@
       "info": "Game info",
       "map": "Map",
       "pictures": "Photos",
+      "photowall": "Photo Wall",
       "rankings": "Final standings",
       "rivals": "Rivals",
       "logout": "Logout",

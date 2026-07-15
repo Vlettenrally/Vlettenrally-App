@@ -5,6 +5,7 @@ import nl.vlettenrally.data.dto.common.ErrorResponse;
 import nl.vlettenrally.data.dto.picture.PictureResponse;
 import nl.vlettenrally.data.dto.picture.PictureUploadRequest;
 import nl.vlettenrally.data.dto.picture.PictureUploadResponse;
+import nl.vlettenrally.data.dto.picture.PublicPictureResponse;
 import nl.vlettenrally.data.enums.PictureStatus;
 import nl.vlettenrally.service.PictureException;
 import nl.vlettenrally.service.PictureService;
@@ -157,6 +158,37 @@ class PictureResourceTest {
         when(pictureService.findAll()).thenReturn(List.of());
         Response response = resource.getAllPictures(null, null);
         assertEquals(200, response.getStatus());
+    }
+
+    // ==================== photowall ====================
+
+    @Test
+    void getPhotowall_returns200WithPublicProjection() {
+        Picture approved = picture(PictureStatus.APPROVED, Instant.now());
+        when(pictureService.findApprovedForTeamGame(teamId)).thenReturn(List.of(approved));
+        when(pictureService.viewUrlFor(approved)).thenReturn("https://storj/view");
+
+        Response response = resource.getPhotowall(teamId);
+
+        assertEquals(200, response.getStatus());
+        List<?> body = assertInstanceOf(List.class, response.getEntity());
+        assertEquals(1, body.size());
+        // A shared wall must not leak other teams' moderation metadata: the public
+        // projection carries only id/game/contentType/viewUrl/uploadedAt.
+        PublicPictureResponse dto = assertInstanceOf(PublicPictureResponse.class, body.get(0));
+        assertEquals(approved.getId(), dto.id());
+        assertEquals("https://storj/view", dto.viewUrl());
+    }
+
+    @Test
+    void getPhotowall_mapsPictureExceptionStatus() {
+        when(pictureService.findApprovedForTeamGame(teamId))
+            .thenThrow(new PictureException(Response.Status.NOT_FOUND, "Team not found"));
+
+        Response response = resource.getPhotowall(teamId);
+
+        assertEquals(404, response.getStatus());
+        assertInstanceOf(ErrorResponse.class, response.getEntity());
     }
 
     // ==================== moderation ====================
