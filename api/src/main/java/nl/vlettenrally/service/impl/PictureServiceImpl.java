@@ -15,8 +15,10 @@ import nl.vlettenrally.data.repository.PictureRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.service.PictureException;
 import nl.vlettenrally.service.PictureService;
+import nl.vlettenrally.data.dto.picture.PublicPictureResponse;
 import nl.vlettenrally.service.storage.PictureStorageService;
 import nl.vlettenrally.websockets.AdminTopics;
+import nl.vlettenrally.websockets.PhotoBroadcastBuffer;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 import nl.vlettenrally.websockets.dto.WebSocketMessageType;
 
@@ -48,6 +50,9 @@ public class PictureServiceImpl implements PictureService {
     @Inject
     WebSocketPublisher webSocketPublisher;
 
+    @Inject
+    PhotoBroadcastBuffer photoBroadcastBuffer;
+
     @ConfigProperty(name = "vlettenrally.pictures.max-per-team")
     long maxPerTeam;
 
@@ -65,6 +70,9 @@ public class PictureServiceImpl implements PictureService {
 
     @ConfigProperty(name = "vlettenrally.pictures.view-url-ttl")
     Duration viewUrlTtl;
+
+    @ConfigProperty(name = "vlettenrally.pictures.photowall-limit")
+    int photowallLimit;
 
     private static final String PICTURE_NOT_FOUND = "Picture not found: ";
 
@@ -171,6 +179,7 @@ public class PictureServiceImpl implements PictureService {
 
         webSocketPublisher.sendToAdminTopic(saved.getGameId(), AdminTopics.PICTURES,
             WebSocketMessageType.PICTURE_MODERATED.getValue(), toResponse(saved));
+        bufferForGallery(saved);
         return saved;
     }
 
@@ -274,7 +283,9 @@ public class PictureServiceImpl implements PictureService {
     public List<Picture> findApprovedForTeamGame(UUID teamId) {
         Team team = teamRepository.findById(teamId)
             .orElseThrow(() -> new PictureException(Response.Status.NOT_FOUND, "Team not found: " + teamId));
-        return pictureRepository.findApprovedByGameId(team.getGameId());
+        // Capped: a shared wall only needs the most recent photos, and live approvals
+        // stream in on top via PhotoBroadcastBuffer.
+        return pictureRepository.findRecentApprovedByGameId(team.getGameId(), photowallLimit);
     }
 
     @Override
@@ -301,7 +312,9 @@ public class PictureServiceImpl implements PictureService {
         picture.setStatus(PictureStatus.APPROVED);
         picture.setModeratedAt(Instant.now());
         picture.setModeratedBy(adminId);
-        return moderated(pictureRepository.save(picture));
+        Picture saved = moderated(pictureRepository.save(picture));
+        bufferForGallery(saved);
+        return saved;
     }
 
     @Override
@@ -333,6 +346,14 @@ public class PictureServiceImpl implements PictureService {
 
     private PictureResponse toResponse(Picture picture) {
         return PictureResponse.from(picture, viewUrlFor(picture));
+    }
+
+    /**
+     * Queue a freshly-approved picture for the batched photowall broadcast. Uses the public
+     * projection so peers never receive another team's moderation metadata.
+     */
+    private void bufferForGallery(Picture picture) {
+        photoBroadcastBuffer.buffer(picture.getGameId(), PublicPictureResponse.from(picture, viewUrlFor(picture)));
     }
 
     @Override

@@ -132,6 +132,23 @@ class MockPictureRepositoryTest {
     }
 
     @Test
+    void findRecentApprovedByGameId_capsToLimit_newestFirst() {
+        // Five approved, staggered upload times so ordering is deterministic.
+        for (int i = 0; i < 5; i++) {
+            Picture p = save(teamA, PictureStatus.APPROVED, true);
+            p.setUploadedAt(Instant.now().plusSeconds(i));
+            repository.save(p);
+        }
+
+        List<Picture> recent = repository.findRecentApprovedByGameId(gameId, 3);
+
+        assertEquals(3, recent.size());
+        // Newest first: each element is newer than the next.
+        assertTrue(recent.get(0).getUploadedAt().isAfter(recent.get(1).getUploadedAt()));
+        assertTrue(recent.get(1).getUploadedAt().isAfter(recent.get(2).getUploadedAt()));
+    }
+
+    @Test
     void findByTeamId_returnsOnlyThatTeam() {
         save(teamA, PictureStatus.APPROVED, true);
         save(teamA, PictureStatus.PENDING, true);

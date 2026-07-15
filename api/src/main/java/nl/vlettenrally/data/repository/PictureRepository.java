@@ -37,6 +37,9 @@ public interface PictureRepository {
     /** Approved pictures for a game (for the future slideshow), newest first. */
     List<Picture> findApprovedByGameId(UUID gameId);
 
+    /** Most recent {@code limit} approved pictures for a game, newest first (players' photowall). */
+    List<Picture> findRecentApprovedByGameId(UUID gameId, int limit);
+
     /**
      * Count pictures that occupy one of a team's upload slots: everything except
      * REJECTED (i.e. PENDING + APPROVED, including not-yet-uploaded reservations).

@@ -3,11 +3,14 @@
  * player's game, newest first. Tapping a tile opens a full-screen lightbox.
  *
  * Uploads live on the separate Pictures page; this screen only shows approved shots.
- * The wall refreshes itself: a gentle interval while visible, plus an immediate
- * refetch whenever the tab regains focus, so newly approved photos appear without
- * a manual reload.
+ *
+ * Live updates: the API buffers newly-approved photos and pushes them as a batched
+ * `PICTURE_APPROVED` array (mirrors the location buffer). Rather than dropping a whole
+ * batch in at once, we queue the new photos and reveal them one at a time on a short
+ * timer, so they appear to stream in. A refetch on tab focus covers anything missed
+ * while disconnected, plus a slow safety poll while the page stays open.
  */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Box,
@@ -15,44 +18,57 @@ import {
   CircularProgress,
   Container,
   Dialog,
+  Fade,
   Stack,
   Typography,
 } from '@mui/material';
 import PictureImage from '../../components/PictureImage';
 import { useTeamStore } from '../../store/useTeamStore';
+import { useWebSocketSubscription } from '../../hooks/useWebSocket';
 import type { PublicPicture } from '../../types/entities';
 import api from '../../services/api';
 import { mockApi } from '../../services/mockApi';
 import { config } from '../../config';
 
-// How often to refetch the wall while the page is visible.
-const POLL_INTERVAL_MS = 30_000;
+// Keep the visible wall bounded (matches the API's cap); newest stay, oldest drop off.
+const PHOTOWALL_LIMIT = 20;
+// How fast queued live photos are revealed, one at a time.
+const REVEAL_MS = 600;
+// Slow safety refetch while the page is open, in case a live event was missed.
+const SAFETY_POLL_MS = 60_000;
 
 export default function Photowall() {
   const { t } = useTranslation();
   const { team } = useTeamStore();
+  const { subscribe } = useWebSocketSubscription();
 
   const [pictures, setPictures] = useState<PublicPicture[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
+  // Photos waiting to be revealed one-by-one, and every id we've already shown or queued
+  // (so a batch that overlaps the current wall never reveals or renders a duplicate).
+  const queueRef = useRef<PublicPicture[]>([]);
+  const seenRef = useRef<Set<string>>(new Set());
+
   // mockApi mirrors the picture methods of api; treat it as the same shape.
   const apiToUse = (config.useMocks ? mockApi : api) as unknown as typeof api;
 
+  // Initial load + focus/visibility refetch + a slow safety poll.
   useEffect(() => {
     if (!team) return;
     let cancelled = false;
 
-    // Background refetches update quietly — no spinner, and a transient failure
-    // leaves the already-shown wall in place rather than replacing it with an error.
     const load = async (background: boolean) => {
       if (!background) setLoading(true);
       try {
         const res = await apiToUse.getPhotowall(team.id);
         if (cancelled) return;
         if (res.data) {
-          setPictures(res.data as PublicPicture[]);
+          const data = res.data as PublicPicture[];
+          data.forEach((p) => seenRef.current.add(p.id));
+          setPictures(data);
           setError(null);
         } else if (!background) {
           setError(t('participant.photowall.loadError'));
@@ -68,9 +84,7 @@ export default function Photowall() {
 
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') load(true);
-    }, POLL_INTERVAL_MS);
-
-    // Coming back to the tab/app should refresh immediately, not wait for the interval.
+    }, SAFETY_POLL_MS);
     const onVisible = () => {
       if (document.visibilityState === 'visible') load(true);
     };
@@ -85,6 +99,32 @@ export default function Photowall() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [team]);
+
+  // Reveal queued photos one at a time so a batch looks like it streams in.
+  useEffect(() => {
+    const id = setInterval(() => {
+      const next = queueRef.current.shift();
+      if (!next) return;
+      setPictures((prev) =>
+        prev.some((p) => p.id === next.id) ? prev : [next, ...prev].slice(0, PHOTOWALL_LIMIT),
+      );
+    }, REVEAL_MS);
+    return () => clearInterval(id);
+  }, []);
+
+  // Batched live approvals: enqueue the ones we haven't seen, oldest first so each
+  // newer photo pops in on top.
+  const handleApproved = useCallback((message: { payload: unknown }) => {
+    const payload = message.payload;
+    const incoming = (Array.isArray(payload) ? payload : [payload]) as PublicPicture[];
+    const fresh = incoming.filter((p) => p && p.id && p.viewUrl && !seenRef.current.has(p.id));
+    if (fresh.length === 0) return;
+    fresh.forEach((p) => seenRef.current.add(p.id));
+    fresh.sort((a, b) => (a.uploadedAt ?? '').localeCompare(b.uploadedAt ?? ''));
+    queueRef.current.push(...fresh);
+  }, []);
+
+  useEffect(() => subscribe('PICTURE_APPROVED', handleApproved), [subscribe, handleApproved]);
 
   if (!team) {
     return (
@@ -118,13 +158,15 @@ export default function Photowall() {
             }}
           >
             {pictures.map((picture) => (
-              <Card key={picture.id}>
-                <PictureImage
-                  src={picture.viewUrl}
-                  alt={t('participant.photowall.photoAlt')}
-                  onClick={() => setLightboxUrl(picture.viewUrl!)}
-                />
-              </Card>
+              <Fade key={picture.id} in timeout={500}>
+                <Card>
+                  <PictureImage
+                    src={picture.viewUrl}
+                    alt={t('participant.photowall.photoAlt')}
+                    onClick={() => setLightboxUrl(picture.viewUrl!)}
+                  />
+                </Card>
+              </Fade>
             ))}
           </Box>
         )}

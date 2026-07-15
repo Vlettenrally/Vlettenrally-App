@@ -10,6 +10,7 @@ import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.service.PictureException;
 import nl.vlettenrally.service.PictureService;
 import nl.vlettenrally.service.storage.PictureStorageService;
+import nl.vlettenrally.websockets.PhotoBroadcastBuffer;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -46,6 +47,7 @@ class PictureServiceImplTest {
     @Mock GameRepository gameRepository;
     @Mock PictureStorageService storageService;
     @Mock WebSocketPublisher webSocketPublisher;
+    @Mock PhotoBroadcastBuffer photoBroadcastBuffer;
 
     @InjectMocks PictureServiceImpl service;
 
@@ -62,6 +64,7 @@ class PictureServiceImplTest {
         service.allowedContentTypes = List.of("image/jpeg", "image/png", "image/webp");
         service.uploadUrlTtl = Duration.ofMinutes(15);
         service.viewUrlTtl = Duration.ofHours(1);
+        service.photowallLimit = 60;
 
         teamId = UUID.randomUUID();
         gameId = UUID.randomUUID();
@@ -260,6 +263,8 @@ class PictureServiceImplTest {
         // The owning team and the admin queues are notified live.
         verify(webSocketPublisher).sendToTeam(eq(gameId), eq(teamId), eq("PICTURE_MODERATED"), any());
         verify(webSocketPublisher).sendToAdminTopic(eq(gameId), eq("pictures"), eq("PICTURE_MODERATED"), any());
+        // Approved pictures are queued for the batched photowall broadcast.
+        verify(photoBroadcastBuffer).buffer(eq(gameId), any());
     }
 
     @Test
@@ -289,6 +294,8 @@ class PictureServiceImplTest {
         verify(storageService, never()).delete(any());
         verify(webSocketPublisher).sendToTeam(eq(gameId), eq(teamId), eq("PICTURE_MODERATED"), any());
         verify(webSocketPublisher).sendToAdminTopic(eq(gameId), eq("pictures"), eq("PICTURE_MODERATED"), any());
+        // Rejected pictures never reach the photowall.
+        verify(photoBroadcastBuffer, never()).buffer(any(), any());
     }
 
     @Test
@@ -353,14 +360,14 @@ class PictureServiceImplTest {
     // ==================== findApprovedForTeamGame ====================
 
     @Test
-    void findApprovedForTeamGame_resolvesTeamGame_andDelegates() {
+    void findApprovedForTeamGame_resolvesTeamGame_andDelegatesWithCap() {
         List<Picture> expected = List.of(approvedFor(gameId));
         when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
-        when(pictureRepository.findApprovedByGameId(gameId)).thenReturn(expected);
+        when(pictureRepository.findRecentApprovedByGameId(gameId, 60)).thenReturn(expected);
 
         assertEquals(expected, service.findApprovedForTeamGame(teamId));
-        // A team can only ever see its own game's approved pictures.
-        verify(pictureRepository).findApprovedByGameId(gameId);
+        // A team only ever sees its own game's approved pictures, capped to the wall limit.
+        verify(pictureRepository).findRecentApprovedByGameId(gameId, 60);
     }
 
     @Test

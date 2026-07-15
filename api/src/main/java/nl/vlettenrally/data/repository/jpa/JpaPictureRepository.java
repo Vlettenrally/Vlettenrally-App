@@ -115,6 +115,18 @@ public class JpaPictureRepository extends ReadReplicaAwareRepository implements 
     }
 
     @Override
+    public List<Picture> findRecentApprovedByGameId(UUID gameId, int limit) {
+        return getReadEntityManager()
+                .createQuery("SELECT p FROM PictureEntity p WHERE p.game.id = :gameId AND p.status = :status ORDER BY p.uploadedAt DESC", PictureEntity.class)
+                .setParameter("gameId", gameId)
+                .setParameter("status", PictureStatus.APPROVED)
+                .setMaxResults(limit)
+                .getResultList().stream()
+                .map(PictureMapper::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public long countActiveByTeamId(UUID teamId) {
         // Count toward the per-team cap: everything except REJECTED. Uses the primary
         // EM so the count is immediately consistent for the slot-reservation check.

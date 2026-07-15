@@ -151,6 +151,15 @@ public class MockPictureRepository implements PictureRepository {
     }
 
     @Override
+    public List<Picture> findRecentApprovedByGameId(UUID gameId, int limit) {
+        return pictures.values().stream()
+                .filter(p -> gameId.equals(p.getGameId()) && p.getStatus() == PictureStatus.APPROVED)
+                .sorted(Comparator.comparing(Picture::getUploadedAt).reversed())
+                .limit(limit)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public long countActiveByTeamId(UUID teamId) {
         return pictures.values().stream()
                 .filter(p -> teamId.equals(p.getTeamId()) && p.getStatus() != PictureStatus.REJECTED)
