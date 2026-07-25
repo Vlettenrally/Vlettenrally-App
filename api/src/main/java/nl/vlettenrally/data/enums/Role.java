@@ -44,11 +44,6 @@ public enum Role {
     TEAM,
 
     /**
-     * Checkin role - used to register a team before starting a game
-     */
-    CHECKIN,
-
-    /**
      * Can manage team check-in, team details, and send messages
      */
     RALLY_DESK,

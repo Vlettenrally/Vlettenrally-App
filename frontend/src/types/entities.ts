@@ -653,22 +653,6 @@ export interface FcmTokenRegistrationResponse {
 }
 
 /**
- * Response from token exchange during check-in
- * Either returns auth tokens or team selection options
- */
-export type TokenExchangeResponse =
-  | {
-      accessToken: string;
-      refreshToken: string;
-      expiresIn: number;
-      tokenType?: string;
-    }
-  | {
-      gameId: string;
-      teamOptions: TeamOption[];
-    };
-
-/**
  * Points ledger entry — one row per change to a team's totalPoints.
  * originalAmount is immutable; currentAmount may be edited (admin "Aftrek" / correction).
  */

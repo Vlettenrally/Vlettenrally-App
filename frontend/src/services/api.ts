@@ -393,26 +393,6 @@ class ApiService {
     return this.request<T>(endpoint, { method: 'DELETE' });
   }
 
-  // Authentication endpoints
-  async exchangeToken(checkInToken: string) {
-    return this.request('/check-in/teams', {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${checkInToken}`,
-      },
-    });
-  }
-
-  async selectTeam(checkInToken: string, teamId: string) {
-    return this.request('/check-in/exchange-token', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${checkInToken}`,
-      },
-      body: JSON.stringify({ teamId }),
-    });
-  }
-
   // Public self-service check-in flow
   async getCheckInGamesToday(): Promise<ApiResponse<TodayGame[]>> {
     return this.get('/check-in/games/today');
@@ -573,10 +553,6 @@ async getGames() : Promise<ApiResponse<Game[]>> {
 
   async createGame(data: GameRequest) : Promise<ApiResponse<Game>> {
     return this.post('/games', data);
-  }
-
-  async generateGameCheckInLink(gameId: string): Promise<ApiResponse<{ url: string; token: string; expiresAt: number; expiryReason: string }>> {
-    return this.post(`/games/${gameId}/check-in-link`);
   }
 
   async updateGame(gameId: string, data: GameRequest) : Promise<ApiResponse<Game>> {

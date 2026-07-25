@@ -3,9 +3,6 @@
  *
  * Steps: loading → select-game → select-team → nickname → register →
  *        (details + rivals if main / wait if not) → permissions → /dashboard
- *
- * Legacy `?token=` URLs (WordPress) skip the public game/team pickers and jump
- * straight to the nickname step for the pre-resolved team.
  */
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -59,7 +56,6 @@ import type {
   RegisterDeviceResponse,
   TeamOption,
   TodayGame,
-  TokenExchangeResponse,
 } from '../../types/entities';
 
 type Step =
@@ -160,7 +156,6 @@ export function CheckInPage() {
   // back and scan from inside the app rather than with the camera app.
   const [invitePending, setInvitePending] = useState(false);
 
-  const legacyTokenRef = useRef<string | null>(null);
   // Invite token from a scanned team/admin QR (?invite=). Threaded into register-device
   // so the backend bypasses the digital check-in time gate.
   const inviteTokenRef = useRef<string | null>(null);
@@ -253,7 +248,7 @@ export function CheckInPage() {
     }
   }, [loadTodayGames, t]);
 
-  // Runs the actual check-in entry: legacy token shortcut OR public flow.
+  // Runs the actual check-in entry: invite shortcut OR public flow.
   const beginCheckIn = useCallback(() => {
     setStep('loading');
     const init = async () => {
@@ -261,46 +256,6 @@ export function CheckInPage() {
       if (invite) {
         await resolveInvite(invite);
         return;
-      }
-
-      const token = searchParams.get('token');
-      if (token) {
-        legacyTokenRef.current = token;
-        try {
-          const tokenResponse = await api.exchangeToken(token);
-          if (tokenResponse.error) {
-            setError(t('participant.checkin.authFailed') + ': ' + tokenResponse.error);
-            return;
-          }
-          const data = tokenResponse.data as TokenExchangeResponse;
-          if ('teamOptions' in data) {
-            setSelectedGameId(data.gameId ?? null);
-            setTeamOptions(data.teamOptions ?? []);
-            setStep('select-team');
-            return;
-          }
-          if ('accessToken' in data) {
-            // Single-team token: temporarily hold these tokens so we can fetch /team/me,
-            // then continue into the public flow (where register-device re-issues a
-            // device-bound team token).
-            storage.setAuthToken(data.accessToken);
-            storage.setRefreshToken(data.refreshToken);
-            const teamResponse = await api.getMyTeam();
-            if (teamResponse.data) {
-              const team = teamResponse.data as PlayerTeam;
-              setResolvedTeam({ id: team.id, gameId: team.gameId, name: team.name });
-              setSelectedGameId(team.gameId);
-              setStep('nickname');
-              return;
-            }
-            setError(t('participant.checkin.noTeamData'));
-            return;
-          }
-        } catch (err) {
-          console.error('Legacy token flow error:', err);
-          setError(t('participant.checkin.loginError'));
-          return;
-        }
       }
 
       await loadTodayGames();

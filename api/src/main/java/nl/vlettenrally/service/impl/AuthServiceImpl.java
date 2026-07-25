@@ -3,7 +3,6 @@ package nl.vlettenrally.service.impl;
 import io.smallrye.jwt.auth.principal.JWTParser;
 import io.smallrye.jwt.build.Jwt;
 import io.smallrye.mutiny.Uni;
-import io.quarkus.scheduler.Scheduled;
 import io.quarkus.logging.Log;
 import io.quarkus.elytron.security.common.BcryptUtil;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -33,7 +32,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-import nl.vlettenrally.data.dto.auth.GameCheckInLinkResponse;
 import nl.vlettenrally.data.dto.auth.RegistrationTokenData;
 import nl.vlettenrally.data.dto.auth.TeamInvite;
 import nl.vlettenrally.data.dto.auth.TeamInviteLinkResponse;
@@ -103,9 +101,6 @@ public class AuthServiceImpl implements AuthService {
     // In-memory storage for registration tokens (short-lived, can remain in-memory)
     private final Map<String, RegistrationTokenData> registrationTokens = new ConcurrentHashMap<>();
 
-    // Track when all teams in a game have checked in (for expiry calculation)
-    private final Map<UUID, Instant> allTeamsCheckedInAt = new ConcurrentHashMap<>();
-
     @Override
     public Optional<TokenResult> exchangeToken(String registrationToken) {
         RegistrationTokenData tokenData = registrationTokens.get(registrationToken);
@@ -114,50 +109,11 @@ public class AuthServiceImpl implements AuthService {
             return Optional.empty();
         }
 
-        boolean isGameToken = "checkin".equalsIgnoreCase(tokenData.role());
-
-        if (!isGameToken && tokenData.used()) {
+        if (tokenData.used()) {
             return Optional.empty();
         }
 
         Instant now = Instant.now();
-
-        if (isGameToken) {
-            Optional<Game> gameOpt = gameRepository.findById(UUID.fromString(tokenData.subject()));
-            if (gameOpt.isEmpty()) {
-                registrationTokens.remove(registrationToken);
-                return Optional.empty();
-            }
-
-            Game game = gameOpt.get();
-            Instant calculatedExpiry = calculateCheckInExpiry(game);
-            if (now.isAfter(calculatedExpiry)) {
-                registrationTokens.remove(registrationToken);
-                return Optional.empty();
-            }
-
-            if (calculatedExpiry.getEpochSecond() != tokenData.expiresAt()) {
-                registrationTokens.put(registrationToken, new RegistrationTokenData(
-                    tokenData.subject(),
-                    tokenData.name(),
-                    tokenData.role(),
-                    calculatedExpiry.getEpochSecond(),
-                    false
-                ));
-            }
-
-            // Return a result that signals team selection is required
-            Log.infof("Game check-in token validated - gameId: %s, gameName: %s", tokenData.subject(), tokenData.name());
-
-            return Optional.of(new TokenResult(
-                null,
-                null,
-                0L,
-                tokenData.subject(),
-                tokenData.name(),
-                tokenData.role()
-            ));
-        }
 
         if (now.getEpochSecond() > tokenData.expiresAt()) {
             registrationTokens.remove(registrationToken);
@@ -390,33 +346,6 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public Optional<TokenResult> selectTeam(UUID gameId, UUID teamId) {
-        Optional<Game> gameOpt = gameRepository.findById(gameId);
-        if (gameOpt.isEmpty()) {
-            return Optional.empty();
-        }
-
-        Game game = gameOpt.get();
-        Instant now = Instant.now();
-        Instant calculatedExpiry = calculateCheckInExpiry(game);
-        if (now.isAfter(calculatedExpiry)) {
-            return Optional.empty();
-        }
-
-        Optional<Team> teamOpt = teamRepository.findById(teamId);
-        if (teamOpt.isEmpty()) {
-            return Optional.empty();
-        }
-
-        Team team = teamOpt.get();
-        if (!game.getId().equals(team.getGameId())) {
-            return Optional.empty();
-        }
-
-        return Optional.of(issueTeamTokens(team));
-    }
-
-    @Override
     public TokenResult issueTeamTokens(Team team) {
         return issueTeamTokens(team, null);
     }
@@ -473,18 +402,6 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public boolean isCheckInTokenValid(UUID gameId) {
-        Optional<Game> gameOpt = gameRepository.findById(gameId);
-        if (gameOpt.isEmpty()) {
-            return false;
-        }
-
-        Instant now = Instant.now();
-        Instant calculatedExpiry = calculateCheckInExpiry(gameOpt.get());
-        return !now.isAfter(calculatedExpiry);
-    }
-
-    @Override
     public void revokeTokens(UUID teamId) {
         // Delete persisted refresh tokens AND record the cutoff in Valkey so any
         // access token already in a participant's browser is rejected on its next
@@ -538,42 +455,6 @@ public class AuthServiceImpl implements AuthService {
         registrationTokens.entrySet().removeIf(e -> e.getValue().expiresAt() < now);
         // Cleanup expired refresh tokens from database
         refreshTokenRepository.deleteExpiredTokens(Instant.now());
-    }
-
-    /**
-     * Periodically update and expire game-scoped registration tokens
-     */
-    @Scheduled(every = "5m")
-    void refreshGameTokenExpiries() {
-        Instant now = Instant.now();
-
-        registrationTokens.forEach((token, data) -> {
-            if (!"checkin".equalsIgnoreCase(data.role())) {
-                return;
-            }
-
-            Optional<Game> gameOpt = gameRepository.findById(UUID.fromString(data.subject()));
-            if (gameOpt.isEmpty()) {
-                registrationTokens.remove(token);
-                return;
-            }
-
-            Instant calculatedExpiry = calculateCheckInExpiry(gameOpt.get());
-            if (now.isAfter(calculatedExpiry)) {
-                registrationTokens.remove(token);
-                return;
-            }
-
-            if (calculatedExpiry.getEpochSecond() != data.expiresAt()) {
-                registrationTokens.put(token, new RegistrationTokenData(
-                    data.subject(),
-                    data.name(),
-                    data.role(),
-                    calculatedExpiry.getEpochSecond(),
-                    false
-                ));
-            }
-        });
     }
 
     @Override
@@ -655,33 +536,6 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public GameCheckInLinkResponse generateGameCheckInLink(UUID gameId) {
-        // Load the game to get its expiry time
-        Optional<Game> gameOpt = gameRepository.findById(gameId);
-        if (gameOpt.isEmpty()) {
-            throw new IllegalArgumentException("Game not found: " + gameId);
-        }
-
-        Game game = gameOpt.get();
-
-        // Calculate expiry: min(allTeamsCheckedInTime + 5min, gameStartTime)
-        long expiresAt = calculateCheckInExpiry(game).getEpochSecond();
-
-        // Generate game-scoped registration token (valid for duration until expiry)
-        String registrationToken = generateToken(gameId.toString(), game.getName(), "checkin", Instant.ofEpochSecond(expiresAt), TokenType.CHECKIN);
-
-        // Construct the full check-in URL
-        String checkInUrl = frontendBaseUrl + "/check-in?token=" + registrationToken;
-
-        String expiryReason = "Expires 5 minutes after all teams check in or at game start time";
-
-        Log.infof("Game check-in link generated - gameId: %s, gameName: %s, expiresAt: %s",
-            gameId, game.getName(), Instant.ofEpochSecond(expiresAt));
-
-        return new GameCheckInLinkResponse(checkInUrl, registrationToken, expiresAt, expiryReason);
-    }
-
-    @Override
     public TeamInviteLinkResponse generateTeamInviteToken(UUID teamId) {
         Team team = teamRepository.findById(teamId)
             .orElseThrow(() -> new IllegalArgumentException("Team not found: " + teamId));
@@ -707,42 +561,4 @@ public class AuthServiceImpl implements AuthService {
         return inviteCodeStore.resolve(token);
     }
 
-    /**
-     * Calculate when a game's check-in token should expire.
-     * <p>
-     * Expiry rules:
-     * 1. If all teams have checked in, token expires 5 minutes after the last check-in
-     * 2. If game start time has passed, token expires immediately
-     * 3. Otherwise, token expires at game start time
-     */
-    private Instant calculateCheckInExpiry(Game game) {
-        // Get all teams for this game
-        List<Team> teams = teamRepository.findByGameId(game.getId());
-
-        // Check if all teams are checked in
-        boolean allCheckedIn = !teams.isEmpty() && teams.stream().allMatch(Team::isCheckedIn);
-
-        Instant now = Instant.now();
-
-        if (allCheckedIn) {
-            allTeamsCheckedInAt.computeIfAbsent(game.getId(), key -> now);
-        } else {
-            allTeamsCheckedInAt.remove(game.getId());
-        }
-
-        Instant allCheckedInAt = allTeamsCheckedInAt.get(game.getId());
-        Instant allCheckedInExpiry = allCheckedInAt != null ? allCheckedInAt.plusSeconds(300) : null;
-        // Check if game has already started
-        if (game.getStartTime() != null && now.isAfter(game.getStartTime())) {
-            return now; // Already expired
-        }
-
-        Instant expiry = game.getStartTime() != null ? game.getStartTime() : now.plusSeconds(86400);
-
-        if (allCheckedInExpiry != null && allCheckedInExpiry.isBefore(expiry)) {
-            expiry = allCheckedInExpiry;
-        }
-
-        return expiry;
-    }
 }

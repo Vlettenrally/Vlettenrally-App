@@ -16,12 +16,7 @@ public enum TokenType {
     /**
      * Refresh token - long-lived token for obtaining new access tokens
      */
-    REFRESH("refresh"),
-
-    /**
-     * Check-in token - game-scoped token for team check-in process
-     */
-    CHECKIN("checkin");
+    REFRESH("refresh");
 
     private final String value;
 

@@ -8,7 +8,6 @@ import java.util.UUID;
 import nl.vlettenrally.data.domain.Admin;
 import nl.vlettenrally.data.enums.Role;
 import nl.vlettenrally.data.enums.TokenType;
-import nl.vlettenrally.data.dto.auth.GameCheckInLinkResponse;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.dto.auth.TeamInvite;
 import nl.vlettenrally.data.dto.auth.TeamInviteLinkResponse;
@@ -30,11 +29,6 @@ public interface AuthService {
     Optional<TokenResult> refreshToken(String refreshToken);
 
     /**
-     * Select a team from a game-scoped registration token and receive access/refresh tokens
-     */
-    Optional<TokenResult> selectTeam(UUID gameId, UUID teamId);
-
-    /**
      * Issue access + refresh tokens for a team without the check-in-token expiry check.
      * Used by the public multi-device check-in coordinator after a device has self-selected a team.
      * <p>
@@ -44,14 +38,9 @@ public interface AuthService {
     TokenResult issueTeamTokens(Team team, UUID deviceId);
 
     /**
-     * Convenience overload: issues tokens with no device binding (legacy WordPress path).
+     * Convenience overload: issues tokens with no device binding.
      */
     TokenResult issueTeamTokens(Team team);
-
-    /**
-     * Validate whether a game-scoped check-in token is still valid
-     */
-    boolean isCheckInTokenValid(UUID gameId);
 
     /**
      * Revoke all tokens for a team. Deletes persisted refresh tokens AND records a
@@ -108,24 +97,15 @@ public interface AuthService {
 
     /**
      * Generate a JWT token with a single role
-     * @param tokenType TokenType enum (ACCESS or CHECKIN)
+     * @param tokenType TokenType enum (e.g. ACCESS)
      */
     String generateToken(String userId, String name, String role, Instant expiresAt, TokenType tokenType);
 
     /**
      * Generate a JWT token with multiple roles
-     * @param tokenType TokenType enum (ACCESS or CHECKIN)
+     * @param tokenType TokenType enum (e.g. ACCESS)
      */
     String generateToken(String userId, String name, Set<Role> roles, Instant expiresAt, TokenType tokenType);
-
-    /**
-     * Generate a game-scoped check-in token that allows teams to select themselves
-     * Token expires at the earlier of: (1) 5 minutes after all teams check in, or (2) game start time
-     *
-     * @param gameId The ID of the game
-     * @return GameCheckInLinkResponse containing the full URL and token details
-     */
-    GameCheckInLinkResponse generateGameCheckInLink(UUID gameId);
 
     /**
      * Mint a team-scoped invite code + URL. Scanning the resulting QR lets a teammate's

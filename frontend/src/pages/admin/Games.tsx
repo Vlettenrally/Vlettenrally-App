@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Box,
@@ -22,20 +22,13 @@ import {
   DialogActions,
   CircularProgress,
   Alert,
-  Divider,
-  TextField,
-  Stack,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-    QrCode2 as QrCodeIcon,
-  ContentCopy as ContentCopyIcon,
-  FileDownload as FileDownloadIcon,
   Leaderboard as LeaderboardIcon,
 } from '@mui/icons-material';
-import QRCode from 'qrcode';
 import api from '../../services/api';
 import { gameService } from '../../services/gameService';
 import { useGameStore } from '../../store/useGameStore';
@@ -80,14 +73,6 @@ const Games = () => {
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
   const [gameToPublish, setGameToPublish] = useState<Game | null>(null);
   const [publishing, setPublishing] = useState(false);
-
-  const [checkInDialogOpen, setCheckInDialogOpen] = useState(false);
-  const [checkInGame, setCheckInGame] = useState<Game | null>(null);
-  const [checkInLoading, setCheckInLoading] = useState(false);
-  const [checkInError, setCheckInError] = useState<string | null>(null);
-  const [checkInLink, setCheckInLink] = useState<{ url: string; token: string; expiresAt: number; expiryReason: string } | null>(null);
-  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
-  const [copySuccess, setCopySuccess] = useState<string | null>(null);
 
   // Get games, loading state, and actions from store
   const { games, isLoading, error, fetchGames, setSelectedGameId } = useGameStore();
@@ -157,84 +142,6 @@ const Games = () => {
       setPublishing(false);
     }
   };
-
-  const handleGenerateCheckInLink = async (game: Game) => {
-    setCheckInDialogOpen(true);
-    setCheckInGame(game);
-    setCheckInLink(null);
-    setQrDataUrl(null);
-    setCheckInError(null);
-    setCopySuccess(null);
-    setCheckInLoading(true);
-
-    try {
-      const response = await gameService.generateCheckInLink(game.id);
-      setCheckInLink(response);
-
-      const label = `${game.name} · Vlettenrally check-in`;
-      const canvas = document.createElement('canvas');
-      const qrSize = 512;
-      const labelHeight = 48;
-      canvas.width = qrSize;
-      canvas.height = qrSize + labelHeight;
-
-      await QRCode.toCanvas(canvas, response.url, {
-        width: qrSize,
-        margin: 2,
-        errorCorrectionLevel: 'Q',
-      });
-
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, qrSize, qrSize, labelHeight);
-        ctx.fillStyle = '#111111';
-        ctx.textAlign = 'center';
-        ctx.font = 'bold 18px sans-serif';
-        ctx.fillText(label, qrSize / 2, qrSize + 30);
-      }
-
-      setQrDataUrl(canvas.toDataURL('image/png'));
-    } catch (err) {
-      setCheckInError(err instanceof Error ? err.message : t('admin.games.generateLinkFailed'));
-    } finally {
-      setCheckInLoading(false);
-    }
-  };
-
-  const handleCopyLink = async () => {
-    if (!checkInLink?.url) return;
-    try {
-      await navigator.clipboard.writeText(checkInLink.url);
-      setCopySuccess(t('admin.games.linkCopied'));
-    } catch {
-      setCheckInError(t('admin.games.copyLinkFailed'));
-    }
-  };
-
-  const handleDownloadQr = () => {
-    if (!qrDataUrl || !checkInGame) return;
-    const slug = checkInGame.name
-      .toLowerCase()
-      .replace(/\s+/g, '-')
-      .replace(/[^a-z0-9-]/g, '');
-    const filename = `vlettenrally-${slug || 'game'}-checkin.png`;
-
-    const link = document.createElement('a');
-    link.href = qrDataUrl;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const formattedExpiry = useMemo(() => {
-    if (!checkInLink?.expiresAt) return '-';
-    return new Date(checkInLink.expiresAt * 1000).toLocaleString(undefined, {
-      dateStyle: 'short',
-      timeStyle: 'short',
-    });
-  }, [checkInLink?.expiresAt]);
 
   const handleFormClose = () => {
     setFormDialogOpen(false);
@@ -349,13 +256,6 @@ const Games = () => {
                     )}
                     <IconButton
                       size="small"
-                      onClick={() => handleGenerateCheckInLink(game)}
-                      title={t('admin.games.generateCheckinLink')}
-                    >
-                      <QrCodeIcon />
-                    </IconButton>
-                    <IconButton
-                      size="small"
                       onClick={() => handleEditGame(game)}
                       title={t('admin.games.editGame')}
                     >
@@ -428,74 +328,6 @@ const Games = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Check-in Link Dialog */}
-      <Dialog open={checkInDialogOpen} onClose={() => setCheckInDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{t('admin.games.checkinLink')}</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            {checkInLoading && (
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
-                <CircularProgress />
-              </Box>
-            )}
-
-            {checkInError && <Alert severity="error">{checkInError}</Alert>}
-            {copySuccess && <Alert severity="success">{copySuccess}</Alert>}
-
-            {checkInLink && (
-              <>
-                <Typography variant="body2" color="text.secondary">
-                  {checkInLink.expiryReason}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {t('admin.games.expiresOn', { expiry: formattedExpiry })}
-                </Typography>
-
-                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <TextField
-                    label={t('admin.games.checkinLink')}
-                    value={checkInLink.url}
-                    fullWidth
-                    slotProps={{input:{ readOnly: true }}}
-                  />
-                  <Button
-                    variant="outlined"
-                    startIcon={<ContentCopyIcon />}
-                    onClick={handleCopyLink}
-                  >
-                    {t('admin.games.copyLink')}
-                  </Button>
-                </Box>
-
-                <Divider />
-
-                {qrDataUrl && (
-                  <Box sx={{ textAlign: 'center' }}>
-                    <Box
-                      component="img"
-                      src={qrDataUrl}
-                      alt="Check-in QR"
-                      sx={{ width: '100%', maxWidth: 320, borderRadius: 2 }}
-                    />
-                    <Box sx={{ mt: 2 }}>
-                      <Button
-                        variant="contained"
-                        startIcon={<FileDownloadIcon />}
-                        onClick={handleDownloadQr}
-                      >
-                        {t('admin.games.downloadQR')}
-                      </Button>
-                    </Box>
-                  </Box>
-                )}
-              </>
-            )}
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCheckInDialogOpen(false)}>{t('common.close')}</Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 };

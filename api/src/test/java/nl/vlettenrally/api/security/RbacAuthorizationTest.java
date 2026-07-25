@@ -61,12 +61,6 @@ class RbacAuthorizationTest {
     }
 
     @Test
-    void checkinOnly_cannotReadGames() {
-        // checkin is neither a team nor an admin-type role -> not staff -> forbidden
-        as("checkin").when().get("/api/v1/games").then().statusCode(403);
-    }
-
-    @Test
     void anonymous_cannotReadGames() {
         given().when().get("/api/v1/games").then().statusCode(401);
     }
