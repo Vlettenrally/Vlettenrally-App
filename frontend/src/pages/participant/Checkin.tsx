@@ -295,11 +295,17 @@ export function CheckInPage() {
 
   // Entry: Show welcome screen for first-time users, then proceed to install-app or check-in.
   useEffect(() => {
+    const hasInvite = parseInviteCode(searchParams.get('invite'));
     const hasSeenWelcome = localStorage.getItem('vlettenrally_welcome_seen');
     const isReturningUser = localStorage.getItem('vlettenrally_device_id');
-    
-    if (isReturningUser && hasSeenWelcome) {
-      // Returning user: skip welcome
+
+    // Invite arrivals skip the welcome/choice carousel (they already came via an
+    // invite, so the "start check-in vs scan QR" choice is only confusing). They're
+    // treated like returning users here; beginCheckIn() reads `?invite=` and jumps
+    // straight to the nickname step. On iOS-not-installed we still route through the
+    // install guide first — invitePending stays false there, so its onComplete is
+    // beginCheckIn, which re-reads the invite after the guide.
+    if (hasInvite || (isReturningUser && hasSeenWelcome)) {
       if (shouldPromptHomescreenInstall()) {
         setStep('install-app');
       } else {
