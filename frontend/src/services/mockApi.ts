@@ -131,7 +131,16 @@ const mockGame: Game = {
 
 // Mock pictures (mutable so the upload/moderation flow can be exercised)
 let mockPictureSeq = 100;
-const mockPictures: Picture[] = [
+
+// Team name/description used to attribute a picture to the uploading scouting group.
+const MOCK_TEAM_INFO: Record<string, { name: string; description: string }> = {
+  [MOCK_TEAM_ID]: { name: 'De Watervlooien', description: 'Snelle en wendbare vlettenvaarders' },
+  '22222222-2222-2222-2222-222222222222': { name: 'Windkracht Tien', description: 'Altijd volle kracht vooruit' },
+};
+const teamNameFor = (teamId: string | null) => (teamId ? MOCK_TEAM_INFO[teamId]?.name ?? null : null);
+const teamDescriptionFor = (teamId: string | null) => (teamId ? MOCK_TEAM_INFO[teamId]?.description ?? null : null);
+
+const mockPictures: Picture[] = ([
   {
     id: 'pic-1', teamId: MOCK_TEAM_ID, gameId: MOCK_GAME_ID, status: 'APPROVED',
     contentType: 'image/jpeg', sizeBytes: 512000, viewUrl: 'https://picsum.photos/seed/pic-1/600/400',
@@ -175,7 +184,11 @@ const mockPictures: Picture[] = [
     uploadedAt: new Date(Date.now() - 28 * 60 * 1000).toISOString(),
     moderatedAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(), notes: null,
   },
-];
+] as Omit<Picture, 'teamName' | 'teamDescription'>[]).map((p) => ({
+  ...p,
+  teamName: teamNameFor(p.teamId),
+  teamDescription: teamDescriptionFor(p.teamId),
+}));
 
 export const mockApi = {
   async getMessages() {
@@ -237,6 +250,7 @@ export const mockApi = {
       id: pictureId, teamId, gameId: MOCK_GAME_ID, status: 'PENDING',
       contentType: body.contentType, sizeBytes: body.sizeBytes ?? null, viewUrl: null,
       createdAt: new Date().toISOString(), uploadedAt: null, moderatedAt: null, notes: null,
+      teamName: teamNameFor(teamId), teamDescription: teamDescriptionFor(teamId),
     });
     return {
       data: {
@@ -314,6 +328,8 @@ export const mockApi = {
           contentType: p.contentType,
           viewUrl: p.viewUrl,
           uploadedAt: p.uploadedAt,
+          teamName: p.teamName,
+          teamDescription: p.teamDescription,
         })),
       status: 200,
     };
@@ -342,6 +358,7 @@ export const mockApi = {
       id: pictureId, teamId: null as unknown as string, gameId: MOCK_GAME_ID, status: 'PENDING',
       contentType: body.contentType, sizeBytes: body.sizeBytes ?? null, viewUrl: null,
       createdAt: new Date().toISOString(), uploadedAt: null, moderatedAt: null, notes: null,
+      teamName: null, teamDescription: null,
     });
     return {
       data: {

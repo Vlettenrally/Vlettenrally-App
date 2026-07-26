@@ -30,8 +30,6 @@ public class PublicGalleryCache {
     /** The latest game's approved pictures as public DTOs, cached for the configured TTL. */
     @CacheResult(cacheName = "public-latest-gallery")
     public List<PublicPictureResponse> latestApprovedGallery() {
-        return pictureService.findApprovedForLatestGame().stream()
-            .map(p -> PublicPictureResponse.from(p, pictureService.viewUrlFor(p)))
-            .toList();
+        return pictureService.toPublicResponses(pictureService.findApprovedForLatestGame());
     }
 }

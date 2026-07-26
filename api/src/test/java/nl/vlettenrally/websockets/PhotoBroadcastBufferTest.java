@@ -83,6 +83,6 @@ class PhotoBroadcastBufferTest {
 
     private PublicPictureResponse pictureWithId(UUID id, String uploadedAt) {
         return new PublicPictureResponse(id, UUID.randomUUID(), "image/jpeg",
-            "https://storj.example/view/" + id, uploadedAt);
+            "https://storj.example/view/" + id, uploadedAt, "De Watervlooien", "Snelle en wendbare vlettenvaarders");
     }
 }

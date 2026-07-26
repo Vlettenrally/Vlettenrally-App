@@ -508,12 +508,16 @@ export interface Picture {
   uploadedAt: string | null;
   moderatedAt: string | null;
   notes: string | null;
+  /** Uploading team's name/description (the scouting group); null for admin uploads. */
+  teamName: string | null;
+  teamDescription: string | null;
 }
 
 /**
  * A minimal, public-safe projection of an approved picture, used by the players'
- * photowall. Deliberately omits moderation metadata (team, status, notes) so a shared
- * wall never leaks one team's moderation details to another.
+ * photowall. Attributes the photo to the uploading team (name/description) but omits
+ * moderation metadata (status, notes) so a shared wall never leaks one team's
+ * moderation details to another. Team fields are null for admin-uploaded photos.
  */
 export interface PublicPicture {
   id: string;
@@ -521,6 +525,8 @@ export interface PublicPicture {
   contentType: string | null;
   viewUrl: string | null;
   uploadedAt: string | null;
+  teamName: string | null;
+  teamDescription: string | null;
 }
 
 /**

@@ -24,7 +24,9 @@ import nl.vlettenrally.websockets.dto.WebSocketMessageType;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -344,8 +346,43 @@ public class PictureServiceImpl implements PictureService {
         return picture;
     }
 
-    private PictureResponse toResponse(Picture picture) {
-        return PictureResponse.from(picture, viewUrlFor(picture));
+    @Override
+    public PictureResponse toResponse(Picture picture) {
+        return PictureResponse.from(picture, viewUrlFor(picture), teamFor(picture.getTeamId()));
+    }
+
+    @Override
+    public List<PictureResponse> toResponses(List<Picture> pictures) {
+        Map<UUID, Optional<Team>> cache = new HashMap<>();
+        return pictures.stream()
+            .map(p -> PictureResponse.from(p, viewUrlFor(p), teamFor(p.getTeamId(), cache)))
+            .toList();
+    }
+
+    @Override
+    public PublicPictureResponse toPublicResponse(Picture picture) {
+        return PublicPictureResponse.from(picture, viewUrlFor(picture), teamFor(picture.getTeamId()));
+    }
+
+    @Override
+    public List<PublicPictureResponse> toPublicResponses(List<Picture> pictures) {
+        Map<UUID, Optional<Team>> cache = new HashMap<>();
+        return pictures.stream()
+            .map(p -> PublicPictureResponse.from(p, viewUrlFor(p), teamFor(p.getTeamId(), cache)))
+            .toList();
+    }
+
+    /** Resolve a (possibly null) team id to its team, or null. */
+    private Team teamFor(UUID teamId) {
+        return teamId != null ? teamRepository.findById(teamId).orElse(null) : null;
+    }
+
+    /** Resolve a team id via a memoized map so a list only looks up each distinct team once. */
+    private Team teamFor(UUID teamId, Map<UUID, Optional<Team>> cache) {
+        if (teamId == null) {
+            return null;
+        }
+        return cache.computeIfAbsent(teamId, id -> teamRepository.findById(id)).orElse(null);
     }
 
     /**
@@ -353,7 +390,7 @@ public class PictureServiceImpl implements PictureService {
      * projection so peers never receive another team's moderation metadata.
      */
     private void bufferForGallery(Picture picture) {
-        photoBroadcastBuffer.buffer(picture.getGameId(), PublicPictureResponse.from(picture, viewUrlFor(picture)));
+        photoBroadcastBuffer.buffer(picture.getGameId(), toPublicResponse(picture));
     }
 
     @Override

@@ -26,7 +26,6 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
@@ -95,7 +94,7 @@ class PictureResourceTest {
     void confirmUpload_returns200WithDto() {
         Picture uploaded = picture(PictureStatus.PENDING, Instant.now());
         when(pictureService.confirmUpload(teamId, pictureId)).thenReturn(uploaded);
-        when(pictureService.viewUrlFor(uploaded)).thenReturn("https://storj/view");
+        when(pictureService.toResponse(uploaded)).thenReturn(response(uploaded, "https://storj/view"));
 
         Response response = resource.confirmUpload(teamId, pictureId);
 
@@ -143,8 +142,9 @@ class PictureResourceTest {
 
     @Test
     void getAllPictures_filtersByStatus() {
-        when(pictureService.findByStatus(PictureStatus.APPROVED))
-            .thenReturn(List.of(picture(PictureStatus.APPROVED, Instant.now())));
+        Picture approved = picture(PictureStatus.APPROVED, Instant.now());
+        when(pictureService.findByStatus(PictureStatus.APPROVED)).thenReturn(List.of(approved));
+        when(pictureService.toResponses(List.of(approved))).thenReturn(List.of(response(approved, null)));
 
         Response response = resource.getAllPictures("approved", null);
 
@@ -166,15 +166,16 @@ class PictureResourceTest {
     void getPhotowall_returns200WithPublicProjection() {
         Picture approved = picture(PictureStatus.APPROVED, Instant.now());
         when(pictureService.findApprovedForTeamGame(teamId)).thenReturn(List.of(approved));
-        when(pictureService.viewUrlFor(approved)).thenReturn("https://storj/view");
+        when(pictureService.toPublicResponses(List.of(approved)))
+            .thenReturn(List.of(publicResponse(approved, "https://storj/view")));
 
         Response response = resource.getPhotowall(teamId);
 
         assertEquals(200, response.getStatus());
         List<?> body = assertInstanceOf(List.class, response.getEntity());
         assertEquals(1, body.size());
-        // A shared wall must not leak other teams' moderation metadata: the public
-        // projection carries only id/game/contentType/viewUrl/uploadedAt.
+        // A shared wall carries team attribution (name/description) but not other teams'
+        // moderation metadata (status, notes, moderator).
         PublicPictureResponse dto = assertInstanceOf(PublicPictureResponse.class, body.get(0));
         assertEquals(approved.getId(), dto.id());
         assertEquals("https://storj/view", dto.viewUrl());
@@ -200,7 +201,7 @@ class PictureResourceTest {
         Principal principal = adminId::toString;
         when(securityContext.getUserPrincipal()).thenReturn(principal);
         when(pictureService.approve(eq(pictureId), eq(adminId))).thenReturn(approved);
-        when(pictureService.viewUrlFor(approved)).thenReturn(null);
+        when(pictureService.toResponse(approved)).thenReturn(response(approved, null));
 
         Response response = resource.approvePicture(pictureId, securityContext);
 
@@ -216,7 +217,7 @@ class PictureResourceTest {
         Principal principal = adminId::toString;
         when(securityContext.getUserPrincipal()).thenReturn(principal);
         when(pictureService.reject(eq(pictureId), eq(adminId), eq("nope"))).thenReturn(rejected);
-        when(pictureService.viewUrlFor(any())).thenReturn(null);
+        when(pictureService.toResponse(rejected)).thenReturn(response(rejected, null));
 
         Response response = resource.rejectPicture(pictureId,
             new nl.vlettenrally.data.dto.picture.PictureRejectRequest("nope"), securityContext);
@@ -235,5 +236,13 @@ class PictureResourceTest {
         p.setObjectKey("teams/" + teamId + "/" + pictureId);
         p.setUploadedAt(uploadedAt);
         return p;
+    }
+
+    private PictureResponse response(Picture p, String viewUrl) {
+        return PictureResponse.from(p, viewUrl, null);
+    }
+
+    private PublicPictureResponse publicResponse(Picture p, String viewUrl) {
+        return PublicPictureResponse.from(p, viewUrl, null);
     }
 }

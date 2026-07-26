@@ -1,6 +1,7 @@
 package nl.vlettenrally.api.v1;
 
 import nl.vlettenrally.data.domain.Picture;
+import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.dto.picture.PublicPictureResponse;
 import nl.vlettenrally.data.enums.PictureStatus;
 import nl.vlettenrally.service.PictureService;
@@ -32,11 +33,12 @@ class PublicGalleryResourceTest {
     @InjectMocks PublicGalleryResource resource;
 
     @Test
-    void approvedForGame_mapsToPublicDtoWithViewUrl() {
+    void approvedForGame_mapsToPublicDtoWithTeamAndViewUrl() {
         UUID gameId = UUID.randomUUID();
         Picture p = picture(gameId);
         when(pictureService.findApprovedByGame(gameId)).thenReturn(List.of(p));
-        when(pictureService.viewUrlFor(p)).thenReturn("https://storj/view");
+        when(pictureService.toPublicResponses(List.of(p)))
+            .thenReturn(List.of(dtoWithTeam(p, "https://storj/view")));
 
         Response response = resource.approvedForGame(gameId);
 
@@ -46,11 +48,14 @@ class PublicGalleryResourceTest {
         assertEquals(p.getId(), dto.id());
         assertEquals(gameId, dto.gameId());
         assertEquals("https://storj/view", dto.viewUrl());
+        // The public projection now attributes the photo to the uploading team.
+        assertEquals("De Watervlooien", dto.teamName());
+        assertEquals("Snelle en wendbare vlettenvaarders", dto.teamDescription());
     }
 
     @Test
     void approvedForLatestGame_returnsCachedGallery() {
-        PublicPictureResponse dto = PublicPictureResponse.from(picture(UUID.randomUUID()), null);
+        PublicPictureResponse dto = PublicPictureResponse.from(picture(UUID.randomUUID()), null, null);
         when(galleryCache.latestApprovedGallery()).thenReturn(List.of(dto));
 
         Response response = resource.approvedForLatestGame();
@@ -63,13 +68,21 @@ class PublicGalleryResourceTest {
     void allApproved_queriesByApprovedStatus() {
         Picture p = picture(UUID.randomUUID());
         when(pictureService.findByStatus(PictureStatus.APPROVED)).thenReturn(List.of(p));
-        when(pictureService.viewUrlFor(p)).thenReturn(null);
+        when(pictureService.toPublicResponses(List.of(p)))
+            .thenReturn(List.of(PublicPictureResponse.from(p, null, null)));
 
         Response response = resource.allApproved();
 
         assertEquals(200, response.getStatus());
         List<?> body = assertInstanceOf(List.class, response.getEntity());
         assertInstanceOf(PublicPictureResponse.class, body.getFirst());
+    }
+
+    private PublicPictureResponse dtoWithTeam(Picture p, String viewUrl) {
+        Team team = new Team();
+        team.setName("De Watervlooien");
+        team.setDescription("Snelle en wendbare vlettenvaarders");
+        return PublicPictureResponse.from(p, viewUrl, team);
     }
 
     private Picture picture(UUID gameId) {

@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.UUID;
 
 import nl.vlettenrally.data.domain.Picture;
+import nl.vlettenrally.data.dto.picture.PictureResponse;
+import nl.vlettenrally.data.dto.picture.PublicPictureResponse;
 import nl.vlettenrally.data.enums.PictureStatus;
 
 /**
@@ -127,6 +129,24 @@ public interface PictureService {
 
     /** Configured list of allowed content types. */
     List<String> allowedContentTypes();
+
+    /**
+     * Build the admin/team-own response for a picture, resolving its owning team (for
+     * name/description) and a fresh view URL. Team fields are null for admin uploads.
+     */
+    PictureResponse toResponse(Picture picture);
+
+    /** Batch variant of {@link #toResponse}; resolves each distinct team at most once. */
+    List<PictureResponse> toResponses(List<Picture> pictures);
+
+    /**
+     * Build the minimal public-gallery response for a picture, attributing it to the uploading
+     * team by name/description (null for admin uploads).
+     */
+    PublicPictureResponse toPublicResponse(Picture picture);
+
+    /** Batch variant of {@link #toPublicResponse}; resolves each distinct team at most once. */
+    List<PublicPictureResponse> toPublicResponses(List<Picture> pictures);
 
     /** Result of {@link #requestUpload}. */
     record UploadTicket(Picture picture, String uploadUrl, Instant expiresAt) {}

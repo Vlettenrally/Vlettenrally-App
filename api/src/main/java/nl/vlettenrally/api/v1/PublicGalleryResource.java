@@ -10,7 +10,6 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import nl.vlettenrally.api.security.PublicEndpointToken;
 import nl.vlettenrally.data.domain.Picture;
-import nl.vlettenrally.data.dto.picture.PublicPictureResponse;
 import nl.vlettenrally.data.enums.PictureStatus;
 import nl.vlettenrally.service.PictureService;
 
@@ -70,9 +69,6 @@ public class PublicGalleryResource {
     }
 
     private Response pictures(List<Picture> pics) {
-        List<PublicPictureResponse> body = pics.stream()
-            .map(p -> PublicPictureResponse.from(p, pictureService.viewUrlFor(p)))
-            .toList();
-        return Response.ok(body).build();
+        return Response.ok(pictureService.toPublicResponses(pics)).build();
     }
 }

@@ -20,10 +20,8 @@ import nl.vlettenrally.api.security.TeamScopedOrAdmin;
 import nl.vlettenrally.data.domain.Picture;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
 import nl.vlettenrally.data.dto.picture.PictureRejectRequest;
-import nl.vlettenrally.data.dto.picture.PictureResponse;
 import nl.vlettenrally.data.dto.picture.PictureUploadRequest;
 import nl.vlettenrally.data.dto.picture.PictureUploadResponse;
-import nl.vlettenrally.data.dto.picture.PublicPictureResponse;
 import nl.vlettenrally.data.enums.PictureStatus;
 import nl.vlettenrally.service.PictureException;
 import nl.vlettenrally.service.PictureService;
@@ -91,7 +89,7 @@ public class PictureResource {
     @TeamScoped
     public Response confirmUpload(@PathParam("teamId") UUID teamId, @PathParam("pictureId") UUID pictureId) {
         try {
-            return Response.ok(toDto(pictureService.confirmUpload(teamId, pictureId))).build();
+            return Response.ok(pictureService.toResponse(pictureService.confirmUpload(teamId, pictureId))).build();
         } catch (PictureException e) {
             return error(e);
         }
@@ -105,7 +103,7 @@ public class PictureResource {
     @RolesAllowed({SecurityRoles.STAFF, SecurityRoles.TEAM})
     @TeamScopedOrAdmin
     public Response getTeamPictures(@PathParam("teamId") UUID teamId) {
-        return Response.ok(pictureService.findByTeamId(teamId).stream().map(this::toDto).toList()).build();
+        return Response.ok(pictureService.toResponses(pictureService.findByTeamId(teamId))).build();
     }
 
     /**
@@ -123,9 +121,7 @@ public class PictureResource {
     public Response getPhotowall(@PathParam("teamId") UUID teamId) {
         try {
             return Response.ok(
-                pictureService.findApprovedForTeamGame(teamId).stream()
-                    .map(p -> PublicPictureResponse.from(p, pictureService.viewUrlFor(p)))
-                    .toList()
+                pictureService.toPublicResponses(pictureService.findApprovedForTeamGame(teamId))
             ).build();
         } catch (PictureException e) {
             return error(e);
@@ -190,7 +186,7 @@ public class PictureResource {
                    SecurityRoles.MESSAGE_SENDER, SecurityRoles.CHECKPOINT_MANAGER, SecurityRoles.RALLY_DESK})
     public Response confirmAdminUpload(@PathParam("pictureId") UUID pictureId, @Context SecurityContext securityContext) {
         try {
-            return Response.ok(toDto(pictureService.confirmAdminUpload(pictureId, adminId(securityContext)))).build();
+            return Response.ok(pictureService.toResponse(pictureService.confirmAdminUpload(pictureId, adminId(securityContext)))).build();
         } catch (PictureException e) {
             return error(e);
         }
@@ -206,7 +202,7 @@ public class PictureResource {
         List<Picture> pictures = gameId != null
             ? pictureService.findByStatusAndGame(PictureStatus.APPROVED, gameId)
             : pictureService.findByStatus(PictureStatus.APPROVED);
-        return Response.ok(pictures.stream().map(this::toDto).toList()).build();
+        return Response.ok(pictureService.toResponses(pictures)).build();
     }
 
     /**
@@ -219,7 +215,7 @@ public class PictureResource {
         List<Picture> pictures = gameId != null
             ? pictureService.findReadyForModerationByGame(gameId)
             : pictureService.findReadyForModeration();
-        return Response.ok(pictures.stream().map(this::toDto).toList()).build();
+        return Response.ok(pictureService.toResponses(pictures)).build();
     }
 
     /**
@@ -247,7 +243,7 @@ public class PictureResource {
                 ? pictureService.findAllByGame(gameId)
                 : pictureService.findAll();
         }
-        return Response.ok(pictures.stream().map(this::toDto).toList()).build();
+        return Response.ok(pictureService.toResponses(pictures)).build();
     }
 
     /**
@@ -258,7 +254,7 @@ public class PictureResource {
     @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER, SecurityRoles.RALLY_DESK})
     public Response approvePicture(@PathParam("pictureId") UUID pictureId, @Context SecurityContext securityContext) {
         try {
-            return Response.ok(toDto(pictureService.approve(pictureId, adminId(securityContext)))).build();
+            return Response.ok(pictureService.toResponse(pictureService.approve(pictureId, adminId(securityContext)))).build();
         } catch (PictureException e) {
             return error(e);
         }
@@ -274,7 +270,7 @@ public class PictureResource {
                                   @Context SecurityContext securityContext) {
         String notes = request != null ? request.notes() : null;
         try {
-            return Response.ok(toDto(pictureService.reject(pictureId, adminId(securityContext), notes))).build();
+            return Response.ok(pictureService.toResponse(pictureService.reject(pictureId, adminId(securityContext), notes))).build();
         } catch (PictureException e) {
             return error(e);
         }
@@ -290,9 +286,5 @@ public class PictureResource {
 
     private Response error(PictureException e) {
         return Response.status(e.getStatusCode()).entity(new ErrorResponse(e.getMessage())).build();
-    }
-
-    private PictureResponse toDto(Picture p) {
-        return PictureResponse.from(p, pictureService.viewUrlFor(p));
     }
 }

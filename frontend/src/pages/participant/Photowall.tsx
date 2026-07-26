@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Box,
   Card,
+  CardContent,
   CircularProgress,
   Container,
   Dialog,
@@ -165,6 +166,24 @@ export default function Photowall() {
                     alt={t('participant.photowall.photoAlt')}
                     onClick={() => setLightboxUrl(picture.viewUrl!)}
                   />
+                  {picture.teamName && (
+                    <CardContent sx={{ py: 1, px: 1.5, '&:last-child': { pb: 1 } }}>
+                      <Typography variant="subtitle2" noWrap title={picture.teamName}>
+                        {picture.teamName}
+                      </Typography>
+                      {picture.teamDescription && (
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          noWrap
+                          display="block"
+                          title={picture.teamDescription}
+                        >
+                          {picture.teamDescription}
+                        </Typography>
+                      )}
+                    </CardContent>
+                  )}
                 </Card>
               </Fade>
             ))}

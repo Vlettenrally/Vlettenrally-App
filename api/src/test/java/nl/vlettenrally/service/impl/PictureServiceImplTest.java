@@ -72,6 +72,7 @@ class PictureServiceImplTest {
         team.setId(teamId);
         team.setGameId(gameId);
         team.setName("De Watervlooien");
+        team.setDescription("Snelle en wendbare vlettenvaarders");
     }
 
     // ==================== requestUpload ====================
@@ -306,6 +307,45 @@ class PictureServiceImplTest {
         PictureException ex = assertThrows(PictureException.class,
             () -> service.reject(id, UUID.randomUUID(), "x"));
         assertEquals(404, ex.getStatusCode());
+    }
+
+    // ==================== response mapping (team attribution) ====================
+
+    @Test
+    void toPublicResponse_attributesToUploadingTeam() {
+        Picture p = uploaded();
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+
+        var dto = service.toPublicResponse(p);
+
+        assertEquals("De Watervlooien", dto.teamName());
+        assertEquals("Snelle en wendbare vlettenvaarders", dto.teamDescription());
+    }
+
+    @Test
+    void toResponse_adminUpload_hasNullTeamFields() {
+        Picture adminPic = uploaded();
+        adminPic.setTeamId(null); // admin uploads have no owning team
+
+        var dto = service.toResponse(adminPic);
+
+        assertNull(dto.teamName());
+        assertNull(dto.teamDescription());
+        verify(teamRepository, never()).findById(any());
+    }
+
+    @Test
+    void toPublicResponses_resolvesEachTeamOnce() {
+        Picture a = uploaded();
+        Picture b = uploaded();
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+
+        var dtos = service.toPublicResponses(List.of(a, b));
+
+        assertEquals(2, dtos.size());
+        assertTrue(dtos.stream().allMatch(d -> "De Watervlooien".equals(d.teamName())));
+        // Both pictures share a team, so it is looked up exactly once.
+        verify(teamRepository).findById(teamId);
     }
 
     // ==================== viewUrlFor ====================

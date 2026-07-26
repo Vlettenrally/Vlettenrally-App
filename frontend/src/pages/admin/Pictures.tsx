@@ -9,6 +9,7 @@ import {
   Button,
   Card,
   CardActions,
+  CardContent,
   Chip,
   CircularProgress,
   Container,
@@ -273,6 +274,24 @@ export default function AdminPictures() {
                     color={STATUS_COLORS[picture.status]}
                   />
                 </Box>
+                {picture.teamName && (
+                  <CardContent sx={{ py: 1, px: 1.5, '&:last-child': { pb: 1 } }}>
+                    <Typography variant="subtitle2" noWrap title={picture.teamName}>
+                      {picture.teamName}
+                    </Typography>
+                    {picture.teamDescription && (
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        noWrap
+                        display="block"
+                        title={picture.teamDescription}
+                      >
+                        {picture.teamDescription}
+                      </Typography>
+                    )}
+                  </CardContent>
+                )}
                 {tab !== 'APPROVED' && (
                   <CardActions sx={{ justifyContent: 'space-between' }}>
                     <Button

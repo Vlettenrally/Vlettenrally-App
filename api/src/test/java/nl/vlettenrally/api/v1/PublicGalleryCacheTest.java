@@ -40,7 +40,8 @@ class PublicGalleryCacheTest {
         p.setContentType("image/jpeg");
         p.setUploadedAt(Instant.now());
         when(pictureService.findApprovedForLatestGame()).thenReturn(List.of(p));
-        when(pictureService.viewUrlFor(p)).thenReturn("https://storj/view");
+        when(pictureService.toPublicResponses(List.of(p)))
+            .thenReturn(List.of(PublicPictureResponse.from(p, "https://storj/view", null)));
 
         List<PublicPictureResponse> result = cache.latestApprovedGallery();
 
