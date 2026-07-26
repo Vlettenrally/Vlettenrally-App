@@ -22,6 +22,7 @@ import nl.vlettenrally.data.dto.common.ErrorResponse;
 import nl.vlettenrally.data.dto.picture.PictureRejectRequest;
 import nl.vlettenrally.data.dto.picture.PictureUploadRequest;
 import nl.vlettenrally.data.dto.picture.PictureUploadResponse;
+import nl.vlettenrally.data.dto.picture.PublicPictureResponse;
 import nl.vlettenrally.data.enums.PictureStatus;
 import nl.vlettenrally.service.PictureException;
 import nl.vlettenrally.service.PictureService;
