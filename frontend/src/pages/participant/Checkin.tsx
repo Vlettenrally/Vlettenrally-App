@@ -296,6 +296,17 @@ export function CheckInPage() {
   // Entry: Show welcome screen for first-time users, then proceed to install-app or check-in.
   useEffect(() => {
     const hasInvite = parseInviteCode(searchParams.get('invite'));
+
+    // Resume an interrupted check-in (details still pending) straight where it left
+    // off, unless a fresh invite takes precedence. If nothing resumable is stored,
+    // fall through to the normal entry flow.
+    if (!hasInvite && !storage.isCheckInComplete()) {
+      void resumePendingCheckIn().then((resumed) => {
+        if (!resumed) beginCheckIn();
+      });
+      return;
+    }
+
     const hasSeenWelcome = localStorage.getItem('vlettenrally_welcome_seen');
     const isReturningUser = localStorage.getItem('vlettenrally_device_id');
 
@@ -401,6 +412,11 @@ export function CheckInPage() {
       storage.setGameId(teamGameId);
     }
 
+    // Gate app access on the server's per-device details state: registration has
+    // already persisted teamId/gameId above, so without this the route guard would
+    // admit a device that has not yet submitted its required details.
+    storage.setCheckInComplete(response.detailsSubmitted);
+
     if (response.detailsSubmitted) {
       setStep('permissions');
     } else if (response.isMainDevice) {
@@ -409,6 +425,43 @@ export function CheckInPage() {
       setStep('wait');
     }
   }, [persistTeamData, setDeviceId]);
+
+  /**
+   * Resume an interrupted check-in. A device that registered but has not yet
+   * submitted its required details (isCheckInComplete() === false) is bounced back
+   * to /check-in by the route guard — e.g. after the browser back button left the
+   * details step. Re-run the idempotent registration so applyRegisterResponse drops
+   * the user straight back on the right step (details / wait / permissions), skipping
+   * the game/team/nickname pickers. Returns false (so the caller falls back to the
+   * normal entry flow) if the stored team or nickname needed to resume is missing.
+   */
+  const resumePendingCheckIn = useCallback(async (): Promise<boolean> => {
+    const teamData = storage.getTeamData() as PlayerTeam | null;
+    const savedNickname = storedNickname.trim();
+    if (!teamData?.id || !teamData.gameId || savedNickname.length === 0) {
+      return false;
+    }
+    setResolvedTeam({ id: teamData.id, gameId: teamData.gameId, name: teamData.name });
+    setSelectedGameId(teamData.gameId);
+    setStep('loading');
+    try {
+      const response = await api.registerCheckInDevice({
+        gameId: teamData.gameId,
+        teamId: teamData.id,
+        deviceId: deviceId ?? null,
+        nickname: savedNickname,
+        inviteToken: null,
+      });
+      if (response.error || !response.data) {
+        return false;
+      }
+      await applyRegisterResponse(response.data, teamData.gameId, teamData.id);
+      return true;
+    } catch (err) {
+      console.error('resume check-in error:', err);
+      return false;
+    }
+  }, [storedNickname, deviceId, applyRegisterResponse]);
 
   // Pre-render the Traccar config as a QR the app can scan to configure itself.
   useEffect(() => {
@@ -515,6 +568,7 @@ export function CheckInPage() {
         setFormError(t('participant.checkin.checkinFailed'));
         return;
       }
+      storage.setCheckInComplete(true);
       const teamResponse = await api.getMyTeam();
       if (teamResponse.data) {
         persistTeamData(teamResponse.data as PlayerTeam);
@@ -584,6 +638,7 @@ export function CheckInPage() {
     if (step !== 'wait' || !resolvedTeam) return;
 
     const unsubmitted = subscribe(WebSocketEventType.CHECKIN_DETAILS_SUBMITTED, () => {
+      storage.setCheckInComplete(true);
       setStep('permissions');
     });
     const unreset = subscribe(WebSocketEventType.CHECKIN_RESET, () => {
@@ -633,6 +688,7 @@ export function CheckInPage() {
       const state: CheckInState = response.data;
       setMainDeviceNickname(state.mainDeviceNickname);
       if (state.detailsSubmitted) {
+        storage.setCheckInComplete(true);
         setStep('permissions');
         return;
       }

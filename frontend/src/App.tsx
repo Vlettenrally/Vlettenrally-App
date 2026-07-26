@@ -200,9 +200,10 @@ function MockModeLauncher() {
  * Route guard for team/participant routes
  */
 function TeamRoute({ children }: Readonly<{ children: ReactNode }>) {
-  const isCheckedIn = storage.isCheckedIn();
-
-  if (!isCheckedIn) {
+  // isCheckedIn() opens as soon as registration persists teamId/gameId, which is a
+  // step before required details are submitted; isCheckInComplete() closes that gap
+  // so leaving /check-in early (e.g. the browser back button) can't reach the app.
+  if (!storage.isCheckedIn() || !storage.isCheckInComplete()) {
     return <Navigate to="/check-in" replace />;
   }
 
@@ -324,7 +325,7 @@ function RootRedirect() {
 
     if (role === 'admin') {
       navigate('/admin/map', { replace: true });
-    } else if (storage.isCheckedIn()) {
+    } else if (storage.isCheckedIn() && storage.isCheckInComplete()) {
       navigate('/dashboard', { replace: true });
     } else {
       navigate('/check-in', { replace: true });

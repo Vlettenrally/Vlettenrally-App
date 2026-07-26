@@ -13,6 +13,7 @@ const STORAGE_KEYS = {
   REFRESH_TOKEN: 'refresh_token',
   TEAM_ID: 'team_id',
   GAME_ID: 'game_id',
+  CHECK_IN_COMPLETE: 'check_in_complete',
   TEAM_DATA: 'team_data',
   MESSAGES: 'messages',
   PREFERENCES: 'preferences',
@@ -175,6 +176,31 @@ class StorageService {
     return !!(this.getTeamId() && this.getGameId());
   }
 
+  // Digital check-in completion flag. Registration persists teamId/gameId one step
+  // *before* required details are submitted, so isCheckedIn() alone would let a
+  // device that skipped the details step (e.g. via the browser back button) into
+  // the app. This flag mirrors the server's per-device `detailsSubmitted`.
+  getCheckInComplete(): boolean | null {
+    return this.getItem<boolean>(STORAGE_KEYS.CHECK_IN_COMPLETE);
+  }
+
+  setCheckInComplete(complete: boolean): void {
+    this.setItem(STORAGE_KEYS.CHECK_IN_COMPLETE, complete);
+  }
+
+  removeCheckInComplete(): void {
+    this.removeItem(STORAGE_KEYS.CHECK_IN_COMPLETE);
+  }
+
+  // True unless a registration explicitly marked details as pending. Defaults to
+  // true when the key is absent for backward compatibility: sessions completed
+  // before this flag existed have teamId/gameId but no flag and must not be
+  // bounced out. New registrations always write the flag, so an absent flag can
+  // only mean a legacy completed session.
+  isCheckInComplete(): boolean {
+    return this.getCheckInComplete() !== false;
+  }
+
   // User role
   getUserRole(): UserRole | null {
     return this.getItem<UserRole>(STORAGE_KEYS.USER_ROLE);
@@ -265,6 +291,7 @@ class StorageService {
     this.removeRefreshToken();
     this.removeTeamId();
     this.removeGameId();
+    this.removeCheckInComplete();
     this.removeTeamData();
     this.removeUserRole();
     this.removeUserRoles();
