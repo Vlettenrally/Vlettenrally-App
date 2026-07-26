@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Box,
@@ -12,6 +12,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TableSortLabel,
   Paper,
   IconButton,
   Dialog,
@@ -43,6 +44,12 @@ import AutomationExecutionsDialog from '../../components/AutomationExecutionsDia
 import CopyAutomationsDialog from '../../components/CopyAutomationsDialog';
 import type { AutomationAction, AutomationRule } from '../../types/entities';
 
+type SortColumn = 'name' | 'trigger' | 'teams' | 'active' | 'lastFired';
+type SortOrder = 'asc' | 'desc';
+
+const compareByName = (a: AutomationRule, b: AutomationRule) =>
+  a.name.localeCompare(b.name, 'nl', { sensitivity: 'base' });
+
 export default function Automations() {
   const { t } = useTranslation();
   const selectedGameId = useGameStore((s) => s.selectedGameId);
@@ -57,6 +64,27 @@ export default function Automations() {
     SPEED_ALERT: t('components.automationForm.triggerSpeedAlert'),
     TEAM_CHECK_IN: t('components.automationForm.triggerTeamCheckIn'),
   };
+
+  function compareRules(a: AutomationRule, b: AutomationRule, column: SortColumn): number {
+    switch (column) {
+      case 'name':
+        return compareByName(a, b);
+      case 'trigger':
+        return TRIGGER_LABELS[a.triggerType].localeCompare(
+          TRIGGER_LABELS[b.triggerType],
+          'nl',
+          { sensitivity: 'base' },
+        );
+      case 'teams':
+        return (a.targetTeamIds?.length ?? 0) - (b.targetTeamIds?.length ?? 0);
+      case 'active':
+        return Number(a.enabled) - Number(b.enabled);
+      case 'lastFired':
+        return (
+          new Date(a.lastFiredAt ?? 0).getTime() - new Date(b.lastFiredAt ?? 0).getTime()
+        );
+    }
+  }
 
   /** "om 17:00" / "bij einde" / "30 min voor start" */
   function describeTimeSpec(config: AutomationRule['triggerConfig']): string {
@@ -125,6 +153,8 @@ export default function Automations() {
   }
 
   const [rules, setRules] = useState<AutomationRule[]>([]);
+  const [orderBy, setOrderBy] = useState<SortColumn>('name');
+  const [order, setOrder] = useState<SortOrder>('asc');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -179,6 +209,24 @@ export default function Automations() {
     });
     return () => unsubscribe();
   }, [selectedGameId, fetchRules]);
+
+  const handleSort = (column: SortColumn) => {
+    if (orderBy === column) {
+      setOrder(order === 'asc' ? 'desc' : 'asc');
+    } else {
+      setOrderBy(column);
+      setOrder('asc');
+    }
+  };
+
+  const sortedRules = useMemo(() => {
+    const sign = order === 'asc' ? 1 : -1;
+    return [...rules].sort(
+      (a, b) => sign * compareRules(a, b, orderBy) || compareByName(a, b),
+    );
+    // compareRules closes over the translated TRIGGER_LABELS; rules/orderBy/order drive re-sort.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rules, orderBy, order]);
 
   const handleToggleEnabled = async (rule: AutomationRule, enabled: boolean) => {
     if (!selectedGameId) return;
@@ -277,17 +325,57 @@ export default function Automations() {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell><strong>{t('admin.automations.columnName')}</strong></TableCell>
-                <TableCell><strong>{t('admin.automations.columnTrigger')}</strong></TableCell>
+                <TableCell sortDirection={orderBy === 'name' ? order : false}>
+                  <TableSortLabel
+                    active={orderBy === 'name'}
+                    direction={orderBy === 'name' ? order : 'asc'}
+                    onClick={() => handleSort('name')}
+                  >
+                    <strong>{t('admin.automations.columnName')}</strong>
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sortDirection={orderBy === 'trigger' ? order : false}>
+                  <TableSortLabel
+                    active={orderBy === 'trigger'}
+                    direction={orderBy === 'trigger' ? order : 'asc'}
+                    onClick={() => handleSort('trigger')}
+                  >
+                    <strong>{t('admin.automations.columnTrigger')}</strong>
+                  </TableSortLabel>
+                </TableCell>
                 <TableCell><strong>{t('admin.automations.columnActions')}</strong></TableCell>
-                <TableCell><strong>{t('admin.automations.columnTeams')}</strong></TableCell>
-                <TableCell><strong>{t('admin.automations.columnActive')}</strong></TableCell>
-                <TableCell><strong>{t('admin.automations.columnLastFired')}</strong></TableCell>
+                <TableCell sortDirection={orderBy === 'teams' ? order : false}>
+                  <TableSortLabel
+                    active={orderBy === 'teams'}
+                    direction={orderBy === 'teams' ? order : 'asc'}
+                    onClick={() => handleSort('teams')}
+                  >
+                    <strong>{t('admin.automations.columnTeams')}</strong>
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sortDirection={orderBy === 'active' ? order : false}>
+                  <TableSortLabel
+                    active={orderBy === 'active'}
+                    direction={orderBy === 'active' ? order : 'asc'}
+                    onClick={() => handleSort('active')}
+                  >
+                    <strong>{t('admin.automations.columnActive')}</strong>
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sortDirection={orderBy === 'lastFired' ? order : false}>
+                  <TableSortLabel
+                    active={orderBy === 'lastFired'}
+                    direction={orderBy === 'lastFired' ? order : 'asc'}
+                    onClick={() => handleSort('lastFired')}
+                  >
+                    <strong>{t('admin.automations.columnLastFired')}</strong>
+                  </TableSortLabel>
+                </TableCell>
                 <TableCell align="right"><strong>{t('admin.automations.columnManage')}</strong></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {rules.map((rule) => (
+              {sortedRules.map((rule) => (
                 <TableRow key={rule.id} hover>
                   <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
