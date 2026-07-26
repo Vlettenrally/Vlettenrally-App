@@ -118,9 +118,13 @@ export default function Automations() {
       case 'SCHEDULED_TIME':
         return describeTimeSpec(config);
       case 'CHECKPOINT_ENTRY': {
-        const base = config.checkpointId
-          ? t('admin.automations.descCheckpointOne')
-          : t('admin.automations.descCheckpointAll');
+        const ids = config.checkpointIds ?? [];
+        const base =
+          ids.length === 0
+            ? t('admin.automations.descCheckpointAll')
+            : ids.length === 1
+              ? t('admin.automations.descCheckpointOne')
+              : t('admin.automations.descCheckpointMany', { count: ids.length });
         if (!config.comparison) return base;
         return config.comparison === 'BEFORE'
           ? t('admin.automations.descCheckpointTimeBefore', { base, time: describeTimeSpec(config) })

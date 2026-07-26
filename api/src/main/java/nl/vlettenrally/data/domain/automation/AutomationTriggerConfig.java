@@ -15,10 +15,13 @@ import java.util.UUID;
  * and is enforced by AutomationService validation:
  *
  * <ul>
- *   <li>CHECKPOINT_ENTRY — {@code checkpointId} (null = any checkpoint).
- *       When firing on any checkpoint, {@code excludedCheckpointIds} is an
- *       optional blocklist of checkpoints to skip (only meaningful while
- *       {@code checkpointId} is null). Optionally {@code comparison} + the time
+ *   <li>CHECKPOINT_ENTRY — {@code checkpointIds} is the set of checkpoints the
+ *       rule fires for; an empty/null set means "any checkpoint". {@code
+ *       checkpointId} is the legacy single-checkpoint field kept for reading
+ *       older stored rules; {@link #effectiveCheckpointIds()} folds it into the
+ *       set. When firing on any checkpoint, {@code excludedCheckpointIds} is an
+ *       optional blocklist of checkpoints to skip (only meaningful while the
+ *       effective set is empty). Optionally {@code comparison} + the time
  *       fields below restrict firing to passes BEFORE/AFTER a boundary time
  *       (e.g. finish-zone bonus for arriving before a deadline, or a penalty
  *       for arriving after); the boundary uses the same ABSOLUTE/RELATIVE shape
@@ -46,7 +49,8 @@ public record AutomationTriggerConfig(
     Integer pointsPer100m,
     PassComparison comparison,
     List<UUID> excludedCheckpointIds,
-    Integer speedThresholdKmh
+    Integer speedThresholdKmh,
+    List<UUID> checkpointIds
 ) {
     /**
      * Backwards-compatible constructor for call sites that predate {@code speedThresholdKmh}.
@@ -55,7 +59,7 @@ public record AutomationTriggerConfig(
             RelativeAnchor relativeTo, Integer offsetMinutes, Game.GameStatus toStatus,
             Integer inactiveMinutes, Integer pointsPer100m, PassComparison comparison) {
         this(checkpointId, mode, absoluteTime, relativeTo, offsetMinutes, toStatus,
-                inactiveMinutes, pointsPer100m, comparison, null, null);
+                inactiveMinutes, pointsPer100m, comparison, null, null, null);
     }
 
     /**
@@ -67,7 +71,33 @@ public record AutomationTriggerConfig(
             Integer inactiveMinutes, Integer pointsPer100m, PassComparison comparison,
             List<UUID> excludedCheckpointIds) {
         this(checkpointId, mode, absoluteTime, relativeTo, offsetMinutes, toStatus,
-                inactiveMinutes, pointsPer100m, comparison, excludedCheckpointIds, null);
+                inactiveMinutes, pointsPer100m, comparison, excludedCheckpointIds, null, null);
+    }
+
+    /**
+     * Backwards-compatible constructor for call sites that predate {@code checkpointIds}
+     * (the multi-checkpoint set). Delegates with {@code checkpointIds = null}.
+     */
+    public AutomationTriggerConfig(UUID checkpointId, ScheduleMode mode, Instant absoluteTime,
+            RelativeAnchor relativeTo, Integer offsetMinutes, Game.GameStatus toStatus,
+            Integer inactiveMinutes, Integer pointsPer100m, PassComparison comparison,
+            List<UUID> excludedCheckpointIds, Integer speedThresholdKmh) {
+        this(checkpointId, mode, absoluteTime, relativeTo, offsetMinutes, toStatus,
+                inactiveMinutes, pointsPer100m, comparison, excludedCheckpointIds,
+                speedThresholdKmh, null);
+    }
+
+    /**
+     * The set of checkpoints a CHECKPOINT_ENTRY rule fires for. Prefers the
+     * multi-checkpoint {@code checkpointIds}; falls back to the legacy single
+     * {@code checkpointId}; an empty result means "any checkpoint" (subject to
+     * {@code excludedCheckpointIds}).
+     */
+    public List<UUID> effectiveCheckpointIds() {
+        if (checkpointIds != null && !checkpointIds.isEmpty()) {
+            return checkpointIds;
+        }
+        return checkpointId != null ? List.of(checkpointId) : List.of();
     }
 
     public enum ScheduleMode { ABSOLUTE, RELATIVE }

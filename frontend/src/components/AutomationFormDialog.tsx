@@ -203,6 +203,10 @@ export default function AutomationFormDialog({
       triggerType,
       triggerConfig: {
         ...config,
+        // Rules use `checkpointIds` (existing data was normalised by migration V79);
+        // never write the legacy single-checkpoint / exclusion fields back.
+        checkpointId: undefined,
+        excludedCheckpointIds: undefined,
         absoluteTime: config.absoluteTime ? new Date(config.absoluteTime).toISOString() : undefined,
       },
       actions: isDistance ? [] : actions,
@@ -320,13 +324,20 @@ export default function AutomationFormDialog({
   // fires while the checkpoint is open). Shows the concrete window for a specific
   // checkpoint, or a generic note when firing on any checkpoint.
   const renderCheckpointWindowNotice = () => {
-    if (config.checkpointId) {
-      const cp = checkpoints.find((c) => c.id === config.checkpointId);
-      const window = cp ? checkpointWindow(cp) : null;
-      if (!window) return null;
+    const selectedIds = config.checkpointIds ?? [];
+    if (selectedIds.length > 0) {
+      const withWindows = checkpoints
+        .filter((cp) => selectedIds.includes(cp.id))
+        .map((cp) => ({ cp, window: checkpointWindow(cp) }))
+        .filter((entry): entry is { cp: Checkpoint; window: string } => entry.window !== null);
+      if (withWindows.length === 0) return null;
       return (
         <Alert severity="info">
-          {t('components.automationForm.windowNoticeSpecific', { window })}
+          {withWindows.map(({ cp, window }) => (
+            <div key={cp.id}>
+              {t('components.automationForm.windowNoticeSpecificNamed', { name: cp.name, window })}
+            </div>
+          ))}
         </Alert>
       );
     }
@@ -341,51 +352,47 @@ export default function AutomationFormDialog({
       case 'CHECKPOINT_ENTRY':
         return (
           <>
-            <FormControl fullWidth>
-              <InputLabel>{t('components.automationForm.checkpoint')}</InputLabel>
-              <Select
-                label={t('components.automationForm.checkpoint')}
-                value={config.checkpointId ?? ''}
-                onChange={(e) =>
-                  setConfig({
-                    ...config,
-                    checkpointId: e.target.value || undefined,
-                    excludedCheckpointIds: e.target.value ? undefined : config.excludedCheckpointIds,
-                  })
-                }
-              >
-                <MenuItem value="">{t('components.automationForm.allCheckpoints')}</MenuItem>
-                {checkpoints.map((cp) => (
-                  <MenuItem key={cp.id} value={cp.id}>
-                    {cp.name}
-                  </MenuItem>
-                ))}
-              </Select>
-              <FormHelperText>{t('components.automationForm.checkpointHint')}</FormHelperText>
-            </FormControl>
-            {renderCheckpointWindowNotice()}
-            {!config.checkpointId && (
+            <Box>
               <Autocomplete
                 multiple
                 options={checkpoints}
                 getOptionLabel={(cp) => cp.name}
-                value={checkpoints.filter((cp) => (config.excludedCheckpointIds ?? []).includes(cp.id))}
+                value={checkpoints.filter((cp) => (config.checkpointIds ?? []).includes(cp.id))}
                 onChange={(_, value) =>
                   setConfig({
                     ...config,
-                    excludedCheckpointIds: value.length > 0 ? value.map((cp) => cp.id) : undefined,
+                    checkpointIds: value.length > 0 ? value.map((cp) => cp.id) : undefined,
                   })
                 }
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label={t('components.automationForm.excludedCheckpoints')}
-                    placeholder={t('components.automationForm.noExclusions')}
-                    helperText={t('components.automationForm.excludedHint')}
+                    label={t('components.automationForm.checkpoints')}
+                    placeholder={t('components.automationForm.allCheckpoints')}
+                    helperText={t('components.automationForm.checkpointsHint')}
                   />
                 )}
               />
-            )}
+              <Box sx={{ mt: 0.5, display: 'flex', gap: 1 }}>
+                <Button
+                  size="small"
+                  disabled={checkpoints.length === 0}
+                  onClick={() =>
+                    setConfig({ ...config, checkpointIds: checkpoints.map((cp) => cp.id) })
+                  }
+                >
+                  {t('components.automationForm.selectAllCheckpoints')}
+                </Button>
+                <Button
+                  size="small"
+                  disabled={!config.checkpointIds?.length}
+                  onClick={() => setConfig({ ...config, checkpointIds: undefined })}
+                >
+                  {t('components.automationForm.deselectAllCheckpoints')}
+                </Button>
+              </Box>
+            </Box>
+            {renderCheckpointWindowNotice()}
             <FormControl fullWidth>
               <InputLabel>{t('components.automationForm.timeCondition')}</InputLabel>
               <Select
@@ -396,7 +403,7 @@ export default function AutomationFormDialog({
                   setConfig(
                     comparison
                       ? { ...config, comparison, mode: config.mode ?? 'ABSOLUTE' }
-                      : { checkpointId: config.checkpointId, excludedCheckpointIds: config.excludedCheckpointIds }
+                      : { checkpointIds: config.checkpointIds }
                   );
                 }}
               >

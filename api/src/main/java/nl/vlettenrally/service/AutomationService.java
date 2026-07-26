@@ -226,6 +226,14 @@ public class AutomationService {
                         .filter(Objects::nonNull)
                         .toList();
 
+            // Remap each selected checkpoint to the target game, dropping any that don't match.
+            List<UUID> newCheckpointIds = config == null || config.checkpointIds() == null
+                    ? null
+                    : config.checkpointIds().stream()
+                        .map(id -> matchCheckpoint(id, targetCheckpoints).map(Checkpoint::getId).orElse(null))
+                        .filter(Objects::nonNull)
+                        .toList();
+
             // Shift an absolute schedule/finish time into the target timeframe.
             Instant newAbsolute = config != null ? config.absoluteTime() : null;
             if (config != null && config.mode() == AutomationTriggerConfig.ScheduleMode.ABSOLUTE
@@ -241,7 +249,7 @@ public class AutomationService {
                 newCheckpointId, config.mode(), newAbsolute, config.relativeTo(),
                 config.offsetMinutes(), config.toStatus(), config.inactiveMinutes(),
                 config.pointsPer100m(), config.comparison(), newExcludedCheckpointIds,
-                config.speedThresholdKmh()));
+                config.speedThresholdKmh(), newCheckpointIds));
             draft.setActions(new ArrayList<>(source.getActions()));
             draft.setTargetTeamIds(new ArrayList<>()); // team ids are game-specific
             draft.setFireOnce(source.isFireOnce());
@@ -365,6 +373,9 @@ public class AutomationService {
             case CHECKPOINT_ENTRY -> {
                 UUID checkpointId = config != null ? config.checkpointId() : null;
                 requireCheckpointInGame(checkpointId, rule.getGameId());
+                if (config != null && config.checkpointIds() != null) {
+                    config.checkpointIds().forEach(id -> requireCheckpointInGame(id, rule.getGameId()));
+                }
                 if (config != null && config.excludedCheckpointIds() != null) {
                     config.excludedCheckpointIds().forEach(id -> requireCheckpointInGame(id, rule.getGameId()));
                 }

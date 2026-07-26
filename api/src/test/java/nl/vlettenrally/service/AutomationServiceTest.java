@@ -161,6 +161,21 @@ class AutomationServiceTest {
     }
 
     @Test
+    void createRule_rejectsForeignCheckpointInSet() {
+        UUID foreignId = UUID.randomUUID();
+        CircleCheckpoint checkpoint = new CircleCheckpoint();
+        checkpoint.setId(foreignId);
+        checkpoint.setGameId(UUID.randomUUID()); // other game
+        when(checkpointRepository.findById(foreignId)).thenReturn(Optional.of(checkpoint));
+
+        AutomationRule draft = validDraft();
+        draft.setTriggerConfig(new AutomationTriggerConfig(null, null, null, null, null, null, null, null, null,
+            null, null, List.of(foreignId)));
+
+        assertThrows(BadRequestException.class, () -> service.createRule(gameId, draft, adminId));
+    }
+
+    @Test
     void createRule_rejectsForeignTargetTeam() {
         Team ownTeam = new Team();
         ownTeam.setId(UUID.randomUUID());
@@ -519,6 +534,29 @@ class AutomationServiceTest {
 
         assertEquals(1, result.copied());
         assertEquals(targetCp.getId(), capturedCreatedRules().getFirst().getTriggerConfig().checkpointId());
+    }
+
+    @Test
+    void copyRules_remapsCheckpointIdSet() {
+        stubGames(game(null, null), game(null, null));
+        UUID sourceCpId = UUID.randomUUID();
+        AutomationRule rule = sourceRule("CP-set-regel", AutomationTriggerType.CHECKPOINT_ENTRY,
+            new AutomationTriggerConfig(null, null, null, null, null, null, null, null, null,
+                null, null, List.of(sourceCpId)));
+        when(ruleRepository.findByGameId(sourceGameId)).thenReturn(List.of(rule));
+
+        Checkpoint sourceCp = checkpoint(sourceGameId, "CP5", "Finish", 52.0, 4.0);
+        when(checkpointRepository.findById(sourceCpId)).thenReturn(Optional.of(sourceCp));
+        CircleCheckpoint targetCp = checkpoint(gameId, "CP5", "Finish (target)", 99.0, 99.0);
+        targetCp.setId(UUID.randomUUID());
+        when(checkpointRepository.findByGameId(gameId)).thenReturn(List.of(targetCp));
+        when(checkpointRepository.findById(targetCp.getId())).thenReturn(Optional.of(targetCp));
+
+        CopyAutomationsResult result = service.copyRules(gameId, sourceGameId, adminId);
+
+        assertEquals(1, result.copied());
+        assertEquals(List.of(targetCp.getId()),
+            capturedCreatedRules().getFirst().getTriggerConfig().checkpointIds());
     }
 
     @Test

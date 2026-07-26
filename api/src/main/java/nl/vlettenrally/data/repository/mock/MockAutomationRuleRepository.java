@@ -83,11 +83,13 @@ public class MockAutomationRuleRepository implements AutomationRuleRepository {
         latePenalty.setName("Te laat gefinisht");
         latePenalty.setTriggerType(AutomationTriggerType.CHECKPOINT_ENTRY);
         latePenalty.setTriggerConfig(new AutomationTriggerConfig(
-            MockCheckpointRepository.CHECKPOINT_FINISH_ID,
+            null,
             AutomationTriggerConfig.ScheduleMode.RELATIVE, null,
             AutomationTriggerConfig.RelativeAnchor.GAME_END, 0,
             null, null, null,
-            AutomationTriggerConfig.PassComparison.AFTER));
+            AutomationTriggerConfig.PassComparison.AFTER,
+            null, null,
+            List.of(MockCheckpointRepository.CHECKPOINT_FINISH_ID)));
         latePenalty.setActions(List.of(
             new AutomationAction.AwardPoints(-50, "Strafpunten: na de eindtijd gefinisht")));
         rules.put(latePenalty.getId(), latePenalty);

@@ -197,6 +197,29 @@ class AutomationEngineTest {
     }
 
     @Test
+    void checkpointPass_firesOnlyForSelectedCheckpoints_whenSetIsConfigured() {
+        UUID cpA = checkpointId;
+        UUID cpB = UUID.randomUUID();
+        UUID cpC = UUID.randomUUID();
+        AutomationRule rule = rule(AutomationTriggerType.CHECKPOINT_ENTRY,
+            new AutomationTriggerConfig(null, null, null, null, null, null, null, null, null,
+                null, null, List.of(cpA, cpC)));
+        when(ruleRepository.findByGameIdAndTriggerType(gameId, AutomationTriggerType.CHECKPOINT_ENTRY))
+            .thenReturn(List.of(rule));
+        lenient().when(executionRepository.existsByRuleTeamAndContext(any(), any(), anyString()))
+            .thenReturn(false);
+
+        // A checkpoint outside the set: rule does not fire.
+        engine.onCheckpointPass(gameId, teamId, cpB, Instant.now());
+        verifyNoInteractions(actionExecutor);
+
+        // Each selected checkpoint: rule fires.
+        engine.onCheckpointPass(gameId, teamId, cpA, Instant.now());
+        engine.onCheckpointPass(gameId, teamId, cpC, Instant.now());
+        verify(actionExecutor, times(2)).execute(eq(rule), eq(List.of(team)), any());
+    }
+
+    @Test
     void checkpointPass_skipsExcludedCheckpoint_butFiresForOthers() {
         UUID excluded = checkpointId;
         UUID allowed = UUID.randomUUID();

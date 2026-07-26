@@ -737,6 +737,8 @@ export type AutomationTriggerType =
  * to passes before/after a boundary time (finish bonus/penalty).
  */
 export interface AutomationTriggerConfig {
+  checkpointIds?: string[] | null;
+  /** @deprecated legacy single-checkpoint field, superseded by checkpointIds; still read from older stored rules. */
   checkpointId?: string | null;
   excludedCheckpointIds?: string[] | null;
   mode?: 'ABSOLUTE' | 'RELATIVE' | null;

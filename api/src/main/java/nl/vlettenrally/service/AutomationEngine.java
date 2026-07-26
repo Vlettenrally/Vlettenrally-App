@@ -111,10 +111,13 @@ public class AutomationEngine {
             for (AutomationRule rule : enabledRules(gameId, AutomationTriggerType.CHECKPOINT_ENTRY)) {
                 if (!rule.appliesToTeam(teamId)) continue;
                 AutomationTriggerConfig config = rule.getTriggerConfig();
-                UUID wanted = config != null ? config.checkpointId() : null;
-                if (wanted != null && !wanted.equals(checkpointId)) continue;
-                if (wanted == null && config != null && config.excludedCheckpointIds() != null
-                        && config.excludedCheckpointIds().contains(checkpointId)) continue;
+                List<UUID> wanted = config != null ? config.effectiveCheckpointIds() : List.of();
+                if (!wanted.isEmpty()) {
+                    if (!wanted.contains(checkpointId)) continue;
+                } else if (config != null && config.excludedCheckpointIds() != null
+                        && config.excludedCheckpointIds().contains(checkpointId)) {
+                    continue;
+                }
                 if (!passesTimeWindow(rule, passTime)) continue;
                 fireForTeam(rule, teamId, checkpointId.toString());
             }
