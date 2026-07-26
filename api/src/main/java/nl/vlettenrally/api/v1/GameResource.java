@@ -318,7 +318,7 @@ public class GameResource {
         game.setExternalEventName(request.externalEventName());
         game.setLocationEndpointUrl(request.locationEndpointUrl());
         game.setLocationPollingFrequency(request.locationPollingFrequency() != null ? request.locationPollingFrequency() : 15);
-        game.setLocationEndpointActive(request.locationEndpointActive() != null ? request.locationEndpointActive() : false);
+        game.setLocationEndpointActive(request.locationEndpointActive() != null && request.locationEndpointActive());
         game.setLocationPollingLeadMinutes(request.locationPollingLeadMinutes() != null ? request.locationPollingLeadMinutes() : 30);
         game.setLocationPollingTailMinutes(request.locationPollingTailMinutes() != null ? request.locationPollingTailMinutes() : 30);
 

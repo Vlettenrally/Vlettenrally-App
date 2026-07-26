@@ -3,7 +3,8 @@ package nl.vlettenrally.data.entity.jpa;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-import nl.vlettenrally.data.converter.StringSetConverter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.Set;
@@ -36,7 +37,7 @@ public class RefreshTokenEntity {
     @Column(name = "name", nullable = false, length = 255)
     private String name;
 
-    @Convert(converter = StringSetConverter.class)
+    @JdbcTypeCode(SqlTypes.ARRAY)
     @Column(name = "roles", columnDefinition = "text[]")
     private Set<String> roles = new java.util.HashSet<>();
 
