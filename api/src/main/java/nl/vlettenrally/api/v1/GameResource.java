@@ -4,12 +4,14 @@ import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -529,19 +531,60 @@ public class GameResource {
 
     /**
      * Export the current tracker -> boat mapping as CSV to send to the provider.
+     *
+     * <p>The caller shapes the file: {@code field} and {@code header} are parallel,
+     * order-significant lists (the header at index i renames the field at index i,
+     * falling back to that field's default name when blank or absent). Without any
+     * {@code field} the historical trackerId,boatNumber,scoutingGroup format is used.
      */
     @GET
     @Path("/{gameId}/trackers/export")
     @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.RALLY_DESK})
     @Produces("text/csv")
-    public Response exportTrackers(@PathParam("gameId") UUID gameId) {
+    public Response exportTrackers(@PathParam("gameId") UUID gameId,
+                                   @QueryParam("field") List<String> fields,
+                                   @QueryParam("header") List<String> headers,
+                                   @QueryParam("includeUnassigned") @DefaultValue("false") boolean includeUnassigned) {
         if (gameService.findById(gameId).isEmpty()) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
-        String csv = trackerAssignmentService.exportCsv(gameId);
+
+        List<TrackerAssignmentService.ExportColumn> columns;
+        try {
+            columns = toExportColumns(fields, headers);
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .type(MediaType.APPLICATION_JSON)
+                .entity(new ErrorResponse(e.getMessage()))
+                .build();
+        }
+
+        String csv = trackerAssignmentService.exportCsv(gameId, columns, includeUnassigned);
         return Response.ok(csv)
             .header("Content-Disposition", "attachment; filename=\"trackers-" + gameId + ".csv\"")
             .build();
+    }
+
+    /** Pair the field/header query lists by index; blank or missing headers keep the field default. */
+    private List<TrackerAssignmentService.ExportColumn> toExportColumns(List<String> fields, List<String> headers) {
+        if (fields == null || fields.isEmpty()) {
+            return TrackerAssignmentService.DEFAULT_COLUMNS;
+        }
+        List<String> names = headers == null ? List.of() : headers;
+        if (names.size() > fields.size()) {
+            throw new IllegalArgumentException("More header values than field values");
+        }
+        List<TrackerAssignmentService.ExportColumn> columns = new ArrayList<>();
+        for (int i = 0; i < fields.size(); i++) {
+            String name = fields.get(i);
+            TrackerAssignmentService.ExportField field = TrackerAssignmentService.ExportField.from(name)
+                .orElseThrow(() -> new IllegalArgumentException("Unknown export field: " + name));
+            String header = i < names.size() ? names.get(i) : null;
+            columns.add(new TrackerAssignmentService.ExportColumn(
+                field,
+                header == null || header.isBlank() ? field.defaultHeader() : header));
+        }
+        return columns;
     }
 
     /**

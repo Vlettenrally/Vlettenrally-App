@@ -13,6 +13,7 @@ import type {
   TeamImportResult,
   TrackerAssignResult,
   Tracker,
+  TrackerExportOptions,
   AddTrackersResult,
   DeleteTrackersResult,
   LocationTestResult,
@@ -597,12 +598,29 @@ async getGames() : Promise<ApiResponse<Game[]>> {
   }
 
   // Returns the raw CSV text (not the JSON envelope); the caller triggers the download.
-  async exportTrackers(gameId: string): Promise<{ csv?: string; error?: string }> {
+  // Without options the server falls back to its default columns.
+  async exportTrackers(
+    gameId: string,
+    options?: TrackerExportOptions,
+  ): Promise<{ csv?: string; error?: string }> {
     const token = storage.getAuthToken();
+    // field/header are parallel lists: the server pairs them by index, so order matters.
+    const params = new URLSearchParams();
+    options?.columns.forEach(({ field, header }) => {
+      params.append('field', field);
+      params.append('header', header);
+    });
+    if (options?.includeUnassigned) {
+      params.append('includeUnassigned', 'true');
+    }
+    const query = params.toString();
     try {
-      const response = await fetch(`${API_BASE_URL}/games/${gameId}/trackers/export`, {
-        headers: { ...(token && { Authorization: `Bearer ${token}` }) },
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/games/${gameId}/trackers/export${query ? `?${query}` : ''}`,
+        {
+          headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+        },
+      );
       if (!response.ok) {
         return { error: `Export mislukt (${response.status})` };
       }

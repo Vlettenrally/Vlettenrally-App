@@ -10,7 +10,9 @@ import nl.vlettenrally.data.repository.TrackerRepository;
 
 import java.time.Instant;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Assigns physical GPS trackers from the global pool to a game's teams and
@@ -142,19 +144,72 @@ public class TrackerAssignmentService {
         return teamRepository.save(team);
     }
 
+    /** A team field that can be exported, with the column name it gets by default. */
+    public enum ExportField {
+        TRACKER_ID("trackerId", "trackerId", Team::getTrackerId),
+        NAME("name", "boatNumber", Team::getName),
+        DESCRIPTION("description", "scoutingGroup", Team::getDescription);
+
+        private final String key;
+        private final String defaultHeader;
+        private final Function<Team, String> accessor;
+
+        ExportField(String key, String defaultHeader, Function<Team, String> accessor) {
+            this.key = key;
+            this.defaultHeader = defaultHeader;
+            this.accessor = accessor;
+        }
+
+        public String key() {
+            return key;
+        }
+
+        public String defaultHeader() {
+            return defaultHeader;
+        }
+
+        public static Optional<ExportField> from(String key) {
+            return Arrays.stream(values())
+                    .filter(f -> f.key.equals(key))
+                    .findFirst();
+        }
+    }
+
+    /** One CSV column: which team field, under which (renameable) column name. */
+    public record ExportColumn(ExportField field, String header) {}
+
+    /** The provider's historical format, used when the caller picks no columns. */
+    public static final List<ExportColumn> DEFAULT_COLUMNS = Arrays.stream(ExportField.values())
+            .map(f -> new ExportColumn(f, f.defaultHeader()))
+            .toList();
+
     /**
      * CSV of the current tracker -> boat mapping for teams that have a tracker,
      * to send to the external provider. Columns: trackerId,boatNumber,scoutingGroup.
      */
     public String exportCsv(UUID gameId) {
-        StringBuilder sb = new StringBuilder("trackerId,boatNumber,scoutingGroup\n");
+        return exportCsv(gameId, DEFAULT_COLUMNS, false);
+    }
+
+    /**
+     * CSV of the tracker -> boat mapping, shaped by the caller: which team fields
+     * become columns, in which order, and under which column names.
+     *
+     * @param columns           the columns to emit, in order
+     * @param includeUnassigned also emit teams that have no tracker yet
+     */
+    public String exportCsv(UUID gameId, List<ExportColumn> columns, boolean includeUnassigned) {
+        StringBuilder sb = new StringBuilder();
+        appendRow(sb, columns.stream().map(ExportColumn::header));
         teamRepository.findByGameId(gameId).stream()
-                .filter(t -> normalize(t.getTrackerId()) != null)
-                .forEach(t -> sb
-                        .append(csv(t.getTrackerId())).append(',')
-                        .append(csv(t.getName())).append(',')
-                        .append(csv(t.getDescription())).append('\n'));
+                .filter(t -> includeUnassigned || normalize(t.getTrackerId()) != null)
+                .forEach(t -> appendRow(sb, columns.stream().map(c -> c.field().accessor.apply(t))));
         return sb.toString();
+    }
+
+    /** Append one CSV line, escaping each cell. */
+    private void appendRow(StringBuilder sb, Stream<String> cells) {
+        sb.append(cells.map(this::csv).collect(Collectors.joining(","))).append('\n');
     }
 
     /** Tracker IDs held by the given (single game's) teams. */

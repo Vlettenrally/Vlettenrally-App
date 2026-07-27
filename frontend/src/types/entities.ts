@@ -107,6 +107,24 @@ export interface Tracker {
 }
 
 /**
+ * A team field the tracker CSV export can emit. Must stay in sync with the
+ * keys of TrackerAssignmentService.ExportField on the backend.
+ */
+export type TrackerExportField = 'trackerId' | 'name' | 'description';
+
+/** One CSV column: a team field under a (renameable) column name. */
+export interface TrackerExportColumn {
+  field: TrackerExportField;
+  header: string;
+}
+
+/** How to shape one tracker CSV export; omitted entirely means the server defaults. */
+export interface TrackerExportOptions {
+  columns: TrackerExportColumn[];
+  includeUnassigned: boolean;
+}
+
+/**
  * Result of bulk-adding tracker IDs to the global pool.
  */
 export interface AddTrackersResult {

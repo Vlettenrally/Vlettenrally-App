@@ -172,6 +172,55 @@ class TrackerAssignmentServiceTest {
     }
 
     @Test
+    void exportCsv_honoursSelectedColumns_theirOrderAndRenamedHeaders() {
+        Team a = team("7", "T1");
+        a.setDescription("Scouting Delft");
+        when(teamRepository.findByGameId(gameId)).thenReturn(List.of(a));
+
+        String csv = service.exportCsv(gameId, List.of(
+                new TrackerAssignmentService.ExportColumn(TrackerAssignmentService.ExportField.NAME, "Boot"),
+                new TrackerAssignmentService.ExportColumn(TrackerAssignmentService.ExportField.TRACKER_ID, "Tracker")),
+            false);
+
+        assertEquals(
+                """
+                        Boot,Tracker
+                        7,T1
+                        """,
+            csv);
+    }
+
+    @Test
+    void exportCsv_escapesRenamedHeaders() {
+        when(teamRepository.findByGameId(gameId)).thenReturn(List.of());
+
+        String csv = service.exportCsv(gameId, List.of(
+                new TrackerAssignmentService.ExportColumn(TrackerAssignmentService.ExportField.NAME, "Boot, nr")),
+            false);
+
+        assertEquals("\"Boot, nr\"\n", csv);
+    }
+
+    @Test
+    void exportCsv_includeUnassigned_emitsTeamsWithoutTracker() {
+        Team assigned = team("7", "T1");
+        assigned.setDescription("Scouting Delft");
+        Team unassigned = team("103", null);
+        unassigned.setDescription("Scouting Gouda");
+        when(teamRepository.findByGameId(gameId)).thenReturn(List.of(assigned, unassigned));
+
+        String csv = service.exportCsv(gameId, TrackerAssignmentService.DEFAULT_COLUMNS, true);
+
+        assertEquals(
+                """
+                        trackerId,boatNumber,scoutingGroup
+                        T1,7,Scouting Delft
+                        ,103,Scouting Gouda
+                        """,
+            csv);
+    }
+
+    @Test
     void availableTrackers_returnsEnabledMinusThisGamesAssigned_sorted() {
         Team assigned = team("7", "T2");
         when(teamRepository.findByGameId(gameId)).thenReturn(List.of(assigned, team("12", null)));

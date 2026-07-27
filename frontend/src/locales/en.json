@@ -322,6 +322,18 @@
       "columnFinish": "Finish",
       "newTeam": "New Team",
       "exportTrackers": "Export trackers",
+      "exportDialog": {
+        "title": "Export trackers",
+        "description": "Pick which team fields go into the CSV, in which order, and under which column name.",
+        "columnHeaderLabel": "Column name",
+        "fieldTrackerId": "Tracker ID",
+        "fieldName": "Boat number",
+        "fieldDescription": "Group name",
+        "includeUnassigned": "Also include teams without a tracker",
+        "moveUp": "Move column up",
+        "moveDown": "Move column down",
+        "export": "Export"
+      },
       "teamsLoaded": "{{count}} team(s) loaded",
       "assignTrackers": "Assign trackers",
       "assign": "Assign",

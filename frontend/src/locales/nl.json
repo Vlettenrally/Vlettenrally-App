@@ -322,6 +322,18 @@
       "columnFinish": "Finish",
       "newTeam": "Nieuw team",
       "exportTrackers": "Trackers exporteren",
+      "exportDialog": {
+        "title": "Trackers exporteren",
+        "description": "Kies welke teamvelden in het CSV-bestand komen, in welke volgorde, en onder welke kolomnaam.",
+        "columnHeaderLabel": "Kolomnaam",
+        "fieldTrackerId": "Tracker-ID",
+        "fieldName": "Bootnummer",
+        "fieldDescription": "Groepsnaam",
+        "includeUnassigned": "Ook teams zonder tracker meenemen",
+        "moveUp": "Kolom omhoog",
+        "moveDown": "Kolom omlaag",
+        "export": "Exporteren"
+      },
       "teamsLoaded": "{{count}} team(s) geladen",
       "assignTrackers": "Trackers toewijzen",
       "assign": "Toewijzen",

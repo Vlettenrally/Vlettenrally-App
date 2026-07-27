@@ -8,6 +8,7 @@ import { teamService } from '../../services/teamService';
 import { gameService } from '../../services/gameService';
 import { websocket } from '../../services/websocket';
 import TeamDetailDialog from '../../components/TeamDetailDialog';
+import TrackerExportDialog from '../../components/TrackerExportDialog';
 import TeamCheckInChip from '../../components/TeamCheckInChip';
 import { teamMatchesQuery } from '../../utils/teamSearch';
 import { checkInStatusRank } from '../../utils/checkInStatus';
@@ -68,7 +69,7 @@ export default function Teams() {
   const [assigning, setAssigning] = useState(false);
   const [assignResult, setAssignResult] = useState<TrackerAssignResult | null>(null);
   const [assignError, setAssignError] = useState<string | null>(null);
-  const [exporting, setExporting] = useState(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
 
   // Shared detail dialog for clickable result chips (import + linking)
   const [detail, setDetail] = useState<DetailDialog | null>(null);
@@ -178,28 +179,6 @@ export default function Teams() {
       setAssignError(err instanceof Error ? err.message : t('admin.teams.assignFailed'));
     } finally {
       setAssigning(false);
-    }
-  };
-
-  const handleExportTrackers = async () => {
-    if (!selectedGameId) return;
-
-    setExporting(true);
-    try {
-      const csv = await gameService.exportTrackers(selectedGameId);
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `trackers-${selectedGameId}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      setAssignError(err instanceof Error ? err.message : t('admin.teams.exportFailed'));
-    } finally {
-      setExporting(false);
     }
   };
 
@@ -357,9 +336,9 @@ export default function Teams() {
           </Button>
           <Button
             variant="outlined"
-            startIcon={exporting ? <CircularProgress size={20} /> : <DownloadIcon />}
-            onClick={handleExportTrackers}
-            disabled={exporting}
+            startIcon={<DownloadIcon />}
+            onClick={() => setExportDialogOpen(true)}
+            disabled={!selectedGameId}
           >
             {t('admin.teams.exportTrackers')}
           </Button>
@@ -445,6 +424,12 @@ export default function Teams() {
         team={selectedTeam}
         gameId={selectedGameId || ''}
         onSave={handleSave}
+      />
+
+      <TrackerExportDialog
+        open={exportDialogOpen}
+        onClose={() => setExportDialogOpen(false)}
+        gameId={selectedGameId || ''}
       />
 
       <Dialog open={trackerDialogOpen} onClose={() => setTrackerDialogOpen(false)} fullWidth maxWidth="sm">

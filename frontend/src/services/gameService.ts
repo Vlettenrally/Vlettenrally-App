@@ -1,5 +1,5 @@
 import api from './api';
-import { type Game, type GameRequest, type ExternalEvent, type TeamImportResult, type TrackerAssignResult, type LocationTestResult, type BackfillResult } from '../types/entities';
+import { type Game, type GameRequest, type ExternalEvent, type TeamImportResult, type TrackerAssignResult, type LocationTestResult, type BackfillResult, type TrackerExportOptions } from '../types/entities';
 
 export type BackfillOutcome =
   | { status: 'ok'; result: BackfillResult }
@@ -88,8 +88,8 @@ export const gameService = {
     return response.data ?? [];
   },
 
-  exportTrackers: async (gameId: string): Promise<string> => {
-    const { csv, error } = await api.exportTrackers(gameId);
+  exportTrackers: async (gameId: string, options?: TrackerExportOptions): Promise<string> => {
+    const { csv, error } = await api.exportTrackers(gameId, options);
     if (error || csv === undefined) {
       throw new Error(error ?? 'Export mislukt');
     }

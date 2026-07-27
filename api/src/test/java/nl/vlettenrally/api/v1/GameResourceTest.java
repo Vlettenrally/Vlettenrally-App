@@ -15,6 +15,9 @@ import nl.vlettenrally.service.GameService;
 import nl.vlettenrally.service.TeamImportResult;
 import nl.vlettenrally.service.RankingService;
 import nl.vlettenrally.service.TeamImportService;
+import nl.vlettenrally.service.TrackerAssignmentService;
+import nl.vlettenrally.service.TrackerAssignmentService.ExportColumn;
+import nl.vlettenrally.service.TrackerAssignmentService.ExportField;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 import nl.vlettenrally.websockets.dto.WebSocketMessageType;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,6 +50,9 @@ class GameResourceTest {
 
     @Mock
     WebSocketPublisher webSocketPublisher;
+
+    @Mock
+    TrackerAssignmentService trackerAssignmentService;
 
     @InjectMocks
     GameResource gameResource;
@@ -198,6 +204,45 @@ class GameResourceTest {
         try (Response response = gameResource.publishRankings(gameId)) {
             assertEquals(Response.Status.NOT_FOUND.getStatusCode(), response.getStatus());
             verify(webSocketPublisher, never()).broadcastToGame(any(), any(), any());
+        }
+    }
+
+    @Test
+    void exportTrackers_noFields_usesDefaultColumns() throws Exception {
+        when(gameService.findById(gameId)).thenReturn(Optional.of(gameWith(Game.GameStatus.ACTIVE, 42)));
+        when(trackerAssignmentService.exportCsv(gameId, TrackerAssignmentService.DEFAULT_COLUMNS, false))
+            .thenReturn("csv");
+
+        try (Response response = gameResource.exportTrackers(gameId, List.of(), List.of(), false)) {
+            assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());
+            assertEquals("csv", response.getEntity());
+        }
+    }
+
+    @Test
+    void exportTrackers_pairsHeadersByIndex_andFallsBackWhenBlank() throws Exception {
+        when(gameService.findById(gameId)).thenReturn(Optional.of(gameWith(Game.GameStatus.ACTIVE, 42)));
+        List<ExportColumn> expected = List.of(
+            new ExportColumn(ExportField.NAME, "Boot"),
+            new ExportColumn(ExportField.TRACKER_ID, "trackerId"));
+        when(trackerAssignmentService.exportCsv(gameId, expected, true)).thenReturn("csv");
+
+        try (Response response = gameResource.exportTrackers(
+                gameId, List.of("name", "trackerId"), List.of("Boot", " "), true)) {
+            assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());
+            verify(trackerAssignmentService).exportCsv(gameId, expected, true);
+        }
+    }
+
+    @Test
+    void exportTrackers_unknownField_returnsBadRequest() throws Exception {
+        when(gameService.findById(gameId)).thenReturn(Optional.of(gameWith(Game.GameStatus.ACTIVE, 42)));
+
+        try (Response response = gameResource.exportTrackers(
+                gameId, List.of("notes"), List.of(), false)) {
+            assertEquals(Response.Status.BAD_REQUEST.getStatusCode(), response.getStatus());
+            assertTrue(((ErrorResponse) response.getEntity()).message().contains("notes"));
+            verify(trackerAssignmentService, never()).exportCsv(any(), any(), anyBoolean());
         }
     }
 }
