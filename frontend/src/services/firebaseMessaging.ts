@@ -8,6 +8,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage, type Messaging } from 'firebase/messaging';
 import { config } from '../config';
+import { NOTIFICATION_BADGE, NOTIFICATION_ICON } from '../utils/notificationAssets';
 import api from './api';
 
 let messaging: Messaging | null = null;
@@ -297,8 +298,8 @@ export async function showLocalNotification(
     const registration = await navigator.serviceWorker.ready;
     await registration.showNotification(title, {
       body,
-      icon: '/icon-192x192.png',
-      badge: '/icon-192x192.png',
+      icon: NOTIFICATION_ICON,
+      badge: NOTIFICATION_BADGE,
       data,
       tag: data?.messageId || 'vlettenrally-message',
     });

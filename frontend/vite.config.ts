@@ -24,11 +24,21 @@ export default defineConfig({
             src: '/icon-192x192.png',
             sizes: '192x192',
             type: 'image/png',
+            purpose: 'any',
           },
           {
             src: '/icon-512x512.png',
             sizes: '512x512',
             type: 'image/png',
+            purpose: 'any',
+          },
+          {
+            // Has the 80% safe zone Android needs, so the launcher shape
+            // crops the icon instead of letterboxing it.
+            src: '/icon-512x512-maskable.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable',
           },
         ],
       },

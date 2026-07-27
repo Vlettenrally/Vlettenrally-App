@@ -7,6 +7,7 @@ import { ExpirationPlugin } from 'workbox-expiration'
 import { CacheableResponsePlugin } from 'workbox-cacheable-response'
 import { initializeApp } from 'firebase/app';
 import { getMessaging, onBackgroundMessage } from 'firebase/messaging/sw';
+import { NOTIFICATION_BADGE, NOTIFICATION_ICON } from './utils/notificationAssets';
 
 declare let self: ServiceWorkerGlobalScope
 
@@ -118,8 +119,8 @@ function initializeFirebase() {
       // Use payload data for notification options
       const options: NotificationOptions = {
         body,
-        icon: '/icon-192x192.png',
-        badge: '/icon-192x192.png',
+        icon: NOTIFICATION_ICON,
+        badge: NOTIFICATION_BADGE,
         data: payload.data,
         tag: payload.data?.messageId || 'vlettenrally-message',
       };
