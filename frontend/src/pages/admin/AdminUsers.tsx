@@ -608,13 +608,15 @@ export default function AdminUsersPage() {
                 label={t('admin.adminUsers.temporaryPasswordLabel')}
                 fullWidth
                 value={temporaryPassword}
-                InputProps={{
-                  readOnly: true,
-                  endAdornment: (
-                    <IconButton onClick={handleCopyPassword} edge="end" title={t('common.copy')}>
-                      <ContentCopyIcon />
-                    </IconButton>
-                  ),
+                slotProps={{
+                  input: {
+                    readOnly: true,
+                    endAdornment: (
+                      <IconButton onClick={handleCopyPassword} edge="end" title={t('common.copy')}>
+                        <ContentCopyIcon />
+                      </IconButton>
+                    ),
+                  },
                 }}
                 margin="normal"
               />

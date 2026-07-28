@@ -99,6 +99,20 @@ Frontend environment variables (all `VITE_*` prefixed):
 - `VITE_MAP_STYLE_URL` — leave empty to use self-hosted tiles via tileserver
 - Firebase config vars for FCM push notifications
 
+### MUI v7 Component Props
+
+The UI uses MUI v7, where `inputProps`, `InputProps`, and `componentsProps` are deprecated. Always use `slotProps` instead:
+
+```tsx
+// Wrong (deprecated)
+<TextField InputProps={{ readOnly: true, endAdornment: <Icon /> }} inputProps={{ maxLength: 10 }} />
+
+// Right
+<TextField slotProps={{ input: { readOnly: true, endAdornment: <Icon /> }, htmlInput: { maxLength: 10 } }} />
+```
+
+`InputProps` maps to `slotProps.input` (the Input component), `inputProps` maps to `slotProps.htmlInput` (the underlying `<input>` element).
+
 ### Database
 
 PostgreSQL 17 with TimescaleDB + PostGIS extensions. Schema managed by Flyway (migrations in `api/src/main/resources/db/migration/`). Dev mode uses Testcontainers with `timescale/timescaledb-ha:pg17` automatically. Production uses CNPG (CloudNativePG) with a read replica — the `"read-replica"` persistence unit is configured separately.
