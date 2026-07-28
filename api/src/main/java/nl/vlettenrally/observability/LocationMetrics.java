@@ -2,6 +2,7 @@ package nl.vlettenrally.observability;
 
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.api.metrics.DoubleHistogram;
 import io.opentelemetry.api.metrics.LongCounter;
 import io.opentelemetry.api.metrics.Meter;
 import io.quarkus.runtime.Startup;
@@ -26,6 +27,43 @@ public class LocationMetrics {
     private static final AttributeKey<String> SOURCE = AttributeKey.stringKey("source");
     private static final AttributeKey<String> MODE = AttributeKey.stringKey("mode");
     private static final AttributeKey<String> TRIGGER = AttributeKey.stringKey("trigger");
+    private static final AttributeKey<String> ENDPOINT = AttributeKey.stringKey("endpoint");
+    private static final AttributeKey<String> CALLER = AttributeKey.stringKey("caller");
+
+    /** Which Legendstracking endpoint an outbound call hit. */
+    public enum ApiEndpoint {
+        DETAILS,
+        PARTICIPANTS_LOCATIONS,
+        PARTICIPANT_TRACK
+    }
+
+    /**
+     * Who asked for an outbound call. This is the dimension that separates the live poller's
+     * steady drip from the far more expensive backfill fetches and the one-off admin calls —
+     * {@code location.poll.sweep} cannot answer that, because most of its outcomes never reach
+     * the network.
+     */
+    public enum ApiCaller {
+        POLLER,
+        BACKFILL_AUTO,
+        BACKFILL_MANUAL,
+        EVENT_IMPORT,
+        ADMIN_TEST
+    }
+
+    /**
+     * How an outbound call ended. The failure modes are split by what we would do about them:
+     * {@code HTTP_ERROR} is the provider saying no, {@code TIMEOUT} is us giving up after 30s,
+     * {@code TRANSPORT_ERROR} is the connection never working, {@code INVALID_BODY} is a 200 we
+     * could not parse.
+     */
+    public enum ApiOutcome {
+        OK,
+        HTTP_ERROR,
+        TIMEOUT,
+        TRANSPORT_ERROR,
+        INVALID_BODY
+    }
 
     /** How one game's turn in a polling tick ended. */
     public enum SweepOutcome {
@@ -102,6 +140,7 @@ public class LocationMetrics {
     @Inject
     Meters meters;
 
+    private DoubleHistogram apiDuration;
     private LongCounter pollSweep;
     private LongCounter fixIngest;
     private LongCounter checkpointPass;
@@ -112,6 +151,14 @@ public class LocationMetrics {
     @PostConstruct
     void init() {
         Meter meter = meters.meter(SCOPE);
+        // Milliseconds, not seconds: the SDK's default bucket boundaries run 0..10000, which fits an
+        // HTTP call with a 30s timeout well in ms and would collapse into the first bucket in s.
+        // Overriding the boundaries would mean reaching for the alpha incubator API — not worth it.
+        // The exported _count is the call rate, so this histogram replaces a separate counter.
+        apiDuration = meter.histogramBuilder("location.api.duration")
+                .setUnit("ms")
+                .setDescription("Outbound Legendstracking calls, by endpoint, caller and outcome")
+                .build();
         pollSweep = meter.counterBuilder("location.poll.sweep")
                 .setUnit("{sweep}")
                 .setDescription("Per-game polling attempts, by how they ended")
@@ -136,6 +183,17 @@ public class LocationMetrics {
                 .setUnit("{tick}")
                 .setDescription("Polling-leader election ticks, by result")
                 .build();
+    }
+
+    /**
+     * Record one outbound provider call. The caller passes nanos so no time unit leaks into
+     * {@code LocationApiClient}. Unlike the count-carrying recordings below there is no zero guard:
+     * a sub-millisecond call is a real observation, not noise.
+     */
+    public void apiCall(ApiEndpoint endpoint, ApiCaller caller, ApiOutcome outcome, long elapsedNanos) {
+        apiDuration.record(elapsedNanos / 1_000_000.0,
+                Attributes.of(ENDPOINT, Meters.tag(endpoint), CALLER, Meters.tag(caller),
+                        Meters.OUTCOME, Meters.tag(outcome)));
     }
 
     public void sweep(SweepOutcome outcome) {
@@ -181,5 +239,13 @@ public class LocationMetrics {
     /** Map a {@code LocationBackfillService.Status} onto a {@link BackfillStatus} by name. */
     public static BackfillStatus backfillStatusOf(Enum<?> status) {
         return BackfillStatus.valueOf(status.name());
+    }
+
+    /**
+     * Map a backfill trigger onto the {@link ApiCaller} its provider calls are attributed to, so
+     * {@code LocationBackfillService} only ever has to speak {@link BackfillTrigger}.
+     */
+    public static ApiCaller apiCallerOf(BackfillTrigger trigger) {
+        return trigger == BackfillTrigger.AUTO ? ApiCaller.BACKFILL_AUTO : ApiCaller.BACKFILL_MANUAL;
     }
 }

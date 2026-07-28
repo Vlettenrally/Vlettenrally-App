@@ -57,7 +57,7 @@ class LocationBackfillServiceTest {
             service.backfillTeamTrack(GAME_ID, team.getId());
 
         assertEquals(LocationBackfillService.Status.BUSY, result.status());
-        verify(locationApiClient, never()).fetchParticipantTrack(any(), anyInt());
+        verify(locationApiClient, never()).fetchParticipantTrack(any(), anyInt(), any());
         verify(persister, never()).persist(any(), any(), any());
     }
 

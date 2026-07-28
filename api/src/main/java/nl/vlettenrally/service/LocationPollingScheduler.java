@@ -188,7 +188,8 @@ public class LocationPollingScheduler {
     private void pollParticipantLocations(Game game, Map<String, Team> teamsByTrackerId) {
         EventParticipantsLocationsResponse response;
         try {
-            response = locationApiClient.fetchParticipantLocations(game.getLocationEndpointUrl());
+            response = locationApiClient.fetchParticipantLocations(
+                game.getLocationEndpointUrl(), LocationMetrics.ApiCaller.POLLER);
         } catch (LocationApiException e) {
             Log.warnf("Legendstracking /participants_locations error for game %s: %s", game.getId(), e.getMessage());
             metrics.sweep(SweepOutcome.API_ERROR);

@@ -1,19 +1,26 @@
 package nl.vlettenrally.client;
 
+import com.fasterxml.jackson.core.JacksonException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import nl.vlettenrally.client.dto.TestConnectionResult;
 import nl.vlettenrally.client.dto.legendstracking.EventDetailsResponse;
 import nl.vlettenrally.client.dto.legendstracking.EventParticipant;
 import nl.vlettenrally.client.dto.legendstracking.EventParticipantTrackResponse;
 import nl.vlettenrally.client.dto.legendstracking.EventParticipantsLocationsResponse;
 import nl.vlettenrally.client.exception.LocationApiException;
+import nl.vlettenrally.observability.LocationMetrics;
+import nl.vlettenrally.observability.LocationMetrics.ApiCaller;
+import nl.vlettenrally.observability.LocationMetrics.ApiEndpoint;
+import nl.vlettenrally.observability.LocationMetrics.ApiOutcome;
 
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.time.Duration;
 import java.util.List;
 
@@ -32,6 +39,9 @@ public class LocationApiClient {
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
 
+    @Inject
+    LocationMetrics metrics;
+
     public LocationApiClient() {
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
@@ -40,12 +50,14 @@ public class LocationApiClient {
                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     }
 
-    public EventDetailsResponse fetchDetails(String baseUrl) throws LocationApiException {
-        return get(joinUrl(baseUrl, DETAILS_SUFFIX), EventDetailsResponse.class);
+    public EventDetailsResponse fetchDetails(String baseUrl, ApiCaller caller) throws LocationApiException {
+        return get(joinUrl(baseUrl, DETAILS_SUFFIX), EventDetailsResponse.class, ApiEndpoint.DETAILS, caller);
     }
 
-    public EventParticipantsLocationsResponse fetchParticipantLocations(String baseUrl) throws LocationApiException {
-        return get(joinUrl(baseUrl, PARTICIPANT_LOCATIONS_SUFFIX), EventParticipantsLocationsResponse.class);
+    public EventParticipantsLocationsResponse fetchParticipantLocations(String baseUrl, ApiCaller caller)
+            throws LocationApiException {
+        return get(joinUrl(baseUrl, PARTICIPANT_LOCATIONS_SUFFIX), EventParticipantsLocationsResponse.class,
+                ApiEndpoint.PARTICIPANTS_LOCATIONS, caller);
     }
 
     /**
@@ -57,13 +69,15 @@ public class LocationApiClient {
      * segment is stripped to recover the {@code .../api/event} root before appending the
      * participant id and suffix.
      */
-    public EventParticipantTrackResponse fetchParticipantTrack(String baseUrl, int eventParticipantId)
-            throws LocationApiException {
-        return get(participantTrackUrl(baseUrl, eventParticipantId), EventParticipantTrackResponse.class);
+    public EventParticipantTrackResponse fetchParticipantTrack(String baseUrl, int eventParticipantId,
+            ApiCaller caller) throws LocationApiException {
+        return get(participantTrackUrl(baseUrl, eventParticipantId), EventParticipantTrackResponse.class,
+                ApiEndpoint.PARTICIPANT_TRACK, caller);
     }
 
+    /** Only ever the admin "test endpoint" button, so it supplies its own caller attribution. */
     public TestConnectionResult testConnection(String baseUrl) throws LocationApiException {
-        EventDetailsResponse response = fetchDetails(baseUrl);
+        EventDetailsResponse response = fetchDetails(baseUrl, ApiCaller.ADMIN_TEST);
         if (response.getEvent() == null) {
             throw new LocationApiException("Invalid response from /details: missing 'event'");
         }
@@ -72,7 +86,15 @@ public class LocationApiClient {
         return new TestConnectionResult(true, count, null);
     }
 
-    private <T> T get(String url, Class<T> type) throws LocationApiException {
+    /**
+     * The single chokepoint every outbound call passes through, and therefore the only place that
+     * records {@code location.api.duration}. Recording in the {@code finally} is what makes that
+     * count trustworthy: every call lands on the histogram exactly once, whichever way it ended.
+     */
+    private <T> T get(String url, Class<T> type, ApiEndpoint endpoint, ApiCaller caller)
+            throws LocationApiException {
+        long startNanos = System.nanoTime();
+        ApiOutcome outcome = ApiOutcome.OK;
         try {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
@@ -83,6 +105,7 @@ public class LocationApiClient {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() != 200) {
+                outcome = ApiOutcome.HTTP_ERROR;
                 throw new LocationApiException(
                         "Failed to fetch " + url + ": HTTP " + response.statusCode());
             }
@@ -92,8 +115,27 @@ public class LocationApiClient {
         } catch (LocationApiException e) {
             throw e;
         } catch (Exception e) {
+            outcome = outcomeOf(e);
             throw new LocationApiException("Failed to fetch " + url + ": " + e.getMessage(), e);
+        } finally {
+            metrics.apiCall(endpoint, caller, outcome, System.nanoTime() - startNanos);
         }
+    }
+
+    /**
+     * Classify a failed call by what we would do about it: give the provider time, fix our parsing,
+     * or look at the network. A malformed URL never reaches the network but still lands on
+     * {@code TRANSPORT_ERROR} — a degenerate case not worth its own value.
+     */
+    static ApiOutcome outcomeOf(Exception e) {
+        if (e instanceof HttpTimeoutException) {
+            // HttpConnectTimeoutException extends this, so both timeouts land here.
+            return ApiOutcome.TIMEOUT;
+        }
+        if (e instanceof JacksonException) {
+            return ApiOutcome.INVALID_BODY;
+        }
+        return ApiOutcome.TRANSPORT_ERROR;
     }
 
     private static String joinUrl(String baseUrl, String suffix) {

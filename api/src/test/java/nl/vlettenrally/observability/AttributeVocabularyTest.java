@@ -53,6 +53,21 @@ class AttributeVocabularyTest {
     }
 
     @Test
+    void everyBackfillTriggerMapsToItsOwnApiCaller() {
+        for (LocationMetrics.BackfillTrigger trigger : LocationMetrics.BackfillTrigger.values()) {
+            assertNotNull(LocationMetrics.apiCallerOf(trigger), "no ApiCaller for " + trigger);
+        }
+        assertEquals(LocationMetrics.ApiCaller.BACKFILL_AUTO,
+                LocationMetrics.apiCallerOf(LocationMetrics.BackfillTrigger.AUTO));
+        assertEquals(LocationMetrics.ApiCaller.BACKFILL_MANUAL,
+                LocationMetrics.apiCallerOf(LocationMetrics.BackfillTrigger.MANUAL));
+        // The mapper picks MANUAL for anything that is not AUTO, so a third trigger would be
+        // silently mislabelled rather than failing — catch that here instead.
+        assertEquals(2, LocationMetrics.BackfillTrigger.values().length,
+                "a new BackfillTrigger needs an explicit ApiCaller in apiCallerOf");
+    }
+
+    @Test
     void everyTwilioStatusMapsToAnSmsOutcome() {
         for (Status status : Status.values()) {
             assertNotNull(TwilioSmsTransmitter.outcomeOf(status), "no SmsOutcome for " + status);

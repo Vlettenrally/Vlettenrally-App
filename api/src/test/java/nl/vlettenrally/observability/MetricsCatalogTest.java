@@ -24,6 +24,9 @@ import nl.vlettenrally.observability.DeliveryMetrics.FcmCaller;
 import nl.vlettenrally.observability.DeliveryMetrics.FcmOutcome;
 import nl.vlettenrally.observability.DeliveryMetrics.SmsOutcome;
 import nl.vlettenrally.observability.DeliveryMetrics.TransmitOutcome;
+import nl.vlettenrally.observability.LocationMetrics.ApiCaller;
+import nl.vlettenrally.observability.LocationMetrics.ApiEndpoint;
+import nl.vlettenrally.observability.LocationMetrics.ApiOutcome;
 import nl.vlettenrally.observability.LocationMetrics.BackfillPointOutcome;
 import nl.vlettenrally.observability.LocationMetrics.BackfillStatus;
 import nl.vlettenrally.observability.LocationMetrics.BackfillTrigger;
@@ -90,6 +93,7 @@ class MetricsCatalogTest {
         metrics.meters = meters;
         metrics.init();
 
+        metrics.apiCall(ApiEndpoint.PARTICIPANTS_LOCATIONS, ApiCaller.POLLER, ApiOutcome.OK, 12_000_000L);
         metrics.sweep(SweepOutcome.OK);
         metrics.fix(FixSource.POLLER, FixOutcome.ACCEPTED);
         metrics.checkpointPass(PassMode.SEGMENT, 1);
@@ -98,8 +102,9 @@ class MetricsCatalogTest {
         metrics.leaderTick(LeaderOutcome.LEADER);
 
         assertEquals(
-                Set.of("location.poll.sweep", "location.fix.ingest", "location.checkpoint.pass",
-                        "location.backfill.run", "location.backfill.point", "location.leader.tick"),
+                Set.of("location.api.duration", "location.poll.sweep", "location.fix.ingest",
+                        "location.checkpoint.pass", "location.backfill.run", "location.backfill.point",
+                        "location.leader.tick"),
                 names());
     }
 

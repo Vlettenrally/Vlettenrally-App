@@ -10,6 +10,7 @@ import nl.vlettenrally.client.exception.LocationApiException;
 import nl.vlettenrally.data.domain.Checkpoint;
 import nl.vlettenrally.data.domain.CircleCheckpoint;
 import nl.vlettenrally.data.domain.PolygonCheckpoint;
+import nl.vlettenrally.observability.LocationMetrics;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Polygon;
@@ -119,7 +120,8 @@ public class EventDetailsService {
 
     /** Fetches the /details event body, throwing if the response is malformed. */
     private EventDetailsBody fetchDetailsBody(String locationEndpointUrl) throws LocationApiException {
-        EventDetailsResponse details = locationApiClient.fetchDetails(locationEndpointUrl);
+        EventDetailsResponse details = locationApiClient.fetchDetails(
+            locationEndpointUrl, LocationMetrics.ApiCaller.EVENT_IMPORT);
         EventDetailsBody body = details != null ? details.getEvent() : null;
         if (body == null) {
             throw new LocationApiException("Malformed /details response: missing 'event'");

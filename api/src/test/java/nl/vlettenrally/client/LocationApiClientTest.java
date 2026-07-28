@@ -3,15 +3,22 @@ package nl.vlettenrally.client;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import nl.vlettenrally.client.dto.legendstracking.EventParticipantLocation;
 import nl.vlettenrally.client.dto.legendstracking.EventParticipantTrackResponse;
+import nl.vlettenrally.observability.LocationMetrics.ApiOutcome;
 import org.junit.jupiter.api.Test;
+
+import java.io.IOException;
+import java.net.http.HttpConnectTimeoutException;
+import java.net.http.HttpTimeoutException;
 
 /**
  * Unit tests for the pure bits of {@link LocationApiClient}: deriving the participant_track URL from
- * the event base URL, and deserialising the participant_track response shape.
+ * the event base URL, deserialising the participant_track response shape, and classifying a failed
+ * call onto the metric outcome.
  */
 class LocationApiClientTest {
 
@@ -27,6 +34,18 @@ class LocationApiClientTest {
         assertEquals(
             "https://host/api/event/82792/participant_track",
             LocationApiClient.participantTrackUrl("https://host/api/event/3265/", 82792));
+    }
+
+    @Test
+    void outcomeOf_separatesTheFailureModesWeActOnDifferently() {
+        assertEquals(ApiOutcome.TIMEOUT, LocationApiClient.outcomeOf(new HttpTimeoutException("read")));
+        // HttpConnectTimeoutException extends HttpTimeoutException — it must not fall through.
+        assertEquals(ApiOutcome.TIMEOUT, LocationApiClient.outcomeOf(new HttpConnectTimeoutException("connect")));
+        assertEquals(ApiOutcome.INVALID_BODY,
+            LocationApiClient.outcomeOf(new JsonParseException(null, "unexpected token")));
+        assertEquals(ApiOutcome.TRANSPORT_ERROR, LocationApiClient.outcomeOf(new IOException("connection reset")));
+        assertEquals(ApiOutcome.TRANSPORT_ERROR,
+            LocationApiClient.outcomeOf(new IllegalArgumentException("malformed URL")));
     }
 
     @Test

@@ -8,6 +8,7 @@ import nl.vlettenrally.client.dto.legendstracking.EventDetailsResponse;
 import nl.vlettenrally.data.domain.Checkpoint;
 import nl.vlettenrally.data.domain.CircleCheckpoint;
 import nl.vlettenrally.data.domain.PolygonCheckpoint;
+import nl.vlettenrally.observability.LocationMetrics.ApiCaller;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -51,7 +52,7 @@ class EventDetailsServiceTest {
         CircleCheckpoint existing = checkpoint("Old name", null, 52.10000, 5.10000);
         when(checkpointService.findByGameId(gameId)).thenReturn(new ArrayList<>(List.of(existing)));
         when(checkpointService.save(any(Checkpoint.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(locationApiClient.fetchDetails("https://tracker/details")).thenReturn(responseWithCheckpoints(
+        when(locationApiClient.fetchDetails("https://tracker/details", ApiCaller.EVENT_IMPORT)).thenReturn(responseWithCheckpoints(
             eventCheckpoint(123, "New name", 52.10005, 5.10005)
         ));
 
@@ -75,7 +76,7 @@ class EventDetailsServiceTest {
         CircleCheckpoint farther = checkpoint("Farther", null, 52.10035, 5.10035);
         when(checkpointService.findByGameId(gameId)).thenReturn(new ArrayList<>(List.of(nearest, farther)));
         when(checkpointService.save(any(Checkpoint.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(locationApiClient.fetchDetails("https://tracker/details")).thenReturn(responseWithCheckpoints(
+        when(locationApiClient.fetchDetails("https://tracker/details", ApiCaller.EVENT_IMPORT)).thenReturn(responseWithCheckpoints(
             eventCheckpoint(456, "Imported", 52.10003, 5.10003)
         ));
 
@@ -96,7 +97,7 @@ class EventDetailsServiceTest {
         CircleCheckpoint existing = checkpoint("Existing", null, 52.10000, 5.10000);
         when(checkpointService.findByGameId(gameId)).thenReturn(new ArrayList<>(List.of(existing)));
         when(checkpointService.save(any(Checkpoint.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(locationApiClient.fetchDetails("https://tracker/details")).thenReturn(responseWithCheckpoints(
+        when(locationApiClient.fetchDetails("https://tracker/details", ApiCaller.EVENT_IMPORT)).thenReturn(responseWithCheckpoints(
             eventCheckpoint(789, "Brand new", 52.20000, 5.20000)
         ));
 
@@ -114,7 +115,7 @@ class EventDetailsServiceTest {
         when(checkpointService.save(any(Checkpoint.class))).thenAnswer(invocation -> invocation.getArgument(0));
         EventCheckpoint detail = eventCheckpoint(789, "Radius zone", 52.20000, 5.20000);
         detail.setRadius(120.0);
-        when(locationApiClient.fetchDetails("https://tracker/details"))
+        when(locationApiClient.fetchDetails("https://tracker/details", ApiCaller.EVENT_IMPORT))
             .thenReturn(responseWithCheckpoints(detail));
 
         ImportResult result = eventDetailsService.importCheckpoints(gameId, "https://tracker/details");
@@ -134,7 +135,7 @@ class EventDetailsServiceTest {
         EventCheckpoint detail = eventCheckpoint(789, "Polygon zone", 52.025, 4.675);
         // Flat lng,lat pairs — a triangle.
         detail.setPolygonCoordinates("4.668807,52.025402,4.681167,52.030261,4.681682,52.020860");
-        when(locationApiClient.fetchDetails("https://tracker/details"))
+        when(locationApiClient.fetchDetails("https://tracker/details", ApiCaller.EVENT_IMPORT))
             .thenReturn(responseWithCheckpoints(detail));
 
         ImportResult result = eventDetailsService.importCheckpoints(gameId, "https://tracker/details");
@@ -162,7 +163,7 @@ class EventDetailsServiceTest {
         EventCheckpoint detail = eventCheckpoint(123, "New name", 52.10005, 5.10005);
         detail.setRadius(200.0);
         detail.setPolygonCoordinates("4.668807,52.025402,4.681167,52.030261,4.681682,52.020860");
-        when(locationApiClient.fetchDetails("https://tracker/details"))
+        when(locationApiClient.fetchDetails("https://tracker/details", ApiCaller.EVENT_IMPORT))
             .thenReturn(responseWithCheckpoints(detail));
 
         eventDetailsService.importCheckpoints(gameId, "https://tracker/details");

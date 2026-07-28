@@ -122,7 +122,7 @@ public class LocationBackfillService {
             throws LocationApiException {
         BackfillResult result;
         try {
-            result = acquireAndExecute(gameId, teamId, knownParticipantId);
+            result = acquireAndExecute(gameId, teamId, knownParticipantId, trigger);
         } catch (LocationApiException | RuntimeException e) {
             metrics.backfillRun(trigger, BackfillStatus.ERROR);
             throw e;
@@ -131,9 +131,12 @@ public class LocationBackfillService {
         return result;
     }
 
-    /** Applies the per-team lock and cooldown, and guarantees the lock is released. */
-    private BackfillResult acquireAndExecute(UUID gameId, UUID teamId, Integer knownParticipantId)
-            throws LocationApiException {
+    /**
+     * Applies the per-team lock and cooldown, and guarantees the lock is released. The trigger is
+     * only carried through to attribute the provider calls below to the right caller.
+     */
+    private BackfillResult acquireAndExecute(UUID gameId, UUID teamId, Integer knownParticipantId,
+            BackfillTrigger trigger) throws LocationApiException {
         // Lock first so a second trigger for the same team does not consume the cooldown window while
         // a backfill is already in flight; cooldown second so genuinely-throttled callers get 429.
         if (!throttle.tryAcquireLock(teamId)) {
@@ -143,15 +146,15 @@ public class LocationBackfillService {
             if (!throttle.tryStartCooldown(teamId)) {
                 return BackfillResult.coolingDown(throttle.cooldownRemainingSeconds(teamId));
             }
-            return fetchAndPersist(gameId, teamId, knownParticipantId);
+            return fetchAndPersist(gameId, teamId, knownParticipantId, trigger);
         } finally {
             throttle.releaseLock(teamId);
         }
     }
 
     /** Loads the game and team, resolves the participant, fetches the track and hands it to the persister. */
-    private BackfillResult fetchAndPersist(UUID gameId, UUID teamId, Integer knownParticipantId)
-            throws LocationApiException {
+    private BackfillResult fetchAndPersist(UUID gameId, UUID teamId, Integer knownParticipantId,
+            BackfillTrigger trigger) throws LocationApiException {
         // triggerAutoBackfill dispatches onto a plain worker-pool thread with no CDI request context
         // or JTA transaction, so the game/team reads need their own short transaction to get a usable
         // EntityManager; the manual entry point (backfillTeamTrack) runs on the request thread instead,
@@ -171,7 +174,7 @@ public class LocationBackfillService {
         if (knownParticipantId != null) {
             participantId = knownParticipantId;
         } else {
-            Integer resolved = resolveParticipantId(game, team);
+            Integer resolved = resolveParticipantId(game, team, trigger);
             if (resolved == null) {
                 return BackfillResult.of(Status.NO_PARTICIPANT);
             }
@@ -180,7 +183,8 @@ public class LocationBackfillService {
 
         // Heavy provider call — deliberately outside the DB transaction (which the persister owns).
         EventParticipantTrackResponse response =
-            locationApiClient.fetchParticipantTrack(game.getLocationEndpointUrl(), participantId);
+            locationApiClient.fetchParticipantTrack(game.getLocationEndpointUrl(), participantId,
+                LocationMetrics.apiCallerOf(trigger));
         List<EventParticipantLocation> points = response != null && response.getParticipantTrack() != null
             ? response.getParticipantTrack().getParticipantTrack() : null;
         if (points == null || points.isEmpty()) {
@@ -190,13 +194,21 @@ public class LocationBackfillService {
         return persister.persist(game, team, points);
     }
 
-    /** Resolve the team's event-participant id via the live snapshot (matched by physical tracker id). */
-    private Integer resolveParticipantId(Game game, Team team) throws LocationApiException {
+    /**
+     * Resolve the team's event-participant id via the live snapshot (matched by physical tracker id).
+     * <p>
+     * Only the manual trigger can reach this — the auto path always arrives with a known participant
+     * id — but the caller attribution is still derived from the trigger rather than hardcoded, so
+     * that assumption never becomes load-bearing.
+     */
+    private Integer resolveParticipantId(Game game, Team team, BackfillTrigger trigger)
+            throws LocationApiException {
         if (team.getTrackerId() == null || team.getTrackerId().isBlank()) {
             return null;
         }
         EventParticipantsLocationsResponse response =
-            locationApiClient.fetchParticipantLocations(game.getLocationEndpointUrl());
+            locationApiClient.fetchParticipantLocations(game.getLocationEndpointUrl(),
+                LocationMetrics.apiCallerOf(trigger));
         if (response == null || response.getEvent() == null
                 || response.getEvent().getEventParticipantLocations() == null) {
             return null;
