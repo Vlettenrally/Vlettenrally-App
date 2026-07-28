@@ -28,6 +28,7 @@ import PictureImage from '../../components/PictureImage';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
+import DownloadIcon from '@mui/icons-material/Download';
 import { usePictureStore } from '../../store/usePictureStore';
 import { useGameStore } from '../../store/useGameStore';
 import type { Picture, PictureStatus } from '../../types/entities';
@@ -37,7 +38,12 @@ import { websocket } from '../../services/websocket';
 import { config } from '../../config';
 import { useAdminResync } from '../../hooks/useAdminSync';
 import { useAdminTopicHeartbeat, ADMIN_TOPICS } from '../../hooks/useAdminHeartbeat';
-import { hasAnyRole, PICTURE_MODERATION_ROLES, PICTURE_UPLOAD_ROLES } from '../../services/auth';
+import {
+  hasAnyRole,
+  PICTURE_DOWNLOAD_ROLES,
+  PICTURE_MODERATION_ROLES,
+  PICTURE_UPLOAD_ROLES,
+} from '../../services/auth';
 import { storage } from '../../services/storage';
 
 type TabKey = 'PENDING' | 'ALL' | 'APPROVED' | 'UPLOAD';
@@ -59,6 +65,7 @@ export default function AdminPictures() {
   const token = storage.getAuthToken();
   const canModerate = !!token && hasAnyRole(token, [...PICTURE_MODERATION_ROLES, 'admin']);
   const canUpload   = !!token && hasAnyRole(token, PICTURE_UPLOAD_ROLES);
+  const canDownload = !!token && hasAnyRole(token, PICTURE_DOWNLOAD_ROLES);
 
   const [tab, setTab] = useState<TabKey>(
     () => canModerate ? 'PENDING' : canUpload ? 'UPLOAD' : 'APPROVED'
@@ -68,6 +75,8 @@ export default function AdminPictures() {
   const [rejectTarget, setRejectTarget] = useState<Picture | null>(null);
   const [rejectNotes, setRejectNotes] = useState('');
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   // Upload state
   const [uploading, setUploading] = useState(false);
@@ -154,6 +163,33 @@ export default function AdminPictures() {
     }
   };
 
+  const handleDownloadAll = async () => {
+    if (!selectedGameId) return;
+    setDownloading(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const res = await apiToUse.requestPictureDownloadToken(selectedGameId);
+      if (!res.data) {
+        setError(res.error || t('admin.pictures.downloadFailed'));
+        return;
+      }
+      if (config.useMocks) {
+        setNotice(t('admin.pictures.downloadMockNotice'));
+        return;
+      }
+      // Navigating to an attachment response hands the transfer to the browser without
+      // unloading the SPA, so the archive streams to disk instead of into page memory.
+      window.location.href = apiToUse.pictureArchiveUrl(res.data.token);
+      setNotice(t('admin.pictures.downloadPreparing'));
+    } catch (e) {
+      console.warn('Approved picture download failed', e);
+      setError(t('admin.pictures.downloadFailed'));
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   const handleAdminUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
@@ -207,7 +243,24 @@ export default function AdminPictures() {
   return (
     <Container maxWidth="lg" sx={{ mt: 3, mb: 6 }}>
       <Stack spacing={2}>
-        <Typography variant="h4" component="h1">{t('admin.pictures.title')}</Typography>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={2}
+          justifyContent="space-between"
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
+        >
+          <Typography variant="h4" component="h1">{t('admin.pictures.title')}</Typography>
+          {canDownload && (
+            <Button
+              variant="outlined"
+              startIcon={<DownloadIcon />}
+              onClick={handleDownloadAll}
+              disabled={!selectedGameId || downloading}
+            >
+              {t('admin.pictures.downloadAll')}
+            </Button>
+          )}
+        </Stack>
 
         <Tabs value={tab} onChange={(_, value) => setTab(value)}>
           {canModerate && <Tab label={t('admin.pictures.tabPending')} value="PENDING" />}
@@ -217,6 +270,7 @@ export default function AdminPictures() {
         </Tabs>
 
         {error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>}
+        {notice && <Alert severity="info" onClose={() => setNotice(null)}>{notice}</Alert>}
 
         {tab === 'UPLOAD' ? (
           <Stack spacing={2}>

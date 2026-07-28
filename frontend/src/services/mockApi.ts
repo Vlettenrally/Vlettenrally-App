@@ -385,6 +385,16 @@ export const mockApi = {
     return { data: { ...picture }, status: 200 };
   },
 
+  // There is no backend to stream a zip from in mock mode; the page shows a notice instead
+  // of navigating, so these only need to exist to keep the api-shaped cast honest.
+  async requestPictureDownloadToken() {
+    return { data: { token: 'mock-download-token', expiresIn: 60 }, status: 200 };
+  },
+
+  pictureArchiveUrl(token: string) {
+    return `/mock-download/${encodeURIComponent(token)}`;
+  },
+
   // Catch-all for any other API calls
   async get() {
     return { data: null, status: 200 };

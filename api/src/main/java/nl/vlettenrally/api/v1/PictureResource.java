@@ -1,5 +1,8 @@
 package nl.vlettenrally.api.v1;
 
+import io.quarkus.logging.Log;
+import io.smallrye.common.annotation.Blocking;
+import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
@@ -14,20 +17,24 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
+import jakarta.ws.rs.core.StreamingOutput;
 import nl.vlettenrally.api.security.SecurityRoles;
 import nl.vlettenrally.api.security.TeamScoped;
 import nl.vlettenrally.api.security.TeamScopedOrAdmin;
 import nl.vlettenrally.data.domain.Picture;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
+import nl.vlettenrally.data.dto.picture.PictureDownloadTokenResponse;
 import nl.vlettenrally.data.dto.picture.PictureRejectRequest;
 import nl.vlettenrally.data.dto.picture.PictureUploadRequest;
 import nl.vlettenrally.data.dto.picture.PictureUploadResponse;
 import nl.vlettenrally.data.dto.picture.PublicPictureResponse;
 import nl.vlettenrally.data.enums.PictureStatus;
+import nl.vlettenrally.service.PictureDownloadTokenService;
 import nl.vlettenrally.service.PictureException;
 import nl.vlettenrally.service.PictureService;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -38,7 +45,8 @@ import java.util.UUID;
  * 2. (browser PUTs the file to that URL)
  * 3. POST /teams/{teamId}/pictures/{id}/confirm → validate + mark uploaded
  * <p>
- * Admins moderate: GET /pictures/pending, POST /pictures/{id}/approve, /reject.
+ * Admins moderate: GET /pictures/pending, POST /pictures/{id}/approve, /reject, and can pull a
+ * game's approved pictures as a zip via POST /pictures/download-token + GET /pictures/approved/download.
  */
 @Path("/api/v1")
 @Produces(MediaType.APPLICATION_JSON)
@@ -47,6 +55,9 @@ public class PictureResource {
 
     @Inject
     PictureService pictureService;
+
+    @Inject
+    PictureDownloadTokenService downloadTokenService;
 
     // ==================== Team Endpoints ====================
 
@@ -204,6 +215,64 @@ public class PictureResource {
             ? pictureService.findByStatusAndGame(PictureStatus.APPROVED, gameId)
             : pictureService.findByStatus(PictureStatus.APPROVED);
         return Response.ok(pictureService.toResponses(pictures)).build();
+    }
+
+    /**
+     * Mint a one-time token for downloading a game's approved pictures as a zip.
+     * <p>
+     * The download itself is a browser navigation and so cannot carry a bearer token; this is
+     * where the caller's JWT is checked instead. See {@link #downloadApprovedArchive}.
+     */
+    @POST
+    @Path("/pictures/download-token")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.SUPER_ADMIN,
+                   SecurityRoles.GAME_MASTER, SecurityRoles.RALLY_DESK})
+    public Response requestDownloadToken(@QueryParam("gameId") UUID gameId) {
+        if (gameId == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("gameId is required"))
+                .build();
+        }
+        try {
+            String token = downloadTokenService.issue(gameId);
+            return Response.ok(new PictureDownloadTokenResponse(token, downloadTokenService.ttlSeconds())).build();
+        } catch (IllegalStateException e) {
+            Log.errorf("Failed to issue picture download token for game %s: %s", gameId, e.getMessage());
+            return Response.serverError()
+                .entity(new ErrorResponse("Failed to prepare the download"))
+                .build();
+        }
+    }
+
+    /**
+     * Stream every approved picture of a game as a zip.
+     * <p>
+     * {@code @PermitAll} is deliberate: this URL is opened by navigating the browser to it, so no
+     * {@code Authorization} header is sent and proactive JWT authentication has nothing to verify.
+     * Authorisation comes from the single-use token minted by {@link #requestDownloadToken}, which
+     * also carries the game id — the caller cannot point a token at a different game.
+     */
+    @GET
+    @Path("/pictures/approved/download")
+    @PermitAll
+    @Blocking
+    @Produces("application/zip")
+    public Response downloadApprovedArchive(@QueryParam("token") String token) {
+        Optional<UUID> gameId = downloadTokenService.consume(token);
+        if (gameId.isEmpty()) {
+            // Explicit media type: the method produces zip, so the error body needs to say JSON.
+            return Response.status(Response.Status.UNAUTHORIZED)
+                .type(MediaType.APPLICATION_JSON)
+                .entity(new ErrorResponse("Invalid or expired download token"))
+                .build();
+        }
+
+        UUID game = gameId.get();
+        StreamingOutput archive = out -> pictureService.writeApprovedArchive(game, out);
+        return Response.ok(archive)
+            .header("Content-Disposition",
+                "attachment; filename=\"" + pictureService.approvedArchiveName(game) + "\"")
+            .build();
     }
 
     /**

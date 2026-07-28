@@ -739,7 +739,11 @@
       "rejectReason": "Reden (optioneel)",
       "statusPending": "In behandeling",
       "statusApproved": "Goedgekeurd",
-      "statusRejected": "Afgewezen"
+      "statusRejected": "Afgewezen",
+      "downloadAll": "Alle goedgekeurde foto's downloaden",
+      "downloadPreparing": "De download wordt voorbereid. Het zipbestand verschijnt zo bij je downloads.",
+      "downloadFailed": "Download voorbereiden mislukt.",
+      "downloadMockNotice": "In demo-modus is er geen server om het zipbestand van te downloaden."
     },
     "analytics": {
       "title": "Analytics",

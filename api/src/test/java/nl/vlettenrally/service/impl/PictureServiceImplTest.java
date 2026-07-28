@@ -19,11 +19,18 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -443,6 +450,128 @@ class PictureServiceImplTest {
 
         assertEquals(2, result.size());
         assertTrue(result.stream().allMatch(p -> latestGame.equals(p.getGameId())));
+    }
+
+    // ==================== approved archive ====================
+
+    @Test
+    void writeApprovedArchive_namesEntriesAfterTheUploadingTeam() throws Exception {
+        UUID otherTeamId = UUID.randomUUID();
+        Team otherTeam = new Team();
+        otherTeam.setId(otherTeamId);
+        otherTeam.setGameId(gameId);
+        otherTeam.setName("Windkracht Tien");
+
+        Picture first = archived(teamId, "image/jpeg", Instant.parse("2026-07-28T10:00:00Z"));
+        Picture second = archived(teamId, "image/png", Instant.parse("2026-07-28T11:00:00Z"));
+        Picture other = archived(otherTeamId, "image/webp", Instant.parse("2026-07-28T09:00:00Z"));
+        Picture adminUpload = archived(null, "image/jpeg", Instant.parse("2026-07-28T12:00:00Z"));
+
+        when(pictureRepository.findApprovedByGameId(gameId))
+            .thenReturn(List.of(second, other, adminUpload, first));
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+        when(teamRepository.findById(otherTeamId)).thenReturn(Optional.of(otherTeam));
+        when(storageService.openObject(any())).thenAnswer(i -> Optional.of(new ByteArrayInputStream(BYTES)));
+
+        assertEquals(
+            List.of(
+                "de-watervlooien-01.jpg",   // oldest of the two Watervlooien pictures first
+                "de-watervlooien-02.png",
+                "organisatie-01.jpg",       // admin upload has no team
+                "windkracht-tien-01.webp"),
+            entryNamesOf(archiveOf(gameId)));
+    }
+
+    @Test
+    void writeApprovedArchive_skipsPicturesWhoseObjectIsGone() throws Exception {
+        Picture present = archived(teamId, "image/jpeg", Instant.parse("2026-07-28T10:00:00Z"));
+        Picture missing = archived(teamId, "image/jpeg", Instant.parse("2026-07-28T11:00:00Z"));
+
+        when(pictureRepository.findApprovedByGameId(gameId)).thenReturn(List.of(present, missing));
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+        when(storageService.openObject(present.getObjectKey()))
+            .thenReturn(Optional.of(new ByteArrayInputStream(BYTES)));
+        when(storageService.openObject(missing.getObjectKey())).thenReturn(Optional.empty());
+
+        // The archive stays readable; the missing picture simply is not in it.
+        assertEquals(List.of("de-watervlooien-01.jpg"), entryNamesOf(archiveOf(gameId)));
+    }
+
+    @Test
+    void writeApprovedArchive_excludesPicturesThatWereNeverUploaded() throws Exception {
+        Picture uploaded = archived(teamId, "image/jpeg", Instant.parse("2026-07-28T10:00:00Z"));
+        Picture reserved = archived(teamId, "image/jpeg", Instant.parse("2026-07-28T11:00:00Z"));
+        reserved.setUploadedAt(null);
+
+        when(pictureRepository.findApprovedByGameId(gameId)).thenReturn(List.of(uploaded, reserved));
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+        when(storageService.openObject(uploaded.getObjectKey()))
+            .thenReturn(Optional.of(new ByteArrayInputStream(BYTES)));
+
+        assertEquals(List.of("de-watervlooien-01.jpg"), entryNamesOf(archiveOf(gameId)));
+        verify(storageService, never()).openObject(reserved.getObjectKey());
+    }
+
+    @Test
+    void writeApprovedArchive_copiesTheStoredBytes() throws Exception {
+        Picture picture = archived(teamId, "image/jpeg", Instant.parse("2026-07-28T10:00:00Z"));
+        when(pictureRepository.findApprovedByGameId(gameId)).thenReturn(List.of(picture));
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+        when(storageService.openObject(picture.getObjectKey()))
+            .thenReturn(Optional.of(new ByteArrayInputStream(BYTES)));
+
+        try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(archiveOf(gameId)))) {
+            assertNotNull(zip.getNextEntry());
+            assertArrayEquals(BYTES, zip.readAllBytes());
+        }
+    }
+
+    @Test
+    void approvedArchiveName_sluggifiesTheGameName() {
+        Game game = new Game();
+        game.setId(gameId);
+        game.setName("Vlettenrally 2026 — Kaag");
+        when(gameRepository.findById(gameId)).thenReturn(Optional.of(game));
+
+        assertEquals("fotos-vlettenrally-2026-kaag.zip", service.approvedArchiveName(gameId));
+    }
+
+    @Test
+    void approvedArchiveName_fallsBackToTheGameIdWhenTheNameIsUnusable() {
+        when(gameRepository.findById(gameId)).thenReturn(Optional.empty());
+
+        assertEquals("fotos-" + gameId + ".zip", service.approvedArchiveName(gameId));
+    }
+
+    /** Bytes stood in for every stored object; content is irrelevant, identity is not. */
+    private static final byte[] BYTES = "picture-bytes".getBytes(StandardCharsets.UTF_8);
+
+    private byte[] archiveOf(UUID game) throws Exception {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        service.writeApprovedArchive(game, out);
+        return out.toByteArray();
+    }
+
+    private static List<String> entryNamesOf(byte[] archive) throws Exception {
+        List<String> names = new java.util.ArrayList<>();
+        try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(archive))) {
+            for (ZipEntry entry = zip.getNextEntry(); entry != null; entry = zip.getNextEntry()) {
+                names.add(entry.getName());
+            }
+        }
+        return names;
+    }
+
+    private Picture archived(UUID owner, String contentType, Instant createdAt) {
+        Picture p = new Picture();
+        p.setTeamId(owner);
+        p.setGameId(gameId);
+        p.setStatus(PictureStatus.APPROVED);
+        p.setContentType(contentType);
+        p.setCreatedAt(createdAt);
+        p.setUploadedAt(createdAt);
+        p.setObjectKey("games/" + gameId + "/" + p.getId());
+        return p;
     }
 
     private Picture approvedFor(UUID game) {

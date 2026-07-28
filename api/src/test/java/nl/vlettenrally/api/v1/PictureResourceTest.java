@@ -2,11 +2,13 @@ package nl.vlettenrally.api.v1;
 
 import nl.vlettenrally.data.domain.Picture;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
+import nl.vlettenrally.data.dto.picture.PictureDownloadTokenResponse;
 import nl.vlettenrally.data.dto.picture.PictureResponse;
 import nl.vlettenrally.data.dto.picture.PictureUploadRequest;
 import nl.vlettenrally.data.dto.picture.PictureUploadResponse;
 import nl.vlettenrally.data.dto.picture.PublicPictureResponse;
 import nl.vlettenrally.data.enums.PictureStatus;
+import nl.vlettenrally.service.PictureDownloadTokenService;
 import nl.vlettenrally.service.PictureException;
 import nl.vlettenrally.service.PictureService;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,17 +18,22 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
+import jakarta.ws.rs.core.StreamingOutput;
 
+import java.io.ByteArrayOutputStream;
 import java.security.Principal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -37,6 +44,7 @@ import static org.mockito.Mockito.when;
 class PictureResourceTest {
 
     @Mock PictureService pictureService;
+    @Mock PictureDownloadTokenService downloadTokenService;
     @Mock SecurityContext securityContext;
 
     @InjectMocks PictureResource resource;
@@ -224,6 +232,70 @@ class PictureResourceTest {
 
         assertEquals(200, response.getStatus());
         assertEquals("REJECTED", ((PictureResponse) response.getEntity()).status());
+    }
+
+    // ==================== archive download ====================
+
+    @Test
+    void requestDownloadToken_returnsTokenWithItsLifetime() {
+        when(downloadTokenService.issue(gameId)).thenReturn("tok123");
+        when(downloadTokenService.ttlSeconds()).thenReturn(60);
+
+        Response response = resource.requestDownloadToken(gameId);
+
+        assertEquals(200, response.getStatus());
+        PictureDownloadTokenResponse body =
+            assertInstanceOf(PictureDownloadTokenResponse.class, response.getEntity());
+        assertEquals("tok123", body.token());
+        assertEquals(60, body.expiresIn());
+    }
+
+    @Test
+    void requestDownloadToken_rejectsAMissingGameId() {
+        Response response = resource.requestDownloadToken(null);
+
+        assertEquals(400, response.getStatus());
+        assertInstanceOf(ErrorResponse.class, response.getEntity());
+    }
+
+    @Test
+    void requestDownloadToken_returns500WhenTheTokenCannotBeStored() {
+        when(downloadTokenService.issue(gameId)).thenThrow(new IllegalStateException("valkey down"));
+
+        Response response = resource.requestDownloadToken(gameId);
+
+        assertEquals(500, response.getStatus());
+        assertInstanceOf(ErrorResponse.class, response.getEntity());
+    }
+
+    @Test
+    void downloadApprovedArchive_streamsTheGameFromTheToken() throws Exception {
+        when(downloadTokenService.consume("tok123")).thenReturn(Optional.of(gameId));
+        when(pictureService.approvedArchiveName(gameId)).thenReturn("fotos-kaag.zip");
+
+        Response response = resource.downloadApprovedArchive("tok123");
+
+        assertEquals(200, response.getStatus());
+        assertEquals("attachment; filename=\"fotos-kaag.zip\"",
+            response.getHeaderString("Content-Disposition"));
+
+        // The entity is the archive writer itself; run it to prove it is wired to the token's game.
+        StreamingOutput archive = assertInstanceOf(StreamingOutput.class, response.getEntity());
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        archive.write(out);
+        verify(pictureService).writeApprovedArchive(eq(gameId), eq(out));
+    }
+
+    @Test
+    void downloadApprovedArchive_rejectsAnInvalidOrSpentToken() {
+        when(downloadTokenService.consume("nope")).thenReturn(Optional.empty());
+
+        Response response = resource.downloadApprovedArchive("nope");
+
+        assertEquals(401, response.getStatus());
+        assertInstanceOf(ErrorResponse.class, response.getEntity());
+        // The method produces zip, so the error branch has to declare JSON itself.
+        assertEquals(MediaType.APPLICATION_JSON_TYPE, response.getMediaType());
     }
 
     private Picture picture(PictureStatus status, Instant uploadedAt) {

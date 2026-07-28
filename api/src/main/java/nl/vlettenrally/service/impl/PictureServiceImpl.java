@@ -22,13 +22,25 @@ import nl.vlettenrally.websockets.PhotoBroadcastBuffer;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 import nl.vlettenrally.websockets.dto.WebSocketMessageType;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+import java.text.Normalizer;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.zip.Deflater;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 /**
  * Implementation of {@link PictureService}. Orchestrates the picture repository and the
@@ -391,6 +403,118 @@ public class PictureServiceImpl implements PictureService {
      */
     private void bufferForGallery(Picture picture) {
         photoBroadcastBuffer.buffer(picture.getGameId(), toPublicResponse(picture));
+    }
+
+    @Override
+    public String approvedArchiveName(UUID gameId) {
+        String name = gameRepository.findById(gameId).map(Game::getName).orElse(null);
+        String slug = slug(name);
+        return "fotos-" + (slug.isEmpty() ? gameId.toString() : slug) + ".zip";
+    }
+
+    @Override
+    public void writeApprovedArchive(UUID gameId, OutputStream out) throws IOException {
+        // Group by team so the per-team numbering runs 01, 02, ... in a predictable order.
+        Map<UUID, Optional<Team>> teamCache = new HashMap<>();
+        List<Picture> pictures = pictureRepository.findApprovedByGameId(gameId).stream()
+            .filter(Picture::isUploaded)
+            .sorted(Comparator
+                .comparing((Picture p) -> archiveBaseName(p, teamCache))
+                .thenComparing(Picture::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(Picture::getId))
+            .toList();
+
+        ZipOutputStream zip = new ZipOutputStream(out, StandardCharsets.UTF_8);
+        // JPEG/PNG/WebP are already compressed; deflating them again only burns CPU.
+        zip.setLevel(Deflater.NO_COMPRESSION);
+
+        Map<String, Integer> counters = new HashMap<>();
+        Set<String> usedNames = new HashSet<>();
+        for (Picture picture : pictures) {
+            String base = archiveBaseName(picture, teamCache);
+            int index = counters.merge(base, 1, Integer::sum);
+            String entryName = uniqueName(usedNames,
+                String.format("%s-%02d%s", base, index, extensionFor(picture.getContentType())));
+
+            Optional<InputStream> object;
+            try {
+                object = storageService.openObject(picture.getObjectKey());
+            } catch (RuntimeException e) {
+                Log.warnf("Skipping picture %s in archive, storage read failed: %s",
+                    picture.getId(), e.getMessage());
+                continue;
+            }
+            if (object.isEmpty()) {
+                Log.warnf("Skipping picture %s in archive, object %s is missing",
+                    picture.getId(), picture.getObjectKey());
+                continue;
+            }
+
+            zip.putNextEntry(new ZipEntry(entryName));
+            try (InputStream in = object.get()) {
+                in.transferTo(zip);
+            } catch (IOException | RuntimeException e) {
+                // The entry is already open and partially written - there is no way to unwind it,
+                // so let the caller's stream break rather than pretend the archive is complete.
+                Log.errorf("Failed to copy picture %s into archive: %s", picture.getId(), e.getMessage());
+                throw e instanceof IOException io ? io : new IOException(e);
+            }
+            zip.closeEntry();
+            // Keep bytes moving to the client instead of pooling in the response buffer.
+            zip.flush();
+        }
+
+        // Writes the central directory. Deliberately not closing `out` itself - that is the
+        // response stream and belongs to the container.
+        zip.finish();
+    }
+
+    /**
+     * Base file name for a picture's archive entry: the slugged team name, or {@code organisatie}
+     * for admin uploads (and for a team that no longer exists).
+     */
+    private String archiveBaseName(Picture picture, Map<UUID, Optional<Team>> cache) {
+        Team team = teamFor(picture.getTeamId(), cache);
+        String slug = team != null ? slug(team.getName()) : "";
+        return slug.isEmpty() ? "organisatie" : slug;
+    }
+
+    /**
+     * Lowercase, diacritic-free, filename-safe form of a name. Dutch team names carry accents,
+     * and the result also ends up in a Content-Disposition header, so it is kept to ASCII.
+     */
+    private static String slug(String value) {
+        if (value == null) {
+            return "";
+        }
+        String ascii = Normalizer.normalize(value, Normalizer.Form.NFD)
+            .replaceAll("\\p{M}+", "");
+        return ascii.toLowerCase(Locale.ROOT)
+            .replaceAll("[^a-z0-9]+", "-")
+            .replaceAll("^-+|-+$", "");
+    }
+
+    private static String extensionFor(String contentType) {
+        String normalized = contentType != null ? contentType.trim().toLowerCase(Locale.ROOT) : "";
+        return switch (normalized) {
+            case "image/png" -> ".png";
+            case "image/webp" -> ".webp";
+            default -> ".jpg";
+        };
+    }
+
+    /**
+     * Guarantee a unique entry name. A duplicate would make {@link ZipOutputStream} throw
+     * mid-archive, after the response has already been committed.
+     */
+    private static String uniqueName(Set<String> used, String name) {
+        String candidate = name;
+        int suffix = 2;
+        while (!used.add(candidate)) {
+            int dot = name.lastIndexOf('.');
+            candidate = name.substring(0, dot) + "-" + suffix++ + name.substring(dot);
+        }
+        return candidate;
     }
 
     @Override

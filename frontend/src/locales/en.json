@@ -739,7 +739,11 @@
       "rejectReason": "Reason (optional)",
       "statusPending": "Pending",
       "statusApproved": "Approved",
-      "statusRejected": "Rejected"
+      "statusRejected": "Rejected",
+      "downloadAll": "Download all approved photos",
+      "downloadPreparing": "Preparing the download. The zip file will appear in your downloads shortly.",
+      "downloadFailed": "Could not prepare the download.",
+      "downloadMockNotice": "In demo mode there is no server to download the zip file from."
     },
     "analytics": {
       "title": "Analytics",

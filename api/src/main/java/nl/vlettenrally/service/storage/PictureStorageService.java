@@ -1,5 +1,6 @@
 package nl.vlettenrally.service.storage;
 
+import java.io.InputStream;
 import java.time.Duration;
 import java.util.Optional;
 
@@ -23,6 +24,13 @@ public interface PictureStorageService {
 
     /** Fetch object metadata (size + content type); empty if the object does not exist. */
     Optional<ObjectMetadata> head(String objectKey);
+
+    /**
+     * Open the object's bytes for reading; empty if the object does not exist. The caller owns
+     * the stream and must close it. Used by the bulk download, which streams objects straight
+     * into a zip — every other read path hands out a pre-signed URL instead.
+     */
+    Optional<InputStream> openObject(String objectKey);
 
     /** Delete an object. No-op if it does not exist. */
     void delete(String objectKey);

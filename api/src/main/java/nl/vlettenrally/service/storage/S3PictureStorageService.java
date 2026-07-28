@@ -19,6 +19,7 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
+import java.io.InputStream;
 import java.time.Duration;
 import java.util.Optional;
 
@@ -128,6 +129,20 @@ public class S3PictureStorageService implements PictureStorageService {
             return Optional.of(new ObjectMetadata(
                     response.contentLength() != null ? response.contentLength() : 0L,
                     response.contentType()));
+        } catch (NoSuchKeyException e) {
+            return Optional.empty();
+        }
+    }
+
+    @Override
+    public Optional<InputStream> openObject(String objectKey) {
+        try {
+            // ResponseInputStream streams the body lazily, so the object is never held whole
+            // in memory - the bulk download pipes it straight into the zip.
+            return Optional.of(s3Client.getObject(GetObjectRequest.builder()
+                    .bucket(bucket)
+                    .key(objectKey)
+                    .build()));
         } catch (NoSuchKeyException e) {
             return Optional.empty();
         }

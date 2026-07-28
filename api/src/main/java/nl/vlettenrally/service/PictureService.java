@@ -1,5 +1,7 @@
 package nl.vlettenrally.service;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -120,6 +122,24 @@ public interface PictureService {
      * @throws PictureException 404 if not found.
      */
     Picture reject(UUID pictureId, UUID adminId, String notes);
+
+    /**
+     * File name for a game's approved-picture archive, e.g. {@code fotos-vlettenrally-2026.zip}.
+     * Falls back to the game id when the game has no usable name.
+     */
+    String approvedArchiveName(UUID gameId);
+
+    /**
+     * Stream every approved, uploaded picture of a game into {@code out} as a zip. Entries are
+     * named after the uploading team ({@code de-watervlooien-01.jpg}); admin uploads are grouped
+     * under {@code organisatie}. Objects are copied one at a time, so neither the archive nor any
+     * single picture is held whole in memory.
+     * <p>
+     * A picture whose stored object is missing or unreadable is skipped with a warning rather
+     * than failing the whole archive: the response has already been committed by the time the
+     * first byte is written, so aborting would leave the client with a truncated zip.
+     */
+    void writeApprovedArchive(UUID gameId, OutputStream out) throws IOException;
 
     /** A short-lived pre-signed view URL for an uploaded picture, or null if not uploaded. */
     String viewUrlFor(Picture picture);

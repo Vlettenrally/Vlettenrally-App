@@ -562,6 +562,15 @@ export interface PictureUploadResponse {
 }
 
 /**
+ * One-time token authorising a download of a game's approved-picture archive.
+ * Short-lived and spent on first use.
+ */
+export interface PictureDownloadToken {
+  token: string;
+  expiresIn: number;
+}
+
+/**
  * Team entry shown in the checkpoint station (GPS + achievement status merged)
  */
 export interface CheckpointTeamStatus {

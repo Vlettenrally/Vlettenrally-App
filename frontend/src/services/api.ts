@@ -59,6 +59,7 @@ import type {
   CopyCheckpointsResult,
   Picture,
   PublicPicture,
+  PictureDownloadToken,
   PictureUploadResponse,
 } from '../types/entities';
 import storage from './storage';
@@ -1005,6 +1006,24 @@ async getGames() : Promise<ApiResponse<Game[]>> {
 
   async confirmAdminPictureUpload(pictureId: string): Promise<ApiResponse<Picture>> {
     return this.post(`/admin/pictures/${pictureId}/confirm`);
+  }
+
+  /**
+   * Mint a one-time token for the approved-picture archive of a game. Goes through the
+   * normal wrapper, so the JWT is refreshed if needed — this is where authorisation happens,
+   * because the download itself carries no Authorization header.
+   */
+  async requestPictureDownloadToken(gameId: string): Promise<ApiResponse<PictureDownloadToken>> {
+    return this.post(`/pictures/download-token?gameId=${encodeURIComponent(gameId)}`);
+  }
+
+  /**
+   * URL to navigate the browser to for the zip. Navigation rather than fetch+blob on purpose:
+   * the browser streams the archive straight to disk with a native progress indicator, so a
+   * multi-hundred-megabyte download never sits in page memory.
+   */
+  pictureArchiveUrl(token: string): string {
+    return `${API_BASE_URL}/pictures/approved/download?token=${encodeURIComponent(token)}`;
   }
 }
 

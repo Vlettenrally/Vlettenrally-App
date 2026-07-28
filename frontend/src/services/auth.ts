@@ -36,6 +36,11 @@ export const PICTURE_UPLOAD_ROLES: string[] = [
   AdminRole.MESSAGE_SENDER, AdminRole.CHECKPOINT_MANAGER, AdminRole.RALLY_DESK,
 ];
 
+/** Roles that can download all approved pictures of a game as a zip. */
+export const PICTURE_DOWNLOAD_ROLES: string[] = [
+  AdminRole.ADMIN, AdminRole.SUPER_ADMIN, AdminRole.GAME_MASTER, AdminRole.RALLY_DESK,
+];
+
 export const ADMIN_PAGE_ROLES: Record<string, string[]> = {
   '/admin/games': [AdminRole.GAME_MASTER],
   '/admin/teams': [AdminRole.GAME_MASTER, AdminRole.RALLY_DESK],
