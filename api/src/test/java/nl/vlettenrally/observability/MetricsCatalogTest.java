@@ -22,6 +22,7 @@ import nl.vlettenrally.observability.AutomationMetrics.Hook;
 import nl.vlettenrally.observability.AutomationMetrics.SkipReason;
 import nl.vlettenrally.observability.DeliveryMetrics.FcmCaller;
 import nl.vlettenrally.observability.DeliveryMetrics.FcmOutcome;
+import nl.vlettenrally.observability.DeliveryMetrics.RouteDecision;
 import nl.vlettenrally.observability.DeliveryMetrics.SmsOutcome;
 import nl.vlettenrally.observability.DeliveryMetrics.TransmitOutcome;
 import nl.vlettenrally.observability.LocationMetrics.ApiCaller;
@@ -137,12 +138,13 @@ class MetricsCatalogTest {
         metrics.meters = meters;
         metrics.init();
 
+        metrics.routed(TransmissionChannel.SMS, RouteDecision.GATED);
         metrics.transmitted(TransmissionChannel.PUSH, TransmitOutcome.SUCCESS);
         metrics.fcmRequest(FcmOutcome.UNREGISTERED);
         metrics.fcmFanout(FcmCaller.TEAM_MESSAGE, 2);
         metrics.smsSent(SmsOutcome.QUEUED);
 
-        assertEquals(Set.of("msg.transmit", "fcm.request", "fcm.fanout", "sms.send"), names());
+        assertEquals(Set.of("msg.route", "msg.transmit", "fcm.request", "fcm.fanout", "sms.send"), names());
     }
 
     @Test

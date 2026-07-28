@@ -22,18 +22,28 @@ public class DeliveryMetrics {
 
     private static final AttributeKey<String> CHANNEL = AttributeKey.stringKey("channel");
     private static final AttributeKey<String> CALLER = AttributeKey.stringKey("caller");
+    private static final AttributeKey<String> DECISION = AttributeKey.stringKey("decision");
 
     /**
-     * How a channel attempt ended. {@code GATED} means the channel was never tried because the
-     * routing rules ruled it out — the SMS gate requires both an inactive team and a critical
-     * message type, so {@code GATED} is the normal case there, not a fault.
+     * What routing decided about a channel, before any transport was invoked.
+     * <p>
+     * Only {@code ATTEMPTED} is followed by a {@code msg.transmit} recording, which is the whole
+     * point of keeping the two apart: every message passes through every channel here, so
+     * {@code msg.route} is by construction the same curve for all three, while {@code msg.transmit}
+     * is not. {@code GATED} is the normal case for SMS rather than a fault — that gate requires
+     * both an inactive team and a critical message type.
      */
+    public enum RouteDecision {
+        ATTEMPTED,
+        GATED,
+        NOT_SUPPORTED
+    }
+
+    /** How a channel attempt ended, once a transport was actually invoked. */
     public enum TransmitOutcome {
         SUCCESS,
         FAILURE,
-        SKIPPED,
-        NOT_SUPPORTED,
-        GATED
+        SKIPPED
     }
 
     /**
@@ -81,6 +91,7 @@ public class DeliveryMetrics {
     @Inject
     Meters meters;
 
+    private LongCounter route;
     private LongCounter transmit;
     private LongCounter fcmRequest;
     private LongCounter fcmFanout;
@@ -89,9 +100,13 @@ public class DeliveryMetrics {
     @PostConstruct
     void init() {
         Meter meter = meters.meter(SCOPE);
+        route = meter.counterBuilder("msg.route")
+                .setUnit("{decision}")
+                .setDescription("Per-channel routing decisions taken before any transport was invoked")
+                .build();
         transmit = meter.counterBuilder("msg.transmit")
                 .setUnit("{transmission}")
-                .setDescription("Message delivery attempts, by channel and outcome")
+                .setDescription("Message delivery attempts that reached a transport, by channel and outcome")
                 .build();
         fcmRequest = meter.counterBuilder("fcm.request")
                 .setUnit("{request}")
@@ -105,6 +120,10 @@ public class DeliveryMetrics {
                 .setUnit("{message}")
                 .setDescription("Twilio SMS sends, by outcome")
                 .build();
+    }
+
+    public void routed(TransmissionChannel channel, RouteDecision decision) {
+        route.add(1, Attributes.of(CHANNEL, Meters.tag(channel), DECISION, Meters.tag(decision)));
     }
 
     public void transmitted(TransmissionChannel channel, TransmitOutcome outcome) {

@@ -14,6 +14,8 @@ import nl.vlettenrally.provider.MessageTransmitter;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 import nl.vlettenrally.websockets.WebSocketSessionManager;
 import nl.vlettenrally.observability.DeliveryMetrics;
+import nl.vlettenrally.observability.DeliveryMetrics.RouteDecision;
+import nl.vlettenrally.observability.DeliveryMetrics.TransmitOutcome;
 
 import jakarta.enterprise.inject.Instance;
 import java.util.Collections;
@@ -410,8 +412,6 @@ class MessageServiceImplTest {
         assertEquals("Unknown", response.deliveries().getFirst().teamName());
     }
 
-    // ==================== Helper Methods ====================
-
     // ==================== sendAutomationMessage Tests ====================
 
     @Test
@@ -455,6 +455,67 @@ class MessageServiceImplTest {
         assertTrue(captor.getAllValues().stream().anyMatch(m -> "Hoi De Watervlooien!".equals(m.getContent())));
         assertTrue(captor.getAllValues().stream().anyMatch(m -> "Hoi Windkracht Tien!".equals(m.getContent())));
     }
+
+    // ==================== transmitMessage Tests ====================
+
+    /**
+     * The gate closing is not a transmission attempt, and recording it as one is what made
+     * msg.transmit identical for every channel.
+     */
+    @Test
+    void send_nonCriticalMessage_recordsSmsAsGatedRatherThanTransmitted() {
+        Team team = createTeam("De Watervlooien");
+        MessageTransmitter sms = mock(MessageTransmitter.class);
+        when(sms.getChannel()).thenReturn(TransmissionChannel.SMS);
+        arrangeSend(team, sms);
+
+        messageService.send(team.getId(), MessageType.GENERAL, "Tot zo", null);
+
+        verify(deliveryMetrics).routed(TransmissionChannel.SMS, RouteDecision.GATED);
+        verify(deliveryMetrics, never()).transmitted(eq(TransmissionChannel.SMS), any());
+        verify(sms, never()).transmit(any(), any());
+    }
+
+    @Test
+    void send_transmitterDoesNotSupportTeam_recordsNotSupportedRatherThanTransmitted() {
+        Team team = createTeam("De Watervlooien");
+        MessageTransmitter push = mock(MessageTransmitter.class);
+        when(push.getChannel()).thenReturn(TransmissionChannel.PUSH);
+        when(push.supports(team)).thenReturn(false);
+        arrangeSend(team, push);
+
+        messageService.send(team.getId(), MessageType.GENERAL, "Tot zo", null);
+
+        verify(deliveryMetrics).routed(TransmissionChannel.PUSH, RouteDecision.NOT_SUPPORTED);
+        verify(deliveryMetrics, never()).transmitted(eq(TransmissionChannel.PUSH), any());
+        verify(push, never()).transmit(any(), any());
+    }
+
+    @Test
+    void send_noSessionOnThisInstance_stillPublishesOverValkey() {
+        Team team = createTeam("De Watervlooien");
+        arrangeSend(team);
+        when(webSocketSessionManager.getSessionByTeam(team.getId())).thenReturn(null);
+
+        Message sent = messageService.send(team.getId(), MessageType.GENERAL, "Tot zo", null);
+
+        // The fan-out reaches teams connected to any instance, so the frame must go out regardless
+        // of what this instance's session map says.
+        verify(webSocketPublisher).sendToTeam(eq(team.getGameId()), eq(team.getId()), any(), any());
+        verify(deliveryMetrics).routed(TransmissionChannel.WEBSOCKET, RouteDecision.ATTEMPTED);
+        verify(deliveryMetrics).transmitted(TransmissionChannel.WEBSOCKET, TransmitOutcome.SUCCESS);
+        // The recorded channel stays a pod-local hint: no session here, so nothing to claim.
+        assertFalse(sent.getTransmittedVia().contains(TransmissionChannel.WEBSOCKET));
+    }
+
+    private void arrangeSend(Team team, MessageTransmitter... channels) {
+        when(teamRepository.findById(team.getId())).thenReturn(Optional.of(team));
+        when(messageRepository.save(any(Message.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(deviceRegistrationRepository.findAllByTeamId(team.getId())).thenReturn(List.of());
+        when(transmitters.iterator()).thenReturn(List.of(channels).iterator());
+    }
+
+    // ==================== Helper Methods ====================
 
     private Message createMessage() {
         Message message = new Message();

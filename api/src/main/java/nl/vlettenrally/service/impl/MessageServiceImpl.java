@@ -19,6 +19,7 @@ import nl.vlettenrally.data.enums.MessageSource;
 import nl.vlettenrally.data.enums.MessageType;
 import nl.vlettenrally.data.enums.TransmissionChannel;
 import nl.vlettenrally.observability.DeliveryMetrics;
+import nl.vlettenrally.observability.DeliveryMetrics.RouteDecision;
 import nl.vlettenrally.observability.DeliveryMetrics.TransmitOutcome;
 import nl.vlettenrally.provider.MessageTransmitter;
 import nl.vlettenrally.provider.TransmissionResult;
@@ -147,16 +148,19 @@ public class MessageServiceImpl implements MessageService {
         List<String> errors = new ArrayList<>();
         
         // 1. WebSocket broadcast (always attempt)
-        boolean webSocketDelivered = transmitViaWebSocket(message, team);
-        if (webSocketDelivered) {
+        deliveryMetrics.routed(TransmissionChannel.WEBSOCKET, RouteDecision.ATTEMPTED);
+        boolean webSocketPublished = transmitViaWebSocket(message, team);
+        deliveryMetrics.transmitted(TransmissionChannel.WEBSOCKET,
+            webSocketPublished ? TransmitOutcome.SUCCESS : TransmitOutcome.FAILURE);
+
+        // The frame goes out over the Valkey fan-out regardless of where the team is connected, so
+        // publishing says nothing about whether anyone received it. Recording the channel only for
+        // a session on *this* instance keeps `delivered` as pessimistic as it has always been: a
+        // pod-local hint, never a cluster-wide delivery fact.
+        if (webSocketPublished && webSocketSessionManager.getSessionByTeam(team.getId()) != null) {
             message.addTransmissionChannel(TransmissionChannel.WEBSOCKET);
         }
-        // A false here only means the team has no session *on this instance*; a team connected to
-        // another pod still receives the frame through the Valkey fan-out. Treat a rising
-        // failure rate as a routing question, not proof of an offline team.
-        deliveryMetrics.transmitted(TransmissionChannel.WEBSOCKET,
-            webSocketDelivered ? TransmitOutcome.SUCCESS : TransmitOutcome.FAILURE);
-        
+
         // 2. Check if team is inactive (for SMS fallback decision)
         boolean teamIsInactive = isTeamInactive(team);
         
@@ -171,7 +175,7 @@ public class MessageServiceImpl implements MessageService {
                             message.getId(), teamIsInactive, message.getMessageType().isCritical());
                     // Expected for almost every message — only RALLYDESK is critical — so GATED
                     // is what distinguishes "the rules said no" from "the transmitter is broken".
-                    deliveryMetrics.transmitted(channel, TransmitOutcome.GATED);
+                    deliveryMetrics.routed(channel, RouteDecision.GATED);
                     continue;
                 }
             }
@@ -179,10 +183,11 @@ public class MessageServiceImpl implements MessageService {
             if (!transmitter.supports(team)) {
                 Log.debugf("Transmitter %s does not support team %s",
                         channel, team.getName());
-                deliveryMetrics.transmitted(channel, TransmitOutcome.NOT_SUPPORTED);
+                deliveryMetrics.routed(channel, RouteDecision.NOT_SUPPORTED);
                 continue;
             }
 
+            deliveryMetrics.routed(channel, RouteDecision.ATTEMPTED);
             TransmissionResult result = transmitter.transmit(message, team);
 
             if (result.isSuccess()) {
@@ -206,25 +211,25 @@ public class MessageServiceImpl implements MessageService {
     }
 
     /**
-     * Transmit message via WebSocket to the team.
+     * Publish the message to the team over the Valkey fan-out.
+     * <p>
+     * Deliberately unconditional: the publisher reaches every instance, so checking for a session
+     * on this one would drop the frame for any team connected elsewhere. Publishing is
+     * fire-and-forget — a false here means the hand-off itself threw, not that nobody was
+     * listening. The asynchronous fate is covered by {@code ws.publish.ok}/{@code ws.publish.failed},
+     * and the final hop by {@code ws.deliver}.
+     *
+     * @return true if the message was handed to the publisher
      */
     private boolean transmitViaWebSocket(Message message, Team team) {
         try {
-            // Check if team has an active WebSocket session
-            var session = webSocketSessionManager.getSessionByTeam(team.getId());
-            if (session == null) {
-                Log.debugf("No active WebSocket session for team %s", team.getName());
-                return false;
-            }
-            
             // Convert to DTO to avoid Instant serialization issues
             MessageResponse payload = toMessageResponse(message);
 
-            // Send via WebSocket publisher
             webSocketPublisher.sendToTeam(team.getGameId(), team.getId(), WebSocketMessageType.MESSAGE_NEW.getValue(), payload);
             return true;
         } catch (Exception e) {
-            Log.errorf("Failed to send WebSocket message to team %s: %s", 
+            Log.errorf("Failed to send WebSocket message to team %s: %s",
                     team.getName(), e.getMessage());
             return false;
         }
