@@ -1,8 +1,18 @@
 # =============================================================================
 # Dependabot configuration
 # =============================================================================
-# Keeps workflow actions and application dependencies current. Each ecosystem
-# is grouped so a week's updates arrive as a single PR instead of a swarm.
+# Keeps workflow actions and application dependencies current.
+#
+# Grouping rule: minor and patch updates batch into one PR per ecosystem, but
+# MAJORS ARE DELIBERATELY LEFT UNGROUPED so each arrives as its own PR. A single
+# grouped PR carrying several majors is unreviewable and unfixable — the first
+# attempt bundled 30 npm updates, of which MUI 7→9, maplibre 5→6, eslint 9→10
+# and typescript 5→7 each needed separate migration work, and the result broke
+# npm ci, tsc and eslint at once.
+#
+# Exception: packages that must stay version-aligned (the Quarkus BOM and its
+# extensions, the MUI packages) keep majors grouped, because splitting those
+# produces PRs that cannot pass on their own.
 #
 # Update PRs target main, which build.yml already covers via its pull_request
 # trigger — so every Dependabot PR runs test-api and test-frontend.
@@ -28,11 +38,12 @@ updates:
     commit-message:
       prefix: "deps"
     groups:
-      # The Quarkus BOM and its extensions have to move together.
+      # Majors included: the BOM and the extensions have to move as one.
       quarkus:
         patterns: ["io.quarkus*"]
-      maven-all:
+      maven-minor-patch:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
 
   - package-ecosystem: npm
     directory: /frontend
@@ -41,6 +52,18 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: "deps"
+    ignore:
+      # typescript-eslint caps its peer range at typescript <6.1.0, so TypeScript 7
+      # (the native Go port, which no longer ships the JS compiler API the linter
+      # builds on) breaks `npm ci` outright. Drop this once typescript-eslint
+      # supports it.
+      - dependency-name: typescript
+        versions: [">=6.1.0"]
     groups:
-      npm-all:
+      # Majors included: @mui/material, @mui/icons-material and @mui/x-data-grid
+      # have to be migrated together.
+      mui:
+        patterns: ["@mui/*"]
+      npm-minor-patch:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
