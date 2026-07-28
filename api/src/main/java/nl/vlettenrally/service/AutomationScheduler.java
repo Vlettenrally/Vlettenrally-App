@@ -30,7 +30,8 @@ public class AutomationScheduler {
     @Inject
     PollingLeader pollingLeader;
 
-    @Scheduled(every = "{vlettenrally.automation.tick-interval}")
+    @Scheduled(every = "{vlettenrally.automation.tick-interval}",
+               concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
     @Transactional
     void tickScheduledTime() {
         if (!pollingLeader.tryAcquireOrRenew()) {
@@ -39,7 +40,8 @@ public class AutomationScheduler {
         automationEngine.evaluateScheduledTime(Instant.now());
     }
 
-    @Scheduled(every = "{vlettenrally.automation.inactivity-interval}")
+    @Scheduled(every = "{vlettenrally.automation.inactivity-interval}",
+               concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
     @Transactional
     void tickInactivity() {
         if (!pollingLeader.tryAcquireOrRenew()) {

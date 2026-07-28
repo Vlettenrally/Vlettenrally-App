@@ -1,6 +1,8 @@
 package nl.vlettenrally.websockets;
 
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -79,13 +81,30 @@ public class WebSocketPublisher {
      * @see AdminTopicSubscriptionManager
      */
     public void sendToAdminTopic(UUID gameId, String topic, String type, Object payload) {
-        for (String sessionId : adminTopicSubscriptionManager.getActiveSubscribers(gameId, topic)) {
-            WebSocketMessage message = new WebSocketMessage(type, payload)
-                .withTargetGame(gameId)
-                .forAdminOnly()
-                .withTargetSession(sessionId);
-            valkeyPubSubService.publish(message);
+        sendToAdminTopicLazily(gameId, topic, type, () -> payload);
+    }
+
+    /**
+     * As {@link #sendToAdminTopic(UUID, String, String, Object)}, but the payload is only built
+     * when at least one admin is actually subscribed. Use this when producing the payload is
+     * itself expensive — the ranking payload, for instance, costs one points lookup per team,
+     * which would otherwise be paid on every broadcast tick with nobody on the page.
+     * <p>
+     * Deliberately a distinct name rather than an overload: {@code Supplier<Object>} is more
+     * specific than {@code Object}, so an overload would silently capture every call site that
+     * passes a lambda or a Mockito matcher.
+     */
+    public void sendToAdminTopicLazily(UUID gameId, String topic, String type, Supplier<Object> payload) {
+        Set<String> subscribers = adminTopicSubscriptionManager.getActiveSubscribers(gameId, topic);
+        if (subscribers.isEmpty()) {
+            return;
         }
+        // One publish for the whole set: the receiving pod fans out locally.
+        WebSocketMessage message = new WebSocketMessage(type, payload.get())
+            .withTargetGame(gameId)
+            .forAdminOnly()
+            .withTargetSessions(subscribers);
+        valkeyPubSubService.publish(message);
     }
 
     /**

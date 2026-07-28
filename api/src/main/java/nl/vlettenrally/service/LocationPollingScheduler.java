@@ -98,7 +98,11 @@ public class LocationPollingScheduler {
     @ConfigProperty(name = "vlettenrally.location.backfill.gap-threshold", defaultValue = "PT15M")
     Duration backfillGapThreshold;
 
-    @Scheduled(every = "{vlettenrally.location.polling-interval}")
+    // SKIP, not the default PROCEED: a sweep does an outbound HTTP call plus per-team DB and
+    // Valkey work, so under load a tick can outrun the interval. Overlapping ticks doubled
+    // every command and re-renewed the leader lease from two threads at once.
+    @Scheduled(every = "{vlettenrally.location.polling-interval}",
+               concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
     @ActivateRequestContext
     void pollLocations() {
         if (!pollingLeader.tryAcquireOrRenew()) {
@@ -186,6 +190,10 @@ public class LocationPollingScheduler {
             return;
         }
 
+        // One round-trip for every team's backfill lock, instead of one per participant below.
+        Set<UUID> backfillLocked = backfillThrottle.lockedTeams(
+            teamsByTrackerId.values().stream().map(Team::getId).toList());
+
         // Persist + notify each fix through the shared ingest path (guards, distance,
         // per-team WS), collecting the accepted ones for a single admin-map broadcast.
         List<TeamLocationResponse> broadcasts = new ArrayList<>();
@@ -221,7 +229,7 @@ public class LocationPollingScheduler {
 
             // Skip a team whose backfill is in flight: the bulk recompute mutates the same distance
             // accumulator, so a concurrent live insert here would race it.
-            if (backfillThrottle.isLocked(team.getId())) {
+            if (backfillLocked.contains(team.getId())) {
                 Log.debugf("Game %s: skipping team %s (backfill in progress)", game.getId(), team.getId());
                 continue;
             }

@@ -7,6 +7,7 @@ import jakarta.inject.Inject;
 import nl.vlettenrally.data.dto.game.TeamLocationResponse;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -14,9 +15,9 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Buffers pending admin-map location updates and flushes them as a single batched
- * WebSocket message on a configurable interval (see
- * {@code vlettenrally.location.broadcast-interval}).
+ * Buffers pending location updates and flushes them on a configurable interval (see
+ * {@code vlettenrally.location.broadcast-interval}), as a single batched WebSocket message
+ * for the admin map and a single multiplexed envelope for the teams' own devices.
  * <p>
  * Only the <em>latest</em> fix per team is retained between flushes, so rapid
  * per-device updates from the Traccar endpoint are automatically deduplicated.
@@ -26,8 +27,16 @@ import java.util.concurrent.ConcurrentHashMap;
 @ApplicationScoped
 public class LocationBroadcastBuffer {
 
-    /** gameId → (teamId → latest location) */
+    /** gameId → (teamId → latest location), for the admin map. */
     private final ConcurrentHashMap<UUID, ConcurrentHashMap<UUID, TeamLocationResponse>> pending =
+            new ConcurrentHashMap<>();
+
+    /**
+     * gameId → (teamId → latest location), for delivery back to each team's own devices.
+     * Kept separate from {@link #pending} because the two have different sources: the map
+     * batch is fed once per sweep, this one once per accepted fix.
+     */
+    private final ConcurrentHashMap<UUID, ConcurrentHashMap<UUID, TeamLocationResponse>> pendingTeamLocations =
             new ConcurrentHashMap<>();
 
     @Inject
@@ -52,12 +61,28 @@ public class LocationBroadcastBuffer {
     }
 
     /**
+     * Queue a team's own fix for delivery back to that team's devices.
+     * <p>
+     * Publishing this per fix meant one Valkey PUBLISH per team per sweep — a burst of
+     * hundreds of un-awaited commands that overran the connection pool's wait queue. Buffering
+     * collapses a whole sweep into one publish, at the cost of up to one interval of latency
+     * before a team sees its own position move (the same bound the admin map already has).
+     */
+    public void bufferLocation(UUID gameId, TeamLocationResponse location) {
+        pendingTeamLocations.computeIfAbsent(gameId, k -> new ConcurrentHashMap<>())
+                .put(location.teamId(), location);
+    }
+
+    /**
      * Flush all pending locations to admin map subscribers. Runs on the configured
      * broadcast interval. Games with no pending fixes are skipped without touching
      * Valkey.
      */
-    @Scheduled(every = "{vlettenrally.location.broadcast-interval}")
+    @Scheduled(every = "{vlettenrally.location.broadcast-interval}",
+               concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
     void flush() {
+        flushTeamLocations();
+
         if (pending.isEmpty()) {
             return;
         }
@@ -88,13 +113,37 @@ public class LocationBroadcastBuffer {
             Log.debug("Location broadcast flush: sending " + batch.size() + " fix(es) for game " + gameId
                     + " to " + subscribers.size() + " subscriber(s)");
 
-            for (String sessionId : subscribers) {
-                WebSocketMessage message = new WebSocketMessage(WebSocketEventTypes.LOCATION_UPDATE, batch)
-                        .withTargetGame(gameId)
-                        .forAdminOnly()
-                        .withTargetSession(sessionId);
-                webSocketPublisher.publish(message);
+            // One publish for the whole subscriber set; the receiving pod fans out locally.
+            WebSocketMessage message = new WebSocketMessage(WebSocketEventTypes.LOCATION_UPDATE, batch)
+                    .withTargetGame(gameId)
+                    .forAdminOnly()
+                    .withTargetSessions(subscribers);
+            webSocketPublisher.publish(message);
+        }
+    }
+
+    /**
+     * Flush each team's own latest fix as one multiplexed envelope per game, replacing what
+     * used to be one publish per accepted fix.
+     */
+    private void flushTeamLocations() {
+        if (pendingTeamLocations.isEmpty()) {
+            return;
+        }
+
+        for (Map.Entry<UUID, ConcurrentHashMap<UUID, TeamLocationResponse>> entry : pendingTeamLocations.entrySet()) {
+            UUID gameId = entry.getKey();
+            ConcurrentHashMap<UUID, TeamLocationResponse> gameBuffer = entry.getValue();
+
+            // Same swap-out as the map path: concurrent writes land in a fresh map.
+            if (!pendingTeamLocations.remove(gameId, gameBuffer) || gameBuffer.isEmpty()) {
+                continue;
             }
+
+            Map<UUID, Object> perTeam = new HashMap<>(gameBuffer);
+            Log.debug("Team location flush: sending " + perTeam.size() + " team fix(es) for game " + gameId);
+            webSocketPublisher.publish(
+                    WebSocketMessage.multiplexed(WebSocketEventTypes.LOCATION_UPDATE, gameId, perTeam));
         }
     }
 }

@@ -49,7 +49,8 @@ public class PhotoBroadcastBuffer {
      * Flush pending approvals to each game's teams. Runs on the configured interval; games
      * with nothing pending are skipped without touching Valkey.
      */
-    @Scheduled(every = "{vlettenrally.pictures.broadcast-interval}")
+    @Scheduled(every = "{vlettenrally.pictures.broadcast-interval}",
+               concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
     void flush() {
         if (pending.isEmpty()) {
             return;

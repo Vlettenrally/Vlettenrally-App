@@ -10,6 +10,11 @@ import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.Duration;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -105,6 +110,36 @@ public class BackfillThrottle {
         } catch (Exception e) {
             Log.debugf("Backfill lock existence check failed for team %s: %s", teamId, e.getMessage());
             return false;
+        }
+    }
+
+    /**
+     * Which of the given teams currently hold a backfill lock, in a single round-trip.
+     * <p>
+     * The polling sweep needs this for every participant on every tick; asking per team meant
+     * one blocking Valkey command per team per tick, which is the single largest contributor to
+     * the poller's Valkey traffic. Fails open (empty set) like {@link #isLocked}.
+     */
+    public Set<UUID> lockedTeams(Collection<UUID> teamIds) {
+        if (teamIds.isEmpty()) {
+            return Set.of();
+        }
+        List<UUID> ordered = List.copyOf(teamIds);
+        String[] keys = ordered.stream()
+            .map(id -> LOCK_KEY_PREFIX + id)
+            .toArray(String[]::new);
+        try {
+            Map<String, String> byKey = values().mget(keys);
+            Set<UUID> locked = new HashSet<>();
+            for (UUID teamId : ordered) {
+                if (byKey.get(LOCK_KEY_PREFIX + teamId) != null) {
+                    locked.add(teamId);
+                }
+            }
+            return locked;
+        } catch (Exception e) {
+            Log.debugf("Bulk backfill lock check failed for %d team(s): %s", ordered.size(), e.getMessage());
+            return Set.of();
         }
     }
 }

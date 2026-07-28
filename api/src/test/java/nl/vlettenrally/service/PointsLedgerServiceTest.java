@@ -1,9 +1,11 @@
 package nl.vlettenrally.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
@@ -19,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 import jakarta.transaction.Status;
 import jakarta.transaction.Synchronization;
@@ -43,6 +46,7 @@ import nl.vlettenrally.data.enums.PointEntryType;
 import nl.vlettenrally.data.repository.PointEntryRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.websockets.AdminTopics;
+import nl.vlettenrally.websockets.WebSocketMessage;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 import nl.vlettenrally.websockets.dto.WebSocketMessageType;
 
@@ -339,20 +343,13 @@ class PointsLedgerServiceTest {
         verify(webSocketPublisher, never())
             .broadcastToGame(eq(gameId), eq(WebSocketMessageType.RANKING_UPDATE.getValue()), any());
 
-        // X (own total moved) and A (picked X) each get a RIVAL_UPDATE; B and C do not.
-        verify(webSocketPublisher).sendToTeamOnly(eq(gameId), eq(teamId),
-            eq(WebSocketMessageType.RIVAL_UPDATE.getValue()), any());
-        verify(webSocketPublisher, never()).sendToTeamOnly(eq(gameId), eq(b.getId()),
-            eq(WebSocketMessageType.RIVAL_UPDATE.getValue()), any());
-        verify(webSocketPublisher, never()).sendToTeamOnly(eq(gameId), eq(c.getId()),
-            eq(WebSocketMessageType.RIVAL_UPDATE.getValue()), any());
+        // X (own total moved) and A (picked X) are in the envelope; B and C are not.
+        Map<UUID, Object> perTeam = capturedRivalUpdates();
+        assertEquals(java.util.Set.of(teamId, a.getId()), perTeam.keySet());
 
-        // A's payload carries only X, with X's fresh total (100 + 50 = 150).
+        // A's slice carries only X, with X's fresh total (100 + 50 = 150).
         // The total is passed explicitly (changedTeamTotal) so no extra cache read is needed.
-        ArgumentCaptor<Object> payload = ArgumentCaptor.forClass(Object.class);
-        verify(webSocketPublisher).sendToTeamOnly(eq(gameId), eq(a.getId()),
-            eq(WebSocketMessageType.RIVAL_UPDATE.getValue()), payload.capture());
-        List<Map<String, Object>> rivals = (List<Map<String, Object>>) payload.getValue();
+        List<Map<String, Object>> rivals = (List<Map<String, Object>>) perTeam.get(a.getId());
         assertEquals(1, rivals.size());
         assertEquals(teamId, rivals.getFirst().get("id"));
         assertEquals(150, rivals.getFirst().get("totalPoints"));
@@ -414,16 +411,13 @@ class PointsLedgerServiceTest {
 
         verify(webSocketPublisher, never()).broadcastToGame(eq(gameId),
             eq(WebSocketMessageType.RANKING_UPDATE.getValue()), any());
-        verify(webSocketPublisher).sendToTeamOnly(eq(gameId), eq(teamId),
-            eq(WebSocketMessageType.RIVAL_UPDATE.getValue()), any());
-        verify(webSocketPublisher, never()).sendToTeamOnly(eq(gameId), eq(b.getId()),
-            eq(WebSocketMessageType.RIVAL_UPDATE.getValue()), any());
 
-        // A's payload carries X read from the cache (150), proving no explicit total is needed.
-        ArgumentCaptor<Object> payload = ArgumentCaptor.forClass(Object.class);
-        verify(webSocketPublisher).sendToTeamOnly(eq(gameId), eq(a.getId()),
-            eq(WebSocketMessageType.RIVAL_UPDATE.getValue()), payload.capture());
-        List<Map<String, Object>> rivals = (List<Map<String, Object>>) payload.getValue();
+        Map<UUID, Object> perTeam = capturedRivalUpdates();
+        assertEquals(java.util.Set.of(teamId, a.getId()), perTeam.keySet());
+        assertFalse(perTeam.containsKey(b.getId()));
+
+        // A's slice carries X read from the cache (150), proving no explicit total is needed.
+        List<Map<String, Object>> rivals = (List<Map<String, Object>>) perTeam.get(a.getId());
         assertEquals(1, rivals.size());
         assertEquals(teamId, rivals.getFirst().get("id"));
         assertEquals(150, rivals.getFirst().get("totalPoints"));
@@ -434,6 +428,7 @@ class PointsLedgerServiceTest {
         ledger.publishStandingsForTeams(gameId, java.util.Set.of());
         verify(webSocketPublisher, never()).broadcastToGame(any(), any(), any());
         verify(webSocketPublisher, never()).sendToTeamOnly(any(), any(), any(), any());
+        verify(webSocketPublisher, never()).publish(any());
     }
 
     // ---- admin ranking topic (always live, independent of publish state) --
@@ -454,8 +449,7 @@ class PointsLedgerServiceTest {
         fireAfterCommit();
 
         // Full ranking goes to the admin ranking topic...
-        verify(webSocketPublisher).sendToAdminTopic(eq(gameId), eq(AdminTopics.RANKING),
-            eq(WebSocketMessageType.RANKING_UPDATE.getValue()), eq(full));
+        assertEquals(full, capturedAdminRanking());
         // ...but is never broadcast to players while the game is running.
         verify(webSocketPublisher, never()).broadcastToGame(eq(gameId),
             eq(WebSocketMessageType.RANKING_UPDATE.getValue()), any());
@@ -476,6 +470,8 @@ class PointsLedgerServiceTest {
             50, null, "Bonus", null, null);
         fireAfterCommit();
 
+        // The payload is lazy, so resolve the Supplier before asserting how it was built.
+        capturedAdminRanking();
         verify(rankingService).buildRanking(gameId, Map.of(teamId, 150));
     }
 
@@ -493,8 +489,7 @@ class PointsLedgerServiceTest {
             50, null, "Checkpoint X", null, null);
         fireAfterCommit();
 
-        verify(webSocketPublisher).sendToAdminTopic(eq(gameId), eq(AdminTopics.RANKING),
-            eq(WebSocketMessageType.RANKING_UPDATE.getValue()), eq(full));
+        assertEquals(full, capturedAdminRanking());
         verify(webSocketPublisher).broadcastToGame(eq(gameId),
             eq(WebSocketMessageType.RANKING_UPDATE.getValue()), eq(full));
     }
@@ -509,8 +504,35 @@ class PointsLedgerServiceTest {
 
         ledger.publishStandingsForTeams(gameId, java.util.Set.of(teamId));
 
-        verify(webSocketPublisher).sendToAdminTopic(eq(gameId), eq(AdminTopics.RANKING),
-            eq(WebSocketMessageType.RANKING_UPDATE.getValue()), eq(full));
+        assertEquals(full, capturedAdminRanking());
+    }
+
+    /**
+     * The single multiplexed RIVAL_UPDATE envelope this call published, keyed by recipient team.
+     * Rival views go out as one envelope per game rather than one publish per team, so
+     * "who was notified" is now the envelope's key set.
+     */
+    private Map<UUID, Object> capturedRivalUpdates() {
+        ArgumentCaptor<WebSocketMessage> captor = ArgumentCaptor.forClass(WebSocketMessage.class);
+        verify(webSocketPublisher).publish(captor.capture());
+        WebSocketMessage msg = captor.getValue();
+        assertEquals(WebSocketMessageType.RIVAL_UPDATE.getValue(), msg.getType());
+        assertEquals(gameId, msg.getTargetGameId());
+        assertTrue(msg.isTeamOnly(), "rival views must never reach admin sessions");
+        assertFalse(msg.isAdminOnly());
+        return msg.getPerTeamPayloads();
+    }
+
+    /**
+     * The ranking payload handed to the admin ranking topic. It is passed as a Supplier so it
+     * is only built when someone is on the page, so the test has to resolve it.
+     */
+    private Object capturedAdminRanking() {
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Supplier<Object>> captor = ArgumentCaptor.forClass(Supplier.class);
+        verify(webSocketPublisher).sendToAdminTopicLazily(eq(gameId), eq(AdminTopics.RANKING),
+            eq(WebSocketMessageType.RANKING_UPDATE.getValue()), captor.capture());
+        return captor.getValue().get();
     }
 
     /** Run every post-commit synchronization the call registered, as a real commit would. */

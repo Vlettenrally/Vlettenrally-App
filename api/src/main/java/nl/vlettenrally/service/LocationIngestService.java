@@ -13,8 +13,6 @@ import nl.vlettenrally.data.repository.LocationDataRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.service.util.TrackOutlierFilter;
 import nl.vlettenrally.websockets.LocationBroadcastBuffer;
-import nl.vlettenrally.websockets.WebSocketEventTypes;
-import nl.vlettenrally.websockets.WebSocketPublisher;
 import org.locationtech.jts.geom.Point;
 
 import java.math.BigDecimal;
@@ -29,9 +27,10 @@ import java.util.UUID;
  * (Legendstracking polling or the Traccar/OsmAnd ingestion endpoint).
  * <p>
  * Applies abuse/quality guards, saves the fix, notifies the team's own devices,
- * and recomputes travelled distance. Admin-map broadcasting is delegated to
- * {@link nl.vlettenrally.websockets.LocationBroadcastBuffer} via {@link #broadcastToMap}
- * so that rapid per-device updates are coalesced before reaching the frontend.
+ * and recomputes travelled distance. Both broadcast paths — the team's own devices and the
+ * admin map — are delegated to {@link nl.vlettenrally.websockets.LocationBroadcastBuffer}
+ * so that rapid per-device updates are coalesced before reaching the frontend, and so a
+ * whole polling sweep costs one publish per game rather than one per team.
  */
 @ApplicationScoped
 public class LocationIngestService {
@@ -41,9 +40,6 @@ public class LocationIngestService {
 
     @Inject
     LocationBroadcastBuffer locationBroadcastBuffer;
-
-    @Inject
-    WebSocketPublisher webSocketPublisher;
 
     @Inject
     AutomationEngine automationEngine;
@@ -101,12 +97,9 @@ public class LocationIngestService {
         locationDataRepository.save(reading);
 
         TeamLocationResponse teamLocation = toResponse(reading, teamName, teamDescription);
-        webSocketPublisher.sendToTeamOnly(
-            reading.getGameId(),
-            reading.getTeamId(),
-            WebSocketEventTypes.LOCATION_UPDATE,
-            teamLocation
-        );
+        // Buffered rather than published here: a polling sweep ingests one fix per team, and
+        // publishing each one separately overran the Valkey pool's wait queue.
+        locationBroadcastBuffer.bufferLocation(reading.getGameId(), teamLocation);
 
         // The game drives distance accrual, scoring and checkpoint detection; look it
         // up once here, the single choke point for every fix.

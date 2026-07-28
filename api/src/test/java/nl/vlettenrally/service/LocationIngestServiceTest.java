@@ -1,5 +1,6 @@
 package nl.vlettenrally.service;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -23,6 +24,7 @@ import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.PrecisionModel;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -36,7 +38,6 @@ import nl.vlettenrally.data.repository.LocationDataRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.service.util.TrackOutlierFilter;
 import nl.vlettenrally.websockets.LocationBroadcastBuffer;
-import nl.vlettenrally.websockets.WebSocketPublisher;
 
 import java.util.List;
 
@@ -50,9 +51,6 @@ class LocationIngestServiceTest {
 
     @Mock
     LocationDataRepository locationDataRepository;
-
-    @Mock
-    WebSocketPublisher webSocketPublisher;
 
     @Mock
     LocationBroadcastBuffer locationBroadcastBuffer;
@@ -105,6 +103,28 @@ class LocationIngestServiceTest {
         assertTrue(result.isPresent());
         verify(locationDataRepository).save(any(LocationData.class));
         verify(teamDistanceCalculator).accrueFix(eq(teamId), any(), any(LocationData.class));
+    }
+
+    @Test
+    void ingest_buffersTheTeamLocation_ratherThanPublishingPerFix() {
+        // Publishing here meant one Valkey command per team per sweep, which overran the
+        // connection pool. LocationBroadcastBuffer coalesces the sweep into one publish instead.
+        when(locationDataRepository.findRecentByTeamId(teamId, 2)).thenReturn(List.of());
+
+        service.ingest(reading(52.0, 5.0, Instant.now()), "Team", "Description");
+
+        ArgumentCaptor<TeamLocationResponse> captor = ArgumentCaptor.forClass(TeamLocationResponse.class);
+        verify(locationBroadcastBuffer).bufferLocation(eq(gameId), captor.capture());
+        assertEquals(teamId, captor.getValue().teamId());
+        assertEquals(52.0, captor.getValue().latitude());
+    }
+
+    @Test
+    void ingest_rejectedFix_doesNotBufferATeamLocation() {
+        // An invalid fix must not reach the team's devices at all.
+        service.ingest(reading(999.0, 5.0, Instant.now()), "Team", null);
+
+        verify(locationBroadcastBuffer, never()).bufferLocation(any(), any());
     }
 
     @Test

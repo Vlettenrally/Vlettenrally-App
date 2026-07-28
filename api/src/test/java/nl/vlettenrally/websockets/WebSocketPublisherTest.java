@@ -1,8 +1,8 @@
 package nl.vlettenrally.websockets;
 
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -102,25 +102,23 @@ class WebSocketPublisherTest {
     }
 
     @Test
-    void sendToAdminTopic_sendsSessionTargetedAdminOnlyMessages() {
+    void sendToAdminTopic_sendsOneSessionTargetedAdminOnlyMessageForTheWholeSubscriberSet() {
         when(adminTopicSubscriptionManager.getActiveSubscribers(gameId, "pictures"))
             .thenReturn(Set.of("session-a", "session-b"));
 
         publisher.sendToAdminTopic(gameId, "pictures", "PICTURE_PENDING", "payload");
 
         ArgumentCaptor<WebSocketMessage> captor = ArgumentCaptor.forClass(WebSocketMessage.class);
-        verify(valkeyPubSubService, times(2)).publish(captor.capture());
+        // One publish regardless of subscriber count — the receiving pod fans out locally.
+        verify(valkeyPubSubService, times(1)).publish(captor.capture());
 
-        List<WebSocketMessage> sent = captor.getAllValues();
-        for (WebSocketMessage msg : sent) {
-            assertEquals("PICTURE_PENDING", msg.getType());
-            assertEquals("payload", msg.getPayload());
-            assertEquals(gameId, msg.getTargetGameId());
-            assertTrue(msg.isAdminOnly());
-            assertNotNull(msg.getTargetSessionId());
-        }
-        Set<String> targeted = Set.of(sent.get(0).getTargetSessionId(), sent.get(1).getTargetSessionId());
-        assertEquals(Set.of("session-a", "session-b"), targeted);
+        WebSocketMessage msg = captor.getValue();
+        assertEquals("PICTURE_PENDING", msg.getType());
+        assertEquals("payload", msg.getPayload());
+        assertEquals(gameId, msg.getTargetGameId());
+        assertTrue(msg.isAdminOnly());
+        assertNull(msg.getTargetSessionId());
+        assertEquals(Set.of("session-a", "session-b"), Set.copyOf(msg.getTargetSessionIds()));
     }
 
     @Test
@@ -131,6 +129,37 @@ class WebSocketPublisherTest {
         publisher.sendToAdminTopic(gameId, "pictures", "PICTURE_PENDING", "payload");
 
         verify(valkeyPubSubService, never()).publish(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void sendToAdminTopic_withNoActiveSubscribers_doesNotBuildThePayload() {
+        when(adminTopicSubscriptionManager.getActiveSubscribers(gameId, "ranking"))
+            .thenReturn(Set.of());
+        AtomicInteger built = new AtomicInteger();
+
+        publisher.sendToAdminTopicLazily(gameId, "ranking", "RANKING_UPDATE", () -> {
+            built.incrementAndGet();
+            return "expensive";
+        });
+
+        // The whole point of the Supplier overload: an unwatched page costs nothing to produce.
+        assertEquals(0, built.get());
+        verify(valkeyPubSubService, never()).publish(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void sendToAdminTopic_withSubscribers_buildsThePayloadOnce() {
+        when(adminTopicSubscriptionManager.getActiveSubscribers(gameId, "ranking"))
+            .thenReturn(Set.of("session-a", "session-b"));
+        AtomicInteger built = new AtomicInteger();
+
+        publisher.sendToAdminTopicLazily(gameId, "ranking", "RANKING_UPDATE", () -> {
+            built.incrementAndGet();
+            return "expensive";
+        });
+
+        assertEquals(1, built.get());
+        verify(valkeyPubSubService, times(1)).publish(org.mockito.ArgumentMatchers.any());
     }
 
     @Test

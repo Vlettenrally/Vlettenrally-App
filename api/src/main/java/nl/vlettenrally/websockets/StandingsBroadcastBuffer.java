@@ -48,7 +48,8 @@ public class StandingsBroadcastBuffer {
      * pending are skipped. A game's changed-team set is removed atomically before publishing,
      * so accruals arriving during the flush accumulate in a fresh set for the next tick.
      */
-    @Scheduled(every = "{vlettenrally.points.standings-broadcast-interval}")
+    @Scheduled(every = "{vlettenrally.points.standings-broadcast-interval}",
+               concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
     void flush() {
         if (dirty.isEmpty()) {
             return;

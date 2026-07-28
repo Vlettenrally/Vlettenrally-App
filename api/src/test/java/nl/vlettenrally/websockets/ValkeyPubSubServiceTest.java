@@ -4,6 +4,8 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -276,5 +278,135 @@ class ValkeyPubSubServiceTest {
         verify(asyncTeam1).sendText(eq(json), any());
         verify(asyncTeam2, never()).sendText(anyString(), any());
         verify(asyncAdmin, never()).sendText(anyString(), any());
+    }
+
+    // --- Multi-session targeting (one publish, N recipients) ---
+
+    @Test
+    void deliverLocally_targetSessionIds_reachesEveryListedSession() throws JsonProcessingException {
+        WebSocketMessage msg = new WebSocketMessage("PICTURE_PENDING", "data")
+            .withTargetGame(gameId)
+            .forAdminOnly()
+            .withTargetSessions(java.util.List.of("team1-session", "admin-session"));
+        String json = objectMapper.writeValueAsString(msg);
+
+        service.deliverLocally(json);
+
+        verify(asyncTeam1).sendText(anyString(), any());
+        verify(asyncAdmin).sendText(anyString(), any());
+        verify(asyncTeam2, never()).sendText(anyString(), any());
+    }
+
+    @Test
+    void deliverLocally_targetSessionIds_stripsTheRoutingFieldFromTheFrame() throws JsonProcessingException {
+        // Leaving the list in would hand every recipient the other recipients' session ids,
+        // which WebSocketPingHandler treats as adoptable.
+        WebSocketMessage msg = new WebSocketMessage("PICTURE_PENDING", "data")
+            .withTargetGame(gameId)
+            .forAdminOnly()
+            .withTargetSessions(java.util.List.of("admin-session"));
+
+        service.deliverLocally(objectMapper.writeValueAsString(msg));
+
+        ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
+        verify(asyncAdmin).sendText(captor.capture(), any());
+        assertFalse(captor.getValue().contains("targetSessionIds"));
+        assertFalse(captor.getValue().contains("admin-session"));
+        assertTrue(captor.getValue().contains("PICTURE_PENDING"));
+    }
+
+    @Test
+    void deliverLocally_targetSessionIds_unknownSession_doesNotThrow() throws JsonProcessingException {
+        WebSocketMessage msg = new WebSocketMessage("PICTURE_PENDING", "data")
+            .withTargetSessions(java.util.List.of("nobody-here"));
+        String json = objectMapper.writeValueAsString(msg);
+
+        assertDoesNotThrow(() -> service.deliverLocally(json));
+        verify(asyncTeam1, never()).sendText(anyString(), any());
+    }
+
+    // --- Multiplexed envelopes (one publish, per-team payloads) ---
+
+    @Test
+    void deliverLocally_multiplexed_deliversOnlyEachTeamsOwnSlice() throws Exception {
+        WebSocketMessage msg = WebSocketMessage.multiplexed("RIVAL_UPDATE", gameId, java.util.Map.of(
+            teamId1, java.util.Map.of("points", 10),
+            teamId2, java.util.Map.of("points", 20)));
+
+        service.deliverLocally(objectMapper.writeValueAsString(msg));
+
+        ArgumentCaptor<String> team1 = ArgumentCaptor.forClass(String.class);
+        verify(asyncTeam1).sendText(team1.capture(), any());
+        assertEquals(10, objectMapper.readTree(team1.getValue()).get("payload").get("points").asInt());
+
+        ArgumentCaptor<String> team2 = ArgumentCaptor.forClass(String.class);
+        verify(asyncTeam2).sendText(team2.capture(), any());
+        assertEquals(20, objectMapper.readTree(team2.getValue()).get("payload").get("points").asInt());
+    }
+
+    @Test
+    void deliverLocally_multiplexed_neverLeaksTheWholeEnvelope() throws Exception {
+        // The envelope holds every team's view; forwarding it verbatim would expose exactly
+        // what the per-team rival payload deliberately withholds.
+        WebSocketMessage msg = WebSocketMessage.multiplexed("RIVAL_UPDATE", gameId, java.util.Map.of(
+            teamId1, java.util.Map.of("secret", "team1-only"),
+            teamId2, java.util.Map.of("secret", "team2-only")));
+
+        service.deliverLocally(objectMapper.writeValueAsString(msg));
+
+        ArgumentCaptor<String> team1 = ArgumentCaptor.forClass(String.class);
+        verify(asyncTeam1).sendText(team1.capture(), any());
+        assertFalse(team1.getValue().contains("perTeamPayloads"));
+        assertFalse(team1.getValue().contains("team2-only"));
+        assertTrue(team1.getValue().contains("team1-only"));
+    }
+
+    @Test
+    void deliverLocally_multiplexed_doesNotReachAdminSessions() throws Exception {
+        WebSocketMessage msg = WebSocketMessage.multiplexed("RIVAL_UPDATE", gameId,
+            java.util.Map.of(teamId1, java.util.Map.of("points", 10)));
+
+        service.deliverLocally(objectMapper.writeValueAsString(msg));
+
+        verify(asyncAdmin, never()).sendText(anyString(), any());
+    }
+
+    @Test
+    void deliverLocally_multiplexed_skipsTeamsWithNoSlice() throws Exception {
+        WebSocketMessage msg = WebSocketMessage.multiplexed("RIVAL_UPDATE", gameId,
+            java.util.Map.of(teamId1, java.util.Map.of("points", 10)));
+
+        service.deliverLocally(objectMapper.writeValueAsString(msg));
+
+        verify(asyncTeam1).sendText(anyString(), any());
+        verify(asyncTeam2, never()).sendText(anyString(), any());
+    }
+
+    @Test
+    void deliverLocally_multiplexed_doesNotReachAnotherGame() throws Exception {
+        WebSocketMessage msg = WebSocketMessage.multiplexed("RIVAL_UPDATE", UUID.randomUUID(),
+            java.util.Map.of(teamId1, java.util.Map.of("points", 10)));
+
+        service.deliverLocally(objectMapper.writeValueAsString(msg));
+
+        verify(asyncTeam1, never()).sendText(anyString(), any());
+        verify(asyncTeam2, never()).sendText(anyString(), any());
+    }
+
+    @Test
+    void deliverLocally_multiplexed_isInertOnAPodThatOnlyUnderstandsLegacyRouting() throws Exception {
+        // A rolling deploy leaves old pods in the pool. They ignore perTeamPayloads and fall
+        // through to normal routing, so the envelope carries a sentinel targetTeamId that no
+        // real team has — making it undeliverable there rather than a leak.
+        WebSocketMessage msg = WebSocketMessage.multiplexed("RIVAL_UPDATE", gameId,
+            java.util.Map.of(teamId1, java.util.Map.of("points", 10)));
+        String json = objectMapper.writeValueAsString(msg);
+
+        // Simulate the old code path: routing metadata only, no perTeamPayloads awareness.
+        WebSocketMessage routing = objectMapper.readValue(json, WebSocketMessage.class);
+        for (WebSocketSession s : sessionManager.getAllSessions()) {
+            assertFalse(s.shouldReceive(routing),
+                "multiplexed envelope must not be deliverable via legacy routing");
+        }
     }
 }

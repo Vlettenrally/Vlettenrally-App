@@ -20,11 +20,13 @@ import nl.vlettenrally.data.enums.PointEntryType;
 import nl.vlettenrally.data.repository.PointEntryRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.websockets.AdminTopics;
+import nl.vlettenrally.websockets.WebSocketMessage;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 import nl.vlettenrally.websockets.dto.WebSocketMessageType;
 import org.locationtech.jts.geom.Point;
 
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -406,11 +408,13 @@ public class PointsLedgerService {
         // Staff on the admin ranking page always see the full live standings, regardless of
         // publish state or game status. Topic-gated: only sessions with a fresh ranking
         // heartbeat receive this, so it costs nothing when nobody's on the page.
-        webSocketPublisher.sendToAdminTopic(
+        // Supplier, not a value: buildRanking costs one points lookup per checked-in team, and
+        // as an eagerly-evaluated argument it was paid on every flush even with nobody on the page.
+        webSocketPublisher.sendToAdminTopicLazily(
             gameId,
             AdminTopics.RANKING,
             WebSocketMessageType.RANKING_UPDATE.getValue(),
-            rankingService.buildRanking(gameId, totalOverrides));
+            () -> rankingService.buildRanking(gameId, totalOverrides));
 
         if (isRankingsPublished(gameId)) {
             // Standings are only player-visible once an admin has revealed them.
@@ -426,6 +430,10 @@ public class PointsLedgerService {
             List<Team> teams = teamRepository.findByGameId(gameId);
             Map<UUID, Team> byId = teams.stream()
                 .collect(Collectors.toMap(Team::getId, t -> t));
+            // Collected into one multiplexed envelope rather than published per team: during
+            // continuous distance accrual nearly every team is affected each tick, which meant
+            // a burst of one un-awaited publish per team against a small connection pool.
+            Map<UUID, Object> perTeam = new HashMap<>();
             for (Team team : teams) {
                 if (!team.isCheckedIn()) {
                     continue;
@@ -435,11 +443,11 @@ public class PointsLedgerService {
                 if (!affected) {
                     continue;
                 }
-                webSocketPublisher.sendToTeamOnly(
-                    gameId,
-                    team.getId(),
-                    WebSocketMessageType.RIVAL_UPDATE.getValue(),
-                    rivalPayload(team, byId, totalOverrides));
+                perTeam.put(team.getId(), rivalPayload(team, byId, totalOverrides));
+            }
+            if (!perTeam.isEmpty()) {
+                webSocketPublisher.publish(WebSocketMessage.multiplexed(
+                    WebSocketMessageType.RIVAL_UPDATE.getValue(), gameId, perTeam));
             }
         }
     }
