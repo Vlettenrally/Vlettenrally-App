@@ -21,6 +21,9 @@ import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.LocationData;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.repository.mock.MockLocationDataRepository;
+import nl.vlettenrally.observability.LocationMetrics;
+import nl.vlettenrally.observability.LocationMetrics.FixOutcome;
+import nl.vlettenrally.service.util.TrackOutlierFilter.Decision;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -47,6 +50,7 @@ class LocationBackfillPersisterTest {
     @Mock LocationIngestService locationIngestService;
     @Mock TeamDistanceCalculator teamDistanceCalculator;
     @Mock AutomationEngine automationEngine;
+    @Mock LocationMetrics metrics;
 
     private MockLocationDataRepository locationRepo;
     private LocationBackfillPersister persister;
@@ -62,6 +66,7 @@ class LocationBackfillPersisterTest {
         persister.locationIngestService = locationIngestService;
         persister.teamDistanceCalculator = teamDistanceCalculator;
         persister.automationEngine = automationEngine;
+        persister.metrics = metrics;
 
         game = new Game();
         game.setId(GAME_ID);
@@ -91,8 +96,8 @@ class LocationBackfillPersisterTest {
 
     @Test
     void persist_dedupesAndInsertsOnlyMissingPoints() {
-        when(locationIngestService.isValid(any())).thenReturn(true);
-        lenient().when(locationIngestService.passesGuards(any(), any(), any())).thenReturn(true);
+        when(locationIngestService.validate(any())).thenReturn(FixOutcome.ACCEPTED);
+        lenient().when(locationIngestService.guardDecision(any(), any(), any())).thenReturn(Decision.ACCEPT);
         when(locationIngestService.computeGate(any(), any(), any()))
             .thenReturn(new LocationIngestService.IngestGate(false, false));
         when(teamDistanceCalculator.recomputeAfter(eq(team.getId()), same(game), any(Instant.class))).thenReturn(42.0);
@@ -123,7 +128,7 @@ class LocationBackfillPersisterTest {
 
     @Test
     void persist_dropsPointRejectedByGuard() {
-        when(locationIngestService.isValid(any())).thenReturn(true);
+        when(locationIngestService.validate(any())).thenReturn(FixOutcome.ACCEPTED);
         when(locationIngestService.computeGate(any(), any(), any()))
             .thenReturn(new LocationIngestService.IngestGate(false, false));
         lenient().when(teamDistanceCalculator.recomputeAfter(eq(team.getId()), same(game), any(Instant.class))).thenReturn(10.0);
@@ -131,7 +136,7 @@ class LocationBackfillPersisterTest {
         // A stored fix just before the gap makes the guard active for the first candidate.
         storeFix(4.90, 52.3700, 0);
         // First candidate accepted, second rejected (a spike).
-        when(locationIngestService.passesGuards(any(), any(), any())).thenReturn(true, false);
+        when(locationIngestService.guardDecision(any(), any(), any())).thenReturn(Decision.ACCEPT, Decision.DROP_TELEPORT);
 
         List<EventParticipantLocation> track = List.of(
             providerPoint(4.90, 52.3705, 60),
@@ -146,8 +151,8 @@ class LocationBackfillPersisterTest {
 
     @Test
     void persist_replaysCheckpointsWhenDetectionActive() {
-        when(locationIngestService.isValid(any())).thenReturn(true);
-        lenient().when(locationIngestService.passesGuards(any(), any(), any())).thenReturn(true);
+        when(locationIngestService.validate(any())).thenReturn(FixOutcome.ACCEPTED);
+        lenient().when(locationIngestService.guardDecision(any(), any(), any())).thenReturn(Decision.ACCEPT);
         when(locationIngestService.computeGate(any(), any(), any()))
             .thenReturn(new LocationIngestService.IngestGate(true, true));
         when(teamDistanceCalculator.recomputeAfter(eq(team.getId()), same(game), any(Instant.class))).thenReturn(500.0);
@@ -171,8 +176,8 @@ class LocationBackfillPersisterTest {
 
     @Test
     void persist_filtersOutPointsBeforeGameStart() {
-        when(locationIngestService.isValid(any())).thenReturn(true);
-        lenient().when(locationIngestService.passesGuards(any(), any(), any())).thenReturn(true);
+        when(locationIngestService.validate(any())).thenReturn(FixOutcome.ACCEPTED);
+        lenient().when(locationIngestService.guardDecision(any(), any(), any())).thenReturn(Decision.ACCEPT);
         when(locationIngestService.computeGate(any(), any(), any()))
             .thenReturn(new LocationIngestService.IngestGate(false, false));
         when(teamDistanceCalculator.recomputeAfter(eq(team.getId()), same(game), any(Instant.class))).thenReturn(500.0);
@@ -215,8 +220,8 @@ class LocationBackfillPersisterTest {
 
     @Test
     void persist_filtersOutPointsBeforeTrackerAssignment() {
-        when(locationIngestService.isValid(any())).thenReturn(true);
-        lenient().when(locationIngestService.passesGuards(any(), any(), any())).thenReturn(true);
+        when(locationIngestService.validate(any())).thenReturn(FixOutcome.ACCEPTED);
+        lenient().when(locationIngestService.guardDecision(any(), any(), any())).thenReturn(Decision.ACCEPT);
         when(locationIngestService.computeGate(any(), any(), any()))
             .thenReturn(new LocationIngestService.IngestGate(false, false));
         when(teamDistanceCalculator.recomputeAfter(eq(team.getId()), same(game), any(Instant.class))).thenReturn(500.0);
@@ -261,8 +266,8 @@ class LocationBackfillPersisterTest {
 
     @Test
     void persist_gameStartWinsWhenTrackerAssignedEarlier() {
-        when(locationIngestService.isValid(any())).thenReturn(true);
-        lenient().when(locationIngestService.passesGuards(any(), any(), any())).thenReturn(true);
+        when(locationIngestService.validate(any())).thenReturn(FixOutcome.ACCEPTED);
+        lenient().when(locationIngestService.guardDecision(any(), any(), any())).thenReturn(Decision.ACCEPT);
         when(locationIngestService.computeGate(any(), any(), any()))
             .thenReturn(new LocationIngestService.IngestGate(false, false));
         when(teamDistanceCalculator.recomputeAfter(eq(team.getId()), same(game), any(Instant.class))).thenReturn(500.0);
@@ -283,8 +288,8 @@ class LocationBackfillPersisterTest {
 
     @Test
     void persist_usesStoredPreStartNeighbourForBoundarySegment() {
-        when(locationIngestService.isValid(any())).thenReturn(true);
-        lenient().when(locationIngestService.passesGuards(any(), any(), any())).thenReturn(true);
+        when(locationIngestService.validate(any())).thenReturn(FixOutcome.ACCEPTED);
+        lenient().when(locationIngestService.guardDecision(any(), any(), any())).thenReturn(Decision.ACCEPT);
         when(locationIngestService.computeGate(any(), any(), any()))
             .thenReturn(new LocationIngestService.IngestGate(true, true));
         when(teamDistanceCalculator.recomputeAfter(eq(team.getId()), same(game), any(Instant.class))).thenReturn(500.0);
@@ -312,8 +317,8 @@ class LocationBackfillPersisterTest {
 
     @Test
     void persist_stopsCreditingCheckpointsOnceTeamFinishesMidReplay() {
-        when(locationIngestService.isValid(any())).thenReturn(true);
-        lenient().when(locationIngestService.passesGuards(any(), any(), any())).thenReturn(true);
+        when(locationIngestService.validate(any())).thenReturn(FixOutcome.ACCEPTED);
+        lenient().when(locationIngestService.guardDecision(any(), any(), any())).thenReturn(Decision.ACCEPT);
         when(locationIngestService.computeGate(any(), any(), any()))
             .thenReturn(new LocationIngestService.IngestGate(true, true));
         when(teamDistanceCalculator.recomputeAfter(eq(team.getId()), same(game), any(Instant.class))).thenReturn(500.0);
@@ -343,8 +348,8 @@ class LocationBackfillPersisterTest {
 
     @Test
     void persist_creditsCheckpointsBeforeFinishedAtEvenWhenTeamAlreadyFinished() {
-        when(locationIngestService.isValid(any())).thenReturn(true);
-        lenient().when(locationIngestService.passesGuards(any(), any(), any())).thenReturn(true);
+        when(locationIngestService.validate(any())).thenReturn(FixOutcome.ACCEPTED);
+        lenient().when(locationIngestService.guardDecision(any(), any(), any())).thenReturn(Decision.ACCEPT);
         when(locationIngestService.computeGate(any(), any(), any()))
             .thenReturn(new LocationIngestService.IngestGate(false, false));
         when(teamDistanceCalculator.recomputeAfter(eq(team.getId()), same(game), any(Instant.class))).thenReturn(500.0);
@@ -372,8 +377,8 @@ class LocationBackfillPersisterTest {
 
     @Test
     void persist_excludesCheckpointPassesAfterTailWindowCloses() {
-        when(locationIngestService.isValid(any())).thenReturn(true);
-        lenient().when(locationIngestService.passesGuards(any(), any(), any())).thenReturn(true);
+        when(locationIngestService.validate(any())).thenReturn(FixOutcome.ACCEPTED);
+        lenient().when(locationIngestService.guardDecision(any(), any(), any())).thenReturn(Decision.ACCEPT);
         when(locationIngestService.computeGate(any(), any(), any()))
             .thenReturn(new LocationIngestService.IngestGate(false, false));
         when(teamDistanceCalculator.recomputeAfter(eq(team.getId()), same(game), any(Instant.class))).thenReturn(500.0);
@@ -400,8 +405,8 @@ class LocationBackfillPersisterTest {
 
     @Test
     void persist_filtersOutPointsPastTailWindowOnceGameCompleted() {
-        when(locationIngestService.isValid(any())).thenReturn(true);
-        lenient().when(locationIngestService.passesGuards(any(), any(), any())).thenReturn(true);
+        when(locationIngestService.validate(any())).thenReturn(FixOutcome.ACCEPTED);
+        lenient().when(locationIngestService.guardDecision(any(), any(), any())).thenReturn(Decision.ACCEPT);
         when(locationIngestService.computeGate(any(), any(), any()))
             .thenReturn(new LocationIngestService.IngestGate(false, false));
         when(teamDistanceCalculator.recomputeAfter(eq(team.getId()), same(game), any(Instant.class))).thenReturn(500.0);

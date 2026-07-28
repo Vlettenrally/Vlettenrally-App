@@ -18,6 +18,8 @@ import nl.vlettenrally.data.repository.CheckpointRepository;
 import nl.vlettenrally.data.repository.FcmTokenRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.fcm.FcmHttpClient;
+import nl.vlettenrally.observability.DeliveryMetrics;
+import nl.vlettenrally.observability.DeliveryMetrics.FcmCaller;
 import nl.vlettenrally.service.AchievementService;
 import nl.vlettenrally.service.AutomationEngine;
 import nl.vlettenrally.service.PointsLedgerService;
@@ -76,6 +78,9 @@ public class AchievementServiceImpl implements AchievementService {
 
     @Inject
     FcmHttpClient fcmHttpClient;
+
+    @Inject
+    DeliveryMetrics deliveryMetrics;
 
     @Inject
     PointsLedgerService pointsLedgerService;
@@ -216,7 +221,10 @@ public class AchievementServiceImpl implements AchievementService {
             return;
         }
 
-        fcmTokenRepository.findAdminTokensByAdminIds(adminIds).forEach(fcmToken -> {
+        // This path bypasses MessageTransmitter entirely, so msg.transmit never sees it.
+        var adminTokens = fcmTokenRepository.findAdminTokensByAdminIds(adminIds);
+        deliveryMetrics.fcmFanout(FcmCaller.CHECKPOINT_OPERATOR, adminTokens.size());
+        adminTokens.forEach(fcmToken -> {
             try {
                 fcmHttpClient.sendNotification(
                     fcmToken.getToken(),

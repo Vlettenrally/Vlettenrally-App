@@ -4,6 +4,9 @@ import io.quarkus.logging.Log;
 import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import nl.vlettenrally.observability.WebSocketMetrics;
+import nl.vlettenrally.observability.WebSocketMetrics.Buffer;
+import nl.vlettenrally.observability.WebSocketMetrics.FlushOutcome;
 import nl.vlettenrally.service.PointsLedgerService;
 
 import java.util.ArrayList;
@@ -35,6 +38,9 @@ public class StandingsBroadcastBuffer {
     @Inject
     PointsLedgerService pointsLedgerService;
 
+    @Inject
+    WebSocketMetrics metrics;
+
     /**
      * Record that a team's total changed, to be reflected on the next flush.
      * Thread-safe; repeated calls for the same game coalesce into one broadcast.
@@ -61,7 +67,9 @@ public class StandingsBroadcastBuffer {
             }
             try {
                 pointsLedgerService.publishStandingsForTeams(gameId, changedTeams);
+                metrics.flushed(Buffer.STANDINGS, FlushOutcome.SENT);
             } catch (Exception e) {
+                metrics.flushed(Buffer.STANDINGS, FlushOutcome.DROPPED);
                 Log.errorf("Standings broadcast flush failed for game %s: %s", gameId, e.getMessage());
             }
         }

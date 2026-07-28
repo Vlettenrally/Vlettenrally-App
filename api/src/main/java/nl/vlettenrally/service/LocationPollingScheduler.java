@@ -16,6 +16,9 @@ import nl.vlettenrally.data.dto.game.TeamLocationResponse;
 import nl.vlettenrally.data.repository.LocationDataRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.data.repository.TrackerStatusUpdate;
+import nl.vlettenrally.observability.LocationMetrics;
+import nl.vlettenrally.observability.LocationMetrics.FixSource;
+import nl.vlettenrally.observability.LocationMetrics.SweepOutcome;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
@@ -91,6 +94,9 @@ public class LocationPollingScheduler {
     PollingLeader pollingLeader;
 
     @Inject
+    LocationMetrics metrics;
+
+    @Inject
     TrackerStatusRecorder trackerStatusRecorder;
 
     /** A fresh fix this much newer than a team's last stored fix means the tracker was offline —
@@ -139,6 +145,7 @@ public class LocationPollingScheduler {
                     || game.getLocationEndpointUrl() == null
                     || game.getLocationEndpointUrl().isBlank()) {
                 Log.debugf("Game %s: location polling skipped (endpoint not active or URL not set)", game.getId());
+                metrics.sweep(SweepOutcome.SKIPPED_INACTIVE);
                 continue;
             }
 
@@ -150,6 +157,7 @@ public class LocationPollingScheduler {
             if (last != null && Duration.between(last, now).getSeconds() < frequencySeconds) {
                 Log.debugf("Game %s: skipping poll (%.0fs since last, frequency=%ds)",
                         game.getId(), (double) Duration.between(last, now).getSeconds(), frequencySeconds);
+                metrics.sweep(SweepOutcome.SKIPPED_FREQUENCY);
                 continue;
             }
 
@@ -157,6 +165,7 @@ public class LocationPollingScheduler {
                 pollGame(game);
                 lastPolledAt.put(game.getId(), now);
             } catch (Exception e) {
+                metrics.sweep(SweepOutcome.EXCEPTION);
                 Log.errorf("Failed to poll Legendstracking for game %s: %s", game.getId(), e.getMessage());
             }
         }
@@ -169,6 +178,7 @@ public class LocationPollingScheduler {
 
         if (teamsByTrackerId.isEmpty()) {
             Log.warnf("Game %s has no teams with trackerId set", game.getId());
+            metrics.sweep(SweepOutcome.NO_TRACKERS);
             return;
         }
 
@@ -181,12 +191,14 @@ public class LocationPollingScheduler {
             response = locationApiClient.fetchParticipantLocations(game.getLocationEndpointUrl());
         } catch (LocationApiException e) {
             Log.warnf("Legendstracking /participants_locations error for game %s: %s", game.getId(), e.getMessage());
+            metrics.sweep(SweepOutcome.API_ERROR);
             return;
         }
 
         if (response == null || response.getEvent() == null
                 || response.getEvent().getEventParticipantLocations() == null) {
             Log.warnf("Game %s: /participants_locations returned null or empty body", game.getId());
+            metrics.sweep(SweepOutcome.EMPTY_BODY);
             return;
         }
 
@@ -253,7 +265,8 @@ public class LocationPollingScheduler {
             locationData.setSpeed(pl.getSpeed() != null ? BigDecimal.valueOf(pl.getSpeed()) : null);
             locationData.setHeading(null);
 
-            locationIngestService.ingest(locationData, team.getName(), team.getDescription()).ifPresent(broadcasts::add);
+            locationIngestService.ingest(locationData, team.getName(), team.getDescription(), FixSource.POLLER)
+                .ifPresent(broadcasts::add);
 
             // Automatic gap backfill: a fresh fix far newer than the last stored one means the tracker
             // was offline and has buffered points we never polled. Fetch its history to fill the trail.
@@ -264,6 +277,7 @@ public class LocationPollingScheduler {
             }
         }
 
+        metrics.sweep(SweepOutcome.OK);
         Log.infof("Game %s: polled %d participant locations, accepted %d", game.getId(), totalCount, broadcasts.size());
         trackerStatusRecorder.record(statusByTracker.values());
         locationIngestService.broadcastToMap(game.getId(), broadcasts);

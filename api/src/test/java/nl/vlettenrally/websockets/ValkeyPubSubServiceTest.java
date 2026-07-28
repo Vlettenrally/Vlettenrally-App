@@ -14,6 +14,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.InjectMocks;
+import org.mockito.Mock;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -28,6 +29,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.websocket.RemoteEndpoint;
 import jakarta.websocket.Session;
+import nl.vlettenrally.observability.WebSocketMetrics;
 
 /**
  * Unit tests for ValkeyPubSubService.deliverLocally().
@@ -42,6 +44,9 @@ class ValkeyPubSubServiceTest {
 
     @Spy
     ObjectMapper objectMapper = new ObjectMapper();
+
+    @Mock
+    WebSocketMetrics metrics;
 
     @InjectMocks
     ValkeyPubSubService service;

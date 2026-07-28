@@ -11,10 +11,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
-import io.opentelemetry.api.GlobalOpenTelemetry;
-import io.opentelemetry.api.common.AttributeKey;
-import io.opentelemetry.api.common.Attributes;
-import io.opentelemetry.api.metrics.LongCounter;
 import io.quarkus.logging.Log;
 import io.quarkus.redis.datasource.ReactiveRedisDataSource;
 import io.quarkus.redis.datasource.pubsub.ReactivePubSubCommands;
@@ -25,6 +21,10 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.websocket.Session;
+import nl.vlettenrally.observability.WebSocketMetrics;
+import nl.vlettenrally.observability.WebSocketMetrics.DeliverOutcome;
+import nl.vlettenrally.observability.WebSocketMetrics.PublishFailure;
+import nl.vlettenrally.observability.WebSocketMetrics.ResubscribeReason;
 
 /**
  * Valkey (Redis-compatible) pub/sub service for cross-pod WebSocket message distribution.
@@ -49,10 +49,6 @@ public class ValkeyPubSubService {
     /** Ceiling for the re-subscribe backoff, so a long Valkey outage doesn't spin. */
     private static final Duration MAX_RESUBSCRIBE_BACKOFF = Duration.ofSeconds(30);
 
-    private static final AttributeKey<String> REASON = AttributeKey.stringKey("reason");
-    private static final Attributes POOL_EXHAUSTED = Attributes.of(REASON, "pool_exhausted");
-    private static final Attributes OTHER_FAILURE = Attributes.of(REASON, "other");
-
     @Inject
     ReactiveRedisDataSource redisDataSource;
 
@@ -62,11 +58,11 @@ public class ValkeyPubSubService {
     @Inject
     ObjectMapper objectMapper;
 
+    @Inject
+    WebSocketMetrics metrics;
+
     private ReactivePubSubCommands<String> subscriber;
     private ReactivePubSubCommands<String> publisher;
-
-    private LongCounter publishOk;
-    private LongCounter publishFailed;
 
     /** Epoch millis of the last emitted failure log, per reason. */
     private final Map<String, AtomicLong> lastFailureLog = Map.of(
@@ -86,14 +82,6 @@ public class ValkeyPubSubService {
     protected void onStart(@Observes StartupEvent event) {
         subscriber = redisDataSource.pubsub(String.class);
         publisher = redisDataSource.pubsub(String.class);
-
-        var meter = GlobalOpenTelemetry.getMeter("nl.vlettenrally.websockets");
-        publishOk = meter.counterBuilder("ws.publish.ok")
-                .setDescription("WebSocket messages successfully published to Valkey")
-                .build();
-        publishFailed = meter.counterBuilder("ws.publish.failed")
-                .setDescription("WebSocket messages dropped because publishing to Valkey failed")
-                .build();
 
         subscribe(Duration.ofSeconds(1));
     }
@@ -123,12 +111,14 @@ public class ValkeyPubSubService {
                 () -> {
                     if (!shuttingDown) {
                         Log.warnf("Valkey subscription to '%s' ended; re-subscribing", CHANNEL);
+                        metrics.resubscribed(ResubscribeReason.ENDED);
                         resubscribe(Duration.ofSeconds(1));
                     }
                 },
                 error -> {
                     if (!shuttingDown) {
                         Log.errorf("Valkey subscription to '%s' failed: %s; re-subscribing", CHANNEL, error.getMessage());
+                        metrics.resubscribed(ResubscribeReason.ERROR);
                         resubscribe(Duration.ofSeconds(1));
                     }
                 })
@@ -137,6 +127,7 @@ public class ValkeyPubSubService {
                 sub -> Log.infof("Subscribed to Valkey channel '%s' for WebSocket message distribution", CHANNEL),
                 error -> {
                     Log.errorf("Failed to subscribe to Valkey channel '%s': %s", CHANNEL, error.getMessage());
+                    metrics.resubscribed(ResubscribeReason.SUBSCRIBE_FAILED);
                     resubscribe(backoff);
                 }
             );
@@ -182,12 +173,13 @@ public class ValkeyPubSubService {
             publisher.publish(CHANNEL, json)
                 .subscribe().with(
                     count -> {
-                        publishOk.add(1);
+                        metrics.published();
                         Log.debugf("Published WebSocket message type=%s to %d subscriber(s)", message.getType(), count);
                     },
                             this::recordFailure
                 );
         } catch (JsonProcessingException e) {
+            metrics.publishFailed(PublishFailure.SERIALIZE);
             Log.error("Failed to serialize WebSocket message for Valkey: " + e.getMessage(), e);
         }
     }
@@ -197,7 +189,7 @@ public class ValkeyPubSubService {
         boolean poolExhausted = detail.contains("max wait queue size") || detail.contains("Timeout");
         String reason = poolExhausted ? "pool_exhausted" : "other";
 
-        publishFailed.add(1, poolExhausted ? POOL_EXHAUSTED : OTHER_FAILURE);
+        metrics.publishFailed(poolExhausted ? PublishFailure.POOL_EXHAUSTED : PublishFailure.OTHER);
 
         AtomicLong last = lastFailureLog.get(reason);
         long now = System.currentTimeMillis();
@@ -337,12 +329,19 @@ public class ValkeyPubSubService {
     }
 
     private void sendToSession(Session session, String message) {
-        if (session.isOpen()) {
-            session.getAsyncRemote().sendText(message, result -> {
-                if (!result.isOK()) {
-                    Log.error("Error sending WebSocket message: " + result.getException());
-                }
-            });
+        if (!session.isOpen()) {
+            // The session closed between routing and sending. Common and harmless on its own,
+            // but a rising rate means sessions are being torn down faster than they are reaped.
+            metrics.delivered(DeliverOutcome.SESSION_CLOSED);
+            return;
         }
+        session.getAsyncRemote().sendText(message, result -> {
+            if (result.isOK()) {
+                metrics.delivered(DeliverOutcome.SENT);
+            } else {
+                metrics.delivered(DeliverOutcome.SEND_ERROR);
+                Log.error("Error sending WebSocket message: " + result.getException());
+            }
+        });
     }
 }

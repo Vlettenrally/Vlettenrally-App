@@ -9,6 +9,8 @@ import jakarta.inject.Inject;
 import jakarta.websocket.OnClose;
 import jakarta.websocket.OnError;
 import jakarta.websocket.Session;
+import nl.vlettenrally.observability.WebSocketMetrics;
+import nl.vlettenrally.observability.WebSocketMetrics.CloseCause;
 import nl.vlettenrally.websockets.dto.WebSocketResponse;
 
 
@@ -32,8 +34,12 @@ public abstract class BaseWebSocket {
     @Inject
     protected AdminTopicSubscriptionManager adminTopicSubscriptionManager;
 
+    @Inject
+    protected WebSocketMetrics metrics;
+
     @OnClose
     public void onClose(Session session) {
+        metrics.sessionClosed(CloseCause.CLOSE);
         cleanupSubscriptions(session);
         sessionManager.removeSession(session.getId());
         valkeySessionStore.removeSession(session.getId()).subscribe().with(
@@ -46,6 +52,7 @@ public abstract class BaseWebSocket {
     @OnError
     public void onError(Session session, Throwable throwable) {
         Log.errorf("WebSocket error on session %s: %s", session.getId(), throwable.getMessage());
+        metrics.sessionClosed(CloseCause.ERROR);
         cleanupSubscriptions(session);
         sessionManager.removeSession(session.getId());
         valkeySessionStore.removeSession(session.getId()).subscribe().with(

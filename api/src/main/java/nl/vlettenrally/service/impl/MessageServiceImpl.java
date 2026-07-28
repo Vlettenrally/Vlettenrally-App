@@ -18,6 +18,8 @@ import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.data.enums.MessageSource;
 import nl.vlettenrally.data.enums.MessageType;
 import nl.vlettenrally.data.enums.TransmissionChannel;
+import nl.vlettenrally.observability.DeliveryMetrics;
+import nl.vlettenrally.observability.DeliveryMetrics.TransmitOutcome;
 import nl.vlettenrally.provider.MessageTransmitter;
 import nl.vlettenrally.provider.TransmissionResult;
 import nl.vlettenrally.service.MessagePlaceholders;
@@ -62,6 +64,9 @@ public class MessageServiceImpl implements MessageService {
 
     @Inject
     WebSocketSessionManager webSocketSessionManager;
+
+    @Inject
+    DeliveryMetrics deliveryMetrics;
 
     @Inject
     @Any
@@ -146,6 +151,11 @@ public class MessageServiceImpl implements MessageService {
         if (webSocketDelivered) {
             message.addTransmissionChannel(TransmissionChannel.WEBSOCKET);
         }
+        // A false here only means the team has no session *on this instance*; a team connected to
+        // another pod still receives the frame through the Valkey fan-out. Treat a rising
+        // failure rate as a routing question, not proof of an offline team.
+        deliveryMetrics.transmitted(TransmissionChannel.WEBSOCKET,
+            webSocketDelivered ? TransmitOutcome.SUCCESS : TransmitOutcome.FAILURE);
         
         // 2. Check if team is inactive (for SMS fallback decision)
         boolean teamIsInactive = isTeamInactive(team);
@@ -159,25 +169,32 @@ public class MessageServiceImpl implements MessageService {
                 if (!teamIsInactive || !message.getMessageType().isCritical()) {
                     Log.debugf("Skipping SMS for message %s: inactive=%s, critical=%s",
                             message.getId(), teamIsInactive, message.getMessageType().isCritical());
+                    // Expected for almost every message — only RALLYDESK is critical — so GATED
+                    // is what distinguishes "the rules said no" from "the transmitter is broken".
+                    deliveryMetrics.transmitted(channel, TransmitOutcome.GATED);
                     continue;
                 }
             }
-            
+
             if (!transmitter.supports(team)) {
-                Log.debugf("Transmitter %s does not support team %s", 
+                Log.debugf("Transmitter %s does not support team %s",
                         channel, team.getName());
+                deliveryMetrics.transmitted(channel, TransmitOutcome.NOT_SUPPORTED);
                 continue;
             }
-            
+
             TransmissionResult result = transmitter.transmit(message, team);
-            
+
             if (result.isSuccess()) {
                 message.addTransmissionChannel(channel);
-                Log.infof("Message %s transmitted via %s to team %s", 
+                deliveryMetrics.transmitted(channel, TransmitOutcome.SUCCESS);
+                Log.infof("Message %s transmitted via %s to team %s",
                         message.getId(), channel, team.getName());
             } else {
                 errors.add(channel + ": " + result.getErrorMessage());
-                Log.warnf("Failed to transmit message %s via %s: %s", 
+                deliveryMetrics.transmitted(channel,
+                    result.isSkipped() ? TransmitOutcome.SKIPPED : TransmitOutcome.FAILURE);
+                Log.warnf("Failed to transmit message %s via %s: %s",
                         message.getId(), channel, result.getErrorMessage());
             }
         }

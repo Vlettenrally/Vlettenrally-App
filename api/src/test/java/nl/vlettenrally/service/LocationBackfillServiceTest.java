@@ -11,6 +11,7 @@ import java.util.UUID;
 
 import nl.vlettenrally.client.LocationApiClient;
 import nl.vlettenrally.data.domain.Team;
+import nl.vlettenrally.observability.LocationMetrics;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,6 +33,7 @@ class LocationBackfillServiceTest {
     @Mock GameService gameService;
     @Mock nl.vlettenrally.data.repository.TeamRepository teamRepository;
     @Mock BackfillThrottle throttle;
+    @Mock LocationMetrics metrics;
 
     private LocationBackfillService service;
     private final Team team = new Team();
@@ -44,6 +46,7 @@ class LocationBackfillServiceTest {
         service.gameService = gameService;
         service.teamRepository = teamRepository;
         service.throttle = throttle;
+        service.metrics = metrics;
     }
 
     @Test
@@ -51,7 +54,7 @@ class LocationBackfillServiceTest {
         when(throttle.tryAcquireLock(team.getId())).thenReturn(false);
 
         LocationBackfillService.BackfillResult result =
-            service.backfillTeamTrack(GAME_ID, team.getId(), 82792);
+            service.backfillTeamTrack(GAME_ID, team.getId());
 
         assertEquals(LocationBackfillService.Status.BUSY, result.status());
         verify(locationApiClient, never()).fetchParticipantTrack(any(), anyInt());
@@ -65,7 +68,7 @@ class LocationBackfillServiceTest {
         when(throttle.cooldownRemainingSeconds(team.getId())).thenReturn(120L);
 
         LocationBackfillService.BackfillResult result =
-            service.backfillTeamTrack(GAME_ID, team.getId(), 82792);
+            service.backfillTeamTrack(GAME_ID, team.getId());
 
         assertEquals(LocationBackfillService.Status.COOLING_DOWN, result.status());
         assertEquals(120L, result.cooldownRemainingSeconds());

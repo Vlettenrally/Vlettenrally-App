@@ -13,6 +13,8 @@ import jakarta.websocket.OnOpen;
 import jakarta.websocket.Session;
 import jakarta.websocket.server.PathParam;
 import jakarta.websocket.server.ServerEndpoint;
+import nl.vlettenrally.observability.WebSocketMetrics.OpenOutcome;
+import nl.vlettenrally.observability.WebSocketMetrics.SessionKind;
 import nl.vlettenrally.websockets.dto.WebSocketMessageType;
 import nl.vlettenrally.websockets.dto.WebSocketRequest;
 import nl.vlettenrally.websockets.dto.WebSocketResponse;
@@ -41,6 +43,7 @@ public class AdminWebSocket extends BaseWebSocket {
             tokenData -> {
                 if (tokenData == null || !tokenData.isAdmin()) {
                     Log.warnf("Invalid or non-admin WebSocket token for session %s", session.getId());
+                    metrics.sessionOpened(SessionKind.ADMIN, OpenOutcome.INVALID_TOKEN);
                     closeWithError(session, "Invalid or expired token");
                     return;
                 }
@@ -56,10 +59,12 @@ public class AdminWebSocket extends BaseWebSocket {
                     failure -> Log.errorf("Error storing session in Valkey: %s", failure.getMessage())
                 );
 
+                metrics.sessionOpened(SessionKind.ADMIN, OpenOutcome.OK);
                 Log.infof("Admin WebSocket opened - Session: %s, Admin: %s", session.getId(), tokenData.userName());
             },
             failure -> {
                 Log.errorf("Error validating WebSocket token: %s", failure.getMessage());
+                metrics.sessionOpened(SessionKind.ADMIN, OpenOutcome.VALIDATION_ERROR);
                 closeWithError(session, "Token validation failed");
             }
         );

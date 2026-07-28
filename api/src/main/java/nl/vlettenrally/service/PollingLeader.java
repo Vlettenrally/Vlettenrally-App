@@ -8,6 +8,8 @@ import io.quarkus.redis.datasource.value.ValueCommands;
 import io.quarkus.runtime.ShutdownDelayInitiated;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import nl.vlettenrally.observability.LocationMetrics;
+import nl.vlettenrally.observability.LocationMetrics.LeaderOutcome;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.util.UUID;
@@ -43,6 +45,9 @@ public class PollingLeader {
     @Inject
     RedisDataSource redisDataSource;
 
+    @Inject
+    LocationMetrics metrics;
+
     @ConfigProperty(name = "vlettenrally.scheduler.lock.enabled", defaultValue = "true")
     boolean lockEnabled;
 
@@ -59,12 +64,15 @@ public class PollingLeader {
 
     public boolean tryAcquireOrRenew() {
         if (!schedulerEnabled) {
+            metrics.leaderTick(LeaderOutcome.DISABLED);
             return false;
         }
         if (!lockEnabled) {
+            metrics.leaderTick(LeaderOutcome.LEADER);
             return true;
         }
         if (shuttingDown) {
+            metrics.leaderTick(LeaderOutcome.FOLLOWER);
             return false;
         }
         try {
@@ -72,17 +80,21 @@ public class PollingLeader {
             boolean acquired = values.setAndChanged(LOCK_KEY, ownerId, new SetArgs().nx().ex(LOCK_TTL_SECONDS));
             if (acquired) {
                 Log.infof("Polling leader acquired by %s", ownerId);
+                metrics.leaderTick(LeaderOutcome.LEADER);
                 return true;
             }
             String current = values.get(LOCK_KEY);
             if (ownerId.equals(current)) {
                 values.setAndChanged(LOCK_KEY, ownerId, new SetArgs().xx().ex(LOCK_TTL_SECONDS));
+                metrics.leaderTick(LeaderOutcome.LEADER);
                 return true;
             }
             Log.debugf("Polling leader held by %s, this instance %s skipping tick", current, ownerId);
+            metrics.leaderTick(LeaderOutcome.FOLLOWER);
             return false;
         } catch (Exception e) {
             Log.errorf("Polling leader election failed: %s — skipping tick to avoid double-polling", e.getMessage());
+            metrics.leaderTick(LeaderOutcome.ERROR);
             return false;
         }
     }

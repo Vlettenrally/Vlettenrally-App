@@ -36,6 +36,7 @@ import nl.vlettenrally.data.enums.PointEntryType;
 import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.websockets.WebSocketPublisher;
+import nl.vlettenrally.observability.AutomationMetrics;
 
 /**
  * Unit tests for AutomationActionExecutor: template resolution, firing-context
@@ -53,6 +54,7 @@ class AutomationActionExecutorTest {
     @Mock TeamRepository teamRepository;
     @Mock GameService gameService;
     @Mock RankingService rankingService;
+    @Mock AutomationMetrics metrics;
 
     @InjectMocks AutomationActionExecutor executor;
 

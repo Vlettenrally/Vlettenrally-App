@@ -1,6 +1,7 @@
 package nl.vlettenrally.websockets;
 
 import nl.vlettenrally.data.dto.game.TeamLocationResponse;
+import nl.vlettenrally.observability.WebSocketMetrics;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -33,6 +34,7 @@ class LocationBroadcastBufferTest {
 
     @Mock WebSocketPublisher webSocketPublisher;
     @Mock AdminTopicSubscriptionManager adminTopicSubscriptionManager;
+    @Mock WebSocketMetrics metrics;
     @InjectMocks LocationBroadcastBuffer buffer;
 
     // --- team location path ---

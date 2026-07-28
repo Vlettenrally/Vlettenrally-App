@@ -22,6 +22,9 @@ import nl.vlettenrally.data.repository.CheckpointRepository;
 import nl.vlettenrally.data.repository.LocationDataRepository;
 import nl.vlettenrally.data.repository.PictureRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
+import nl.vlettenrally.observability.AutomationMetrics;
+import nl.vlettenrally.observability.AutomationMetrics.Hook;
+import nl.vlettenrally.observability.AutomationMetrics.SkipReason;
 import nl.vlettenrally.websockets.AdminTopics;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 import nl.vlettenrally.websockets.dto.WebSocketMessageType;
@@ -102,6 +105,9 @@ public class AutomationEngine {
     @Inject
     PointsTotalsCache pointsTotalsCache;
 
+    @Inject
+    AutomationMetrics metrics;
+
     /**
      * A team's checkpoint pass was verified (auto or manual).
      *
@@ -127,6 +133,7 @@ public class AutomationEngine {
                 fireForTeam(rule, teamId, checkpointId.toString());
             }
         } catch (Exception e) {
+            metrics.hookFailed(Hook.CHECKPOINT);
             Log.errorf("Automation checkpoint hook failed for game %s team %s: %s", gameId, teamId, e.getMessage());
         }
     }
@@ -167,6 +174,7 @@ public class AutomationEngine {
                 fireGameLevel(rule, game.getId(), from + "->" + to);
             }
         } catch (Exception e) {
+            metrics.hookFailed(Hook.GAME_STATUS);
             Log.errorf("Automation status hook failed for game %s: %s", game.getId(), e.getMessage());
         }
     }
@@ -197,6 +205,7 @@ public class AutomationEngine {
                 }
             }
         } catch (Exception e) {
+            metrics.hookFailed(Hook.OVERTAKE);
             Log.errorf("Automation overtake hook failed for game %s team %s: %s", gameId, teamId, e.getMessage());
         }
     }
@@ -213,6 +222,7 @@ public class AutomationEngine {
                 fireForTeam(rule, teamId, null);
             }
         } catch (Exception e) {
+            metrics.hookFailed(Hook.SPEED);
             Log.errorf("Automation speed hook failed for game %s team %s: %s", gameId, teamId, e.getMessage());
         }
     }
@@ -226,6 +236,7 @@ public class AutomationEngine {
                 fireForTeam(rule, teamId, null);
             }
         } catch (Exception e) {
+            metrics.hookFailed(Hook.CHECK_IN);
             Log.errorf("Automation check-in hook failed for game %s team %s: %s", gameId, teamId, e.getMessage());
         }
     }
@@ -258,6 +269,7 @@ public class AutomationEngine {
                 fireForTeam(rule, teamId, null);
             }
         } catch (Exception e) {
+            metrics.hookFailed(Hook.PICTURE);
             Log.errorf("Automation picture hook failed for game %s team %s: %s", gameId, teamId, e.getMessage());
         }
     }
@@ -289,6 +301,7 @@ public class AutomationEngine {
                 accrueDistance(rule, teamId, reportedMeters, active);
             }
         } catch (Exception e) {
+            metrics.hookFailed(Hook.DISTANCE);
             Log.errorf("Automation distance hook failed for game %s team %s: %s", gameId, teamId, e.getMessage());
         }
     }
@@ -347,6 +360,7 @@ public class AutomationEngine {
                 distanceProgressRepository.deleteByRuleAndTeam(rule.getId(), teamId);
             }
         } catch (Exception e) {
+            metrics.hookFailed(Hook.DISTANCE_RESET);
             Log.errorf("Automation distance reset failed for game %s team %s: %s", gameId, teamId, e.getMessage());
         }
     }
@@ -403,6 +417,7 @@ public class AutomationEngine {
 
                 fireGameLevel(rule, game.getId(), null);
             } catch (Exception e) {
+                metrics.hookFailed(Hook.SCHEDULED_RULE);
                 Log.errorf("Automation scheduled rule %s failed: %s", rule.getId(), e.getMessage());
             }
         }
@@ -444,6 +459,7 @@ public class AutomationEngine {
                     fireForTeam(rule, team.getId(), null);
                 }
             } catch (Exception e) {
+                metrics.hookFailed(Hook.INACTIVITY_RULE);
                 Log.errorf("Automation inactivity rule %s failed: %s", rule.getId(), e.getMessage());
             }
         }
@@ -457,10 +473,20 @@ public class AutomationEngine {
 
     /** Fire a rule for one team, subject to dedup. */
     private void fireForTeam(AutomationRule rule, UUID teamId, String contextKey) {
-        if (isDuplicate(rule, teamId, contextKey)) return;
+        SkipReason duplicate = duplicateReason(rule, teamId, contextKey);
+        if (duplicate != null) {
+            metrics.skipped(duplicate);
+            return;
+        }
         Team team = teamRepository.findById(teamId).orElse(null);
-        if (team == null) return;
-        if (team.isFinished() && !rule.isTriggerForFinishedTeams()) return;
+        if (team == null) {
+            metrics.skipped(SkipReason.TEAM_MISSING);
+            return;
+        }
+        if (team.isFinished() && !rule.isTriggerForFinishedTeams()) {
+            metrics.skipped(SkipReason.TEAM_FINISHED);
+            return;
+        }
         execute(rule, List.of(team), teamId, contextKey);
     }
 
@@ -469,26 +495,40 @@ public class AutomationEngine {
      * Actions run against the rule's target teams, or all checked-in teams.
      */
     private void fireGameLevel(AutomationRule rule, UUID gameId, String contextKey) {
-        if (isDuplicate(rule, null, contextKey)) return;
+        SkipReason duplicate = duplicateReason(rule, null, contextKey);
+        if (duplicate != null) {
+            metrics.skipped(duplicate);
+            return;
+        }
         List<Team> targets = teamRepository.findByGameId(gameId).stream()
             .filter(Team::isCheckedIn)
             .filter(team -> rule.isTriggerForFinishedTeams() || !team.isFinished())
             .filter(team -> rule.appliesToTeam(team.getId()))
             .toList();
-        if (targets.isEmpty()) return;
+        if (targets.isEmpty()) {
+            metrics.skipped(SkipReason.NO_TARGETS);
+            return;
+        }
         execute(rule, targets, null, contextKey);
     }
 
-    private boolean isDuplicate(AutomationRule rule, UUID teamId, String contextKey) {
+    /**
+     * Why this firing is a duplicate, or {@code null} if it may proceed. Distinguishing
+     * fire-once from cooldown matters operationally: the first is permanent, the second
+     * self-clears, and "the rule stopped firing" needs to tell them apart.
+     */
+    private SkipReason duplicateReason(AutomationRule rule, UUID teamId, String contextKey) {
         if (rule.isFireOnce()) {
-            return executionRepository.existsByRuleTeamAndContext(rule.getId(), teamId, contextKey);
+            return executionRepository.existsByRuleTeamAndContext(rule.getId(), teamId, contextKey)
+                ? SkipReason.DUPLICATE : null;
         }
         if (rule.getCooldownMinutes() != null && rule.getCooldownMinutes() > 0) {
-            return executionRepository.findLatestFiredAt(rule.getId(), teamId, contextKey)
+            boolean cooling = executionRepository.findLatestFiredAt(rule.getId(), teamId, contextKey)
                 .map(last -> last.isAfter(Instant.now().minus(Duration.ofMinutes(rule.getCooldownMinutes()))))
                 .orElse(false);
+            return cooling ? SkipReason.COOLDOWN : null;
         }
-        return false;
+        return null;
     }
 
     private void execute(AutomationRule rule, List<Team> targets, UUID teamId, String contextKey) {
@@ -509,6 +549,7 @@ public class AutomationEngine {
         execution.setDetail(result.detail());
         executionRepository.save(execution);
 
+        metrics.fired(rule.getTriggerType(), result.status());
         Log.infof("Automation '%s' (%s) fired for %s: %s",
             rule.getName(), rule.getId(), teamId != null ? "team " + teamId : "game", result.status());
 

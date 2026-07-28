@@ -8,7 +8,11 @@ import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.LocationData;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.repository.LocationDataRepository;
+import nl.vlettenrally.observability.LocationMetrics;
+import nl.vlettenrally.observability.LocationMetrics.BackfillPointOutcome;
+import nl.vlettenrally.observability.LocationMetrics.FixOutcome;
 import nl.vlettenrally.service.LocationBackfillService.BackfillResult;
+import nl.vlettenrally.service.util.TrackOutlierFilter;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Point;
@@ -59,6 +63,9 @@ public class LocationBackfillPersister {
     @Inject
     AutomationEngine automationEngine;
 
+    @Inject
+    LocationMetrics metrics;
+
     @Transactional
     public BackfillResult persist(Game game, Team team, List<EventParticipantLocation> providerPoints) {
         UUID gameId = game.getId();
@@ -76,28 +83,42 @@ public class LocationBackfillPersister {
         Instant assignedAt = team.getTrackerAssignedAt();
         Instant storageCeiling = completedTailWindowEnd(game);
         List<LocationData> candidates = new ArrayList<>();
+        // Every candidate the provider offered but we refused is counted. These filters used to
+        // be entirely silent — a backfill that imported nothing looked identical whether the
+        // provider sent nothing or we rejected everything it sent.
+        int invalid = 0;
+        int outOfWindow = 0;
         for (EventParticipantLocation pl : providerPoints) {
             if (pl.getLocation() == null) {
+                invalid++;
                 continue;
             }
             Instant t = parseInstant(pl.getLocationTime());
             if (t == null) {
+                invalid++;
                 continue;
             }
             if (start != null && t.isBefore(start)) {
+                outOfWindow++;
                 continue;
             }
             if (assignedAt != null && t.isBefore(assignedAt)) {
+                outOfWindow++;
                 continue;
             }
             if (storageCeiling != null && t.isAfter(storageCeiling)) {
+                outOfWindow++;
                 continue;
             }
             LocationData ld = toLocationData(gameId, teamId, pl, t);
-            if (locationIngestService.isValid(ld)) {
+            if (locationIngestService.validate(ld) == FixOutcome.ACCEPTED) {
                 candidates.add(ld);
+            } else {
+                invalid++;
             }
         }
+        metrics.backfillPoints(BackfillPointOutcome.DROPPED_INVALID, invalid);
+        metrics.backfillPoints(BackfillPointOutcome.DROPPED_OUT_OF_WINDOW, outOfWindow);
         if (candidates.isEmpty()) {
             return BackfillResult.completed(0, 0, 0);
         }
@@ -127,11 +148,17 @@ public class LocationBackfillPersister {
 
         List<LocationData> accepted = new ArrayList<>();
         int dropped = 0;
+        // Deliberately counted separately from `dropped`: a duplicate is the backfill working as
+        // intended (overlapping windows), a guard drop is data we judged implausible. Neither is
+        // reflected in BackfillResult, so the metric is the only place they are distinguishable.
+        int duplicates = 0;
         for (LocationData cand : candidates) {
             if (storedSeconds.contains(cand.getLocationTime().getEpochSecond())) {
+                duplicates++;
                 continue; // already stored
             }
-            if (last != null && !locationIngestService.passesGuards(prev, last, cand)) {
+            if (last != null && locationIngestService.guardDecision(prev, last, cand)
+                    != TrackOutlierFilter.Decision.ACCEPT) {
                 dropped++;
                 continue;
             }
@@ -141,6 +168,10 @@ public class LocationBackfillPersister {
             prev = last;
             last = cand;
         }
+
+        metrics.backfillPoints(BackfillPointOutcome.DROPPED_DUPLICATE, duplicates);
+        metrics.backfillPoints(BackfillPointOutcome.DROPPED_GUARD, dropped);
+        metrics.backfillPoints(BackfillPointOutcome.INSERTED, accepted.size());
 
         if (accepted.isEmpty()) {
             return BackfillResult.completed(0, dropped, 0);

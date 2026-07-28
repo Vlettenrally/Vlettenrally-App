@@ -20,6 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import nl.vlettenrally.observability.DeliveryMetrics;
 
 /**
  * Unit tests for FcmHttpClient.
@@ -38,6 +39,9 @@ class FcmHttpClientTest {
     @Mock
     private HttpResponse<String> httpResponse;
 
+    @Mock
+    private DeliveryMetrics metrics;
+
     private FcmHttpClient fcmHttpClient;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -51,6 +55,7 @@ class FcmHttpClientTest {
         setField(fcmHttpClient, "authenticator", authenticator);
         setField(fcmHttpClient, "httpClient", httpClient);
         setField(fcmHttpClient, "objectMapper", objectMapper);
+        setField(fcmHttpClient, "metrics", metrics);
     }
 
     @Test

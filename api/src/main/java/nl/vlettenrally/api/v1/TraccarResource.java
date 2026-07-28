@@ -12,6 +12,7 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.Response;
 import nl.vlettenrally.data.domain.LocationData;
 import nl.vlettenrally.data.domain.Team;
+import nl.vlettenrally.observability.LocationMetrics.FixSource;
 import nl.vlettenrally.service.BackfillThrottle;
 import nl.vlettenrally.service.LocationIngestService;
 import nl.vlettenrally.service.TeamService;
@@ -261,7 +262,7 @@ public class TraccarResource {
         // Broadcast the accepted fix to admin map subscribers; the poller batches a
         // whole sweep, but a single Traccar report is its own one-element batch.
         // Checkpoint passes are detected internally from the fix via geofencing.
-        locationIngestService.ingest(reading, team.getName(), team.getDescription())
+        locationIngestService.ingest(reading, team.getName(), team.getDescription(), FixSource.TRACCAR)
             .ifPresent(location -> locationIngestService.broadcastToMap(team.getGameId(), List.of(location)));
         return Response.ok().build();
     }

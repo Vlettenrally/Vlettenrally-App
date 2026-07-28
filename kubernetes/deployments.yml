@@ -55,6 +55,10 @@ spec:
             # traffic (it is not selected by the vlettenrally-api Service).
             - name: VLETTENRALLY_SCHEDULER_ENABLED
               value: "false"
+            # Both tiers report service.name=vlettenrally-api; this is what separates them
+            # in telemetry. Scheduler-driven metrics only ever appear on the worker.
+            - name: SERVICE_TIER
+              value: "api"
             # Database configuration
             - name: DB_HOST
               value: "vlettenrally-database-rw"
@@ -277,6 +281,10 @@ spec:
             # (default is already true) so the split with the traffic tier is obvious.
             - name: VLETTENRALLY_SCHEDULER_ENABLED
               value: "true"
+            # Both tiers report service.name=vlettenrally-api; this is what separates them
+            # in telemetry. Scheduler-driven metrics only ever appear on this tier.
+            - name: SERVICE_TIER
+              value: "worker"
             # Database configuration
             - name: DB_HOST
               value: "vlettenrally-database-rw"

@@ -5,6 +5,9 @@ import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import nl.vlettenrally.data.dto.picture.PublicPictureResponse;
+import nl.vlettenrally.observability.WebSocketMetrics;
+import nl.vlettenrally.observability.WebSocketMetrics.Buffer;
+import nl.vlettenrally.observability.WebSocketMetrics.FlushOutcome;
 import nl.vlettenrally.websockets.dto.WebSocketMessageType;
 
 import java.util.Comparator;
@@ -34,6 +37,9 @@ public class PhotoBroadcastBuffer {
 
     @Inject
     WebSocketPublisher webSocketPublisher;
+
+    @Inject
+    WebSocketMetrics metrics;
 
     /**
      * Queue an approved picture for the next flush. Thread-safe; a repeat id overwrites.
@@ -82,6 +88,7 @@ public class PhotoBroadcastBuffer {
                     .withTargetGame(gameId)
                     .forTeamOnly();
             webSocketPublisher.publish(message);
+            metrics.flushed(Buffer.PHOTO, FlushOutcome.SENT);
         }
     }
 }

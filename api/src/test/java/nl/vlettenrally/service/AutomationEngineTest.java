@@ -54,6 +54,7 @@ import nl.vlettenrally.data.repository.LocationDataRepository;
 import nl.vlettenrally.data.repository.PictureRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.websockets.WebSocketPublisher;
+import nl.vlettenrally.observability.AutomationMetrics;
 
 /**
  * Unit tests for AutomationEngine: trigger matching, dedup (fire-once and
@@ -75,6 +76,7 @@ class AutomationEngineTest {
     @Mock AutomationActionExecutor actionExecutor;
     @Mock WebSocketPublisher webSocketPublisher;
     @Mock PointsTotalsCache pointsTotalsCache;
+    @Mock AutomationMetrics metrics;
 
     @InjectMocks AutomationEngine engine;
 

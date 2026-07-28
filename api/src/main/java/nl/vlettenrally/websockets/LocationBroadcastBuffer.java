@@ -5,6 +5,9 @@ import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import nl.vlettenrally.data.dto.game.TeamLocationResponse;
+import nl.vlettenrally.observability.WebSocketMetrics;
+import nl.vlettenrally.observability.WebSocketMetrics.Buffer;
+import nl.vlettenrally.observability.WebSocketMetrics.FlushOutcome;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -38,6 +41,9 @@ public class LocationBroadcastBuffer {
      */
     private final ConcurrentHashMap<UUID, ConcurrentHashMap<UUID, TeamLocationResponse>> pendingTeamLocations =
             new ConcurrentHashMap<>();
+
+    @Inject
+    WebSocketMetrics metrics;
 
     @Inject
     AdminTopicSubscriptionManager adminTopicSubscriptionManager;
@@ -107,6 +113,7 @@ public class LocationBroadcastBuffer {
             if (subscribers.isEmpty()) {
                 Log.debug("Location broadcast flush: no active map subscribers for game " + gameId
                         + ", dropping " + batch.size() + " fix(es)");
+                metrics.flushed(Buffer.LOCATION, FlushOutcome.DROPPED);
                 continue;
             }
 
@@ -119,6 +126,7 @@ public class LocationBroadcastBuffer {
                     .forAdminOnly()
                     .withTargetSessions(subscribers);
             webSocketPublisher.publish(message);
+            metrics.flushed(Buffer.LOCATION, FlushOutcome.SENT);
         }
     }
 

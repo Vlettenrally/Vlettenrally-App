@@ -11,6 +11,10 @@ import nl.vlettenrally.data.dto.game.TeamLocationResponse;
 import nl.vlettenrally.data.repository.CheckpointRepository;
 import nl.vlettenrally.data.repository.LocationDataRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
+import nl.vlettenrally.observability.LocationMetrics;
+import nl.vlettenrally.observability.LocationMetrics.FixOutcome;
+import nl.vlettenrally.observability.LocationMetrics.FixSource;
+import nl.vlettenrally.observability.LocationMetrics.PassMode;
 import nl.vlettenrally.service.util.TrackOutlierFilter;
 import nl.vlettenrally.websockets.LocationBroadcastBuffer;
 import org.locationtech.jts.geom.Point;
@@ -63,6 +67,9 @@ public class LocationIngestService {
     @Inject
     LocationGuardConfig guardConfig;
 
+    @Inject
+    LocationMetrics metrics;
+
     /** Reject timestamps further than this into the future (clock skew / spoofing). */
     private static final long MAX_FUTURE_SKEW_SECONDS = 60;
 
@@ -77,8 +84,11 @@ public class LocationIngestService {
      *         no-op — e.g. still return HTTP 200 to a tracker app).
      */
     @Transactional
-    public Optional<TeamLocationResponse> ingest(LocationData reading, String teamName, String teamDescription) {
-        if (!isValid(reading)) {
+    public Optional<TeamLocationResponse> ingest(LocationData reading, String teamName, String teamDescription,
+                                                 FixSource source) {
+        FixOutcome validity = validate(reading);
+        if (validity != FixOutcome.ACCEPTED) {
+            metrics.fix(source, validity);
             return Optional.empty();
         }
 
@@ -89,11 +99,14 @@ public class LocationIngestService {
         LocationData previous = recent.isEmpty() ? null : recent.get(0);
         if (previous != null) {
             LocationData prev = recent.size() > 1 ? recent.get(1) : null;
-            if (!passesGuards(prev, previous, reading)) {
+            TrackOutlierFilter.Decision decision = guardDecision(prev, previous, reading);
+            if (decision != TrackOutlierFilter.Decision.ACCEPT) {
+                metrics.fix(source, LocationMetrics.fixOutcomeOf(decision));
                 return Optional.empty();
             }
         }
 
+        metrics.fix(source, FixOutcome.ACCEPTED);
         locationDataRepository.save(reading);
 
         TeamLocationResponse teamLocation = toResponse(reading, teamName, teamDescription);
@@ -196,6 +209,7 @@ public class LocationIngestService {
                     reading.getTeamId(), checkpointId, e.getMessage());
             }
         }
+        metrics.checkpointPass(connect ? PassMode.SEGMENT : PassMode.POINT, recorded);
         return recorded;
     }
 
@@ -230,26 +244,33 @@ public class LocationIngestService {
         return new IngestGate(scoringActive, detectCheckpoints);
     }
 
-    boolean isValid(LocationData reading) {
+    /**
+     * Cheap structural validity check, run before the outlier guard.
+     *
+     * @return {@link FixOutcome#ACCEPTED} when the fix may proceed, otherwise the reason it was
+     *         rejected. The reason is returned rather than logged-and-discarded so both the live
+     *         path and the backfill path can count it against their own metric.
+     */
+    FixOutcome validate(LocationData reading) {
         Point p = reading.getLocation();
         if (p == null) {
             Log.infof("Dropping location for team %s: location point is null", reading.getTeamId());
-            return false;
+            return FixOutcome.INVALID_POINT;
         }
         double lon = p.getX();
         double lat = p.getY();
         if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
             Log.infof("Dropping location for team %s: out-of-range lat/lon %f,%f",
                 reading.getTeamId(), lat, lon);
-            return false;
+            return FixOutcome.INVALID_LATLON;
         }
         if (reading.getLocationTime() == null
                 || reading.getLocationTime().isAfter(Instant.now().plusSeconds(MAX_FUTURE_SKEW_SECONDS))) {
             Log.infof("Dropping location for team %s: missing or future timestamp %s",
                 reading.getTeamId(), reading.getLocationTime());
-            return false;
+            return FixOutcome.INVALID_TIME;
         }
-        return true;
+        return FixOutcome.ACCEPTED;
     }
 
     /**
@@ -258,15 +279,14 @@ public class LocationIngestService {
      * Delegates the decision to the pure {@link TrackOutlierFilter}; {@code prev} may be null
      * when the team has only one prior fix.
      */
-    boolean passesGuards(LocationData prev, LocationData last, LocationData reading) {
+    TrackOutlierFilter.Decision guardDecision(LocationData prev, LocationData last, LocationData reading) {
         TrackOutlierFilter.Thresholds thresholds = guardConfig.thresholdsFor(reading.getGameId());
         TrackOutlierFilter.Result result = TrackOutlierFilter.evaluate(prev, last, reading, thresholds);
         if (result.decision() != TrackOutlierFilter.Decision.ACCEPT) {
             Log.infof("Dropping location for team %s [%s]: %s",
                 reading.getTeamId(), result.decision(), result.diagnostics());
-            return false;
         }
-        return true;
+        return result.decision();
     }
 
     private static TeamLocationResponse toResponse(LocationData reading, String teamName, String teamDescription) {

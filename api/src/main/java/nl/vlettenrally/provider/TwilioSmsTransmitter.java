@@ -7,9 +7,12 @@ import com.twilio.type.PhoneNumber;
 import io.quarkus.logging.Log;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import nl.vlettenrally.data.domain.Message;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.enums.TransmissionChannel;
+import nl.vlettenrally.observability.DeliveryMetrics;
+import nl.vlettenrally.observability.DeliveryMetrics.SmsOutcome;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.util.List;
@@ -20,6 +23,9 @@ import java.util.List;
  */
 @ApplicationScoped
 public class TwilioSmsTransmitter implements MessageTransmitter {
+
+    @Inject
+    DeliveryMetrics metrics;
 
     @ConfigProperty(name = "vlettenrally.twilio.enabled", defaultValue = "false")
     boolean enabled;
@@ -80,15 +86,18 @@ public class TwilioSmsTransmitter implements MessageTransmitter {
     @Override
     public TransmissionResult transmit(Message message, Team team) {
         if (!enabled) {
+            metrics.smsSent(SmsOutcome.DISABLED);
             return TransmissionResult.skipped(TransmissionChannel.SMS, "Twilio is disabled");
         }
 
         if (!initialized) {
+            metrics.smsSent(SmsOutcome.NOT_INITIALIZED);
             return TransmissionResult.failure(TransmissionChannel.SMS, "Twilio not initialized");
         }
 
         List<String> phoneNumbers = team.getEmergencyPhoneNumbers();
         if (phoneNumbers == null || phoneNumbers.isEmpty()) {
+            metrics.smsSent(SmsOutcome.NO_NUMBER);
             return TransmissionResult.skipped(TransmissionChannel.SMS, "No phone number for team");
         }
 
@@ -109,6 +118,11 @@ public class TwilioSmsTransmitter implements MessageTransmitter {
             Log.infof("SMS sent to %s, status: %s, SID: %s", 
                     toNumber, status, twilioMessage.getSid());
 
+            // This is the status at *creation* time. There is no status-callback webhook, so a
+            // message that fails later in Twilio's pipeline is never observed here — read
+            // sms.send{outcome="queued"} as "handed over", not as "delivered".
+            metrics.smsSent(outcomeOf(status));
+
             if (status == Status.FAILED || status == Status.UNDELIVERED) {
                 return TransmissionResult.failure(TransmissionChannel.SMS, 
                         "SMS delivery failed: " + status);
@@ -117,8 +131,25 @@ public class TwilioSmsTransmitter implements MessageTransmitter {
             return TransmissionResult.success(TransmissionChannel.SMS);
         } catch (TwilioException e) {
             Log.errorf("Failed to send SMS to %s: %s", toNumber, e.getMessage());
+            metrics.smsSent(SmsOutcome.API_ERROR);
             return TransmissionResult.failure(TransmissionChannel.SMS, e.getMessage());
         }
+    }
+
+    /** Twilio's creation status, narrowed to the outcomes this transmitter can observe. */
+    public static SmsOutcome outcomeOf(Status status) {
+        if (status == null) {
+            return SmsOutcome.OTHER;
+        }
+        return switch (status) {
+            case QUEUED -> SmsOutcome.QUEUED;
+            case ACCEPTED -> SmsOutcome.ACCEPTED;
+            case SENT, SENDING -> SmsOutcome.SENT;
+            case DELIVERED -> SmsOutcome.DELIVERED;
+            case FAILED -> SmsOutcome.FAILED;
+            case UNDELIVERED -> SmsOutcome.UNDELIVERED;
+            default -> SmsOutcome.OTHER;
+        };
     }
 
     private String formatSmsMessage(Message message) {

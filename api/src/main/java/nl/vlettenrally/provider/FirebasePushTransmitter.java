@@ -15,6 +15,8 @@ import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.enums.TransmissionChannel;
 import nl.vlettenrally.data.repository.FcmTokenRepository;
 import nl.vlettenrally.fcm.FcmHttpClient;
+import nl.vlettenrally.observability.DeliveryMetrics;
+import nl.vlettenrally.observability.DeliveryMetrics.FcmCaller;
 
 /**
  * MessageTransmitter implementation for Firebase Cloud Messaging push notifications.
@@ -31,6 +33,9 @@ public class FirebasePushTransmitter implements MessageTransmitter {
     
     @Inject
     FcmHttpClient fcmHttpClient;
+
+    @Inject
+    DeliveryMetrics metrics;
 
     @Override
     public TransmissionChannel getChannel() {
@@ -64,7 +69,10 @@ public class FirebasePushTransmitter implements MessageTransmitter {
         data.put("messageType", message.getMessageType().name());
         data.put("teamId", team.getId().toString());
 
-        // Send to all registered tokens for the team
+        // Send to all registered tokens for the team. One logical message can cost several FCM
+        // calls; fcm.fanout over msg.transmit{channel=push} is the amplification factor, which
+        // the anySuccess/lastError collapse below otherwise hides completely.
+        metrics.fcmFanout(FcmCaller.TEAM_MESSAGE, tokens.size());
         boolean anySuccess = false;
         String lastError = null;
 

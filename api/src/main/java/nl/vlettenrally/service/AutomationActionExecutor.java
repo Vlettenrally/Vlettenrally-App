@@ -15,6 +15,7 @@ import nl.vlettenrally.data.enums.AutomationExecutionStatus;
 import nl.vlettenrally.data.enums.MessageType;
 import nl.vlettenrally.data.enums.PointEntryType;
 import nl.vlettenrally.data.repository.TeamRepository;
+import nl.vlettenrally.observability.AutomationMetrics;
 import nl.vlettenrally.websockets.AdminTopics;
 import nl.vlettenrally.websockets.WebSocketEventTypes;
 import nl.vlettenrally.websockets.WebSocketPublisher;
@@ -54,6 +55,9 @@ public class AutomationActionExecutor {
 
     @Inject
     AdminInboxService adminInboxService;
+
+    @Inject
+    AutomationMetrics metrics;
 
     @Inject
     TeamRepository teamRepository;
@@ -100,8 +104,11 @@ public class AutomationActionExecutor {
                 detail.put("ok", false);
                 detail.put("error", e.getMessage());
             }
+            // Covers both the thrown case above and the per-team sub-failures that
+            // awardPoints/finishTeams record by setting ok=false without throwing.
             if (Boolean.FALSE.equals(detail.get("ok"))) {
                 failed++;
+                metrics.actionFailed(action.getClass().getSimpleName());
             }
             details.add(detail);
         }

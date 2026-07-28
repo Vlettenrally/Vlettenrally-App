@@ -13,6 +13,7 @@ import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.provider.MessageTransmitter;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 import nl.vlettenrally.websockets.WebSocketSessionManager;
+import nl.vlettenrally.observability.DeliveryMetrics;
 
 import jakarta.enterprise.inject.Instance;
 import java.util.Collections;
@@ -57,6 +58,9 @@ class MessageServiceImplTest {
 
     @Mock
     Instance<MessageTransmitter> transmitters;
+
+    @Mock
+    DeliveryMetrics deliveryMetrics;
 
     @InjectMocks
     MessageServiceImpl messageService;

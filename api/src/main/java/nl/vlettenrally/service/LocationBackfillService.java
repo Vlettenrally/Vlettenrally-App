@@ -13,6 +13,9 @@ import nl.vlettenrally.client.exception.LocationApiException;
 import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.repository.TeamRepository;
+import nl.vlettenrally.observability.LocationMetrics;
+import nl.vlettenrally.observability.LocationMetrics.BackfillStatus;
+import nl.vlettenrally.observability.LocationMetrics.BackfillTrigger;
 
 import java.util.List;
 import java.util.UUID;
@@ -50,6 +53,9 @@ public class LocationBackfillService {
     @Inject
     BackfillThrottle throttle;
 
+    @Inject
+    LocationMetrics metrics;
+
     public enum Status { COMPLETED, COOLING_DOWN, BUSY, NO_PARTICIPANT, NOT_CONFIGURED }
 
     private record GameAndTeam(Game game, Team team) {}
@@ -71,31 +77,28 @@ public class LocationBackfillService {
         }
     }
 
+    // Two entry points, one per trigger. Both funnel into run(), which is the only place a
+    // backfill attempt is counted; the layers below it each add exactly one concern —
+    // run (measure) → acquireAndExecute (throttle) → fetchAndPersist (work).
+
     /**
-     * Manual entry point: resolves the team's event-participant id from the live feed, then backfills.
+     * Manual entry point, called from the admin REST endpoint. The caller has no participant id,
+     * so it is resolved from the live snapshot on the way through.
      */
     public BackfillResult backfillTeamTrack(UUID gameId, UUID teamId) throws LocationApiException {
-        return run(gameId, teamId, null);
+        return run(gameId, teamId, null, BackfillTrigger.MANUAL);
     }
 
     /**
-     * Automatic entry point: the poller already knows the participant id, so pass it to avoid a second
-     * {@code /participants_locations} fetch.
-     */
-    public BackfillResult backfillTeamTrack(UUID gameId, UUID teamId, int eventParticipantId)
-            throws LocationApiException {
-        return run(gameId, teamId, eventParticipantId);
-    }
-
-    /**
-     * Fire-and-forget dispatch used by the poller: runs the backfill on a worker thread so the heavy
-     * provider call + recompute never block the poll loop, logging the outcome. Throttling makes this
-     * safe to call on every poll tick that detects a gap.
+     * Automatic entry point, called by the poller when it detects a gap. Fire-and-forget on a worker
+     * thread so the heavy provider call + recompute never block the poll loop; the poller already
+     * knows the participant id, which avoids a second {@code /participants_locations} fetch.
+     * Throttling makes this safe to call on every tick that detects a gap.
      */
     public void triggerAutoBackfill(UUID gameId, UUID teamId, int eventParticipantId) {
         Infrastructure.getDefaultWorkerPool().execute(() -> {
             try {
-                BackfillResult result = backfillTeamTrack(gameId, teamId, eventParticipantId);
+                BackfillResult result = run(gameId, teamId, eventParticipantId, BackfillTrigger.AUTO);
                 if (result.status() == Status.COMPLETED && result.inserted() > 0) {
                     Log.infof("Auto-backfill team %s: inserted=%d dropped=%d checkpointPasses=%d",
                         teamId, result.inserted(), result.droppedByGuard(), result.checkpointPassesDetected());
@@ -110,7 +113,27 @@ public class LocationBackfillService {
         });
     }
 
-    private BackfillResult run(UUID gameId, UUID teamId, Integer knownParticipantId) throws LocationApiException {
+    /**
+     * Counts the attempt. Wrapping rather than recording at each return keeps
+     * {@code location.backfill.run} honest: every attempt lands on it exactly once, whichever of the
+     * five statuses — or an exception — it ended on.
+     */
+    private BackfillResult run(UUID gameId, UUID teamId, Integer knownParticipantId, BackfillTrigger trigger)
+            throws LocationApiException {
+        BackfillResult result;
+        try {
+            result = acquireAndExecute(gameId, teamId, knownParticipantId);
+        } catch (LocationApiException | RuntimeException e) {
+            metrics.backfillRun(trigger, BackfillStatus.ERROR);
+            throw e;
+        }
+        metrics.backfillRun(trigger, LocationMetrics.backfillStatusOf(result.status()));
+        return result;
+    }
+
+    /** Applies the per-team lock and cooldown, and guarantees the lock is released. */
+    private BackfillResult acquireAndExecute(UUID gameId, UUID teamId, Integer knownParticipantId)
+            throws LocationApiException {
         // Lock first so a second trigger for the same team does not consume the cooldown window while
         // a backfill is already in flight; cooldown second so genuinely-throttled callers get 429.
         if (!throttle.tryAcquireLock(teamId)) {
@@ -120,13 +143,14 @@ public class LocationBackfillService {
             if (!throttle.tryStartCooldown(teamId)) {
                 return BackfillResult.coolingDown(throttle.cooldownRemainingSeconds(teamId));
             }
-            return execute(gameId, teamId, knownParticipantId);
+            return fetchAndPersist(gameId, teamId, knownParticipantId);
         } finally {
             throttle.releaseLock(teamId);
         }
     }
 
-    private BackfillResult execute(UUID gameId, UUID teamId, Integer knownParticipantId)
+    /** Loads the game and team, resolves the participant, fetches the track and hands it to the persister. */
+    private BackfillResult fetchAndPersist(UUID gameId, UUID teamId, Integer knownParticipantId)
             throws LocationApiException {
         // triggerAutoBackfill dispatches onto a plain worker-pool thread with no CDI request context
         // or JTA transaction, so the game/team reads need their own short transaction to get a usable

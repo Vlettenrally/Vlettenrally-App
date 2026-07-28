@@ -13,6 +13,8 @@ import jakarta.websocket.OnOpen;
 import jakarta.websocket.Session;
 import jakarta.websocket.server.PathParam;
 import jakarta.websocket.server.ServerEndpoint;
+import nl.vlettenrally.observability.WebSocketMetrics.OpenOutcome;
+import nl.vlettenrally.observability.WebSocketMetrics.SessionKind;
 import nl.vlettenrally.websockets.dto.WebSocketMessageType;
 import nl.vlettenrally.websockets.dto.WebSocketRequest;
 import nl.vlettenrally.websockets.dto.WebSocketResponse;
@@ -35,6 +37,7 @@ public class TeamWebSocket extends BaseWebSocket {
             tokenData -> {
                 if (tokenData == null || !tokenData.isTeam()) {
                     Log.warnf("Invalid or non-team WebSocket token for session %s", session.getId());
+                    metrics.sessionOpened(SessionKind.TEAM, OpenOutcome.INVALID_TOKEN);
                     closeWithError(session, "Invalid or expired token");
                     return;
                 }
@@ -53,11 +56,13 @@ public class TeamWebSocket extends BaseWebSocket {
                     failure -> Log.errorf("Error storing session in Valkey: %s", failure.getMessage())
                 );
 
+                metrics.sessionOpened(SessionKind.TEAM, OpenOutcome.OK);
                 Log.infof("Team WebSocket opened - Game: %s, Team: %s, Session: %s, Name: %s",
                     gameId, teamId, session.getId(), tokenData.userName());
             },
             failure -> {
                 Log.errorf("Error validating WebSocket token: %s", failure.getMessage());
+                metrics.sessionOpened(SessionKind.TEAM, OpenOutcome.VALIDATION_ERROR);
                 closeWithError(session, "Token validation failed");
             }
         );

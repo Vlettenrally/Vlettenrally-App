@@ -1,6 +1,7 @@
 package nl.vlettenrally.websockets;
 
 import nl.vlettenrally.data.dto.picture.PublicPictureResponse;
+import nl.vlettenrally.observability.WebSocketMetrics;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -26,6 +27,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 class PhotoBroadcastBufferTest {
 
     @Mock WebSocketPublisher webSocketPublisher;
+    @Mock WebSocketMetrics metrics;
     @InjectMocks PhotoBroadcastBuffer buffer;
 
     @Test

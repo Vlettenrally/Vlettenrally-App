@@ -22,6 +22,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import nl.vlettenrally.observability.LocationMetrics;
 
 /**
  * Behavioural tests for the Valkey-backed leader lease.
@@ -36,6 +37,7 @@ class PollingLeaderTest {
     @Mock RedisDataSource redisDataSource;
     @Mock ValueCommands<String, String> values;
     @Mock KeyCommands<String> keys;
+    @Mock LocationMetrics metrics;
 
     @InjectMocks PollingLeader leader;
 
