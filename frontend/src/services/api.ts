@@ -36,6 +36,7 @@ import type {
   CreateAdminRequest,
   UpdateAdminRolesRequest,
   ResetPasswordResponse,
+  AdminReferences,
   Achievement,
   CheckpointTeamStatus,
   PointEntry,
@@ -882,7 +883,21 @@ async getGames() : Promise<ApiResponse<Game[]>> {
     return this.put(`/admins/${adminId}/reset-password`);
   }
 
-  async deactivateAdmin(adminId: string): Promise<ApiResponse<void>> {
+  async deactivateAdmin(adminId: string): Promise<ApiResponse<AdminUser>> {
+    return this.put(`/admins/${adminId}/deactivate`);
+  }
+
+  async activateAdmin(adminId: string): Promise<ApiResponse<AdminUser>> {
+    return this.put(`/admins/${adminId}/activate`);
+  }
+
+  /** Counts the content attributed to an admin; all zeroes means it can be deleted. */
+  async getAdminReferences(adminId: string): Promise<ApiResponse<AdminReferences>> {
+    return this.get(`/admins/${adminId}/references`);
+  }
+
+  /** Permanent delete. Only succeeds for a deactivated admin with no attributed content. */
+  async deleteAdmin(adminId: string): Promise<ApiResponse<void>> {
     return this.delete(`/admins/${adminId}`);
   }
 

@@ -30,6 +30,12 @@ public interface PointEntryRepository {
      */
     int sumCurrentAmountByTeam(UUID teamId);
 
+    /**
+     * Count entries an admin created or last edited. Used to decide whether that admin can be
+     * deleted outright without silently dropping the ledger's authorship trail.
+     */
+    long countByCreatedByOrEditedBy(UUID adminId);
+
     PointEntry save(PointEntry entry);
 
     void delete(UUID id);

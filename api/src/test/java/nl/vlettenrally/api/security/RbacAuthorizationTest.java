@@ -137,4 +137,35 @@ class RbacAuthorizationTest {
     void viewer_cannotListAdmins() {
         as("viewer").when().get("/api/v1/admins").then().statusCode(403);
     }
+
+    @Test
+    void admin_cannotChangeAdminLifecycle() {
+        // Deactivate/activate/delete and the delete precondition are equally super_admin-only.
+        // 403 must come from the role gate, before the resource ever looks the admin up.
+        UUID target = UUID.randomUUID();
+        as("admin").when().put("/api/v1/admins/" + target + "/deactivate").then().statusCode(403);
+        as("admin").when().put("/api/v1/admins/" + target + "/activate").then().statusCode(403);
+        as("admin").when().get("/api/v1/admins/" + target + "/references").then().statusCode(403);
+        as("admin").when().delete("/api/v1/admins/" + target).then().statusCode(403);
+    }
+
+    @Test
+    void viewer_cannotChangeAdminLifecycle() {
+        UUID target = UUID.randomUUID();
+        as("viewer").when().put("/api/v1/admins/" + target + "/deactivate").then().statusCode(403);
+        as("viewer").when().put("/api/v1/admins/" + target + "/activate").then().statusCode(403);
+        as("viewer").when().get("/api/v1/admins/" + target + "/references").then().statusCode(403);
+        as("viewer").when().delete("/api/v1/admins/" + target).then().statusCode(403);
+    }
+
+    @Test
+    void superAdmin_reachesAdminLifecycleEndpoints() {
+        // Proves the routes exist and the role gate lets super_admin through: an unknown
+        // target gets 404 from the resource, not 403 from security.
+        UUID unknown = UUID.randomUUID();
+        as("super_admin").when().put("/api/v1/admins/" + unknown + "/deactivate").then().statusCode(404);
+        as("super_admin").when().put("/api/v1/admins/" + unknown + "/activate").then().statusCode(404);
+        as("super_admin").when().get("/api/v1/admins/" + unknown + "/references").then().statusCode(404);
+        as("super_admin").when().delete("/api/v1/admins/" + unknown).then().statusCode(404);
+    }
 }

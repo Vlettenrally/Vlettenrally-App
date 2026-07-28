@@ -494,6 +494,19 @@ export interface ResetPasswordResponse {
 }
 
 /**
+ * Content attributed to an admin user. An admin can only be deleted permanently when every
+ * count here is zero — otherwise deleting would blank out who moderated, sent or authored
+ * each record.
+ */
+export interface AdminReferences {
+  moderatedPictures: number;
+  sentMessages: number;
+  verifiedAchievements: number;
+  pointEntries: number;
+  automationRules: number;
+}
+
+/**
  * Achievement with full status (admin / checkpoint-station view)
  */
 export interface Achievement {

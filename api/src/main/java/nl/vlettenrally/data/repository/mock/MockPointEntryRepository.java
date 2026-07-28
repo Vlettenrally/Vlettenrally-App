@@ -152,6 +152,13 @@ public class MockPointEntryRepository implements PointEntryRepository {
     }
 
     @Override
+    public long countByCreatedByOrEditedBy(UUID adminId) {
+        return entries.values().stream()
+                .filter(e -> adminId.equals(e.getCreatedBy()) || adminId.equals(e.getEditedBy()))
+                .count();
+    }
+
+    @Override
     public PointEntry save(PointEntry entry) {
         if (entry.getId() == null) {
             entry.setId(UUID.randomUUID());

@@ -21,6 +21,7 @@ import nl.vlettenrally.service.TokenRevocationStore;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.Locale;
@@ -300,12 +301,19 @@ public class AuthServiceImpl implements AuthService {
 
     /**
      * The current identity of a refresh token's subject, resolved fresh from the DB so rotated
-     * access tokens always carry up-to-date roles. Returns null if the subject no longer exists.
+     * access tokens always carry up-to-date roles. Returns null if the subject no longer exists
+     * or is a deactivated admin.
      */
     private ResolvedIdentity resolveIdentity(UUID userId) {
         Optional<Admin> adminOpt = adminRepository.findById(userId);
         if (adminOpt.isPresent()) {
             Admin admin = adminOpt.get();
+            // A deactivated admin must not be able to rotate its way into a fresh access token.
+            // Without this, disabling an account only stopped new logins, not existing sessions.
+            if (!admin.isActive()) {
+                Log.warnf("Token refresh refused - admin is deactivated - adminId: %s", userId);
+                return null;
+            }
             Set<Role> roles = admin.getRoles();
             Set<String> rolesForStorage = roles.stream()
                 .map(Role::toString)
@@ -400,13 +408,27 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public void revokeTokens(UUID teamId) {
+    public void revokeTokens(UUID subjectId) {
         // Delete persisted refresh tokens AND record the cutoff in Valkey so any
-        // access token already in a participant's browser is rejected on its next
-        // request — on any API pod.
-        refreshTokenRepository.deleteBySubject(teamId.toString());
-        tokenRevocationStore.revokeSubject(teamId.toString(), Instant.now());
-        Log.infof("Tokens revoked - subject: %s", teamId);
+        // access token already in a participant's or admin's browser is rejected on
+        // its next request — on any API pod.
+        refreshTokenRepository.deleteBySubject(subjectId.toString());
+        tokenRevocationStore.revokeSubject(subjectId.toString(), revocationCutoff());
+        Log.infof("Tokens revoked - subject: %s", subjectId);
+    }
+
+    /**
+     * The cutoff to compare a token's `iat` against, rounded up to the start of the next second.
+     * <p>
+     * JWT `iat` only has whole-second resolution, so a token minted at second N carries
+     * {@code iat = N}. Using a bare {@code Instant.now()} inside that same second produced a
+     * cutoff of N too, and the {@code issuedAt.isBefore(cutoff)} test then returned false —
+     * the token survived revocation entirely, for its full remaining lifetime. Rounding up
+     * covers every token issued during the current second while still leaving one issued in
+     * the next second (a fresh login after the revocation) valid.
+     */
+    private static Instant revocationCutoff() {
+        return Instant.now().truncatedTo(ChronoUnit.SECONDS).plusSeconds(1);
     }
 
     @Override
@@ -423,7 +445,7 @@ public class AuthServiceImpl implements AuthService {
         if (teamId == null || deviceId == null) {
             return;
         }
-        tokenRevocationStore.revokeDevice(teamId.toString(), deviceId, Instant.now());
+        tokenRevocationStore.revokeDevice(teamId.toString(), deviceId, revocationCutoff());
         Log.infof("Device tokens revoked - teamId: %s, deviceId: %s", teamId, deviceId);
     }
 

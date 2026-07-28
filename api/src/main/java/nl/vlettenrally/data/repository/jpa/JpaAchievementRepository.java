@@ -81,6 +81,16 @@ public class JpaAchievementRepository extends ReadReplicaAwareRepository impleme
     }
 
     @Override
+    public long countVerifiedBy(UUID adminId) {
+        // Primary EM: this count gates an irreversible admin delete, so replication lag
+        // must not let a verification record slip through unseen.
+        return getReadEntityManager(true)
+                .createQuery("SELECT COUNT(a) FROM AchievementEntity a WHERE a.verifiedBy.id = :adminId", Long.class)
+                .setParameter("adminId", adminId)
+                .getSingleResult();
+    }
+
+    @Override
     @Transactional
     public Achievement save(Achievement achievement) {
         AchievementEntity entity = getWriteEntityManager().find(AchievementEntity.class, achievement.getId());

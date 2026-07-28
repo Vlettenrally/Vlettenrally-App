@@ -53,7 +53,13 @@ public interface MessageRepository {
      * Count distinct batches for a game.
      */
     long countDistinctBatchesByGameIdAndSource(UUID gameId, MessageSource source);
-    
+
+    /**
+     * Count messages sent by an admin. Used to decide whether that admin can be
+     * deleted outright without silently dropping the sender trail.
+     */
+    long countBySentByAdmin(UUID adminId);
+
     Message save(Message message);
     
     void markAsRead(UUID id);

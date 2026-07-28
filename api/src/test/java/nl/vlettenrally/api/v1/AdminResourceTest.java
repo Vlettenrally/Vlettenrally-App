@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import nl.vlettenrally.data.domain.Admin;
+import nl.vlettenrally.data.dto.admin.AdminReferencesResponse;
 import nl.vlettenrally.data.dto.admin.AdminUserResponse;
 import nl.vlettenrally.data.dto.admin.CreateAdminRequest;
 import nl.vlettenrally.data.dto.admin.ResetPasswordResponse;
@@ -266,14 +267,18 @@ class AdminResourceTest {
     // ==================== deactivateAdmin ====================
 
     @Test
-    void deactivateAdmin_validAdmin_returnsNoContent() {
+    void deactivateAdmin_validAdmin_returnsOkWithUpdatedAdmin() {
         // Arrange
         setupSecurityContext();
-        when(adminService.deactivateAdmin(adminId, currentAdminId)).thenReturn(createAdmin("admin", Set.of(Role.ADMIN)));
+        Admin deactivated = createAdmin("admin", Set.of(Role.ADMIN));
+        deactivated.setActive(false);
+        when(adminService.deactivateAdmin(adminId, currentAdminId)).thenReturn(deactivated);
 
         // Act & Assert
         try (Response response = adminResource.deactivateAdmin(adminId, securityContext)) {
-            assertEquals(Response.Status.NO_CONTENT.getStatusCode(), response.getStatus());
+            assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());
+            AdminUserResponse body = (AdminUserResponse) response.getEntity();
+            assertFalse(body.active());
             verify(adminService).deactivateAdmin(adminId, currentAdminId);
         }
     }
@@ -320,6 +325,138 @@ class AdminResourceTest {
             assertEquals(Response.Status.FORBIDDEN.getStatusCode(), response.getStatus());
             ErrorResponse error = (ErrorResponse) response.getEntity();
             assertTrue(error.message().contains("last super admin"));
+        }
+    }
+
+    // ==================== activateAdmin ====================
+
+    @Test
+    void activateAdmin_validAdmin_returnsOkWithUpdatedAdmin() {
+        // Arrange
+        setupSecurityContext();
+        when(adminService.activateAdmin(adminId)).thenReturn(createAdmin("admin", Set.of(Role.ADMIN)));
+
+        // Act & Assert
+        try (Response response = adminResource.activateAdmin(adminId, securityContext)) {
+            assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());
+            AdminUserResponse body = (AdminUserResponse) response.getEntity();
+            assertTrue(body.active());
+            verify(adminService).activateAdmin(adminId);
+        }
+    }
+
+    @Test
+    void activateAdmin_adminNotFound_returnsNotFound() {
+        // Arrange
+        when(adminService.activateAdmin(adminId))
+            .thenThrow(new IllegalArgumentException("Admin user not found"));
+
+        // Act & Assert
+        try (Response response = adminResource.activateAdmin(adminId, securityContext)) {
+            assertEquals(Response.Status.NOT_FOUND.getStatusCode(), response.getStatus());
+            ErrorResponse error = (ErrorResponse) response.getEntity();
+            assertTrue(error.message().contains("not found"));
+        }
+    }
+
+    // ==================== getAdminReferences ====================
+
+    @Test
+    void getAdminReferences_validAdmin_returnsOkWithCounts() {
+        // Arrange
+        AdminReferencesResponse references = new AdminReferencesResponse(1L, 2L, 3L, 4L, 5L);
+        when(adminService.countAdminReferences(adminId)).thenReturn(references);
+
+        // Act & Assert
+        try (Response response = adminResource.getAdminReferences(adminId)) {
+            assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());
+            assertEquals(references, response.getEntity());
+        }
+    }
+
+    @Test
+    void getAdminReferences_adminNotFound_returnsNotFound() {
+        // Arrange
+        when(adminService.countAdminReferences(adminId))
+            .thenThrow(new IllegalArgumentException("Admin user not found"));
+
+        // Act & Assert
+        try (Response response = adminResource.getAdminReferences(adminId)) {
+            assertEquals(Response.Status.NOT_FOUND.getStatusCode(), response.getStatus());
+        }
+    }
+
+    // ==================== deleteAdmin ====================
+
+    @Test
+    void deleteAdmin_validAdmin_returnsNoContent() {
+        // Arrange
+        setupSecurityContext();
+
+        // Act & Assert
+        try (Response response = adminResource.deleteAdmin(adminId, securityContext)) {
+            assertEquals(Response.Status.NO_CONTENT.getStatusCode(), response.getStatus());
+            verify(adminService).deleteAdmin(adminId, currentAdminId);
+        }
+    }
+
+    @Test
+    void deleteAdmin_adminNotFound_returnsNotFound() {
+        // Arrange
+        setupSecurityContext();
+        doThrow(new IllegalArgumentException("Admin user not found"))
+            .when(adminService).deleteAdmin(adminId, currentAdminId);
+
+        // Act & Assert
+        try (Response response = adminResource.deleteAdmin(adminId, securityContext)) {
+            assertEquals(Response.Status.NOT_FOUND.getStatusCode(), response.getStatus());
+            ErrorResponse error = (ErrorResponse) response.getEntity();
+            assertTrue(error.message().contains("not found"));
+        }
+    }
+
+    @Test
+    void deleteAdmin_selfDeletion_returnsForbidden() {
+        // Arrange
+        setupSecurityContext();
+        doThrow(new IllegalArgumentException("Cannot delete your own account"))
+            .when(adminService).deleteAdmin(adminId, currentAdminId);
+
+        // Act & Assert
+        try (Response response = adminResource.deleteAdmin(adminId, securityContext)) {
+            assertEquals(Response.Status.FORBIDDEN.getStatusCode(), response.getStatus());
+            ErrorResponse error = (ErrorResponse) response.getEntity();
+            assertTrue(error.message().contains("own account"));
+        }
+    }
+
+    @Test
+    void deleteAdmin_stillActive_returnsConflict() {
+        // Arrange
+        setupSecurityContext();
+        doThrow(new IllegalStateException("Deactivate the admin user before deleting it"))
+            .when(adminService).deleteAdmin(adminId, currentAdminId);
+
+        // Act & Assert
+        try (Response response = adminResource.deleteAdmin(adminId, securityContext)) {
+            assertEquals(Response.Status.CONFLICT.getStatusCode(), response.getStatus());
+            ErrorResponse error = (ErrorResponse) response.getEntity();
+            assertTrue(error.message().contains("Deactivate"));
+        }
+    }
+
+    @Test
+    void deleteAdmin_withAttributedContent_returnsConflict() {
+        // Arrange
+        setupSecurityContext();
+        doThrow(new IllegalStateException("Cannot delete an admin user with attributed content: 3 sent messages"))
+            .when(adminService).deleteAdmin(adminId, currentAdminId);
+
+        // Act & Assert
+        try (Response response = adminResource.deleteAdmin(adminId, securityContext)) {
+            assertEquals(Response.Status.CONFLICT.getStatusCode(), response.getStatus());
+            ErrorResponse error = (ErrorResponse) response.getEntity();
+            assertTrue(error.message().contains("3 sent messages"));
         }
     }
 

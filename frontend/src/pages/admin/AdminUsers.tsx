@@ -18,6 +18,10 @@ import {
   IconButton,
   Typography,
   Alert,
+  CircularProgress,
+  List,
+  ListItem,
+  ListItemText,
   Paper,
   Table,
   TableBody,
@@ -27,15 +31,26 @@ import {
 } from '@mui/material';
 import { DataGrid, type GridColDef, type GridRenderCellParams } from '@mui/x-data-grid';
 import AddIcon from '@mui/icons-material/Add';
+import BlockIcon from '@mui/icons-material/Block';
 import EditIcon from '@mui/icons-material/Edit';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import LockResetIcon from '@mui/icons-material/LockReset';
-import DeleteIcon from '@mui/icons-material/Delete';
+import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
+import RestoreIcon from '@mui/icons-material/Restore';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import api from '../../services/api';
 import { ADMIN_PAGE_ROLES } from '../../services/auth';
-import type { AdminUser } from '../../types/entities';
+import type { AdminReferences, AdminUser } from '../../types/entities';
 import { AdminRole } from '../../types/entities';
+
+/** Reference counts in display order, paired with the i18n key that labels each one. */
+const REFERENCE_LABEL_KEYS: Array<[keyof AdminReferences, string]> = [
+  ['moderatedPictures', 'admin.adminUsers.referenceModeratedPictures'],
+  ['sentMessages', 'admin.adminUsers.referenceSentMessages'],
+  ['verifiedAchievements', 'admin.adminUsers.referenceVerifiedAchievements'],
+  ['pointEntries', 'admin.adminUsers.referencePointEntries'],
+  ['automationRules', 'admin.adminUsers.referenceAutomationRules'],
+];
 
 const PAGE_KEYS: Record<string, string> = {
   '/admin/map':                'admin.layout.map',
@@ -95,9 +110,19 @@ export default function AdminUsersPage() {
   const [temporaryPassword, setTemporaryPassword] = useState<string | null>(null);
   const [resetError, setResetError] = useState<string | null>(null);
 
+  const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
+  const [deactivatingAdmin, setDeactivatingAdmin] = useState<AdminUser | null>(null);
+  const [deactivateError, setDeactivateError] = useState<string | null>(null);
+
+  const [activateDialogOpen, setActivateDialogOpen] = useState(false);
+  const [activatingAdmin, setActivatingAdmin] = useState<AdminUser | null>(null);
+  const [activateError, setActivateError] = useState<string | null>(null);
+
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingAdmin, setDeletingAdmin] = useState<AdminUser | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteReferences, setDeleteReferences] = useState<AdminReferences | null>(null);
+  const [deleteReferencesLoading, setDeleteReferencesLoading] = useState(false);
 
   const loadAdmins = useCallback(async () => {
     setLoading(true);
@@ -228,25 +253,84 @@ export default function AdminUsersPage() {
     }
   };
 
-  const handleDeleteOpen = (admin: AdminUser) => {
+  const handleDeactivateOpen = (admin: AdminUser) => {
+    setDeactivatingAdmin(admin);
+    setDeactivateError(null);
+    setDeactivateDialogOpen(true);
+  };
+
+  const handleDeactivateSubmit = async () => {
+    if (!deactivatingAdmin) return;
+    setDeactivateError(null);
+
+    const response = await api.deactivateAdmin(deactivatingAdmin.id);
+
+    if (response.data) {
+      setDeactivateDialogOpen(false);
+      loadAdmins();
+    } else {
+      setDeactivateError(response.error || t('admin.adminUsers.failedToDeactivate'));
+    }
+  };
+
+  const handleActivateOpen = (admin: AdminUser) => {
+    setActivatingAdmin(admin);
+    setActivateError(null);
+    setActivateDialogOpen(true);
+  };
+
+  const handleActivateSubmit = async () => {
+    if (!activatingAdmin) return;
+    setActivateError(null);
+
+    const response = await api.activateAdmin(activatingAdmin.id);
+
+    if (response.data) {
+      setActivateDialogOpen(false);
+      loadAdmins();
+    } else {
+      setActivateError(response.error || t('admin.adminUsers.failedToActivate'));
+    }
+  };
+
+  const handleDeleteOpen = async (admin: AdminUser) => {
     setDeletingAdmin(admin);
     setDeleteError(null);
+    setDeleteReferences(null);
+    setDeleteReferencesLoading(true);
     setDeleteDialogOpen(true);
+
+    // Look up what the admin is credited on before offering the button, so a blocked delete
+    // is explained up front rather than as a 409 after the user commits to it.
+    const response = await api.getAdminReferences(admin.id);
+    if (response.data) {
+      setDeleteReferences(response.data);
+    } else {
+      setDeleteError(response.error || t('admin.adminUsers.failedToDelete'));
+    }
+    setDeleteReferencesLoading(false);
   };
 
   const handleDeleteSubmit = async () => {
     if (!deletingAdmin) return;
     setDeleteError(null);
 
-    const response = await api.deactivateAdmin(deletingAdmin.id);
+    const response = await api.deleteAdmin(deletingAdmin.id);
 
-    if (response.status === 204 || response.data !== undefined) {
+    if (response.status === 204) {
       setDeleteDialogOpen(false);
       loadAdmins();
     } else {
-      setDeleteError(response.error || t('admin.adminUsers.failedToDeactivate'));
+      setDeleteError(response.error || t('admin.adminUsers.failedToDelete'));
     }
   };
+
+  // Non-zero counts, ready to render. Empty means the admin is safe to delete.
+  const blockingReferences = deleteReferences
+    ? REFERENCE_LABEL_KEYS
+        .filter(([field]) => deleteReferences[field] > 0)
+        .map(([field, key]) => t(key, { count: deleteReferences[field] }))
+    : [];
 
   const toggleCreateRole = (role: AdminRole) => {
     const newRoles = new Set(createRoles);
@@ -309,7 +393,7 @@ export default function AdminUsersPage() {
     {
       field: 'actions',
       headerName: t('admin.adminUsers.columnActions'),
-      width: 150,
+      width: 180,
       sortable: false,
       renderCell: (params: GridRenderCellParams<AdminUser>) => (
         <Box>
@@ -327,14 +411,33 @@ export default function AdminUsersPage() {
           >
             <LockResetIcon fontSize="small" />
           </IconButton>
-          <IconButton
-            size="small"
-            onClick={() => handleDeleteOpen(params.row)}
-            title={t('admin.adminUsers.tooltipDeactivate')}
-            disabled={!params.row.active}
-          >
-            <DeleteIcon fontSize="small" />
-          </IconButton>
+          {params.row.active ? (
+            <IconButton
+              size="small"
+              onClick={() => handleDeactivateOpen(params.row)}
+              title={t('admin.adminUsers.tooltipDeactivate')}
+            >
+              <BlockIcon fontSize="small" />
+            </IconButton>
+          ) : (
+            <>
+              <IconButton
+                size="small"
+                onClick={() => handleActivateOpen(params.row)}
+                title={t('admin.adminUsers.tooltipActivate')}
+              >
+                <RestoreIcon fontSize="small" />
+              </IconButton>
+              <IconButton
+                size="small"
+                color="error"
+                onClick={() => handleDeleteOpen(params.row)}
+                title={t('admin.adminUsers.tooltipDelete')}
+              >
+                <DeleteForeverIcon fontSize="small" />
+              </IconButton>
+            </>
+          )}
         </Box>
       ),
     },
@@ -537,20 +640,84 @@ export default function AdminUsersPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} maxWidth="sm" fullWidth>
+      {/* Deactivate Confirmation Dialog */}
+      <Dialog open={deactivateDialogOpen} onClose={() => setDeactivateDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{t('admin.adminUsers.deactivateDialogTitle')}</DialogTitle>
         <DialogContent>
-          {deleteError && <Alert severity="error" sx={{ mb: 2 }}>{deleteError}</Alert>}
+          {deactivateError && <Alert severity="error" sx={{ mb: 2 }}>{deactivateError}</Alert>}
           <Typography>
-            {t('admin.adminUsers.deactivateConfirmText', { username: deletingAdmin?.username })}
+            {t('admin.adminUsers.deactivateConfirmText', { username: deactivatingAdmin?.username })}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>{t('common.cancel')}</Button>
-          <Button onClick={handleDeleteSubmit} variant="contained" color="error">
+          <Button onClick={() => setDeactivateDialogOpen(false)}>{t('common.cancel')}</Button>
+          <Button onClick={handleDeactivateSubmit} variant="contained" color="error">
             {t('admin.adminUsers.deactivateAction')}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Reactivate Confirmation Dialog */}
+      <Dialog open={activateDialogOpen} onClose={() => setActivateDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{t('admin.adminUsers.activateDialogTitle')}</DialogTitle>
+        <DialogContent>
+          {activateError && <Alert severity="error" sx={{ mb: 2 }}>{activateError}</Alert>}
+          <Typography>
+            {t('admin.adminUsers.activateConfirmText', { username: activatingAdmin?.username })}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setActivateDialogOpen(false)}>{t('common.cancel')}</Button>
+          <Button onClick={handleActivateSubmit} variant="contained">
+            {t('admin.adminUsers.activateAction')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Permanent Delete Dialog */}
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{t('admin.adminUsers.deleteDialogTitle')}</DialogTitle>
+        <DialogContent>
+          {deleteError && <Alert severity="error" sx={{ mb: 2 }}>{deleteError}</Alert>}
+          {deleteReferencesLoading ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1 }}>
+              <CircularProgress size={20} />
+              <Typography>{t('admin.adminUsers.deleteCheckingReferences')}</Typography>
+            </Box>
+          ) : blockingReferences.length > 0 ? (
+            <Alert severity="warning">
+              <Typography>
+                {t('admin.adminUsers.deleteBlockedIntro', { username: deletingAdmin?.username })}
+              </Typography>
+              <List dense sx={{ listStyleType: 'disc', pl: 3, py: 0.5 }}>
+                {blockingReferences.map((label) => (
+                  <ListItem key={label} sx={{ display: 'list-item', p: 0 }}>
+                    <ListItemText primary={label} />
+                  </ListItem>
+                ))}
+              </List>
+              <Typography variant="body2">{t('admin.adminUsers.deleteBlockedHint')}</Typography>
+            </Alert>
+          ) : deleteReferences ? (
+            <>
+              <Typography>
+                {t('admin.adminUsers.deleteConfirmText', { username: deletingAdmin?.username })}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                {t('admin.adminUsers.deleteWarningIrreversible')}
+              </Typography>
+            </>
+          ) : null}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)}>
+            {blockingReferences.length > 0 ? t('common.close') : t('common.cancel')}
+          </Button>
+          {deleteReferences && blockingReferences.length === 0 && (
+            <Button onClick={handleDeleteSubmit} variant="contained" color="error">
+              {t('admin.adminUsers.deleteAction')}
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
     </Box>

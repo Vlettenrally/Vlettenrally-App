@@ -123,6 +123,13 @@ public class MockAutomationRuleRepository implements AutomationRuleRepository {
     }
 
     @Override
+    public long countByCreatedBy(UUID adminId) {
+        return rules.values().stream()
+            .filter(r -> adminId.equals(r.getCreatedBy()))
+            .count();
+    }
+
+    @Override
     public AutomationRule save(AutomationRule rule) {
         rules.put(rule.getId(), rule);
         return rule;

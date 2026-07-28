@@ -286,3 +286,91 @@ describe('cross-tab refresh coordination', () => {
     });
   });
 });
+
+describe('admin user lifecycle endpoints', () => {
+  /** A token far from expiry, so no refresh machinery interferes with the assertions. */
+  function withLiveToken() {
+    tokens.access = makeJwt({ exp: expSecondsFromNow(3600) });
+    tokens.refresh = 'refresh-1';
+  }
+
+  function lastCall(): [string, RequestInit] {
+    const call = fetchMock.mock.calls.at(-1)!;
+    return [String(call[0]), call[1] as RequestInit];
+  }
+
+  const adminId = '11111111-2222-3333-4444-555555555555';
+
+  it('deactivates via PUT /deactivate rather than DELETE', async () => {
+    withLiveToken();
+    fetchMock.mockImplementation(async () => jsonResponse(200, { id: adminId, active: false }));
+
+    const api = await loadApi();
+    const result = await api.deactivateAdmin(adminId);
+
+    const [url, init] = lastCall();
+    expect(url).toMatch(new RegExp(`/admins/${adminId}/deactivate$`));
+    expect(init.method).toBe('PUT');
+    expect(result.data).toMatchObject({ active: false });
+  });
+
+  it('reactivates via PUT /activate', async () => {
+    withLiveToken();
+    fetchMock.mockImplementation(async () => jsonResponse(200, { id: adminId, active: true }));
+
+    const api = await loadApi();
+    const result = await api.activateAdmin(adminId);
+
+    const [url, init] = lastCall();
+    expect(url).toMatch(new RegExp(`/admins/${adminId}/activate$`));
+    expect(init.method).toBe('PUT');
+    expect(result.data).toMatchObject({ active: true });
+  });
+
+  it('reads the delete precondition from GET /references', async () => {
+    withLiveToken();
+    const references = {
+      moderatedPictures: 0,
+      sentMessages: 3,
+      verifiedAchievements: 0,
+      pointEntries: 0,
+      automationRules: 0,
+    };
+    fetchMock.mockImplementation(async () => jsonResponse(200, references));
+
+    const api = await loadApi();
+    const result = await api.getAdminReferences(adminId);
+
+    const [url, init] = lastCall();
+    expect(url).toMatch(new RegExp(`/admins/${adminId}/references$`));
+    expect(init.method ?? 'GET').toBe('GET');
+    expect(result.data).toEqual(references);
+  });
+
+  it('deletes permanently via DELETE and reports 204', async () => {
+    withLiveToken();
+    fetchMock.mockImplementation(async () => jsonResponse(204, null));
+
+    const api = await loadApi();
+    const result = await api.deleteAdmin(adminId);
+
+    const [url, init] = lastCall();
+    expect(url).toMatch(new RegExp(`/admins/${adminId}$`));
+    expect(init.method).toBe('DELETE');
+    expect(result.status).toBe(204);
+  });
+
+  it('surfaces the 409 a blocked delete returns', async () => {
+    withLiveToken();
+    fetchMock.mockImplementation(async () =>
+      jsonResponse(409, { message: 'Cannot delete an admin user with attributed content: 3 sent messages' }),
+    );
+
+    const api = await loadApi();
+    const result = await api.deleteAdmin(adminId);
+
+    expect(result.status).toBe(409);
+    expect(result.data).toBeUndefined();
+    expect(result.error).toContain('3 sent messages');
+  });
+});

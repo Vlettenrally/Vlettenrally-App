@@ -5,8 +5,14 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import nl.vlettenrally.data.domain.Admin;
+import nl.vlettenrally.data.dto.admin.AdminReferencesResponse;
 import nl.vlettenrally.data.enums.Role;
+import nl.vlettenrally.data.repository.AchievementRepository;
 import nl.vlettenrally.data.repository.AdminRepository;
+import nl.vlettenrally.data.repository.AutomationRuleRepository;
+import nl.vlettenrally.data.repository.MessageRepository;
+import nl.vlettenrally.data.repository.PictureRepository;
+import nl.vlettenrally.data.repository.PointEntryRepository;
 import nl.vlettenrally.service.impl.AdminServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,6 +36,24 @@ class AdminServiceTest {
     @Mock
     AdminRoleValidator roleValidator;
 
+    @Mock
+    AuthService authService;
+
+    @Mock
+    PictureRepository pictureRepository;
+
+    @Mock
+    MessageRepository messageRepository;
+
+    @Mock
+    AchievementRepository achievementRepository;
+
+    @Mock
+    PointEntryRepository pointEntryRepository;
+
+    @Mock
+    AutomationRuleRepository automationRuleRepository;
+
     @InjectMocks
     AdminServiceImpl adminService;
 
@@ -40,6 +64,15 @@ class AdminServiceTest {
     void setUp() {
         adminId = UUID.randomUUID();
         superAdminId = UUID.randomUUID();
+    }
+
+    /** All five attribution sources report zero, i.e. the admin is safe to delete. */
+    private void stubNoReferences() {
+        when(pictureRepository.countModeratedBy(adminId)).thenReturn(0L);
+        when(messageRepository.countBySentByAdmin(adminId)).thenReturn(0L);
+        when(achievementRepository.countVerifiedBy(adminId)).thenReturn(0L);
+        when(pointEntryRepository.countByCreatedByOrEditedBy(adminId)).thenReturn(0L);
+        when(automationRuleRepository.countByCreatedBy(adminId)).thenReturn(0L);
     }
 
     // ==================== getAllAdmins ====================
@@ -388,6 +421,9 @@ class AdminServiceTest {
         // Assert
         assertFalse(result.isActive());
         verify(adminRepository).save(admin);
+        // Without this the account keeps working until its access token expires, because
+        // refresh-token rotation would happily mint new ones.
+        verify(authService).revokeTokens(adminId);
     }
 
     @Test
@@ -425,6 +461,185 @@ class AdminServiceTest {
         // Act & Assert
         assertThrows(IllegalArgumentException.class, () ->
             adminService.deactivateAdmin(adminId, superAdminId)
+        );
+    }
+
+    // ==================== activateAdmin ====================
+
+    @Test
+    void activateAdmin_inactiveAdmin_activatesAndReturns() {
+        // Arrange
+        Admin admin = createAdmin("admin", Set.of(Role.ADMIN));
+        admin.setId(adminId);
+        admin.setActive(false);
+        when(adminRepository.findById(adminId)).thenReturn(Optional.of(admin));
+        when(adminRepository.save(any(Admin.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        Admin result = adminService.activateAdmin(adminId);
+
+        // Assert
+        assertTrue(result.isActive());
+        verify(adminRepository).save(admin);
+    }
+
+    @Test
+    void activateAdmin_alreadyActive_isIdempotent() {
+        // Arrange
+        Admin admin = createAdmin("admin", Set.of(Role.ADMIN));
+        admin.setId(adminId);
+        when(adminRepository.findById(adminId)).thenReturn(Optional.of(admin));
+
+        // Act
+        Admin result = adminService.activateAdmin(adminId);
+
+        // Assert
+        assertTrue(result.isActive());
+        verify(adminRepository, never()).save(any(Admin.class));
+    }
+
+    @Test
+    void activateAdmin_adminNotFound_throwsException() {
+        // Arrange
+        when(adminRepository.findById(adminId)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThrows(IllegalArgumentException.class, () ->
+            adminService.activateAdmin(adminId)
+        );
+    }
+
+    // ==================== deleteAdmin ====================
+
+    @Test
+    void deleteAdmin_inactiveAdminWithoutReferences_deletesAndRevokesTokens() {
+        // Arrange
+        Admin admin = createAdmin("admin", Set.of(Role.ADMIN));
+        admin.setId(adminId);
+        admin.setActive(false);
+        when(adminRepository.findById(adminId)).thenReturn(Optional.of(admin));
+        stubNoReferences();
+
+        // Act
+        adminService.deleteAdmin(adminId, superAdminId);
+
+        // Assert
+        verify(adminRepository).delete(adminId);
+        verify(authService).revokeTokens(adminId);
+    }
+
+    @Test
+    void deleteAdmin_adminNotFound_throwsException() {
+        // Arrange
+        when(adminRepository.findById(adminId)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThrows(IllegalArgumentException.class, () ->
+            adminService.deleteAdmin(adminId, superAdminId)
+        );
+    }
+
+    @Test
+    void deleteAdmin_selfDeletion_throwsException() {
+        // Arrange
+        Admin admin = createAdmin("admin", Set.of(Role.ADMIN));
+        admin.setId(adminId);
+        admin.setActive(false);
+        when(adminRepository.findById(adminId)).thenReturn(Optional.of(admin));
+
+        // Act & Assert
+        assertThrows(IllegalArgumentException.class, () ->
+            adminService.deleteAdmin(adminId, adminId) // Same ID = self
+        );
+        verify(adminRepository, never()).delete(any(UUID.class));
+    }
+
+    @Test
+    void deleteAdmin_stillActive_throwsIllegalState() {
+        // Deactivate first — that path holds the last-super-admin guard, so delete
+        // does not need its own copy of it.
+        Admin admin = createAdmin("admin", Set.of(Role.ADMIN));
+        admin.setId(adminId);
+        when(adminRepository.findById(adminId)).thenReturn(Optional.of(admin));
+
+        // Act & Assert
+        assertThrows(IllegalStateException.class, () ->
+            adminService.deleteAdmin(adminId, superAdminId)
+        );
+        verify(adminRepository, never()).delete(any(UUID.class));
+    }
+
+    @Test
+    void deleteAdmin_withAttributedContent_throwsIllegalState() {
+        // Arrange
+        Admin admin = createAdmin("admin", Set.of(Role.ADMIN));
+        admin.setId(adminId);
+        admin.setActive(false);
+        when(adminRepository.findById(adminId)).thenReturn(Optional.of(admin));
+        when(pictureRepository.countModeratedBy(adminId)).thenReturn(0L);
+        when(messageRepository.countBySentByAdmin(adminId)).thenReturn(3L);
+        when(achievementRepository.countVerifiedBy(adminId)).thenReturn(0L);
+        when(pointEntryRepository.countByCreatedByOrEditedBy(adminId)).thenReturn(0L);
+        when(automationRuleRepository.countByCreatedBy(adminId)).thenReturn(0L);
+
+        // Act & Assert
+        IllegalStateException e = assertThrows(IllegalStateException.class, () ->
+            adminService.deleteAdmin(adminId, superAdminId)
+        );
+        assertTrue(e.getMessage().contains("3 sent messages"));
+        verify(adminRepository, never()).delete(any(UUID.class));
+        verify(authService, never()).revokeTokens(any(UUID.class));
+    }
+
+    // ==================== countAdminReferences ====================
+
+    @Test
+    void countAdminReferences_returnsCountsFromEveryAttributionSource() {
+        // Arrange
+        Admin admin = createAdmin("admin", Set.of(Role.ADMIN));
+        admin.setId(adminId);
+        when(adminRepository.findById(adminId)).thenReturn(Optional.of(admin));
+        when(pictureRepository.countModeratedBy(adminId)).thenReturn(1L);
+        when(messageRepository.countBySentByAdmin(adminId)).thenReturn(2L);
+        when(achievementRepository.countVerifiedBy(adminId)).thenReturn(3L);
+        when(pointEntryRepository.countByCreatedByOrEditedBy(adminId)).thenReturn(4L);
+        when(automationRuleRepository.countByCreatedBy(adminId)).thenReturn(5L);
+
+        // Act
+        AdminReferencesResponse result = adminService.countAdminReferences(adminId);
+
+        // Assert
+        assertEquals(1L, result.moderatedPictures());
+        assertEquals(2L, result.sentMessages());
+        assertEquals(3L, result.verifiedAchievements());
+        assertEquals(4L, result.pointEntries());
+        assertEquals(5L, result.automationRules());
+        assertTrue(result.hasAny());
+    }
+
+    @Test
+    void countAdminReferences_noAttributedContent_hasNone() {
+        // Arrange
+        Admin admin = createAdmin("admin", Set.of(Role.ADMIN));
+        admin.setId(adminId);
+        when(adminRepository.findById(adminId)).thenReturn(Optional.of(admin));
+        stubNoReferences();
+
+        // Act
+        AdminReferencesResponse result = adminService.countAdminReferences(adminId);
+
+        // Assert
+        assertFalse(result.hasAny());
+    }
+
+    @Test
+    void countAdminReferences_adminNotFound_throwsException() {
+        // Arrange
+        when(adminRepository.findById(adminId)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThrows(IllegalArgumentException.class, () ->
+            adminService.countAdminReferences(adminId)
         );
     }
 

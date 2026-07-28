@@ -22,6 +22,12 @@ public interface AchievementRepository {
 
     Optional<Achievement> findByTeamIdAndCheckpointId(UUID teamId, UUID checkpointId);
 
+    /**
+     * Count achievements verified by an admin. Used to decide whether that admin can be
+     * deleted outright without silently dropping the verification trail.
+     */
+    long countVerifiedBy(UUID adminId);
+
     Achievement save(Achievement achievement);
 
     void delete(UUID id);

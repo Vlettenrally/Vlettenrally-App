@@ -52,6 +52,12 @@ public interface PictureRepository {
      */
     long countAllByTeamId(UUID teamId);
 
+    /**
+     * Count pictures moderated by an admin. Used to decide whether that admin can be
+     * deleted outright without silently dropping the moderation trail.
+     */
+    long countModeratedBy(UUID adminId);
+
     Picture save(Picture picture);
 
     void delete(UUID id);

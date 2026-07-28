@@ -76,6 +76,17 @@ public class JpaPointEntryRepository extends ReadReplicaAwareRepository implemen
         return result == null ? 0 : result.intValue();
     }
 
+    @Override
+    public long countByCreatedByOrEditedBy(UUID adminId) {
+        // Primary EM: this count gates an irreversible admin delete, so replication lag
+        // must not let a ledger entry slip through unseen.
+        return getReadEntityManager(true)
+                .createQuery("SELECT COUNT(e) FROM PointEntryEntity e "
+                        + "WHERE e.createdBy = :adminId OR e.editedBy = :adminId", Long.class)
+                .setParameter("adminId", adminId)
+                .getSingleResult();
+    }
+
     @Transactional
     @Override
     public PointEntry save(PointEntry entry) {

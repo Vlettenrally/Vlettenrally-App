@@ -9,6 +9,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 
@@ -16,15 +18,19 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import jakarta.inject.Inject;
 import nl.vlettenrally.api.security.MockApiTestProfile;
+import nl.vlettenrally.data.domain.Admin;
 import nl.vlettenrally.data.domain.RefreshToken;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.dto.auth.TokenResult;
+import nl.vlettenrally.data.enums.Role;
+import nl.vlettenrally.data.repository.AdminRepository;
 import nl.vlettenrally.data.repository.RefreshTokenRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
 
 /**
  * Refresh-token rotation behaviour: normal rotation, idempotent replay of a lost-response
- * retry (must NOT lock the team out), and genuine stale reuse (must still be rejected).
+ * retry (must NOT lock the team out), genuine stale reuse (must still be rejected), and
+ * refusal to rotate for a deactivated admin.
  * Boots on mock repositories (no Docker) so the real rotation logic runs.
  */
 @QuarkusTest
@@ -38,12 +44,38 @@ class AuthServiceRefreshTokenTest {
     TeamRepository teamRepository;
 
     @Inject
+    AdminRepository adminRepository;
+
+    @Inject
     RefreshTokenRepository refreshTokenRepository;
 
     private Team anyTeam() {
         List<Team> teams = teamRepository.findAll();
         assertFalse(teams.isEmpty(), "mock profile should provide prefilled teams");
         return teams.getFirst();
+    }
+
+    /** A throwaway admin, so toggling `active` cannot disturb the seeded mock admins. */
+    private Admin newAdmin(boolean active) {
+        Admin admin = new Admin();
+        admin.setId(UUID.randomUUID());
+        admin.setUsername("refresh-test-" + UUID.randomUUID());
+        admin.setPasswordHash("hashed");
+        admin.setRoles(Set.of(Role.ADMIN));
+        admin.setActive(active);
+        return adminRepository.save(admin);
+    }
+
+    /** Persist a refresh token for an admin, the way the admin-login endpoint does. */
+    private String issueAdminRefreshToken(Admin admin) {
+        String refreshToken = authService.generateRefreshTokenValue();
+        authService.storeRefreshToken(
+            refreshToken,
+            admin.getId().toString(),
+            admin.getUsername(),
+            Set.of("admin"),
+            Instant.now().plusSeconds(86400).getEpochSecond());
+        return refreshToken;
     }
 
     @Test
@@ -104,5 +136,28 @@ class AuthServiceRefreshTokenTest {
         assertTrue(replay.isEmpty(), "stale reuse of a long-revoked token must be rejected");
         assertTrue(refreshTokenRepository.findBySubject(subject).isEmpty(),
             "genuine replay must revoke the whole team's refresh tokens");
+    }
+
+    @Test
+    void refresh_activeAdminRotatesNormally() {
+        Admin admin = newAdmin(true);
+        String refreshToken = issueAdminRefreshToken(admin);
+
+        assertTrue(authService.refreshToken(refreshToken).isPresent(),
+            "an active admin must be able to rotate its refresh token");
+    }
+
+    @Test
+    void refresh_deactivatedAdminIsRefused() {
+        // Deactivating an admin used to leave existing sessions untouched: rotation kept
+        // minting fresh access tokens, so the account carried on working indefinitely.
+        Admin admin = newAdmin(true);
+        String refreshToken = issueAdminRefreshToken(admin);
+
+        admin.setActive(false);
+        adminRepository.save(admin);
+
+        assertTrue(authService.refreshToken(refreshToken).isEmpty(),
+            "a deactivated admin must not be able to rotate into a fresh access token");
     }
 }

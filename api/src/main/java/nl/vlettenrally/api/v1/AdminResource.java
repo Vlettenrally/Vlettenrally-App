@@ -10,6 +10,7 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 import nl.vlettenrally.api.security.SecurityRoles;
 import nl.vlettenrally.data.domain.Admin;
+import nl.vlettenrally.data.dto.admin.AdminReferencesResponse;
 import nl.vlettenrally.data.dto.admin.AdminUserResponse;
 import nl.vlettenrally.data.dto.admin.CreateAdminRequest;
 import nl.vlettenrally.data.dto.admin.ResetPasswordResponse;
@@ -30,7 +31,10 @@ import java.util.stream.Collectors;
  * - POST /api/v1/admins - Create a new admin user
  * - PUT /api/v1/admins/{id}/roles - Update admin roles
  * - PUT /api/v1/admins/{id}/reset-password - Reset admin password
- * - DELETE /api/v1/admins/{id} - Deactivate admin user
+ * - PUT /api/v1/admins/{id}/deactivate - Deactivate admin user (reversible)
+ * - PUT /api/v1/admins/{id}/activate - Reactivate a deactivated admin user
+ * - GET /api/v1/admins/{id}/references - Content attributed to an admin (delete precondition)
+ * - DELETE /api/v1/admins/{id} - Permanently delete a deactivated, unreferenced admin user
  * <p>
  */
 @Path("/api/v1/admins")
@@ -146,34 +150,102 @@ public class AdminResource {
     }
 
     /**
-     * Deactivate admin user
+     * Deactivate admin user. Reversible via {@link #activateAdmin}; the account's live
+     * tokens are revoked so it stops working immediately.
      */
-    @DELETE
-    @Path("/{id}")
+    @PUT
+    @Path("/{id}/deactivate")
     @RolesAllowed(SecurityRoles.SUPER_ADMIN)
     public Response deactivateAdmin(@PathParam("id") UUID adminId, @Context SecurityContext securityContext) {
         try {
             UUID currentUserId = getAdminId(securityContext);
-            adminService.deactivateAdmin(adminId, currentUserId);
+            Admin deactivated = adminService.deactivateAdmin(adminId, currentUserId);
 
             Log.warnf("AUDIT: Admin %s deactivated admin %s", currentUserId, adminId);
 
+            return Response.ok(toResponse(deactivated)).build();
+        } catch (IllegalArgumentException e) {
+            return mapAdminError(e);
+        }
+    }
+
+    /**
+     * Reactivate a deactivated admin user
+     */
+    @PUT
+    @Path("/{id}/activate")
+    @RolesAllowed(SecurityRoles.SUPER_ADMIN)
+    public Response activateAdmin(@PathParam("id") UUID adminId, @Context SecurityContext securityContext) {
+        try {
+            Admin activated = adminService.activateAdmin(adminId);
+
+            UUID currentUserId = getAdminId(securityContext);
+            Log.warnf("AUDIT: Admin %s activated admin %s", currentUserId, adminId);
+
+            return Response.ok(toResponse(activated)).build();
+        } catch (IllegalArgumentException e) {
+            return mapAdminError(e);
+        }
+    }
+
+    /**
+     * Content attributed to an admin user. All-zero counts mean the admin can be deleted;
+     * the admin-users page uses this to explain a blocked delete before attempting one.
+     */
+    @GET
+    @Path("/{id}/references")
+    @RolesAllowed(SecurityRoles.SUPER_ADMIN)
+    public Response getAdminReferences(@PathParam("id") UUID adminId) {
+        try {
+            AdminReferencesResponse references = adminService.countAdminReferences(adminId);
+            return Response.ok(references).build();
+        } catch (IllegalArgumentException e) {
+            return mapAdminError(e);
+        }
+    }
+
+    /**
+     * Permanently delete an admin user. Only succeeds for an already-deactivated admin with no
+     * attributed content — otherwise 409, because deleting would blank out the audit trail.
+     */
+    @DELETE
+    @Path("/{id}")
+    @RolesAllowed(SecurityRoles.SUPER_ADMIN)
+    public Response deleteAdmin(@PathParam("id") UUID adminId, @Context SecurityContext securityContext) {
+        try {
+            UUID currentUserId = getAdminId(securityContext);
+            adminService.deleteAdmin(adminId, currentUserId);
+
+            Log.warnf("AUDIT: Admin %s permanently deleted admin %s", currentUserId, adminId);
+
             return Response.noContent().build();
         } catch (IllegalArgumentException e) {
-            String message = e.getMessage();
-            if (message.contains("not found")) {
-                return Response.status(Response.Status.NOT_FOUND)
-                    .entity(new ErrorResponse(message))
-                    .build();
-            }
-            return Response.status(Response.Status.FORBIDDEN)
-                .entity(new ErrorResponse(message))
+            return mapAdminError(e);
+        } catch (IllegalStateException e) {
+            return Response.status(Response.Status.CONFLICT)
+                .entity(new ErrorResponse(e.getMessage()))
                 .build();
         }
     }
 
 
     // Helper methods
+
+    /**
+     * "Not found" is a 404; everything else an IllegalArgumentException carries here is a
+     * refused business rule (acting on yourself, the last super admin) rather than bad input.
+     */
+    private Response mapAdminError(IllegalArgumentException e) {
+        String message = e.getMessage();
+        if (message != null && message.contains("not found")) {
+            return Response.status(Response.Status.NOT_FOUND)
+                .entity(new ErrorResponse(message))
+                .build();
+        }
+        return Response.status(Response.Status.FORBIDDEN)
+            .entity(new ErrorResponse(message))
+            .build();
+    }
 
     private AdminUserResponse toResponse(Admin admin) {
         return new AdminUserResponse(

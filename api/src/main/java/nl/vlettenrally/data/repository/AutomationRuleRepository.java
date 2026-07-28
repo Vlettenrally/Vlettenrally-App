@@ -26,6 +26,12 @@ public interface AutomationRuleRepository {
     /** Enabled rules with the given trigger type across all games (scheduler use). */
     List<AutomationRule> findEnabledByTriggerType(AutomationTriggerType triggerType);
 
+    /**
+     * Count rules created by an admin. Used to decide whether that admin can be
+     * deleted outright without silently dropping the authorship trail.
+     */
+    long countByCreatedBy(UUID adminId);
+
     AutomationRule save(AutomationRule rule);
 
     void delete(UUID id);

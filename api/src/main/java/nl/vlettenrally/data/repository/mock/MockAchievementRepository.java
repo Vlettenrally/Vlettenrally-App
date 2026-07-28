@@ -206,6 +206,13 @@ public class MockAchievementRepository implements AchievementRepository {
     }
 
     @Override
+    public long countVerifiedBy(UUID adminId) {
+        return achievements.values().stream()
+                .filter(a -> adminId.equals(a.getVerifiedBy()))
+                .count();
+    }
+
+    @Override
     public Achievement save(Achievement achievement) {
         if (achievement.getId() == null) {
             achievement.setId(UUID.randomUUID());

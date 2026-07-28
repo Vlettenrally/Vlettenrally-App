@@ -146,6 +146,16 @@ public class JpaPictureRepository extends ReadReplicaAwareRepository implements 
     }
 
     @Override
+    public long countModeratedBy(UUID adminId) {
+        // Primary EM: this count gates an irreversible admin delete, so replication lag
+        // must not let a moderation record slip through unseen.
+        return getReadEntityManager(true)
+                .createQuery("SELECT COUNT(p) FROM PictureEntity p WHERE p.moderatedBy.id = :adminId", Long.class)
+                .setParameter("adminId", adminId)
+                .getSingleResult();
+    }
+
+    @Override
     @Transactional
     public Picture save(Picture picture) {
         PictureEntity entity = getWriteEntityManager().find(PictureEntity.class, picture.getId());

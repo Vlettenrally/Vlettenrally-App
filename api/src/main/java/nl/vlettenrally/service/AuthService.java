@@ -43,14 +43,14 @@ public interface AuthService {
     TokenResult issueTeamTokens(Team team);
 
     /**
-     * Revoke all tokens for a team. Deletes persisted refresh tokens AND records a
-     * revocation cutoff so that any access token whose `iat` predates the cutoff is
-     * rejected at request time (see TeamTokenRevocationFilter).
+     * Revoke all tokens for a subject — a team or an admin. Deletes persisted refresh tokens
+     * AND records a revocation cutoff so that any access token whose `iat` predates the cutoff
+     * is rejected at request time (see TokenRevocationFilter).
      */
-    void revokeTokens(UUID teamId);
+    void revokeTokens(UUID subjectId);
 
     /**
-     * Returns Uni<true></true> if access tokens for the given team subject were revoked AFTER the
+     * Returns Uni<true></true> if access tokens for the given subject were revoked AFTER the
      * supplied issued-at instant — i.e. the access token must be rejected.
      */
     Uni<Boolean> isAccessTokenRevoked(String subject, Instant issuedAt);

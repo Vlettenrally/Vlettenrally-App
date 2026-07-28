@@ -174,6 +174,13 @@ public class MockPictureRepository implements PictureRepository {
     }
 
     @Override
+    public long countModeratedBy(UUID adminId) {
+        return pictures.values().stream()
+                .filter(p -> adminId.equals(p.getModeratedBy()))
+                .count();
+    }
+
+    @Override
     public Picture save(Picture picture) {
         if (picture.getId() == null) {
             picture.setId(UUID.randomUUID());

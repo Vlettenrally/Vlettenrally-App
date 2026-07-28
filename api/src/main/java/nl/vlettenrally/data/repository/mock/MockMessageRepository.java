@@ -179,6 +179,13 @@ public class MockMessageRepository implements MessageRepository {
     }
 
     @Override
+    public long countBySentByAdmin(UUID adminId) {
+        return messages.values().stream()
+                .filter(m -> adminId.equals(m.getSentByAdminId()))
+                .count();
+    }
+
+    @Override
     public Message save(Message message) {
         if (message.getId() == null) {
             message.setId(UUID.randomUUID());

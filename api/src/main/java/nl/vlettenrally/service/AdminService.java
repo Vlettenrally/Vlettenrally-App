@@ -1,6 +1,7 @@
 package nl.vlettenrally.service;
 
 import nl.vlettenrally.data.domain.Admin;
+import nl.vlettenrally.data.dto.admin.AdminReferencesResponse;
 import nl.vlettenrally.data.enums.Role;
 
 import java.util.List;
@@ -15,7 +16,8 @@ import java.util.UUID;
 public interface AdminService {
 
     /**
-     * Get all active admin users.
+     * Get all admin users, active and deactivated alike — the admin-users page renders the
+     * deactivated ones so they can be reactivated or deleted.
      *
      * @return List of all admin users
      */
@@ -71,7 +73,8 @@ public interface AdminService {
     String resetAdminPassword(UUID adminId);
 
     /**
-     * Deactivate an admin user (soft delete).
+     * Deactivate an admin user (soft delete) and revoke its live tokens, so the account
+     * stops working immediately rather than at the next access-token expiry.
      * Prevents self-deactivation and ensures at least one SUPER_ADMIN remains.
      *
      * @param adminId The ID of the admin to deactivate
@@ -80,6 +83,37 @@ public interface AdminService {
      * @throws IllegalArgumentException if validation fails
      */
     Admin deactivateAdmin(UUID adminId, UUID currentUserId);
+
+    /**
+     * Reactivate a previously deactivated admin user. Idempotent for an already-active admin.
+     * No last-SUPER_ADMIN rule applies — this only ever adds an active admin.
+     *
+     * @param adminId The ID of the admin to activate
+     * @return The activated Admin
+     * @throws IllegalArgumentException if the admin does not exist
+     */
+    Admin activateAdmin(UUID adminId);
+
+    /**
+     * Permanently delete an admin user. Only allowed for an already-deactivated admin with no
+     * attributed content, so the audit trail on pictures, messages, achievements, point entries
+     * and automation rules is never silently blanked out.
+     *
+     * @param adminId The ID of the admin to delete
+     * @param currentUserId The ID of the user making the change (for self-delete check)
+     * @throws IllegalArgumentException if the admin does not exist, or is the caller
+     * @throws IllegalStateException if the admin is still active or still has attributed content
+     */
+    void deleteAdmin(UUID adminId, UUID currentUserId);
+
+    /**
+     * Count the content attributed to an admin, to show why it can or cannot be deleted.
+     *
+     * @param adminId The ID of the admin
+     * @return The per-table reference counts
+     * @throws IllegalArgumentException if the admin does not exist
+     */
+    AdminReferencesResponse countAdminReferences(UUID adminId);
 
     /**
      * Count the number of active SUPER_ADMIN users.

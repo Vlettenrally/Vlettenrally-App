@@ -63,6 +63,16 @@ public class JpaAutomationRuleRepository extends ReadReplicaAwareRepository impl
                 .toList();
     }
 
+    @Override
+    public long countByCreatedBy(UUID adminId) {
+        // Primary EM: this count gates an irreversible admin delete, so replication lag
+        // must not let an authored rule slip through unseen.
+        return getReadEntityManager(true)
+                .createQuery("SELECT COUNT(r) FROM AutomationRuleEntity r WHERE r.createdBy = :adminId", Long.class)
+                .setParameter("adminId", adminId)
+                .getSingleResult();
+    }
+
     @Transactional
     @Override
     public AutomationRule save(AutomationRule rule) {

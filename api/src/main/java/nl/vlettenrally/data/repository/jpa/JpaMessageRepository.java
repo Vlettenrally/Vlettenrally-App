@@ -182,6 +182,16 @@ public class JpaMessageRepository extends ReadReplicaAwareRepository implements 
     }
 
     @Override
+    public long countBySentByAdmin(UUID adminId) {
+        // Primary EM: this count gates an irreversible admin delete, so replication lag
+        // must not let a sent message slip through unseen.
+        return getReadEntityManager(true)
+                .createQuery("SELECT COUNT(m) FROM MessageEntity m WHERE m.sentByAdmin.id = :adminId", Long.class)
+                .setParameter("adminId", adminId)
+                .getSingleResult();
+    }
+
+    @Override
     @Transactional
     public Message save(Message message) {
         MessageEntity entity = getWriteEntityManager().find(MessageEntity.class, message.getId());

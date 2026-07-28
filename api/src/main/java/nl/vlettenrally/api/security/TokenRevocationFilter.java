@@ -16,11 +16,15 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Rejects team access tokens whose `iat` predates the team's revocation cutoff
- * (set by {@link AuthService#revokeTokens(java.util.UUID)} on admin check-in reset).
+ * Rejects access tokens whose `iat` predates their subject's revocation cutoff
+ * (set by {@link AuthService#revokeTokens(java.util.UUID)} on admin check-in reset for a
+ * team, and on deactivate/delete for an admin).
  *
- * Runs after Quarkus authentication (Priorities.AUTHENTICATION + 1) and only for
- * requests with the "team" role, so admin tokens are unaffected.
+ * Runs after Quarkus authentication (Priorities.AUTHENTICATION + 1) for every authenticated
+ * request. It deliberately covers admin tokens too: without that, deactivating an admin wrote
+ * a cutoff nobody ever read, and the account kept working until its access token expired.
+ * The per-device check below only ever fires for team tokens, which are the only ones
+ * carrying a `did` claim.
  *
  * Implemented as a reactive {@code @ServerRequestFilter} returning {@code Uni<Response>}:
  * the cutoff lookup hits Valkey, and on a non-blocking endpoint this filter runs on the
@@ -28,7 +32,7 @@ import java.util.UUID;
  * aborts the request; a null item lets it continue.
  */
 @ApplicationScoped
-public class TeamTokenRevocationFilter {
+public class TokenRevocationFilter {
 
     @Inject
     JsonWebToken jwt;
@@ -40,9 +44,6 @@ public class TeamTokenRevocationFilter {
     public Uni<Response> filter(ContainerRequestContext requestContext) {
         SecurityContext securityContext = requestContext.getSecurityContext();
         if (securityContext == null || securityContext.getUserPrincipal() == null) {
-            return Uni.createFrom().nullItem();
-        }
-        if (!securityContext.isUserInRole("team")) {
             return Uni.createFrom().nullItem();
         }
 
@@ -67,8 +68,10 @@ public class TeamTokenRevocationFilter {
         return authService.isAccessTokenRevoked(subject, issuedAt)
             .flatMap(subjectRevoked -> {
                 if (Boolean.TRUE.equals(subjectRevoked)) {
+                    // Covers both a team check-in reset and a deactivated/deleted admin, so the
+                    // wording stays neutral about which one ended this session.
                     return Uni.createFrom().item(
-                        unauthorized("Team check-in is reset — please log in again"));
+                        unauthorized("Your session has ended — please log in again"));
                 }
                 // Per-device revocation (admin removed this specific device from the team).
                 if (deviceId == null) {
