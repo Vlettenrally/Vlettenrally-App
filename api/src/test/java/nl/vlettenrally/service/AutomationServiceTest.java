@@ -232,6 +232,41 @@ class AutomationServiceTest {
         verify(ruleRepository).save(created);
     }
 
+    /** The approved-picture threshold is optional: no config means every approval fires. */
+    @Test
+    void createRule_acceptsPictureApproved_withoutThreshold() {
+        AutomationRule draft = validDraft();
+        draft.setTriggerType(AutomationTriggerType.PICTURE_APPROVED);
+        draft.setTriggerConfig(new AutomationTriggerConfig(null, null, null, null, null, null, null, null, null));
+
+        AutomationRule created = service.createRule(gameId, draft, adminId);
+
+        assertEquals(AutomationTriggerType.PICTURE_APPROVED, created.getTriggerType());
+        verify(ruleRepository).save(created);
+    }
+
+    @Test
+    void createRule_acceptsPictureApproved_withPositiveThreshold() {
+        AutomationRule draft = validDraft();
+        draft.setTriggerType(AutomationTriggerType.PICTURE_APPROVED);
+        draft.setTriggerConfig(new AutomationTriggerConfig(null, null, null, null, null, null, null, null, null,
+            null, null, null, 3));
+
+        AutomationRule created = service.createRule(gameId, draft, adminId);
+
+        assertEquals(3, created.getTriggerConfig().approvedPictureCount());
+    }
+
+    @Test
+    void createRule_rejectsPictureApproved_withNonPositiveThreshold() {
+        AutomationRule draft = validDraft();
+        draft.setTriggerType(AutomationTriggerType.PICTURE_APPROVED);
+        draft.setTriggerConfig(new AutomationTriggerConfig(null, null, null, null, null, null, null, null, null,
+            null, null, null, 0));
+
+        assertThrows(BadRequestException.class, () -> service.createRule(gameId, draft, adminId));
+    }
+
     @Test
     void createRule_rejectsInactivityWithoutMinutes() {
         AutomationRule draft = validDraft();
@@ -354,6 +389,33 @@ class AutomationServiceTest {
         assertEquals(2, updated.getTriggerConfig().pointsPer100m());
         assertTrue(updated.isSystem());
         verify(ruleRepository).save(existing);
+    }
+
+    /** The frontend sends this flag on every PUT; it used to be dropped silently. */
+    @Test
+    void updateRule_persistsTriggerForFinishedTeams() {
+        AutomationRule existing = validDraft();
+        existing.setGameId(gameId);
+        existing.setTriggerForFinishedTeams(false);
+        when(ruleRepository.findById(existing.getId())).thenReturn(Optional.of(existing));
+
+        AutomationRule draft = validDraft();
+        draft.setTriggerForFinishedTeams(true);
+
+        assertTrue(service.updateRule(gameId, existing.getId(), draft).isTriggerForFinishedTeams());
+    }
+
+    @Test
+    void updateRule_clearsTriggerForFinishedTeams() {
+        AutomationRule existing = validDraft();
+        existing.setGameId(gameId);
+        existing.setTriggerForFinishedTeams(true);
+        when(ruleRepository.findById(existing.getId())).thenReturn(Optional.of(existing));
+
+        AutomationRule draft = validDraft();
+        draft.setTriggerForFinishedTeams(false);
+
+        assertFalse(service.updateRule(gameId, existing.getId(), draft).isTriggerForFinishedTeams());
     }
 
     @Test

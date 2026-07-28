@@ -34,6 +34,9 @@ import java.util.UUID;
  *   <li>DISTANCE_TRAVELED — {@code pointsPer100m} (points credited per whole
  *       100 m traveled)</li>
  *   <li>SPEED_ALERT — {@code speedThresholdKmh} (fire when reported speed ≥ this)</li>
+ *   <li>PICTURE_APPROVED — optional {@code approvedPictureCount}: only fire once
+ *       the team has at least this many approved pictures. Unset = fire on every
+ *       approved picture.</li>
  * </ul>
  */
 @RegisterForReflection
@@ -50,7 +53,8 @@ public record AutomationTriggerConfig(
     PassComparison comparison,
     List<UUID> excludedCheckpointIds,
     Integer speedThresholdKmh,
-    List<UUID> checkpointIds
+    List<UUID> checkpointIds,
+    Integer approvedPictureCount
 ) {
     /**
      * Backwards-compatible constructor for call sites that predate {@code speedThresholdKmh}.
@@ -59,7 +63,7 @@ public record AutomationTriggerConfig(
             RelativeAnchor relativeTo, Integer offsetMinutes, Game.GameStatus toStatus,
             Integer inactiveMinutes, Integer pointsPer100m, PassComparison comparison) {
         this(checkpointId, mode, absoluteTime, relativeTo, offsetMinutes, toStatus,
-                inactiveMinutes, pointsPer100m, comparison, null, null, null);
+                inactiveMinutes, pointsPer100m, comparison, null, null, null, null);
     }
 
     /**
@@ -71,7 +75,7 @@ public record AutomationTriggerConfig(
             Integer inactiveMinutes, Integer pointsPer100m, PassComparison comparison,
             List<UUID> excludedCheckpointIds) {
         this(checkpointId, mode, absoluteTime, relativeTo, offsetMinutes, toStatus,
-                inactiveMinutes, pointsPer100m, comparison, excludedCheckpointIds, null, null);
+                inactiveMinutes, pointsPer100m, comparison, excludedCheckpointIds, null, null, null);
     }
 
     /**
@@ -84,7 +88,20 @@ public record AutomationTriggerConfig(
             List<UUID> excludedCheckpointIds, Integer speedThresholdKmh) {
         this(checkpointId, mode, absoluteTime, relativeTo, offsetMinutes, toStatus,
                 inactiveMinutes, pointsPer100m, comparison, excludedCheckpointIds,
-                speedThresholdKmh, null);
+                speedThresholdKmh, null, null);
+    }
+
+    /**
+     * Backwards-compatible constructor for call sites that predate
+     * {@code approvedPictureCount}. Delegates with {@code approvedPictureCount = null}.
+     */
+    public AutomationTriggerConfig(UUID checkpointId, ScheduleMode mode, Instant absoluteTime,
+            RelativeAnchor relativeTo, Integer offsetMinutes, Game.GameStatus toStatus,
+            Integer inactiveMinutes, Integer pointsPer100m, PassComparison comparison,
+            List<UUID> excludedCheckpointIds, Integer speedThresholdKmh, List<UUID> checkpointIds) {
+        this(checkpointId, mode, absoluteTime, relativeTo, offsetMinutes, toStatus,
+                inactiveMinutes, pointsPer100m, comparison, excludedCheckpointIds,
+                speedThresholdKmh, checkpointIds, null);
     }
 
     /**

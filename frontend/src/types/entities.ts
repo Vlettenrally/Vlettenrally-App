@@ -756,7 +756,8 @@ export type AutomationTriggerType =
   | 'RIVAL_OVERTAKE'
   | 'DISTANCE_TRAVELED'
   | 'SPEED_ALERT'
-  | 'TEAM_CHECK_IN';
+  | 'TEAM_CHECK_IN'
+  | 'PICTURE_APPROVED';
 
 /**
  * Flat config; which fields apply depends on the rule's trigger type.
@@ -777,6 +778,8 @@ export interface AutomationTriggerConfig {
   pointsPer100m?: number | null;
   comparison?: 'BEFORE' | 'AFTER' | null;
   speedThresholdKmh?: number | null;
+  /** PICTURE_APPROVED: only fire once the team has at least this many approved pictures. */
+  approvedPictureCount?: number | null;
 }
 
 export interface SendMessageAction {

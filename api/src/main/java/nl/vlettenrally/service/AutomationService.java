@@ -106,6 +106,7 @@ public class AutomationService {
         existing.setTargetTeamIds(draft.getTargetTeamIds());
         existing.setFireOnce(draft.isFireOnce());
         existing.setCooldownMinutes(draft.getCooldownMinutes());
+        existing.setTriggerForFinishedTeams(draft.isTriggerForFinishedTeams());
         existing.setUpdatedAt(Instant.now());
         validate(existing);
         return ruleRepository.save(existing);
@@ -404,6 +405,13 @@ public class AutomationService {
             case DISTANCE_TRAVELED -> {
                 if (config == null || config.pointsPer100m() == null || config.pointsPer100m() <= 0) {
                     throw new BadRequestException("Distance rules need a positive points-per-100m");
+                }
+            }
+            case PICTURE_APPROVED -> {
+                // The threshold is optional (unset = fire on every approved picture).
+                if (config != null && config.approvedPictureCount() != null
+                        && config.approvedPictureCount() <= 0) {
+                    throw new BadRequestException("Approved-picture threshold must be positive");
                 }
             }
         }

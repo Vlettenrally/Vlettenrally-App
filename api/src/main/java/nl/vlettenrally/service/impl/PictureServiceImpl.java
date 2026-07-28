@@ -13,6 +13,7 @@ import nl.vlettenrally.data.enums.PictureStatus;
 import nl.vlettenrally.data.repository.GameRepository;
 import nl.vlettenrally.data.repository.PictureRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
+import nl.vlettenrally.service.AutomationEngine;
 import nl.vlettenrally.service.PictureException;
 import nl.vlettenrally.service.PictureService;
 import nl.vlettenrally.data.dto.picture.PublicPictureResponse;
@@ -66,6 +67,9 @@ public class PictureServiceImpl implements PictureService {
 
     @Inject
     PhotoBroadcastBuffer photoBroadcastBuffer;
+
+    @Inject
+    AutomationEngine automationEngine;
 
     @ConfigProperty(name = "vlettenrally.pictures.max-per-team")
     long maxPerTeam;
@@ -323,11 +327,17 @@ public class PictureServiceImpl implements PictureService {
         if (!picture.isUploaded()) {
             throw new PictureException(Response.Status.CONFLICT, "Picture has not been uploaded yet");
         }
+        PictureStatus previous = picture.getStatus();
         picture.setStatus(PictureStatus.APPROVED);
         picture.setModeratedAt(Instant.now());
         picture.setModeratedBy(adminId);
         Picture saved = moderated(pictureRepository.save(picture));
         bufferForGallery(saved);
+        // Only a genuine transition into APPROVED is an event: re-approving an already
+        // approved picture must not fire again. Admin uploads have no team to fire for.
+        if (previous != PictureStatus.APPROVED && saved.getTeamId() != null) {
+            automationEngine.onPictureApproved(saved.getGameId(), saved.getTeamId());
+        }
         return saved;
     }
 

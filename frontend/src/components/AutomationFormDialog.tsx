@@ -77,6 +77,7 @@ export default function AutomationFormDialog({
     { value: 'RIVAL_OVERTAKE', label: t('components.automationForm.triggerRivalOvertake') },
     { value: 'SPEED_ALERT', label: t('components.automationForm.triggerSpeedAlert') },
     { value: 'TEAM_CHECK_IN', label: t('components.automationForm.triggerTeamCheckIn') },
+    { value: 'PICTURE_APPROVED', label: t('components.automationForm.triggerPictureApproved') },
   ];
 
   const ACTION_OPTIONS: { value: AutomationActionType; label: string }[] = [
@@ -107,6 +108,7 @@ export default function AutomationFormDialog({
     DISTANCE_TRAVELED: t('components.automationForm.helpDistanceTraveled'),
     SPEED_ALERT: t('components.automationForm.helpSpeedAlert'),
     TEAM_CHECK_IN: t('components.automationForm.helpTeamCheckIn'),
+    PICTURE_APPROVED: t('components.automationForm.helpPictureApproved'),
   };
 
   const [loading, setLoading] = useState(false);
@@ -182,6 +184,11 @@ export default function AutomationFormDialog({
     } else if (value === 'SPEED_ALERT') {
       setFireOnce(false);
       setCooldownMinutes(5);
+    } else if (value === 'PICTURE_APPROVED') {
+      // Default is per approved photo: re-fires, but without a cooldown that
+      // would swallow a second approval moments later.
+      setFireOnce(false);
+      setCooldownMinutes('');
     } else {
       setFireOnce(true);
       setCooldownMinutes('');
@@ -460,6 +467,22 @@ export default function AutomationFormDialog({
             onChange={(e) =>
               setConfig({ speedThresholdKmh: e.target.value === '' ? undefined : Number(e.target.value) })
             }
+            slotProps={{ htmlInput: { min: 1 } }}
+          />
+        );
+      case 'PICTURE_APPROVED':
+        return (
+          <TextField
+            fullWidth
+            type="number"
+            label={t('components.automationForm.approvedPictureCount')}
+            value={config.approvedPictureCount ?? ''}
+            onChange={(e) =>
+              setConfig({
+                approvedPictureCount: e.target.value === '' ? undefined : Number(e.target.value),
+              })
+            }
+            helperText={t('components.automationForm.approvedPictureCountHint')}
             slotProps={{ htmlInput: { min: 1 } }}
           />
         );

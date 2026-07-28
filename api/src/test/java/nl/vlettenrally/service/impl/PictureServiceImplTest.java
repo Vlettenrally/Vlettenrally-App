@@ -7,6 +7,7 @@ import nl.vlettenrally.data.enums.PictureStatus;
 import nl.vlettenrally.data.repository.GameRepository;
 import nl.vlettenrally.data.repository.PictureRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
+import nl.vlettenrally.service.AutomationEngine;
 import nl.vlettenrally.service.PictureException;
 import nl.vlettenrally.service.PictureService;
 import nl.vlettenrally.service.storage.PictureStorageService;
@@ -40,6 +41,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -55,6 +57,7 @@ class PictureServiceImplTest {
     @Mock PictureStorageService storageService;
     @Mock WebSocketPublisher webSocketPublisher;
     @Mock PhotoBroadcastBuffer photoBroadcastBuffer;
+    @Mock AutomationEngine automationEngine;
 
     @InjectMocks PictureServiceImpl service;
 
@@ -273,6 +276,32 @@ class PictureServiceImplTest {
         verify(webSocketPublisher).sendToAdminTopic(eq(gameId), eq("pictures"), eq("PICTURE_MODERATED"), any());
         // Approved pictures are queued for the batched photowall broadcast.
         verify(photoBroadcastBuffer).buffer(eq(gameId), any());
+        // Approval is an automation trigger for the owning team.
+        verify(automationEngine).onPictureApproved(gameId, teamId);
+    }
+
+    @Test
+    void approve_alreadyApproved_doesNotRetriggerAutomations() {
+        Picture uploaded = uploaded();
+        uploaded.setStatus(PictureStatus.APPROVED);
+        when(pictureRepository.findById(uploaded.getId())).thenReturn(Optional.of(uploaded));
+        when(pictureRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.approve(uploaded.getId(), UUID.randomUUID());
+
+        verifyNoInteractions(automationEngine);
+    }
+
+    @Test
+    void approve_adminUpload_doesNotTriggerAutomations() {
+        Picture uploaded = uploaded();
+        uploaded.setTeamId(null); // admin uploads have no owning team to fire for
+        when(pictureRepository.findById(uploaded.getId())).thenReturn(Optional.of(uploaded));
+        when(pictureRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.approve(uploaded.getId(), UUID.randomUUID());
+
+        verifyNoInteractions(automationEngine);
     }
 
     @Test

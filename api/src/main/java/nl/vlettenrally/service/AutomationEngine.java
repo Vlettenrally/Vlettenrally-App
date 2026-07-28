@@ -13,12 +13,14 @@ import nl.vlettenrally.data.domain.PointEntry;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.domain.automation.AutomationTriggerConfig;
 import nl.vlettenrally.data.enums.AutomationTriggerType;
+import nl.vlettenrally.data.enums.PictureStatus;
 import nl.vlettenrally.data.enums.PointEntryType;
 import nl.vlettenrally.data.repository.AutomationDistanceProgressRepository;
 import nl.vlettenrally.data.repository.AutomationExecutionRepository;
 import nl.vlettenrally.data.repository.AutomationRuleRepository;
 import nl.vlettenrally.data.repository.CheckpointRepository;
 import nl.vlettenrally.data.repository.LocationDataRepository;
+import nl.vlettenrally.data.repository.PictureRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.websockets.AdminTopics;
 import nl.vlettenrally.websockets.WebSocketPublisher;
@@ -78,6 +80,9 @@ public class AutomationEngine {
 
     @Inject
     CheckpointRepository checkpointRepository;
+
+    @Inject
+    PictureRepository pictureRepository;
 
     @Inject
     GameService gameService;
@@ -223,6 +228,45 @@ public class AutomationEngine {
         } catch (Exception e) {
             Log.errorf("Automation check-in hook failed for game %s team %s: %s", gameId, teamId, e.getMessage());
         }
+    }
+
+    /**
+     * One of a team's uploaded pictures was approved by a moderator. Admin
+     * uploads have no owning team and never reach this hook.
+     * <p>
+     * Rules without a configured threshold fire on every approval; rules with
+     * {@code approvedPictureCount} only fire once the team has at least that
+     * many approved pictures.
+     */
+    public void onPictureApproved(UUID gameId, UUID teamId) {
+        if (EXECUTING.get()) return;
+        try {
+            List<AutomationRule> rules = enabledRules(gameId, AutomationTriggerType.PICTURE_APPROVED).stream()
+                .filter(rule -> rule.appliesToTeam(teamId))
+                .toList();
+            if (rules.isEmpty()) return;
+
+            // Counted at most once per approval, and only when a rule needs it.
+            Long approvedCount = null;
+            for (AutomationRule rule : rules) {
+                Integer threshold = rule.getTriggerConfig() != null
+                    ? rule.getTriggerConfig().approvedPictureCount() : null;
+                if (threshold != null) {
+                    if (approvedCount == null) approvedCount = countApprovedPictures(teamId);
+                    if (approvedCount < threshold) continue;
+                }
+                fireForTeam(rule, teamId, null);
+            }
+        } catch (Exception e) {
+            Log.errorf("Automation picture hook failed for game %s team %s: %s", gameId, teamId, e.getMessage());
+        }
+    }
+
+    /** A team holds at most a handful of pictures (see vlettenrally.pictures.max-per-team). */
+    private long countApprovedPictures(UUID teamId) {
+        return pictureRepository.findByTeamId(teamId).stream()
+            .filter(picture -> picture.getStatus() == PictureStatus.APPROVED)
+            .count();
     }
 
     /**

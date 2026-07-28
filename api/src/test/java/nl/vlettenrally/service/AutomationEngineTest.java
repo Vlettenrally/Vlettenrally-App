@@ -19,9 +19,11 @@ import static org.mockito.Mockito.when;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,17 +38,20 @@ import nl.vlettenrally.data.domain.AutomationExecution;
 import nl.vlettenrally.data.domain.AutomationRule;
 import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.LocationData;
+import nl.vlettenrally.data.domain.Picture;
 import nl.vlettenrally.data.domain.PointEntry;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.domain.automation.AutomationTriggerConfig;
 import nl.vlettenrally.data.enums.AutomationExecutionStatus;
 import nl.vlettenrally.data.enums.AutomationTriggerType;
+import nl.vlettenrally.data.enums.PictureStatus;
 import nl.vlettenrally.data.enums.PointEntryType;
 import nl.vlettenrally.data.repository.AutomationDistanceProgressRepository;
 import nl.vlettenrally.data.repository.AutomationExecutionRepository;
 import nl.vlettenrally.data.repository.AutomationRuleRepository;
 import nl.vlettenrally.data.repository.CheckpointRepository;
 import nl.vlettenrally.data.repository.LocationDataRepository;
+import nl.vlettenrally.data.repository.PictureRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 
@@ -63,6 +68,7 @@ class AutomationEngineTest {
     @Mock AutomationDistanceProgressRepository distanceProgressRepository;
     @Mock TeamRepository teamRepository;
     @Mock CheckpointRepository checkpointRepository;
+    @Mock PictureRepository pictureRepository;
     @Mock GameService gameService;
     @Mock LocationDataRepository locationDataRepository;
     @Mock PointsLedgerService pointsLedgerService;
@@ -377,6 +383,109 @@ class AutomationEngineTest {
             .thenThrow(new RuntimeException("boom"));
 
         assertDoesNotThrow(() -> engine.onTeamCheckIn(gameId, teamId));
+    }
+
+    // ==================== Picture approved trigger ====================
+
+    /** A rule with no threshold fires on every approval. */
+    @Test
+    void pictureApproved_withoutThreshold_fires_withoutCountingPictures() {
+        AutomationRule rule = rule(AutomationTriggerType.PICTURE_APPROVED, emptyConfig());
+        when(ruleRepository.findByGameIdAndTriggerType(gameId, AutomationTriggerType.PICTURE_APPROVED))
+            .thenReturn(List.of(rule));
+        when(executionRepository.existsByRuleTeamAndContext(rule.getId(), teamId, null))
+            .thenReturn(false);
+
+        engine.onPictureApproved(gameId, teamId);
+
+        verify(actionExecutor).execute(eq(rule), eq(List.of(team)), any());
+        verifyNoInteractions(pictureRepository);
+        ArgumentCaptor<AutomationExecution> captor = ArgumentCaptor.forClass(AutomationExecution.class);
+        verify(executionRepository).save(captor.capture());
+        assertEquals(teamId, captor.getValue().getTeamId());
+        assertNull(captor.getValue().getContextKey());
+    }
+
+    @Test
+    void pictureApproved_belowThreshold_doesNotFire() {
+        AutomationRule rule = rule(AutomationTriggerType.PICTURE_APPROVED, pictureConfig(3));
+        when(ruleRepository.findByGameIdAndTriggerType(gameId, AutomationTriggerType.PICTURE_APPROVED))
+            .thenReturn(List.of(rule));
+        when(pictureRepository.findByTeamId(teamId)).thenReturn(approvedPictures(2));
+
+        engine.onPictureApproved(gameId, teamId);
+
+        verifyNoInteractions(actionExecutor);
+    }
+
+    @Test
+    void pictureApproved_atThreshold_fires() {
+        AutomationRule rule = rule(AutomationTriggerType.PICTURE_APPROVED, pictureConfig(3));
+        when(ruleRepository.findByGameIdAndTriggerType(gameId, AutomationTriggerType.PICTURE_APPROVED))
+            .thenReturn(List.of(rule));
+        when(pictureRepository.findByTeamId(teamId)).thenReturn(approvedPictures(3));
+        when(executionRepository.existsByRuleTeamAndContext(rule.getId(), teamId, null))
+            .thenReturn(false);
+
+        engine.onPictureApproved(gameId, teamId);
+
+        verify(actionExecutor).execute(eq(rule), eq(List.of(team)), any());
+    }
+
+    /** Pending and rejected pictures must not count towards the threshold. */
+    @Test
+    void pictureApproved_thresholdCountsOnlyApprovedPictures() {
+        AutomationRule rule = rule(AutomationTriggerType.PICTURE_APPROVED, pictureConfig(2));
+        when(ruleRepository.findByGameIdAndTriggerType(gameId, AutomationTriggerType.PICTURE_APPROVED))
+            .thenReturn(List.of(rule));
+        List<Picture> mixed = new ArrayList<>(approvedPictures(1));
+        mixed.add(picture(PictureStatus.PENDING));
+        mixed.add(picture(PictureStatus.REJECTED));
+        when(pictureRepository.findByTeamId(teamId)).thenReturn(mixed);
+
+        engine.onPictureApproved(gameId, teamId);
+
+        verifyNoInteractions(actionExecutor);
+    }
+
+    @Test
+    void pictureApproved_skipsNonTargetedTeam() {
+        AutomationRule rule = rule(AutomationTriggerType.PICTURE_APPROVED, emptyConfig());
+        rule.setTargetTeamIds(List.of(UUID.randomUUID()));
+        when(ruleRepository.findByGameIdAndTriggerType(gameId, AutomationTriggerType.PICTURE_APPROVED))
+            .thenReturn(List.of(rule));
+
+        engine.onPictureApproved(gameId, teamId);
+
+        verifyNoInteractions(actionExecutor);
+    }
+
+    @Test
+    void pictureApproved_neverThrows_whenRepositoryFails() {
+        when(ruleRepository.findByGameIdAndTriggerType(any(), any()))
+            .thenThrow(new RuntimeException("boom"));
+
+        assertDoesNotThrow(() -> engine.onPictureApproved(gameId, teamId));
+    }
+
+    private static AutomationTriggerConfig pictureConfig(Integer approvedPictureCount) {
+        return new AutomationTriggerConfig(null, null, null, null, null, null, null, null, null,
+            null, null, null, approvedPictureCount);
+    }
+
+    private Picture picture(PictureStatus status) {
+        Picture picture = new Picture();
+        picture.setId(UUID.randomUUID());
+        picture.setGameId(gameId);
+        picture.setTeamId(teamId);
+        picture.setStatus(status);
+        return picture;
+    }
+
+    private List<Picture> approvedPictures(int count) {
+        return IntStream.range(0, count)
+            .mapToObj(i -> picture(PictureStatus.APPROVED))
+            .toList();
     }
 
     // ==================== Recursion guard ====================

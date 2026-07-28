@@ -63,6 +63,7 @@ export default function Automations() {
     DISTANCE_TRAVELED: t('components.automationForm.triggerDistanceTraveled'),
     SPEED_ALERT: t('components.automationForm.triggerSpeedAlert'),
     TEAM_CHECK_IN: t('components.automationForm.triggerTeamCheckIn'),
+    PICTURE_APPROVED: t('components.automationForm.triggerPictureApproved'),
   };
 
   function compareRules(a: AutomationRule, b: AutomationRule, column: SortColumn): number {
@@ -136,6 +137,10 @@ export default function Automations() {
         return t('admin.automations.descSpeedAlert', { threshold: config.speedThresholdKmh ?? '?' });
       case 'TEAM_CHECK_IN':
         return t('admin.automations.descTeamCheckIn');
+      case 'PICTURE_APPROVED':
+        return config.approvedPictureCount
+          ? t('admin.automations.descPictureApprovedThreshold', { count: config.approvedPictureCount })
+          : t('admin.automations.descPictureApproved');
     }
   }
 

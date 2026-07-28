@@ -11,5 +11,6 @@ public enum AutomationTriggerType {
     RIVAL_OVERTAKE,         // Team's totalPoints passes one of its rivals'
     DISTANCE_TRAVELED,      // Continuous accrual: 1 point per N meters (system rule only)
     SPEED_ALERT,            // Team's reported GPS speed exceeds a configured threshold
-    TEAM_CHECK_IN           // Team completes digital check-in
+    TEAM_CHECK_IN,          // Team completes digital check-in
+    PICTURE_APPROVED        // Team's uploaded picture was approved by a moderator
 }
