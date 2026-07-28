@@ -1,0 +1,46 @@
+# =============================================================================
+# Dependabot configuration
+# =============================================================================
+# Keeps workflow actions and application dependencies current. Each ecosystem
+# is grouped so a week's updates arrive as a single PR instead of a swarm.
+#
+# Update PRs target main, which build.yml already covers via its pull_request
+# trigger — so every Dependabot PR runs test-api and test-frontend.
+# =============================================================================
+
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "ci"
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: maven
+    directory: /api
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+    groups:
+      # The Quarkus BOM and its extensions have to move together.
+      quarkus:
+        patterns: ["io.quarkus*"]
+      maven-all:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+    groups:
+      npm-all:
+        patterns: ["*"]
