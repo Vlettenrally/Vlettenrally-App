@@ -88,6 +88,16 @@ class ValkeyPubSubServiceTest {
         return session;
     }
 
+    /** The frame a client should receive for an envelope: the event and its payload, nothing else. */
+    private String expectedFrame(WebSocketMessage msg) throws JsonProcessingException {
+        var envelope = objectMapper.readTree(objectMapper.writeValueAsString(msg));
+        var out = objectMapper.createObjectNode();
+        out.set("type", envelope.get("type"));
+        out.set("payload", envelope.get("payload"));
+        out.set("timestamp", envelope.get("timestamp"));
+        return out.toString();
+    }
+
     // --- Game broadcast ---
 
     @Test
@@ -95,12 +105,13 @@ class ValkeyPubSubServiceTest {
         WebSocketMessage msg = new WebSocketMessage("RANKING_UPDATE", "data")
             .withTargetGame(gameId);
         String json = objectMapper.writeValueAsString(msg);
+        String frame = expectedFrame(msg);
 
         service.deliverLocally(json);
 
-        verify(asyncTeam1).sendText(eq(json), any());
-        verify(asyncTeam2).sendText(eq(json), any());
-        verify(asyncAdmin).sendText(eq(json), any());
+        verify(asyncTeam1).sendText(eq(frame), any());
+        verify(asyncTeam2).sendText(eq(frame), any());
+        verify(asyncAdmin).sendText(eq(frame), any());
     }
 
     @Test
@@ -120,22 +131,23 @@ class ValkeyPubSubServiceTest {
     // --- Team-targeted messages ---
 
     @Test
-    void deliverLocally_teamMessage_reachesTargetTeamAndAdmin() throws JsonProcessingException {
-        WebSocketMessage msg = new WebSocketMessage("message:new", "hello")
+    void deliverLocally_teamMessage_reachesOnlyTheTargetTeam() throws JsonProcessingException {
+        WebSocketMessage msg = new WebSocketMessage("MESSAGE_NEW", "hello")
             .withTargetGame(gameId)
             .withTargetTeam(teamId1);
         String json = objectMapper.writeValueAsString(msg);
 
         service.deliverLocally(json);
 
-        verify(asyncTeam1).sendText(eq(json), any());
+        verify(asyncTeam1).sendText(eq(expectedFrame(msg)), any());
         verify(asyncTeam2, never()).sendText(anyString(), any());
-        verify(asyncAdmin).sendText(eq(json), any()); // admin sees all team msgs
+        // A team-targeted frame is for that team alone — admins get their view via admin topics.
+        verify(asyncAdmin, never()).sendText(anyString(), any());
     }
 
     @Test
     void deliverLocally_teamMessage_otherTeamDoesNotReceive() throws JsonProcessingException {
-        WebSocketMessage msg = new WebSocketMessage("message:new", "hello")
+        WebSocketMessage msg = new WebSocketMessage("MESSAGE_NEW", "hello")
             .withTargetGame(gameId)
             .withTargetTeam(teamId2);
         String json = objectMapper.writeValueAsString(msg);
@@ -143,8 +155,8 @@ class ValkeyPubSubServiceTest {
         service.deliverLocally(json);
 
         verify(asyncTeam1, never()).sendText(anyString(), any());
-        verify(asyncTeam2).sendText(eq(json), any());
-        verify(asyncAdmin).sendText(eq(json), any());
+        verify(asyncTeam2).sendText(eq(expectedFrame(msg)), any());
+        verify(asyncAdmin, never()).sendText(anyString(), any());
     }
 
     // --- Admin-only messages ---
@@ -160,7 +172,7 @@ class ValkeyPubSubServiceTest {
 
         verify(asyncTeam1, never()).sendText(anyString(), any());
         verify(asyncTeam2, never()).sendText(anyString(), any());
-        verify(asyncAdmin).sendText(eq(json), any());
+        verify(asyncAdmin).sendText(eq(expectedFrame(msg)), any());
     }
 
     // --- Edge cases ---
@@ -176,8 +188,8 @@ class ValkeyPubSubServiceTest {
         service.deliverLocally(json);
 
         verify(asyncTeam1, never()).sendText(anyString(), any());
-        verify(asyncTeam2).sendText(eq(json), any());
-        verify(asyncAdmin).sendText(eq(json), any());
+        verify(asyncTeam2).sendText(eq(expectedFrame(msg)), any());
+        verify(asyncAdmin).sendText(eq(expectedFrame(msg)), any());
     }
 
     @Test
@@ -207,22 +219,47 @@ class ValkeyPubSubServiceTest {
         service.deliverLocally(json);
 
         // All sessions with a gameId should receive (admin with no game would not)
-        verify(asyncTeam1).sendText(eq(json), any());
-        verify(asyncTeam2).sendText(eq(json), any());
-        verify(asyncAdmin).sendText(eq(json), any());
+        verify(asyncTeam1).sendText(eq(expectedFrame(msg)), any());
+        verify(asyncTeam2).sendText(eq(expectedFrame(msg)), any());
+        verify(asyncAdmin).sendText(eq(expectedFrame(msg)), any());
     }
 
     @Test
-    void deliverLocally_preservesOriginalJson() throws JsonProcessingException {
-        // Ensure the exact JSON string from Valkey is forwarded, not re-serialized
-        String originalJson = "{\"type\":\"RANKING_UPDATE\",\"payload\":\"data\",\"timestamp\":\"2026-01-01T00:00:00Z\",\"targetGameId\":\"" + gameId + "\",\"targetTeamId\":null,\"adminOnly\":false}";
+    void deliverLocally_stripsRoutingMetadataFromTheFrame() throws JsonProcessingException {
+        // Routing state is for the pods. Clients get the event and its payload, nothing else.
+        String envelope = "{\"type\":\"RANKING_UPDATE\",\"payload\":{\"rank\":1},"
+            + "\"timestamp\":\"2026-01-01T00:00:00Z\",\"targetGameId\":\"" + gameId + "\","
+            + "\"targetTeamId\":null,\"adminOnly\":false,\"teamOnly\":false,"
+            + "\"targetSessionId\":null,\"targetSessionIds\":null,\"perTeamPayloads\":null}";
 
-        service.deliverLocally(originalJson);
+        service.deliverLocally(envelope);
 
-        // Verify the exact original JSON is sent, not a re-serialized version
         ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
         verify(asyncTeam1).sendText(captor.capture(), any());
-        assertEquals(originalJson, captor.getValue());
+
+        var frame = objectMapper.readTree(captor.getValue());
+        java.util.List<String> fields = new java.util.ArrayList<>();
+        frame.fieldNames().forEachRemaining(fields::add);
+        assertEquals(java.util.List.of("type", "payload", "timestamp"), fields);
+        assertEquals("RANKING_UPDATE", frame.get("type").asText());
+        assertEquals(1, frame.get("payload").get("rank").asInt());
+        assertEquals("2026-01-01T00:00:00Z", frame.get("timestamp").asText());
+    }
+
+    @Test
+    void deliverLocally_payloadIsSplicedAcrossUnchanged() throws JsonProcessingException {
+        // The payload node is copied over verbatim rather than re-serialized, which is what
+        // keeps Object-typed payloads intact through the envelope.
+        WebSocketMessage msg = new WebSocketMessage("RANKING_UPDATE",
+            java.util.Map.of("nested", java.util.List.of(1, 2, 3)))
+            .withTargetGame(gameId);
+
+        service.deliverLocally(objectMapper.writeValueAsString(msg));
+
+        ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
+        verify(asyncTeam1).sendText(captor.capture(), any());
+        assertEquals("[1,2,3]",
+            objectMapper.readTree(captor.getValue()).get("payload").get("nested").toString());
     }
 
     @Test
@@ -251,7 +288,10 @@ class ValkeyPubSubServiceTest {
 
         service.deliverLocally(json);
 
-        verify(asyncTeam1).sendText(eq(json), any());
+        ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
+        verify(asyncTeam1).sendText(captor.capture(), any());
+        assertFalse(captor.getValue().contains("targetSessionId"));
+        assertTrue(captor.getValue().contains("PONG"));
         verify(asyncTeam2, never()).sendText(anyString(), any());
         verify(asyncAdmin, never()).sendText(anyString(), any());
     }
@@ -280,7 +320,7 @@ class ValkeyPubSubServiceTest {
         service.deliverLocally(json);
 
         // Only team1 should receive, not other sessions in same game
-        verify(asyncTeam1).sendText(eq(json), any());
+        verify(asyncTeam1).sendText(anyString(), any());
         verify(asyncTeam2, never()).sendText(anyString(), any());
         verify(asyncAdmin, never()).sendText(anyString(), any());
     }

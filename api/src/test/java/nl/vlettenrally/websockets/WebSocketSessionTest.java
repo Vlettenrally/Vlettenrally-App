@@ -120,14 +120,14 @@ class WebSocketSessionTest {
     }
 
     @Test
-    void adminSession_receivesTeamTargetedMessage() {
-        // Admins should see all team messages for their game
+    void adminSession_doesNotReceiveTeamTargetedMessage() {
+        // A team-targeted frame is for that team alone; admins get their view via admin topics.
         WebSocketSession session = WebSocketSession.forAdmin(mockSession, gameId);
-        WebSocketMessage message = new WebSocketMessage("message:new", "hello")
+        WebSocketMessage message = new WebSocketMessage("MESSAGE_NEW", "hello")
             .withTargetGame(gameId)
             .withTargetTeam(teamId);
 
-        assertTrue(session.shouldReceive(message));
+        assertFalse(session.shouldReceive(message));
     }
 
     @Test

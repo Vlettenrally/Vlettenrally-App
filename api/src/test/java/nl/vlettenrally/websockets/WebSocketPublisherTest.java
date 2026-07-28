@@ -73,17 +73,30 @@ class WebSocketPublisherTest {
 
     @Test
     void sendToTeam_sendsMessageWithGameAndTeamTarget() {
-        publisher.sendToTeam(gameId, teamId, "message:new", "hello");
+        publisher.sendToTeam(gameId, teamId, "MESSAGE_NEW", "hello");
 
         ArgumentCaptor<WebSocketMessage> captor = ArgumentCaptor.forClass(WebSocketMessage.class);
         verify(valkeyPubSubService).publish(captor.capture());
 
         WebSocketMessage msg = captor.getValue();
-        assertEquals("message:new", msg.getType());
+        assertEquals("MESSAGE_NEW", msg.getType());
         assertEquals("hello", msg.getPayload());
         assertEquals(gameId, msg.getTargetGameId());
         assertEquals(teamId, msg.getTargetTeamId());
         assertFalse(msg.isAdminOnly());
+    }
+
+    @Test
+    void sendToTeam_marksTheMessageTeamOnly() {
+        // Redundant against the current routing rule, which already treats a targetTeamId as
+        // exclusive — but it is what keeps a pod on the previous rule from fanning the frame
+        // out to every admin in the game during a rolling deploy.
+        publisher.sendToTeam(gameId, teamId, "MESSAGE_NEW", "hello");
+
+        ArgumentCaptor<WebSocketMessage> captor = ArgumentCaptor.forClass(WebSocketMessage.class);
+        verify(valkeyPubSubService).publish(captor.capture());
+
+        assertTrue(captor.getValue().isTeamOnly());
     }
 
     @Test

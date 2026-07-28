@@ -167,7 +167,7 @@ class WebSocketSessionManagerTest {
     }
 
     @Test
-    void getTargetSessions_teamMessage_reachesTeamAndAdmins() {
+    void getTargetSessions_teamMessage_reachesOnlyThatTeam() {
         when(sessionA.getId()).thenReturn("session-a");
         when(sessionB.getId()).thenReturn("session-b");
         when(sessionC.getId()).thenReturn("session-c");
@@ -176,13 +176,14 @@ class WebSocketSessionManagerTest {
         manager.addSession(WebSocketSession.forTeam(sessionB, gameId1, teamId2));
         manager.addSession(WebSocketSession.forAdmin(sessionC, gameId1));
 
-        WebSocketMessage message = new WebSocketMessage("message:new", "hello")
+        WebSocketMessage message = new WebSocketMessage("MESSAGE_NEW", "hello")
             .withTargetGame(gameId1)
             .withTargetTeam(teamId1);
 
         Collection<WebSocketSession> targets = manager.getTargetSessions(message);
-        // Should include: teamId1's session + admin session (admins see all team messages)
-        assertEquals(2, targets.size());
+        // teamId1's session alone — not the other team, and not the admin.
+        assertEquals(1, targets.size());
+        assertEquals(teamId1, targets.iterator().next().getTeamId());
     }
 
     @Test

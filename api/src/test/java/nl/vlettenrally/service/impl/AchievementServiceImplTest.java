@@ -329,11 +329,11 @@ class AchievementServiceImplTest {
         Optional<Achievement> result = service.recordVerifiedPass(teamId, checkpointId, passTime);
         assertTrue(result.isPresent());
 
-        verify(webSocketPublisher, never()).sendToTeamOnly(any(), any(), any(), any());
+        verify(webSocketPublisher, never()).sendToTeam(any(), any(), any(), any());
         fireAfterCommit();
 
         ArgumentCaptor<Map<String, Object>> payloadCaptor = ArgumentCaptor.forClass(Map.class);
-        verify(webSocketPublisher).sendToTeamOnly(
+        verify(webSocketPublisher).sendToTeam(
             eq(gameId), eq(teamId), eq(WebSocketMessageType.TEAM_ACHIEVEMENT.getValue()), payloadCaptor.capture());
         Map<String, Object> payload = payloadCaptor.getValue();
         assertEquals(result.get().getId(), payload.get("id"));
@@ -363,7 +363,7 @@ class AchievementServiceImplTest {
         fireAfterCommit();
 
         ArgumentCaptor<Map<String, Object>> payloadCaptor = ArgumentCaptor.forClass(Map.class);
-        verify(webSocketPublisher).sendToTeamOnly(
+        verify(webSocketPublisher).sendToTeam(
             eq(gameId), eq(teamId), eq(WebSocketMessageType.TEAM_ACHIEVEMENT.getValue()), payloadCaptor.capture());
         Map<String, Object> payload = payloadCaptor.getValue();
         assertEquals(15, payload.get("pointsEarned"), "base 10 + preserved bonus 5");
@@ -391,7 +391,7 @@ class AchievementServiceImplTest {
         fireAfterCommit();
 
         ArgumentCaptor<Map<String, Object>> payloadCaptor = ArgumentCaptor.forClass(Map.class);
-        verify(webSocketPublisher).sendToTeamOnly(
+        verify(webSocketPublisher).sendToTeam(
             eq(gameId), eq(teamId), eq(WebSocketMessageType.TEAM_ACHIEVEMENT.getValue()), payloadCaptor.capture());
         Map<String, Object> payload = payloadCaptor.getValue();
         assertEquals(achievementId, payload.get("id"));

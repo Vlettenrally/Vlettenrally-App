@@ -319,13 +319,13 @@ public class AchievementServiceImpl implements AchievementService {
                 @Override public void beforeCompletion() { }
                 @Override public void afterCompletion(int status) {
                     if (status == Status.STATUS_COMMITTED) {
-                        webSocketPublisher.sendToTeamOnly(
+                        webSocketPublisher.sendToTeam(
                             gameId, teamId, WebSocketMessageType.TEAM_ACHIEVEMENT.getValue(), payload);
                     }
                 }
             });
         } catch (IllegalStateException noTx) {
-            webSocketPublisher.sendToTeamOnly(
+            webSocketPublisher.sendToTeam(
                 gameId, teamId, WebSocketMessageType.TEAM_ACHIEVEMENT.getValue(), payload);
         }
     }

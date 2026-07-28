@@ -144,16 +144,15 @@ export function useTeamRealtime({ gameId, teamId }: UseRealtimeTeamOptions) {
  */
 export function useAdminRealtime({ gameId }: UseRealtimeAdminOptions) {
   const { subscribe, connected } = useAdminWebSocket(gameId);
-  const { addMessage } = useMessageStore();
   const { addEntry: addPointEntry, updateEntry: updatePointEntry } = usePointEntryStore();
 
   useEffect(() => {
     if (!gameId) return;
 
-    // Subscribe to all messages (admins see everything)
-    const unsubscribeMessages = subscribe('MESSAGE_NEW', (message) => {
-      addMessage(message.payload as Message);
-    });
+    // Deliberately no MESSAGE_NEW subscription: that event is team-scoped and no longer reaches
+    // admin sessions. Admins follow message delivery through MESSAGE_DELIVERY_UPDATE on the
+    // Messages page instead — and this store is the participant's own inbox, which every team's
+    // messages would have polluted.
 
     // Subscribe to admin-specific alerts
     const unsubscribeAlerts = subscribe('ADMIN_ALERT', (message) => {
@@ -215,7 +214,6 @@ export function useAdminRealtime({ gameId }: UseRealtimeAdminOptions) {
     });
 
     return () => {
-      unsubscribeMessages();
       unsubscribeAlerts();
       unsubscribeCheckins();
       unsubscribeTeamUpdates();
@@ -224,7 +222,7 @@ export function useAdminRealtime({ gameId }: UseRealtimeAdminOptions) {
       unsubscribePointCreated();
       unsubscribePointUpdated();
     };
-  }, [gameId, subscribe, addMessage, addPointEntry, updatePointEntry]);
+  }, [gameId, subscribe, addPointEntry, updatePointEntry]);
 
   return { connected };
 }

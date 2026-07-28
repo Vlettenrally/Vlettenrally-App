@@ -115,8 +115,9 @@ public class WebSocketSession {
             return false;
         }
         
-        // Check team targeting (admin sessions receive all team messages for their game)
-        if (message.getTargetTeamId() != null && !isAdmin()) {
+        // A team-targeted frame is for that team alone. Admins get their per-team view through
+        // the heartbeat-gated admin topics, not by eavesdropping on team traffic.
+        if (message.getTargetTeamId() != null) {
             return message.getTargetTeamId().equals(teamId);
         }
         

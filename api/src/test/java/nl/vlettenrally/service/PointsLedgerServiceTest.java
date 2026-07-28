@@ -369,7 +369,7 @@ class PointsLedgerServiceTest {
 
         verify(webSocketPublisher, never()).broadcastToGame(eq(gameId),
             eq(WebSocketMessageType.RANKING_UPDATE.getValue()), any());
-        verify(webSocketPublisher, never()).sendToTeamOnly(any(), any(),
+        verify(webSocketPublisher, never()).sendToTeam(any(), any(),
             eq(WebSocketMessageType.RIVAL_UPDATE.getValue()), any());
     }
 
@@ -390,7 +390,7 @@ class PointsLedgerServiceTest {
 
         verify(webSocketPublisher).broadcastToGame(eq(gameId),
             eq(WebSocketMessageType.RANKING_UPDATE.getValue()), eq(full));
-        verify(webSocketPublisher, never()).sendToTeamOnly(any(), any(),
+        verify(webSocketPublisher, never()).sendToTeam(any(), any(),
             eq(WebSocketMessageType.RIVAL_UPDATE.getValue()), any());
     }
 
@@ -427,7 +427,7 @@ class PointsLedgerServiceTest {
     void publishStandingsForTeams_emptySet_isNoOp() {
         ledger.publishStandingsForTeams(gameId, java.util.Set.of());
         verify(webSocketPublisher, never()).broadcastToGame(any(), any(), any());
-        verify(webSocketPublisher, never()).sendToTeamOnly(any(), any(), any(), any());
+        verify(webSocketPublisher, never()).sendToTeam(any(), any(), any(), any());
         verify(webSocketPublisher, never()).publish(any());
     }
 

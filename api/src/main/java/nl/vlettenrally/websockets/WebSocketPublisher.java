@@ -42,19 +42,15 @@ public class WebSocketPublisher {
     }
     
     /**
-     * Publish a message to a specific team
+     * Publish a message to a specific team, and to that team alone — admin sessions never
+     * receive it. Admins get their per-team view through {@link #sendToAdminTopic}.
+     * <p>
+     * {@code teamOnly} is redundant against the current routing rule, which already treats a
+     * {@code targetTeamId} as exclusive. It is set for the sake of a rolling deploy: a pod still
+     * running the previous rule forwarded team-targeted frames to every admin in the game, and
+     * honours this flag instead. Same hedge as {@link WebSocketMessage#MULTIPLEX_SENTINEL_TEAM_ID}.
      */
     public void sendToTeam(UUID gameId, UUID teamId, String type, Object payload) {
-        WebSocketMessage message = new WebSocketMessage(type, payload)
-            .withTargetGame(gameId)
-            .withTargetTeam(teamId);
-        valkeyPubSubService.publish(message);
-    }
-    
-    /**
-     * Publish a message to a specific team, excluding admin sessions.
-     */
-    public void sendToTeamOnly(UUID gameId, UUID teamId, String type, Object payload) {
         WebSocketMessage message = new WebSocketMessage(type, payload)
             .withTargetGame(gameId)
             .withTargetTeam(teamId)

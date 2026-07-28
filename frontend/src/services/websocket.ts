@@ -41,13 +41,14 @@ export const WebSocketEventType = {
 
 export type WebSocketEventTypeValue = typeof WebSocketEventType[keyof typeof WebSocketEventType];
 
+/**
+ * A frame as it arrives from the server. The envelope carries nothing beyond the event and its
+ * payload — targeting and admin/team flags are routing state the API strips before sending.
+ */
 export interface WebSocketMessage {
   type: WebSocketEventTypeValue | string;
   payload: unknown;
   timestamp: string;
-  targetGameId?: string;
-  targetTeamId?: string;
-  adminOnly?: boolean;
 }
 
 export type ConnectionType = 'team' | 'admin';

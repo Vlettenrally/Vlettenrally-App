@@ -203,9 +203,10 @@ public class ValkeyPubSubService {
     /**
      * Deliver a message received from Valkey to matching local WebSocket sessions.
      * <p>
-     * We parse only the routing metadata (targetGameId, targetTeamId, adminOnly, targetSessionId) to determine
-     * which local sessions should receive the message. The original pre-serialized JSON is
-     * forwarded directly to avoid re-serialization and Object-type payload issues.
+     * The envelope's routing metadata (targetGameId, targetTeamId, adminOnly, targetSessionId) decides
+     * which local sessions should receive the message; {@link #clientFrame} then strips it, so what
+     * goes out over the wire is the event and its payload alone. The payload node is spliced across
+     * verbatim rather than re-serialized, which is what kept Object-typed payloads intact before.
      */
     protected void deliverLocally(String jsonMessage) {
         // Parse routing metadata from the JSON
@@ -223,9 +224,12 @@ public class ValkeyPubSubService {
             return;
         }
 
+        // Built once per envelope, not once per session.
+        String frame = clientFrame(node);
+
         // Multi-session targeting: one publish carrying the same payload for a set of sessions.
         if (hasValue(node, "targetSessionIds")) {
-            deliverToSessionList(node);
+            deliverToSessionList(node.get("targetSessionIds"), frame);
             return;
         }
 
@@ -234,7 +238,7 @@ public class ValkeyPubSubService {
             String targetSessionId = node.get("targetSessionId").asText();
             WebSocketSession wsSession = sessionManager.getSession(targetSessionId);
             if (wsSession != null) {
-                sendToSession(wsSession.getSession(), jsonMessage);
+                sendToSession(wsSession.getSession(), frame);
             }
             return; // Session-specific message, don't broadcast further
         }
@@ -252,12 +256,29 @@ public class ValkeyPubSubService {
             routingMessage.setTargetTeamId(UUID.fromString(node.get("targetTeamId").asText()));
         }
 
-        // Find matching local sessions and forward the pre-serialized JSON
+        // Find matching local sessions and forward the client frame
         var targetSessions = sessionManager.getTargetSessions(routingMessage);
 
         for (WebSocketSession wsSession : targetSessions) {
-            sendToSession(wsSession.getSession(), jsonMessage);
+            sendToSession(wsSession.getSession(), frame);
         }
+    }
+
+    /**
+     * Build the frame a client actually receives: the event and its payload, nothing else.
+     * <p>
+     * The rest of the envelope is routing state for the pods — targeting fields, the admin/team
+     * flags, session lists — and no client reads any of it. Deliberately an allowlist: a routing
+     * field added later cannot leak by someone forgetting to strip it.
+     */
+    private String clientFrame(JsonNode envelope) {
+        ObjectNode out = objectMapper.createObjectNode();
+        out.set("type", envelope.get("type"));
+        out.set("payload", envelope.get("payload"));
+        if (hasValue(envelope, "timestamp")) {
+            out.set("timestamp", envelope.get("timestamp"));
+        }
+        return out.toString();
     }
 
     /**
@@ -287,18 +308,13 @@ public class ValkeyPubSubService {
             if (slice == null || slice.isNull()) {
                 continue;
             }
-            String frame = frames.computeIfAbsent(teamId, id -> {
+            String frame = frames.computeIfAbsent(teamId, ignored -> {
                 ObjectNode out = objectMapper.createObjectNode();
                 out.put("type", type);
                 out.set("payload", slice);
                 if (timestamp != null) {
                     out.put("timestamp", timestamp);
                 }
-                if (gameId != null) {
-                    out.put("targetGameId", gameId.toString());
-                }
-                out.put("targetTeamId", id.toString());
-                out.put("teamOnly", true);
                 return out.toString();
             });
             sendToSession(wsSession.getSession(), frame);
@@ -306,16 +322,12 @@ public class ValkeyPubSubService {
     }
 
     /**
-     * Deliver one identical payload to an explicit set of sessions. The routing field is
-     * stripped before the frame reaches a client — it would otherwise hand every recipient
-     * the other recipients' session ids, which {@link WebSocketPingHandler} treats as
-     * adoptable.
+     * Deliver one identical payload to an explicit set of sessions. The frame is the stripped
+     * {@link #clientFrame}, so the session ids never travel with it — they would otherwise hand
+     * every recipient the other recipients' session ids, which {@link WebSocketPingHandler}
+     * treats as adoptable.
      */
-    private void deliverToSessionList(JsonNode node) {
-        ObjectNode out = node.deepCopy();
-        JsonNode ids = out.remove("targetSessionIds");
-        String frame = out.toString();
-
+    private void deliverToSessionList(JsonNode ids, String frame) {
         for (JsonNode id : ids) {
             WebSocketSession wsSession = sessionManager.getSession(id.asText());
             if (wsSession != null) {

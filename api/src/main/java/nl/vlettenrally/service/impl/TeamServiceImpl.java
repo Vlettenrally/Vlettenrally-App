@@ -215,7 +215,7 @@ public class TeamServiceImpl implements TeamService {
         teamRepository.save(team);
 
         if (team.getGameId() != null) {
-            webSocketPublisher.sendToTeamOnly(
+            webSocketPublisher.sendToTeam(
                 team.getGameId(),
                 team.getId(),
                 WebSocketMessageType.RIVAL_UPDATE.getValue(),
