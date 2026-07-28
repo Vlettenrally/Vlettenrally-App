@@ -38,19 +38,16 @@ class BackfillThrottleTest {
     RedisDataSource redisDataSource;
 
     @Mock
-    @SuppressWarnings("rawtypes")
-    ValueCommands values;
+    ValueCommands<String, String> values;
 
     @InjectMocks
     BackfillThrottle throttle;
 
-    @SuppressWarnings("unchecked")
     private void stubValues() {
         when(redisDataSource.value(String.class)).thenReturn(values);
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     void lockedTeams_returnsOnlyTeamsWithALockPresent() {
         stubValues();
         UUID locked = UUID.randomUUID();
@@ -64,7 +61,6 @@ class BackfillThrottleTest {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     void lockedTeams_usesASingleRoundTripForTheWholeBatch() {
         stubValues();
         List<UUID> teams = List.of(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
@@ -86,7 +82,6 @@ class BackfillThrottleTest {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     void lockedTeams_onValkeyError_failsOpen() {
         // Matching every other Valkey caller here: a hiccup must never stall the poller.
         stubValues();

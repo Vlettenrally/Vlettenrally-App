@@ -15,6 +15,7 @@ import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -162,7 +163,7 @@ class FcmHttpClientTest {
         String responseJson = "{\"name\":\"projects/mock-project-id/messages/msg-12345\"}";
         when(httpResponse.statusCode()).thenReturn(200);
         when(httpResponse.body()).thenReturn(responseJson);
-        when(httpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+        when(httpClient.send(any(HttpRequest.class), anyBodyHandler()))
                 .thenReturn(httpResponse);
 
         // Act
@@ -170,7 +171,7 @@ class FcmHttpClientTest {
 
         // Assert
         assertEquals("projects/mock-project-id/messages/msg-12345", messageId);
-        verify(httpClient).send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+        verify(httpClient).send(any(HttpRequest.class), anyBodyHandler());
     }
 
     @Test
@@ -209,7 +210,7 @@ class FcmHttpClientTest {
         String errorResponse = "{\"error\":{\"message\":\"Invalid FCM token\"}}";
         when(httpResponse.statusCode()).thenReturn(400);
         when(httpResponse.body()).thenReturn(errorResponse);
-        when(httpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+        when(httpClient.send(any(HttpRequest.class), anyBodyHandler()))
                 .thenReturn(httpResponse);
 
         // Act & Assert
@@ -228,7 +229,7 @@ class FcmHttpClientTest {
         when(authenticator.getAccessToken()).thenReturn("mock-access-token");
         when(authenticator.getProjectId()).thenReturn("mock-project-id");
 
-        when(httpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+        when(httpClient.send(any(HttpRequest.class), anyBodyHandler()))
                 .thenThrow(new IOException("Network error"));
 
         // Act & Assert
@@ -246,7 +247,7 @@ class FcmHttpClientTest {
         when(authenticator.getAccessToken()).thenReturn("mock-access-token");
         when(authenticator.getProjectId()).thenReturn("mock-project-id");
 
-        when(httpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+        when(httpClient.send(any(HttpRequest.class), anyBodyHandler()))
                 .thenThrow(new InterruptedException("Thread interrupted"));
 
         // Act & Assert
@@ -261,6 +262,14 @@ class FcmHttpClientTest {
     }
 
     // Helper methods
+
+    /**
+     * Matcher for send()'s body handler, typed so the stubbed send() resolves to
+     * HttpResponse&lt;String&gt; instead of going raw.
+     */
+    private static HttpResponse.BodyHandler<String> anyBodyHandler() {
+        return ArgumentMatchers.any();
+    }
 
     /**
      * Use reflection to set a private field value
