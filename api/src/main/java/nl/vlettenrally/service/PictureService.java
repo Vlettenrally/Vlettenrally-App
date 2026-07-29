@@ -3,9 +3,11 @@ package nl.vlettenrally.service;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.UUID;
 
+import jakarta.ws.rs.core.Response;
 import nl.vlettenrally.data.domain.Picture;
 import nl.vlettenrally.data.dto.picture.PictureResponse;
 import nl.vlettenrally.data.dto.picture.PublicPictureResponse;
@@ -72,35 +74,33 @@ public interface PictureService {
      */
     void deleteOwnPicture(UUID teamId, UUID pictureId);
 
-    /** Uploaded pictures awaiting moderation. */
-    List<Picture> findReadyForModeration();
+    /**
+     * One page of the moderation queue, oldest first. {@code gameId} null means all games.
+     *
+     * @throws PictureException 400 if the cursor is malformed.
+     */
+    PicturePage findReadyForModerationPage(UUID gameId, Cursor cursor, int pageSize);
 
-    /** Uploaded pictures awaiting moderation, scoped to a game. */
-    List<Picture> findReadyForModerationByGame(UUID gameId);
+    /** One page of pictures filtered by status, newest first. Null {@code status}/{@code gameId} means unfiltered. */
+    PicturePage findPage(PictureStatus status, UUID gameId, Cursor cursor, int pageSize);
 
-    /** Pictures filtered by status (admin). */
-    List<Picture> findByStatus(PictureStatus status);
-
-    /** Pictures filtered by status, scoped to a game (admin). */
-    List<Picture> findByStatusAndGame(PictureStatus status, UUID gameId);
-
-    /** All pictures (admin). */
-    List<Picture> findAll();
-
-    /** All pictures for a game (admin). */
-    List<Picture> findAllByGame(UUID gameId);
+    /** One page of approved pictures for a game, newest first. */
+    PicturePage findApprovedPage(UUID gameId, Cursor cursor, int pageSize);
 
     /** Approved pictures for a game, newest first (public gallery). */
     List<Picture> findApprovedByGame(UUID gameId);
 
+    /** Every approved picture across all games, newest first (public gallery). */
+    List<Picture> findAllApproved();
+
     /**
-     * Approved pictures for the game a team belongs to, newest first. Powers the players'
-     * photowall: a team sees every team's approved pictures for its own game (the game is
-     * resolved server-side, so a team cannot request another game's pictures).
+     * One page of approved pictures for the game a team belongs to, newest first. Powers the
+     * players' photowall: a team sees every team's approved pictures for its own game (the game
+     * is resolved server-side, so a team cannot request another game's pictures).
      *
      * @throws PictureException 404 if the team does not exist.
      */
-    List<Picture> findApprovedForTeamGame(UUID teamId);
+    PicturePage findApprovedForTeamGamePage(UUID teamId, Cursor cursor, int pageSize);
 
     /**
      * Approved pictures for the most recent game that has any approved picture, newest first.
@@ -170,4 +170,45 @@ public interface PictureService {
 
     /** Result of {@link #requestUpload}. */
     record UploadTicket(Picture picture, String uploadUrl, Instant expiresAt) {}
+
+    /**
+     * Position in a keyset-paged picture list: the sort key and id of the last row of the
+     * previous page. Which timestamp {@code at} refers to depends on the list being paged
+     * (upload time for the moderation queue and approved lists, creation time otherwise) —
+     * callers only ever echo back the cursor the previous page handed them.
+     */
+    record Cursor(Instant at, UUID id) {
+
+        /**
+         * Parse the cursor a client sent back. Both halves must be present or absent together;
+         * returns null (meaning "first page") when neither is set.
+         *
+         * @throws PictureException 400 if only one half is present, or the timestamp is unparseable.
+         */
+        public static Cursor parse(String at, UUID id) {
+            if (at == null || at.isBlank()) {
+                if (id != null) {
+                    throw new PictureException(Response.Status.BAD_REQUEST, "cursorId requires cursorAt");
+                }
+                return null;
+            }
+            if (id == null) {
+                throw new PictureException(Response.Status.BAD_REQUEST, "cursorAt requires cursorId");
+            }
+            try {
+                return new Cursor(Instant.parse(at.trim()), id);
+            } catch (DateTimeParseException e) {
+                throw new PictureException(Response.Status.BAD_REQUEST, "Invalid cursorAt: " + at);
+            }
+        }
+    }
+
+    /**
+     * One page of pictures plus the cursor that fetches the next one.
+     * <p>
+     * {@code hasMore} is derived by asking the repository for one row more than the page size,
+     * so no separate count query is needed — and none is wanted: these lists mutate while the
+     * client pages through them, which is exactly why they are keyset- rather than offset-paged.
+     */
+    record PicturePage(List<Picture> pictures, boolean hasMore, Cursor next) {}
 }

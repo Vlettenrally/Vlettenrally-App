@@ -10,6 +10,8 @@ import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.service.AutomationEngine;
 import nl.vlettenrally.service.PictureException;
 import nl.vlettenrally.service.PictureService;
+import nl.vlettenrally.service.PictureService.Cursor;
+import nl.vlettenrally.service.PictureService.PicturePage;
 import nl.vlettenrally.service.storage.PictureStorageService;
 import nl.vlettenrally.websockets.PhotoBroadcastBuffer;
 import nl.vlettenrally.websockets.WebSocketPublisher;
@@ -33,11 +35,13 @@ import java.util.zip.ZipInputStream;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -74,7 +78,6 @@ class PictureServiceImplTest {
         service.allowedContentTypes = List.of("image/jpeg", "image/png", "image/webp");
         service.uploadUrlTtl = Duration.ofMinutes(15);
         service.viewUrlTtl = Duration.ofHours(1);
-        service.photowallLimit = 60;
 
         teamId = UUID.randomUUID();
         gameId = UUID.randomUUID();
@@ -410,50 +413,107 @@ class PictureServiceImplTest {
         return game;
     }
 
-    // ==================== game-scoped listing ====================
+    // ==================== paged listing ====================
 
     @Test
-    void findReadyForModerationByGame_delegatesToRepository() {
-        List<Picture> expected = List.of(uploaded());
-        when(pictureRepository.findReadyForModerationByGameId(gameId)).thenReturn(expected);
-        assertEquals(expected, service.findReadyForModerationByGame(gameId));
+    void findReadyForModerationPage_delegatesWithCursor_askingForOneExtraRow() {
+        Picture only = uploaded();
+        when(pictureRepository.findReadyForModerationPage(gameId, null, null, 4))
+            .thenReturn(List.of(only));
+
+        PicturePage page = service.findReadyForModerationPage(gameId, null, 3);
+
+        assertEquals(List.of(only), page.pictures());
+        assertFalse(page.hasMore());
+        assertNull(page.next());
     }
 
     @Test
-    void findByStatusAndGame_delegatesToRepository() {
-        List<Picture> expected = List.of(uploaded());
-        when(pictureRepository.findByStatusAndGameId(PictureStatus.APPROVED, gameId)).thenReturn(expected);
-        assertEquals(expected, service.findByStatusAndGame(PictureStatus.APPROVED, gameId));
+    void findPage_trimsTheProbeRow_andReturnsACursorForTheNextPage() {
+        // Four rows come back for a page size of 3: the fourth only signals "there is more".
+        List<Picture> rows = List.of(uploaded(), uploaded(), uploaded(), uploaded());
+        when(pictureRepository.findPage(PictureStatus.APPROVED, gameId, null, null, 4))
+            .thenReturn(rows);
+
+        PicturePage page = service.findPage(PictureStatus.APPROVED, gameId, null, 3);
+
+        assertEquals(rows.subList(0, 3), page.pictures());
+        assertTrue(page.hasMore());
+        // The cursor names the last row actually returned, keyed on createdAt for this list.
+        assertEquals(rows.get(2).getId(), page.next().id());
+        assertEquals(rows.get(2).getCreatedAt(), page.next().at());
     }
 
     @Test
-    void findAllByGame_delegatesToRepository() {
-        List<Picture> expected = List.of(uploaded());
-        when(pictureRepository.findAllByGameId(gameId)).thenReturn(expected);
-        assertEquals(expected, service.findAllByGame(gameId));
+    void findApprovedPage_cursorIsKeyedOnUploadedAt() {
+        List<Picture> rows = List.of(uploaded(), uploaded());
+        when(pictureRepository.findApprovedPage(gameId, null, null, 2)).thenReturn(rows);
+
+        PicturePage page = service.findApprovedPage(gameId, null, 1);
+
+        assertTrue(page.hasMore());
+        assertEquals(rows.getFirst().getUploadedAt(), page.next().at());
     }
 
-    // ==================== findApprovedForTeamGame ====================
+    @Test
+    void findPage_passesAnExistingCursorThrough() {
+        Cursor cursor = new Cursor(Instant.parse("2026-07-29T10:15:30Z"), UUID.randomUUID());
+        when(pictureRepository.findPage(null, gameId, cursor.at(), cursor.id(), 4))
+            .thenReturn(List.of());
+
+        PicturePage page = service.findPage(null, gameId, cursor, 3);
+
+        assertTrue(page.pictures().isEmpty());
+        assertFalse(page.hasMore());
+        verify(pictureRepository).findPage(null, gameId, cursor.at(), cursor.id(), 4);
+    }
+
+    // ==================== findApprovedForTeamGamePage ====================
 
     @Test
-    void findApprovedForTeamGame_resolvesTeamGame_andDelegatesWithCap() {
+    void findApprovedForTeamGamePage_resolvesTeamGame_andDelegates() {
         List<Picture> expected = List.of(approvedFor(gameId));
         when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
-        when(pictureRepository.findRecentApprovedByGameId(gameId, 60)).thenReturn(expected);
+        when(pictureRepository.findApprovedPage(gameId, null, null, 21)).thenReturn(expected);
 
-        assertEquals(expected, service.findApprovedForTeamGame(teamId));
-        // A team only ever sees its own game's approved pictures, capped to the wall limit.
-        verify(pictureRepository).findRecentApprovedByGameId(gameId, 60);
+        PicturePage page = service.findApprovedForTeamGamePage(teamId, null, 20);
+
+        assertEquals(expected, page.pictures());
+        // A team only ever sees its own game's approved pictures.
+        verify(pictureRepository).findApprovedPage(gameId, null, null, 21);
     }
 
     @Test
-    void findApprovedForTeamGame_unknownTeam_with404() {
+    void findApprovedForTeamGamePage_unknownTeam_with404() {
         when(teamRepository.findById(teamId)).thenReturn(Optional.empty());
 
         PictureException ex = assertThrows(PictureException.class,
-            () -> service.findApprovedForTeamGame(teamId));
+            () -> service.findApprovedForTeamGamePage(teamId, null, 20));
         assertEquals(404, ex.getStatusCode());
-        verify(pictureRepository, never()).findApprovedByGameId(any());
+        verify(pictureRepository, never()).findApprovedPage(any(), any(), any(), anyInt());
+    }
+
+    // ==================== Cursor.parse ====================
+
+    @Test
+    void cursorParse_absentMeansFirstPage() {
+        assertNull(Cursor.parse(null, null));
+        assertNull(Cursor.parse("  ", null));
+    }
+
+    @Test
+    void cursorParse_rejectsHalfACursor() {
+        UUID id = UUID.randomUUID();
+        assertEquals(400, assertThrows(PictureException.class, () -> Cursor.parse(null, id)).getStatusCode());
+        assertEquals(400, assertThrows(PictureException.class,
+            () -> Cursor.parse("2026-07-29T10:15:30Z", null)).getStatusCode());
+    }
+
+    @Test
+    void cursorParse_rejectsAnUnparseableTimestamp() {
+        UUID id = UUID.randomUUID();
+        PictureException ex = assertThrows(PictureException.class, () -> Cursor.parse("yesterday", id));
+        assertEquals(400, ex.getStatusCode());
     }
 
     // ==================== findApprovedForLatestGame ====================

@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -46,13 +47,13 @@ class MockPictureRepositoryTest {
     }
 
     @Test
-    void findReadyForModeration_onlyUploadedPending() {
+    void findReadyForModerationPage_onlyUploadedPending() {
         save(teamA, PictureStatus.PENDING, true);   // ready
         save(teamA, PictureStatus.PENDING, false);  // not uploaded -> not ready
         save(teamA, PictureStatus.APPROVED, true);  // already moderated
         save(teamB, PictureStatus.REJECTED, true);
 
-        List<Picture> ready = repository.findReadyForModeration();
+        List<Picture> ready = repository.findReadyForModerationPage(null, null, null, 10);
 
         assertEquals(1, ready.size());
         assertEquals(PictureStatus.PENDING, ready.getFirst().getStatus());
@@ -71,7 +72,7 @@ class MockPictureRepositoryTest {
     }
 
     @Test
-    void findReadyForModerationByGameId_onlyUploadedPendingInGame() {
+    void findReadyForModerationPage_onlyUploadedPendingInGame() {
         UUID otherGame = UUID.randomUUID();
         save(teamA, PictureStatus.PENDING, true);          // ready, in game
         save(teamA, PictureStatus.PENDING, false);         // not yet uploaded
@@ -79,14 +80,14 @@ class MockPictureRepositoryTest {
         inOtherGame.setGameId(otherGame);
         repository.save(inOtherGame);
 
-        List<Picture> result = repository.findReadyForModerationByGameId(gameId);
+        List<Picture> result = repository.findReadyForModerationPage(gameId, null, null, 10);
 
         assertEquals(1, result.size());
         assertEquals(gameId, result.getFirst().getGameId());
     }
 
     @Test
-    void findByStatusAndGameId_filtersByStatusAndGame() {
+    void findPage_filtersByStatusAndGame() {
         UUID otherGame = UUID.randomUUID();
         save(teamA, PictureStatus.APPROVED, true);         // matches
         save(teamA, PictureStatus.PENDING, true);          // wrong status
@@ -94,7 +95,7 @@ class MockPictureRepositoryTest {
         wrongGame.setGameId(otherGame);
         repository.save(wrongGame);
 
-        List<Picture> result = repository.findByStatusAndGameId(PictureStatus.APPROVED, gameId);
+        List<Picture> result = repository.findPage(PictureStatus.APPROVED, gameId, null, null, 10);
 
         assertEquals(1, result.size());
         assertEquals(PictureStatus.APPROVED, result.getFirst().getStatus());
@@ -102,7 +103,7 @@ class MockPictureRepositoryTest {
     }
 
     @Test
-    void findAllByGameId_filtersByGame() {
+    void findPage_nullStatus_returnsEveryStatusInGame() {
         UUID otherGame = UUID.randomUUID();
         save(teamA, PictureStatus.APPROVED, true);
         save(teamB, PictureStatus.PENDING, true);
@@ -110,7 +111,7 @@ class MockPictureRepositoryTest {
         wrongGame.setGameId(otherGame);
         repository.save(wrongGame);
 
-        List<Picture> result = repository.findAllByGameId(gameId);
+        List<Picture> result = repository.findPage(null, gameId, null, null, 10);
 
         assertEquals(2, result.size());
         assertTrue(result.stream().allMatch(p -> gameId.equals(p.getGameId())));
@@ -132,20 +133,84 @@ class MockPictureRepositoryTest {
     }
 
     @Test
-    void findRecentApprovedByGameId_capsToLimit_newestFirst() {
-        // Five approved, staggered upload times so ordering is deterministic.
-        for (int i = 0; i < 5; i++) {
-            Picture p = save(teamA, PictureStatus.APPROVED, true);
-            p.setUploadedAt(Instant.now().plusSeconds(i));
-            repository.save(p);
-        }
+    void findApprovedPage_capsToLimit_newestFirst() {
+        approvedAtStaggeredTimes(5);
 
-        List<Picture> recent = repository.findRecentApprovedByGameId(gameId, 3);
+        List<Picture> recent = repository.findApprovedPage(gameId, null, null, 3);
 
         assertEquals(3, recent.size());
         // Newest first: each element is newer than the next.
         assertTrue(recent.get(0).getUploadedAt().isAfter(recent.get(1).getUploadedAt()));
         assertTrue(recent.get(1).getUploadedAt().isAfter(recent.get(2).getUploadedAt()));
+    }
+
+    @Test
+    void findApprovedPage_walksEveryRowExactlyOnce() {
+        approvedAtStaggeredTimes(7);
+
+        List<Picture> walked = walkApproved(3);
+
+        assertEquals(7, walked.size());
+        assertEquals(7, walked.stream().map(Picture::getId).distinct().count());
+        // Still strictly newest-first across the page boundaries.
+        for (int i = 1; i < walked.size(); i++) {
+            assertTrue(walked.get(i - 1).getUploadedAt().isAfter(walked.get(i).getUploadedAt()));
+        }
+    }
+
+    @Test
+    void findReadyForModerationPage_skipsNothingWhenRowsAreModeratedMidWalk() {
+        // The whole reason these lists are keyset- rather than offset-paged: moderating a photo
+        // removes it from the queue, which would shift every later offset and hide photos.
+        List<Picture> queue = new ArrayList<>();
+        for (int i = 0; i < 6; i++) {
+            Picture p = save(teamA, PictureStatus.PENDING, true);
+            p.setUploadedAt(Instant.now().plusSeconds(i));
+            queue.add(repository.save(p));
+        }
+
+        List<Picture> firstPage = repository.findReadyForModerationPage(gameId, null, null, 2);
+        assertEquals(2, firstPage.size());
+
+        // Approve everything on the first page, as an admin working the queue would.
+        for (Picture p : firstPage) {
+            p.setStatus(PictureStatus.APPROVED);
+            repository.save(p);
+        }
+
+        Picture last = firstPage.getLast();
+        List<Picture> rest = repository.findReadyForModerationPage(
+            gameId, last.getUploadedAt(), last.getId(), 10);
+
+        assertEquals(4, rest.size());
+        assertEquals(
+            queue.subList(2, 6).stream().map(Picture::getId).toList(),
+            rest.stream().map(Picture::getId).toList());
+    }
+
+    /** Save {@code count} approved pictures with distinct, increasing upload times. */
+    private void approvedAtStaggeredTimes(int count) {
+        for (int i = 0; i < count; i++) {
+            Picture p = save(teamA, PictureStatus.APPROVED, true);
+            p.setUploadedAt(Instant.now().plusSeconds(i));
+            repository.save(p);
+        }
+    }
+
+    /** Page through every approved picture the way a scrolling client would. */
+    private List<Picture> walkApproved(int pageSize) {
+        List<Picture> all = new ArrayList<>();
+        Instant cursorAt = null;
+        UUID cursorId = null;
+        while (true) {
+            List<Picture> page = repository.findApprovedPage(gameId, cursorAt, cursorId, pageSize);
+            if (page.isEmpty()) {
+                return all;
+            }
+            all.addAll(page);
+            cursorAt = page.getLast().getUploadedAt();
+            cursorId = page.getLast().getId();
+        }
     }
 
     @Test

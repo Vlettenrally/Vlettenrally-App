@@ -67,7 +67,7 @@ class PublicGalleryResourceTest {
     @Test
     void allApproved_queriesByApprovedStatus() {
         Picture p = picture(UUID.randomUUID());
-        when(pictureService.findByStatus(PictureStatus.APPROVED)).thenReturn(List.of(p));
+        when(pictureService.findAllApproved()).thenReturn(List.of(p));
         when(pictureService.toPublicResponses(List.of(p)))
             .thenReturn(List.of(PublicPictureResponse.from(p, null, null)));
 

@@ -3,14 +3,18 @@ package nl.vlettenrally.api.v1;
 import nl.vlettenrally.data.domain.Picture;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
 import nl.vlettenrally.data.dto.picture.PictureDownloadTokenResponse;
+import nl.vlettenrally.data.dto.picture.PictureListResponse;
 import nl.vlettenrally.data.dto.picture.PictureResponse;
 import nl.vlettenrally.data.dto.picture.PictureUploadRequest;
 import nl.vlettenrally.data.dto.picture.PictureUploadResponse;
+import nl.vlettenrally.data.dto.picture.PublicPictureListResponse;
 import nl.vlettenrally.data.dto.picture.PublicPictureResponse;
 import nl.vlettenrally.data.enums.PictureStatus;
 import nl.vlettenrally.service.PictureDownloadTokenService;
 import nl.vlettenrally.service.PictureException;
 import nl.vlettenrally.service.PictureService;
+import nl.vlettenrally.service.PictureService.Cursor;
+import nl.vlettenrally.service.PictureService.PicturePage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,8 +35,14 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -55,6 +65,9 @@ class PictureResourceTest {
 
     @BeforeEach
     void setUp() {
+        // @ConfigProperty field is package-private; set it directly for the unit test.
+        resource.photowallPageSize = 20;
+
         teamId = UUID.randomUUID();
         pictureId = UUID.randomUUID();
         gameId = UUID.randomUUID();
@@ -144,28 +157,79 @@ class PictureResourceTest {
 
     @Test
     void getAllPictures_invalidStatus_returns400() {
-        Response response = resource.getAllPictures("bogus", null);
+        Response response = resource.getAllPictures("bogus", null, null, null, null);
         assertEquals(400, response.getStatus());
     }
 
     @Test
     void getAllPictures_filtersByStatus() {
         Picture approved = picture(PictureStatus.APPROVED, Instant.now());
-        when(pictureService.findByStatus(PictureStatus.APPROVED)).thenReturn(List.of(approved));
+        when(pictureService.findPage(eq(PictureStatus.APPROVED), isNull(), isNull(), anyInt()))
+            .thenReturn(new PicturePage(List.of(approved), false, null));
         when(pictureService.toResponses(List.of(approved))).thenReturn(List.of(response(approved, null)));
 
-        Response response = resource.getAllPictures("approved", null);
+        Response response = resource.getAllPictures("approved", null, null, null, null);
 
         assertEquals(200, response.getStatus());
-        List<?> body = assertInstanceOf(List.class, response.getEntity());
-        assertEquals(1, body.size());
+        PictureListResponse body = assertInstanceOf(PictureListResponse.class, response.getEntity());
+        assertEquals(1, body.pictures().size());
+        assertFalse(body.hasMore());
+        assertNull(body.nextCursorAt());
     }
 
     @Test
     void getAllPictures_noStatus_returnsAll() {
-        when(pictureService.findAll()).thenReturn(List.of());
-        Response response = resource.getAllPictures(null, null);
+        when(pictureService.findPage(isNull(), isNull(), isNull(), anyInt()))
+            .thenReturn(new PicturePage(List.of(), false, null));
+        Response response = resource.getAllPictures(null, null, null, null, null);
         assertEquals(200, response.getStatus());
+    }
+
+    @Test
+    void getAllPictures_hasMore_exposesTheNextCursor() {
+        Instant at = Instant.parse("2026-07-29T10:15:30Z");
+        UUID lastId = UUID.randomUUID();
+        when(pictureService.findPage(isNull(), isNull(), isNull(), anyInt()))
+            .thenReturn(new PicturePage(List.of(), true, new Cursor(at, lastId)));
+
+        Response response = resource.getAllPictures(null, null, null, null, null);
+
+        PictureListResponse body = assertInstanceOf(PictureListResponse.class, response.getEntity());
+        assertTrue(body.hasMore());
+        assertEquals(at.toString(), body.nextCursorAt());
+        assertEquals(lastId.toString(), body.nextCursorId());
+    }
+
+    @Test
+    void getAllPictures_passesTheCursorThrough() {
+        UUID cursorId = UUID.randomUUID();
+        when(pictureService.findPage(isNull(), isNull(), any(Cursor.class), anyInt()))
+            .thenReturn(new PicturePage(List.of(), false, null));
+
+        resource.getAllPictures(null, null, "2026-07-29T10:15:30Z", cursorId, null);
+
+        verify(pictureService).findPage(
+            isNull(), isNull(),
+            eq(new Cursor(Instant.parse("2026-07-29T10:15:30Z"), cursorId)),
+            anyInt());
+    }
+
+    @Test
+    void getAllPictures_malformedCursor_returns400() {
+        Response response = resource.getAllPictures(null, null, "yesterday", UUID.randomUUID(), null);
+        assertEquals(400, response.getStatus());
+        assertInstanceOf(ErrorResponse.class, response.getEntity());
+    }
+
+    @Test
+    void getPendingPictures_clampsAnOutOfRangePageSize() {
+        when(pictureService.findReadyForModerationPage(isNull(), isNull(), anyInt()))
+            .thenReturn(new PicturePage(List.of(), false, null));
+
+        resource.getPendingPictures(null, null, null, 5000);
+
+        // Every picture in a response costs one presign, so an oversized page falls back to the default.
+        verify(pictureService).findReadyForModerationPage(isNull(), isNull(), eq(24));
     }
 
     // ==================== photowall ====================
@@ -173,28 +237,30 @@ class PictureResourceTest {
     @Test
     void getPhotowall_returns200WithPublicProjection() {
         Picture approved = picture(PictureStatus.APPROVED, Instant.now());
-        when(pictureService.findApprovedForTeamGame(teamId)).thenReturn(List.of(approved));
+        when(pictureService.findApprovedForTeamGamePage(eq(teamId), isNull(), anyInt()))
+            .thenReturn(new PicturePage(List.of(approved), false, null));
         when(pictureService.toPublicResponses(List.of(approved)))
             .thenReturn(List.of(publicResponse(approved, "https://storj/view")));
 
-        Response response = resource.getPhotowall(teamId);
+        Response response = resource.getPhotowall(teamId, null, null, null);
 
         assertEquals(200, response.getStatus());
-        List<?> body = assertInstanceOf(List.class, response.getEntity());
-        assertEquals(1, body.size());
+        PublicPictureListResponse body =
+            assertInstanceOf(PublicPictureListResponse.class, response.getEntity());
+        assertEquals(1, body.pictures().size());
         // A shared wall carries team attribution (name/description) but not other teams'
         // moderation metadata (status, notes, moderator).
-        PublicPictureResponse dto = assertInstanceOf(PublicPictureResponse.class, body.get(0));
+        PublicPictureResponse dto = body.pictures().getFirst();
         assertEquals(approved.getId(), dto.id());
         assertEquals("https://storj/view", dto.viewUrl());
     }
 
     @Test
     void getPhotowall_mapsPictureExceptionStatus() {
-        when(pictureService.findApprovedForTeamGame(teamId))
+        when(pictureService.findApprovedForTeamGamePage(eq(teamId), isNull(), anyInt()))
             .thenThrow(new PictureException(Response.Status.NOT_FOUND, "Team not found"));
 
-        Response response = resource.getPhotowall(teamId);
+        Response response = resource.getPhotowall(teamId, null, null, null);
 
         assertEquals(404, response.getStatus());
         assertInstanceOf(ErrorResponse.class, response.getEntity());

@@ -42,12 +42,18 @@ export default function PictureImage({ src, alt, onClick, sx }: PictureImageProp
           component="img"
           image={src}
           alt={alt}
+          loading="lazy"
+          decoding="async"
           onLoad={() => setLoaded(true)}
           sx={{
             width: '100%',
             height: '100%',
             objectFit: 'cover',
-            display: loaded ? 'block' : 'none',
+            // Faded rather than display:none — a display:none image has no box for the browser
+            // to intersect, which would defeat loading="lazy". The spinner shows through until
+            // the image has actually decoded.
+            opacity: loaded ? 1 : 0,
+            transition: 'opacity 200ms',
           }}
         />
       )}

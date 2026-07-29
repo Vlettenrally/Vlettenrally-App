@@ -39,6 +39,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.zip.Deflater;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -88,9 +89,6 @@ public class PictureServiceImpl implements PictureService {
 
     @ConfigProperty(name = "vlettenrally.pictures.view-url-ttl")
     Duration viewUrlTtl;
-
-    @ConfigProperty(name = "vlettenrally.pictures.photowall-limit")
-    int photowallLimit;
 
     private static final String PICTURE_NOT_FOUND = "Picture not found: ";
 
@@ -263,33 +261,24 @@ public class PictureServiceImpl implements PictureService {
     }
 
     @Override
-    public List<Picture> findReadyForModeration() {
-        return pictureRepository.findReadyForModeration();
+    public PicturePage findReadyForModerationPage(UUID gameId, Cursor cursor, int pageSize) {
+        return pageOf(
+            pictureRepository.findReadyForModerationPage(gameId, at(cursor), id(cursor), pageSize + 1),
+            pageSize, Picture::getUploadedAt);
     }
 
     @Override
-    public List<Picture> findReadyForModerationByGame(UUID gameId) {
-        return pictureRepository.findReadyForModerationByGameId(gameId);
+    public PicturePage findPage(PictureStatus status, UUID gameId, Cursor cursor, int pageSize) {
+        return pageOf(
+            pictureRepository.findPage(status, gameId, at(cursor), id(cursor), pageSize + 1),
+            pageSize, Picture::getCreatedAt);
     }
 
     @Override
-    public List<Picture> findByStatus(PictureStatus status) {
-        return pictureRepository.findByStatus(status);
-    }
-
-    @Override
-    public List<Picture> findByStatusAndGame(PictureStatus status, UUID gameId) {
-        return pictureRepository.findByStatusAndGameId(status, gameId);
-    }
-
-    @Override
-    public List<Picture> findAll() {
-        return pictureRepository.findAll();
-    }
-
-    @Override
-    public List<Picture> findAllByGame(UUID gameId) {
-        return pictureRepository.findAllByGameId(gameId);
+    public PicturePage findApprovedPage(UUID gameId, Cursor cursor, int pageSize) {
+        return pageOf(
+            pictureRepository.findApprovedPage(gameId, at(cursor), id(cursor), pageSize + 1),
+            pageSize, Picture::getUploadedAt);
     }
 
     @Override
@@ -298,12 +287,37 @@ public class PictureServiceImpl implements PictureService {
     }
 
     @Override
-    public List<Picture> findApprovedForTeamGame(UUID teamId) {
+    public List<Picture> findAllApproved() {
+        return pictureRepository.findByStatus(PictureStatus.APPROVED);
+    }
+
+    @Override
+    public PicturePage findApprovedForTeamGamePage(UUID teamId, Cursor cursor, int pageSize) {
         Team team = teamRepository.findById(teamId)
             .orElseThrow(() -> new PictureException(Response.Status.NOT_FOUND, "Team not found: " + teamId));
-        // Capped: a shared wall only needs the most recent photos, and live approvals
-        // stream in on top via PhotoBroadcastBuffer.
-        return pictureRepository.findRecentApprovedByGameId(team.getGameId(), photowallLimit);
+        return findApprovedPage(team.getGameId(), cursor, pageSize);
+    }
+
+    private static Instant at(Cursor cursor) {
+        return cursor != null ? cursor.at() : null;
+    }
+
+    private static UUID id(Cursor cursor) {
+        return cursor != null ? cursor.id() : null;
+    }
+
+    /**
+     * Turn the {@code pageSize + 1} rows the repository was asked for into a page: an extra row
+     * means there is more to fetch, and the cursor for the next page is the sort key of the last
+     * row we actually return.
+     */
+    private static PicturePage pageOf(List<Picture> rows, int pageSize, Function<Picture, Instant> sortKey) {
+        boolean hasMore = rows.size() > pageSize;
+        List<Picture> page = hasMore ? rows.subList(0, pageSize) : rows;
+        Cursor next = hasMore && !page.isEmpty()
+            ? new Cursor(sortKey.apply(page.getLast()), page.getLast().getId())
+            : null;
+        return new PicturePage(List.copyOf(page), hasMore, next);
     }
 
     @Override

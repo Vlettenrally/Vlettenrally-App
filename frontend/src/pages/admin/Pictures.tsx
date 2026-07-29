@@ -31,13 +31,19 @@ import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
 import DownloadIcon from '@mui/icons-material/Download';
 import { usePictureStore } from '../../store/usePictureStore';
 import { useGameStore } from '../../store/useGameStore';
-import type { Picture, PictureStatus } from '../../types/entities';
+import type {
+  Picture,
+  PictureCursor,
+  PictureListResponse,
+  PictureStatus,
+} from '../../types/entities';
 import api from '../../services/api';
 import { mockApi } from '../../services/mockApi';
 import { websocket } from '../../services/websocket';
 import { config } from '../../config';
 import { useAdminResync } from '../../hooks/useAdminSync';
 import { useAdminTopicHeartbeat, ADMIN_TOPICS } from '../../hooks/useAdminHeartbeat';
+import { useInfiniteScroll } from '../../hooks/useInfiniteScroll';
 import {
   hasAnyRole,
   PICTURE_DOWNLOAD_ROLES,
@@ -57,9 +63,21 @@ const STATUS_COLORS: Record<PictureStatus, 'default' | 'success' | 'warning' | '
   REJECTED: 'error',
 };
 
+/** The cursor for the next batch, or null when this was the last one. */
+function cursorOf(page: PictureListResponse): PictureCursor | null {
+  return page.nextCursorAt && page.nextCursorId
+    ? { at: page.nextCursorAt, id: page.nextCursorId }
+    : null;
+}
+
 export default function AdminPictures() {
   const { t } = useTranslation();
-  const { moderationPictures, setModerationPictures, upsertModerationPicture } = usePictureStore();
+  const {
+    moderationPictures,
+    setModerationPictures,
+    appendModerationPictures,
+    upsertModerationPicture,
+  } = usePictureStore();
   const selectedGameId = useGameStore((s) => s.selectedGameId);
 
   const token = storage.getAuthToken();
@@ -71,6 +89,9 @@ export default function AdminPictures() {
     () => canModerate ? 'PENDING' : canUpload ? 'UPLOAD' : 'APPROVED'
   );
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [cursor, setCursor] = useState<PictureCursor | null>(null);
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<Picture | null>(null);
   const [rejectNotes, setRejectNotes] = useState('');
@@ -95,24 +116,63 @@ export default function AdminPictures() {
   // mockApi mirrors the picture methods of api; treat it as the same shape.
   const apiToUse = (config.useMocks ? mockApi : api) as unknown as typeof api;
 
+  // One batch of the current tab. `next` is undefined for the first batch.
+  const fetchPage = useCallback((next?: PictureCursor) => {
+    const gameId = selectedGameId ?? undefined;
+    return tab === 'PENDING'  ? apiToUse.getPendingPictures(gameId, next) :
+           tab === 'APPROVED' ? apiToUse.getApprovedPictures(gameId, next) :
+           apiToUse.getAllPictures(undefined, gameId, next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, selectedGameId]);
+
+  // Reset to the first batch. Also the resync path: after a reconnect the whole list is
+  // re-fetched from the top rather than trying to patch up the pages already scrolled through.
   const load = useCallback(() => {
     if (tab === 'UPLOAD') return;
     setLoading(true);
     setError(null);
-    const gameId = selectedGameId ?? undefined;
-    const request =
-      tab === 'PENDING'  ? apiToUse.getPendingPictures(gameId) :
-      tab === 'APPROVED' ? apiToUse.getApprovedPictures(gameId) :
-      apiToUse.getAllPictures(undefined, gameId);
-    request
+    fetchPage()
       .then((res) => {
-        if (res.data) setModerationPictures(res.data as Picture[]);
-        else setError(res.error || t('admin.pictures.loadFailed'));
+        if (res.data) {
+          setModerationPictures(res.data.pictures);
+          setCursor(cursorOf(res.data));
+          setHasMore(res.data.hasMore);
+        } else {
+          setError(res.error || t('admin.pictures.loadFailed'));
+        }
       })
       .catch(() => setError(t('admin.pictures.loadFailed')))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, selectedGameId]);
+  }, [tab, fetchPage]);
+
+  const loadMore = useCallback(() => {
+    if (!cursor || loadingMore) return;
+    setLoadingMore(true);
+    fetchPage(cursor)
+      .then((res) => {
+        if (res.data) {
+          appendModerationPictures(res.data.pictures);
+          setCursor(cursorOf(res.data));
+          setHasMore(res.data.hasMore);
+        } else {
+          setError(res.error || t('admin.pictures.loadFailed'));
+          setHasMore(false);
+        }
+      })
+      .catch(() => {
+        setError(t('admin.pictures.loadFailed'));
+        setHasMore(false);
+      })
+      .finally(() => setLoadingMore(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cursor, loadingMore, fetchPage]);
+
+  const sentinelRef = useInfiniteScroll({
+    hasMore: hasMore && tab !== 'UPLOAD',
+    loading: loading || loadingMore,
+    onLoadMore: loadMore,
+  });
 
   useEffect(() => {
     load();
@@ -304,7 +364,7 @@ export default function AdminPictures() {
           <Box display="flex" justifyContent="center" sx={{ py: 4 }}>
             <CircularProgress />
           </Box>
-        ) : visiblePictures.length === 0 ? (
+        ) : visiblePictures.length === 0 && !hasMore ? (
           <Typography color="text.secondary">{t('admin.pictures.noPhotos')}</Typography>
         ) : (
           <Box
@@ -370,6 +430,12 @@ export default function AdminPictures() {
                 )}
               </Card>
             ))}
+          </Box>
+        )}
+
+        {tab !== 'UPLOAD' && !loading && hasMore && (
+          <Box ref={sentinelRef} display="flex" justifyContent="center" sx={{ py: 3 }}>
+            {loadingMore && <CircularProgress size={28} />}
           </Box>
         )}
       </Stack>

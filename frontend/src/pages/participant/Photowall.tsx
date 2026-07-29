@@ -26,13 +26,12 @@ import {
 import PictureImage from '../../components/PictureImage';
 import { useTeamStore } from '../../store/useTeamStore';
 import { useWebSocketSubscription } from '../../hooks/useWebSocket';
-import type { PublicPicture } from '../../types/entities';
+import { useInfiniteScroll } from '../../hooks/useInfiniteScroll';
+import type { PictureCursor, PublicPicture } from '../../types/entities';
 import api from '../../services/api';
 import { mockApi } from '../../services/mockApi';
 import { config } from '../../config';
 
-// Keep the visible wall bounded (matches the API's cap); newest stay, oldest drop off.
-const PHOTOWALL_LIMIT = 20;
 // How fast queued live photos are revealed, one at a time.
 const REVEAL_MS = 600;
 // Slow safety refetch while the page is open, in case a live event was missed.
@@ -45,6 +44,9 @@ export default function Photowall() {
 
   const [pictures, setPictures] = useState<PublicPicture[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [cursor, setCursor] = useState<PictureCursor | null>(null);
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
@@ -61,15 +63,24 @@ export default function Photowall() {
     if (!team) return;
     let cancelled = false;
 
+    // A background refetch only pulls the *first* batch and merges what it hasn't seen to the
+    // top — replacing the list would throw away every batch the player has scrolled to.
     const load = async (background: boolean) => {
       if (!background) setLoading(true);
       try {
         const res = await apiToUse.getPhotowall(team.id);
         if (cancelled) return;
         if (res.data) {
-          const data = res.data as PublicPicture[];
-          data.forEach((p) => seenRef.current.add(p.id));
-          setPictures(data);
+          const { pictures: batch, nextCursorAt, nextCursorId, hasMore: more } = res.data;
+          const fresh = batch.filter((p) => !seenRef.current.has(p.id));
+          batch.forEach((p) => seenRef.current.add(p.id));
+          if (background) {
+            if (fresh.length > 0) setPictures((prev) => [...fresh, ...prev]);
+          } else {
+            setPictures(batch);
+            setCursor(nextCursorAt && nextCursorId ? { at: nextCursorAt, id: nextCursorId } : null);
+            setHasMore(more);
+          }
           setError(null);
         } else if (!background) {
           setError(t('participant.photowall.loadError'));
@@ -106,12 +117,40 @@ export default function Photowall() {
     const id = setInterval(() => {
       const next = queueRef.current.shift();
       if (!next) return;
-      setPictures((prev) =>
-        prev.some((p) => p.id === next.id) ? prev : [next, ...prev].slice(0, PHOTOWALL_LIMIT),
-      );
+      setPictures((prev) => (prev.some((p) => p.id === next.id) ? prev : [next, ...prev]));
     }, REVEAL_MS);
     return () => clearInterval(id);
   }, []);
+
+  // Older photos, fetched a batch at a time as the player scrolls back through the wall.
+  const loadMore = useCallback(async () => {
+    if (!team || !cursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const res = await apiToUse.getPhotowall(team.id, cursor);
+      if (res.data) {
+        const { pictures: batch, nextCursorAt, nextCursorId, hasMore: more } = res.data;
+        const fresh = batch.filter((p) => !seenRef.current.has(p.id));
+        fresh.forEach((p) => seenRef.current.add(p.id));
+        setPictures((prev) => [...prev, ...fresh]);
+        setCursor(nextCursorAt && nextCursorId ? { at: nextCursorAt, id: nextCursorId } : null);
+        setHasMore(more);
+      } else {
+        setHasMore(false);
+      }
+    } catch {
+      setHasMore(false);
+    } finally {
+      setLoadingMore(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [team, cursor, loadingMore]);
+
+  const sentinelRef = useInfiniteScroll({
+    hasMore,
+    loading: loading || loadingMore,
+    onLoadMore: () => void loadMore(),
+  });
 
   // Batched live approvals: enqueue the ones we haven't seen, oldest first so each
   // newer photo pops in on top.
@@ -187,6 +226,12 @@ export default function Photowall() {
                 </Card>
               </Fade>
             ))}
+          </Box>
+        )}
+
+        {!loading && !error && hasMore && (
+          <Box ref={sentinelRef} display="flex" justifyContent="center" sx={{ py: 3 }}>
+            {loadingMore && <CircularProgress size={28} />}
           </Box>
         )}
       </Stack>

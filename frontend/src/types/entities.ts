@@ -561,6 +561,36 @@ export interface PublicPicture {
 }
 
 /**
+ * Position in a keyset-paged picture list. Opaque to the client: echo back whatever the
+ * previous page returned to get the next one.
+ */
+export interface PictureCursor {
+  at: string;
+  id: string;
+}
+
+/**
+ * One page of a picture list. Unlike the other paginated endpoints (which return
+ * `page`/`pageSize`/`totalCount` for a jump-to-page table), picture lists are cursor-paged
+ * for infinite scroll: photos arrive live and moderating one removes it from the pending
+ * set, so an offset would re-serve or silently skip photos.
+ */
+export interface PictureListResponse {
+  pictures: Picture[];
+  nextCursorAt: string | null;
+  nextCursorId: string | null;
+  hasMore: boolean;
+}
+
+/** Photowall equivalent of {@link PictureListResponse}, carrying the public projection. */
+export interface PublicPictureListResponse {
+  pictures: PublicPicture[];
+  nextCursorAt: string | null;
+  nextCursorId: string | null;
+  hasMore: boolean;
+}
+
+/**
  * Response when reserving an upload slot: the pre-signed PUT URL plus the limits the
  * client should enforce before uploading.
  */

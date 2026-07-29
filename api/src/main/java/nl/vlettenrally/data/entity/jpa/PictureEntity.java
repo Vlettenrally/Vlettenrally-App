@@ -23,7 +23,11 @@ import java.util.UUID;
 @Table(name = "pictures", indexes = {
     @Index(name = "idx_pictures_team_id", columnList = "team_id"),
     @Index(name = "idx_pictures_game_id", columnList = "game_id"),
-    @Index(name = "idx_pictures_moderation", columnList = "status, uploaded_at")
+    @Index(name = "idx_pictures_moderation", columnList = "status, uploaded_at"),
+    // Keyset paging of the picture lists; see V81__index_pictures_for_paging.sql for the
+    // descending column order Flyway actually creates.
+    @Index(name = "idx_pictures_game_created", columnList = "game_id, created_at, id"),
+    @Index(name = "idx_pictures_game_status_uploaded", columnList = "game_id, status, uploaded_at, id")
 })
 public class PictureEntity {
 

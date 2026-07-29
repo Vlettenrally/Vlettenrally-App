@@ -18,22 +18,26 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 import jakarta.ws.rs.core.StreamingOutput;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import nl.vlettenrally.api.security.SecurityRoles;
 import nl.vlettenrally.api.security.TeamScoped;
 import nl.vlettenrally.api.security.TeamScopedOrAdmin;
 import nl.vlettenrally.data.domain.Picture;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
 import nl.vlettenrally.data.dto.picture.PictureDownloadTokenResponse;
+import nl.vlettenrally.data.dto.picture.PictureListResponse;
 import nl.vlettenrally.data.dto.picture.PictureRejectRequest;
 import nl.vlettenrally.data.dto.picture.PictureUploadRequest;
 import nl.vlettenrally.data.dto.picture.PictureUploadResponse;
+import nl.vlettenrally.data.dto.picture.PublicPictureListResponse;
 import nl.vlettenrally.data.dto.picture.PublicPictureResponse;
 import nl.vlettenrally.data.enums.PictureStatus;
 import nl.vlettenrally.service.PictureDownloadTokenService;
 import nl.vlettenrally.service.PictureException;
 import nl.vlettenrally.service.PictureService;
+import nl.vlettenrally.service.PictureService.Cursor;
+import nl.vlettenrally.service.PictureService.PicturePage;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -58,6 +62,17 @@ public class PictureResource {
 
     @Inject
     PictureDownloadTokenService downloadTokenService;
+
+    /** Default batch for the admin lists; matches the frontend's grid so a page fills the viewport. */
+    private static final int DEFAULT_PAGE_SIZE = 24;
+    private static final int MAX_PAGE_SIZE = 100;
+
+    /**
+     * Default batch for the players' photowall. Historically a hard cap on the whole wall; now
+     * that the wall scrolls, it is just the first batch size.
+     */
+    @ConfigProperty(name = "vlettenrally.pictures.photowall-limit")
+    int photowallPageSize;
 
     // ==================== Team Endpoints ====================
 
@@ -130,11 +145,16 @@ public class PictureResource {
     @Path("/teams/{teamId}/pictures/approved")
     @RolesAllowed({SecurityRoles.STAFF, SecurityRoles.TEAM})
     @TeamScopedOrAdmin
-    public Response getPhotowall(@PathParam("teamId") UUID teamId) {
+    public Response getPhotowall(@PathParam("teamId") UUID teamId,
+                                 @QueryParam("cursorAt") String cursorAt,
+                                 @QueryParam("cursorId") UUID cursorId,
+                                 @QueryParam("pageSize") Integer pageSize) {
         try {
-            return Response.ok(
-                pictureService.toPublicResponses(pictureService.findApprovedForTeamGame(teamId))
-            ).build();
+            PicturePage page = pictureService.findApprovedForTeamGamePage(
+                teamId, Cursor.parse(cursorAt, cursorId), pageSize(pageSize, photowallPageSize));
+            return Response.ok(new PublicPictureListResponse(
+                pictureService.toPublicResponses(page.pictures()),
+                cursorAt(page), cursorId(page), page.hasMore())).build();
         } catch (PictureException e) {
             return error(e);
         }
@@ -210,11 +230,16 @@ public class PictureResource {
     @GET
     @Path("/pictures/approved")
     @RolesAllowed(SecurityRoles.STAFF)
-    public Response getApprovedPictures(@QueryParam("gameId") UUID gameId) {
-        List<Picture> pictures = gameId != null
-            ? pictureService.findByStatusAndGame(PictureStatus.APPROVED, gameId)
-            : pictureService.findByStatus(PictureStatus.APPROVED);
-        return Response.ok(pictureService.toResponses(pictures)).build();
+    public Response getApprovedPictures(@QueryParam("gameId") UUID gameId,
+                                        @QueryParam("cursorAt") String cursorAt,
+                                        @QueryParam("cursorId") UUID cursorId,
+                                        @QueryParam("pageSize") Integer pageSize) {
+        try {
+            return Response.ok(listResponse(pictureService.findApprovedPage(
+                gameId, Cursor.parse(cursorAt, cursorId), pageSize(pageSize, DEFAULT_PAGE_SIZE)))).build();
+        } catch (PictureException e) {
+            return error(e);
+        }
     }
 
     /**
@@ -281,11 +306,16 @@ public class PictureResource {
     @GET
     @Path("/pictures/pending")
     @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER, SecurityRoles.RALLY_DESK})
-    public Response getPendingPictures(@QueryParam("gameId") UUID gameId) {
-        List<Picture> pictures = gameId != null
-            ? pictureService.findReadyForModerationByGame(gameId)
-            : pictureService.findReadyForModeration();
-        return Response.ok(pictureService.toResponses(pictures)).build();
+    public Response getPendingPictures(@QueryParam("gameId") UUID gameId,
+                                       @QueryParam("cursorAt") String cursorAt,
+                                       @QueryParam("cursorId") UUID cursorId,
+                                       @QueryParam("pageSize") Integer pageSize) {
+        try {
+            return Response.ok(listResponse(pictureService.findReadyForModerationPage(
+                gameId, Cursor.parse(cursorAt, cursorId), pageSize(pageSize, DEFAULT_PAGE_SIZE)))).build();
+        } catch (PictureException e) {
+            return error(e);
+        }
     }
 
     /**
@@ -294,10 +324,13 @@ public class PictureResource {
     @GET
     @Path("/pictures")
     @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER, SecurityRoles.RALLY_DESK})
-    public Response getAllPictures(@QueryParam("status") String status, @QueryParam("gameId") UUID gameId) {
-        List<Picture> pictures;
+    public Response getAllPictures(@QueryParam("status") String status,
+                                   @QueryParam("gameId") UUID gameId,
+                                   @QueryParam("cursorAt") String cursorAt,
+                                   @QueryParam("cursorId") UUID cursorId,
+                                   @QueryParam("pageSize") Integer pageSize) {
+        PictureStatus parsed = null;
         if (status != null && !status.isBlank()) {
-            PictureStatus parsed;
             try {
                 parsed = PictureStatus.valueOf(status.trim().toUpperCase());
             } catch (IllegalArgumentException e) {
@@ -305,15 +338,13 @@ public class PictureResource {
                     .entity(new ErrorResponse("Invalid status: " + status))
                     .build();
             }
-            pictures = gameId != null
-                ? pictureService.findByStatusAndGame(parsed, gameId)
-                : pictureService.findByStatus(parsed);
-        } else {
-            pictures = gameId != null
-                ? pictureService.findAllByGame(gameId)
-                : pictureService.findAll();
         }
-        return Response.ok(pictureService.toResponses(pictures)).build();
+        try {
+            return Response.ok(listResponse(pictureService.findPage(
+                parsed, gameId, Cursor.parse(cursorAt, cursorId), pageSize(pageSize, DEFAULT_PAGE_SIZE)))).build();
+        } catch (PictureException e) {
+            return error(e);
+        }
     }
 
     /**
@@ -347,6 +378,32 @@ public class PictureResource {
     }
 
     // ==================== Helpers ====================
+
+    private PictureListResponse listResponse(PicturePage page) {
+        return new PictureListResponse(
+            pictureService.toResponses(page.pictures()),
+            cursorAt(page), cursorId(page), page.hasMore());
+    }
+
+    private static String cursorAt(PicturePage page) {
+        return page.next() != null ? page.next().at().toString() : null;
+    }
+
+    private static String cursorId(PicturePage page) {
+        return page.next() != null ? page.next().id().toString() : null;
+    }
+
+    /**
+     * Clamp the requested page size. The upper bound matters more than usual here: every picture
+     * in a response costs one S3 presign, so an unbounded page size is the exact problem paging
+     * was added to solve.
+     */
+    private static int pageSize(Integer requested, int fallback) {
+        if (requested == null || requested < 1 || requested > MAX_PAGE_SIZE) {
+            return fallback;
+        }
+        return requested;
+    }
 
     private static UUID adminId(SecurityContext securityContext) {
         return securityContext.getUserPrincipal() != null

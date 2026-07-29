@@ -59,9 +59,11 @@ import type {
   CopyAutomationsResult,
   CopyCheckpointsResult,
   Picture,
-  PublicPicture,
+  PictureCursor,
   PictureDownloadToken,
+  PictureListResponse,
   PictureUploadResponse,
+  PublicPictureListResponse,
 } from '../types/entities';
 import storage from './storage';
 import { isTokenExpiringSoon } from './auth';
@@ -73,6 +75,32 @@ interface ApiResponse<T> {
   data?: T;
   error?: string;
   status: number;
+}
+
+/**
+ * How many photos one batch of a picture list holds. Matches the 4-column admin grid, so a
+ * batch fills the viewport without making the request pay for presigning more URLs than the
+ * user will look at. The photowall omits it and takes the server's configured default.
+ */
+export const PICTURE_PAGE_SIZE = 24;
+
+/** Build the query string for a cursor-paged picture list, skipping absent parts. */
+function pictureQuery(opts: {
+  status?: string;
+  gameId?: string;
+  cursor?: PictureCursor;
+  pageSize?: number;
+}): string {
+  const params = new URLSearchParams();
+  if (opts.status) params.set('status', opts.status);
+  if (opts.gameId) params.set('gameId', opts.gameId);
+  if (opts.cursor) {
+    params.set('cursorAt', opts.cursor.at);
+    params.set('cursorId', opts.cursor.id);
+  }
+  if (opts.pageSize) params.set('pageSize', String(opts.pageSize));
+  const query = params.toString();
+  return query ? `?${query}` : '';
 }
 
 /**
@@ -929,6 +957,7 @@ async getGames() : Promise<ApiResponse<Game[]>> {
   }
 
   // ==================== Picture endpoints ====================
+  // The list endpoints are cursor-paged; see pictureQuery below.
 
   // Team: reserve an upload slot and get a pre-signed PUT URL.
   async requestPictureUpload(
@@ -983,25 +1012,35 @@ async getGames() : Promise<ApiResponse<Game[]>> {
 
   // Players' photowall: all approved pictures for the team's game, newest first.
   // Returns the public-safe projection (no moderation metadata) — it's a shared wall.
-  async getPhotowall(teamId: string): Promise<ApiResponse<PublicPicture[]>> {
-    return this.get(`/teams/${teamId}/pictures/approved`);
+  // Paged: pass the cursor from the previous page to load older photos.
+  async getPhotowall(
+    teamId: string,
+    cursor?: PictureCursor,
+  ): Promise<ApiResponse<PublicPictureListResponse>> {
+    return this.get(`/teams/${teamId}/pictures/approved${pictureQuery({ cursor })}`);
   }
 
-  // Admin moderation
-  async getPendingPictures(gameId?: string): Promise<ApiResponse<Picture[]>> {
-    return this.get(gameId ? `/pictures/pending?gameId=${encodeURIComponent(gameId)}` : '/pictures/pending');
+  // Admin moderation. All three are cursor-paged; omit the cursor for the first page.
+  async getPendingPictures(
+    gameId?: string,
+    cursor?: PictureCursor,
+  ): Promise<ApiResponse<PictureListResponse>> {
+    return this.get(`/pictures/pending${pictureQuery({ gameId, cursor, pageSize: PICTURE_PAGE_SIZE })}`);
   }
 
-  async getAllPictures(status?: string, gameId?: string): Promise<ApiResponse<Picture[]>> {
-    const params = new URLSearchParams();
-    if (status) params.set('status', status);
-    if (gameId) params.set('gameId', gameId);
-    const query = params.toString();
-    return this.get(query ? `/pictures?${query}` : '/pictures');
+  async getAllPictures(
+    status?: string,
+    gameId?: string,
+    cursor?: PictureCursor,
+  ): Promise<ApiResponse<PictureListResponse>> {
+    return this.get(`/pictures${pictureQuery({ status, gameId, cursor, pageSize: PICTURE_PAGE_SIZE })}`);
   }
 
-  async getApprovedPictures(gameId?: string): Promise<ApiResponse<Picture[]>> {
-    return this.get(gameId ? `/pictures/approved?gameId=${encodeURIComponent(gameId)}` : '/pictures/approved');
+  async getApprovedPictures(
+    gameId?: string,
+    cursor?: PictureCursor,
+  ): Promise<ApiResponse<PictureListResponse>> {
+    return this.get(`/pictures/approved${pictureQuery({ gameId, cursor, pageSize: PICTURE_PAGE_SIZE })}`);
   }
 
   async approvePicture(pictureId: string): Promise<ApiResponse<Picture>> {

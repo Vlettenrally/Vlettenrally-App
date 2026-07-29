@@ -16,7 +16,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Mock implementation of PictureRepository with prefilled data.
@@ -64,6 +66,16 @@ public class MockPictureRepository implements PictureRepository {
             MockTeamRepository.TEAM_WINDKRACHT_ID, MockGameRepository.GAME_2026_ID,
             PictureStatus.APPROVED, now.minus(30, ChronoUnit.MINUTES), now.minus(28, ChronoUnit.MINUTES), now.minus(10, ChronoUnit.MINUTES)));
 
+        // Bulk filler so the photowall and the approved tab page past the first batch of 24 in dev.
+        // These are organisation (admin) uploads with no team: attributing them to a mock team
+        // would push it over max-per-team and break the team upload flow in dev. Ids stay stable
+        // (cccc01xx) so a dev session can be reloaded without them shifting.
+        for (int i = 0; i < 40; i++) {
+            Instant created = now.minus(200L + i * 3L, ChronoUnit.MINUTES);
+            put(adminPicture(String.format("cccc01%02d-0000-0000-0000-0000000001%02d", i, i),
+                MockGameRepository.GAME_2026_ID, created));
+        }
+
         Log.info("🎭 MockPictureRepository initialized with " + pictures.size() + " pictures");
     }
 
@@ -82,16 +94,20 @@ public class MockPictureRepository implements PictureRepository {
         return p;
     }
 
-    @Override
-    public Optional<Picture> findById(UUID id) {
-        return Optional.ofNullable(pictures.get(id));
+    /** An organisation upload: no team, auto-approved, keyed under the game's admin prefix. */
+    private Picture adminPicture(String id, UUID gameId, Instant createdAt) {
+        UUID pictureId = UUID.fromString(id);
+        Picture p = new Picture(pictureId, null, gameId,
+            "games/" + gameId + "/admin/" + pictureId, PictureStatus.APPROVED, "image/jpeg", createdAt);
+        p.setUploadedAt(createdAt.plus(2, ChronoUnit.MINUTES));
+        p.setSizeBytes(512_000L);
+        p.setModeratedAt(createdAt.plus(2, ChronoUnit.MINUTES));
+        return p;
     }
 
     @Override
-    public List<Picture> findAll() {
-        return pictures.values().stream()
-                .sorted(Comparator.comparing(Picture::getCreatedAt).reversed())
-                .collect(Collectors.toList());
+    public Optional<Picture> findById(UUID id) {
+        return Optional.ofNullable(pictures.get(id));
     }
 
     @Override
@@ -111,38 +127,6 @@ public class MockPictureRepository implements PictureRepository {
     }
 
     @Override
-    public List<Picture> findReadyForModeration() {
-        return pictures.values().stream()
-                .filter(p -> p.getStatus() == PictureStatus.PENDING && p.getUploadedAt() != null)
-                .sorted(Comparator.comparing(Picture::getUploadedAt))
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<Picture> findReadyForModerationByGameId(UUID gameId) {
-        return pictures.values().stream()
-                .filter(p -> gameId.equals(p.getGameId()) && p.getStatus() == PictureStatus.PENDING && p.getUploadedAt() != null)
-                .sorted(Comparator.comparing(Picture::getUploadedAt))
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<Picture> findByStatusAndGameId(PictureStatus status, UUID gameId) {
-        return pictures.values().stream()
-                .filter(p -> gameId.equals(p.getGameId()) && p.getStatus() == status)
-                .sorted(Comparator.comparing(Picture::getCreatedAt).reversed())
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<Picture> findAllByGameId(UUID gameId) {
-        return pictures.values().stream()
-                .filter(p -> gameId.equals(p.getGameId()))
-                .sorted(Comparator.comparing(Picture::getCreatedAt).reversed())
-                .collect(Collectors.toList());
-    }
-
-    @Override
     public List<Picture> findApprovedByGameId(UUID gameId) {
         return pictures.values().stream()
                 .filter(p -> gameId.equals(p.getGameId()) && p.getStatus() == PictureStatus.APPROVED)
@@ -151,10 +135,60 @@ public class MockPictureRepository implements PictureRepository {
     }
 
     @Override
-    public List<Picture> findRecentApprovedByGameId(UUID gameId, int limit) {
-        return pictures.values().stream()
-                .filter(p -> gameId.equals(p.getGameId()) && p.getStatus() == PictureStatus.APPROVED)
-                .sorted(Comparator.comparing(Picture::getUploadedAt).reversed())
+    public List<Picture> findReadyForModerationPage(UUID gameId, Instant cursorAt, UUID cursorId, int limit) {
+        return page(
+                pictures.values().stream()
+                        .filter(p -> gameId == null || gameId.equals(p.getGameId()))
+                        .filter(p -> p.getStatus() == PictureStatus.PENDING && p.getUploadedAt() != null),
+                Picture::getUploadedAt, true, cursorAt, cursorId, limit);
+    }
+
+    @Override
+    public List<Picture> findApprovedPage(UUID gameId, Instant cursorAt, UUID cursorId, int limit) {
+        return page(
+                pictures.values().stream()
+                        .filter(p -> gameId == null || gameId.equals(p.getGameId()))
+                        .filter(p -> p.getStatus() == PictureStatus.APPROVED),
+                Picture::getUploadedAt, false, cursorAt, cursorId, limit);
+    }
+
+    @Override
+    public List<Picture> findPage(PictureStatus status, UUID gameId, Instant cursorAt, UUID cursorId, int limit) {
+        return page(
+                pictures.values().stream()
+                        .filter(p -> gameId == null || gameId.equals(p.getGameId()))
+                        .filter(p -> status == null || p.getStatus() == status),
+                Picture::getCreatedAt, false, cursorAt, cursorId, limit);
+    }
+
+    /**
+     * Keyset page over an already-filtered stream, matching the JPA ordering exactly:
+     * sort by (key, id) in the requested direction and keep only rows strictly past the cursor.
+     */
+    private List<Picture> page(Stream<Picture> filtered,
+                               Function<Picture, Instant> sortKey,
+                               boolean ascending, Instant cursorAt, UUID cursorId, int limit) {
+        Comparator<Picture> order = Comparator.comparing(sortKey).thenComparing(Picture::getId);
+        if (!ascending) {
+            order = order.reversed();
+        }
+        Comparator<Picture> cursorOrder = order;
+        return filtered
+                .filter(p -> {
+                    if (cursorAt == null) {
+                        return true;
+                    }
+                    int cmp = sortKey.apply(p).compareTo(cursorAt);
+                    if (cmp != 0) {
+                        return ascending ? cmp > 0 : cmp < 0;
+                    }
+                    if (cursorId == null) {
+                        return false;
+                    }
+                    int byId = p.getId().compareTo(cursorId);
+                    return ascending ? byId > 0 : byId < 0;
+                })
+                .sorted(cursorOrder)
                 .limit(limit)
                 .collect(Collectors.toList());
     }

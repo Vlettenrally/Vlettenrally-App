@@ -3,7 +3,7 @@
  * Returns fake data for all API endpoints
  */
 
-import type { Game, Picture, PictureStatus } from '../types/entities';
+import type { Game, Picture, PictureCursor, PictureStatus } from '../types/entities';
 
 const MOCK_TEAM_ID = '11111111-1111-1111-1111-111111111111';
 const MOCK_GAME_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
@@ -184,11 +184,71 @@ const mockPictures: Picture[] = ([
     uploadedAt: new Date(Date.now() - 28 * 60 * 1000).toISOString(),
     moderatedAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(), notes: null,
   },
+  // Bulk filler so the photowall pages past the first batch in mock mode. Attributed to a third
+  // team so the mock upload caps on MOCK_TEAM_ID keep behaving like the real ones.
+  ...Array.from({ length: 30 }, (_, i) => {
+    const created = Date.now() - (200 + i * 3) * 60 * 1000;
+    return {
+      id: `pic-fill-${i}`, teamId: '33333333-3333-3333-3333-333333333333',
+      gameId: MOCK_GAME_ID, status: 'APPROVED' as PictureStatus,
+      contentType: 'image/jpeg', sizeBytes: 500000,
+      viewUrl: `https://picsum.photos/seed/pic-fill-${i}/600/400`,
+      createdAt: new Date(created).toISOString(),
+      uploadedAt: new Date(created + 2 * 60 * 1000).toISOString(),
+      moderatedAt: new Date(created + 5 * 60 * 1000).toISOString(), notes: null,
+    };
+  }),
 ] as Omit<Picture, 'teamName' | 'teamDescription'>[]).map((p) => ({
   ...p,
   teamName: teamNameFor(p.teamId),
   teamDescription: teamDescriptionFor(p.teamId),
 }));
+
+const MOCK_PICTURE_PAGE_SIZE = 24;
+
+/** Sort key of a picture as a comparable string; missing timestamps sort last. */
+function sortKey(picture: Picture, key: 'uploadedAt' | 'createdAt'): string {
+  return picture[key] ?? '';
+}
+
+/**
+ * Mirror of the backend's keyset paging: drop everything up to and including the cursor row,
+ * then take one batch. `rows` must already be sorted in the direction the caller wants.
+ */
+function pageOf(
+  rows: Picture[],
+  cursor: PictureCursor | undefined,
+  key: 'uploadedAt' | 'createdAt',
+  ascending: boolean,
+) {
+  const past = cursor
+    ? rows.filter((p) => {
+        const cmp = sortKey(p, key).localeCompare(cursor.at);
+        if (cmp !== 0) return ascending ? cmp > 0 : cmp < 0;
+        const byId = p.id.localeCompare(cursor.id);
+        return ascending ? byId > 0 : byId < 0;
+      })
+    : rows;
+  const pictures = past.slice(0, MOCK_PICTURE_PAGE_SIZE).map((p) => ({ ...p }));
+  const hasMore = past.length > MOCK_PICTURE_PAGE_SIZE;
+  const last = pictures[pictures.length - 1];
+  return {
+    pictures,
+    nextCursorAt: hasMore && last ? sortKey(last, key) : null,
+    nextCursorId: hasMore && last ? last.id : null,
+    hasMore,
+  };
+}
+
+/** Approved pictures newest first, with the same (uploadedAt, id) total ordering as the API. */
+function approvedNewestFirst(gameId?: string): Picture[] {
+  return mockPictures
+    .filter((p) => p.status === 'APPROVED' && (!gameId || p.gameId === gameId))
+    .sort(
+      (a, b) =>
+        sortKey(b, 'uploadedAt').localeCompare(sortKey(a, 'uploadedAt')) || b.id.localeCompare(a.id),
+    );
+}
 
 export const mockApi = {
   async getMessages() {
@@ -293,36 +353,33 @@ export const mockApi = {
     return { data: undefined, status: 204 };
   },
 
-  async getPendingPictures(gameId?: string) {
-    return {
-      data: mockPictures.filter((p) => p.status === 'PENDING' && p.uploadedAt && (!gameId || p.gameId === gameId)).map((p) => ({ ...p })),
-      status: 200,
-    };
+  async getPendingPictures(gameId?: string, cursor?: PictureCursor) {
+    const rows = mockPictures
+      .filter((p) => p.status === 'PENDING' && p.uploadedAt && (!gameId || p.gameId === gameId))
+      .sort((a, b) => sortKey(a, 'uploadedAt').localeCompare(sortKey(b, 'uploadedAt')) || a.id.localeCompare(b.id));
+    return { data: pageOf(rows, cursor, 'uploadedAt', true), status: 200 };
   },
 
-  async getAllPictures(status?: string, gameId?: string) {
+  async getAllPictures(status?: string, gameId?: string, cursor?: PictureCursor) {
     const upper = status?.toUpperCase() as PictureStatus | undefined;
-    return {
-      data: mockPictures.filter((p) => (!upper || p.status === upper) && (!gameId || p.gameId === gameId)).map((p) => ({ ...p })),
-      status: 200,
-    };
+    const rows = mockPictures
+      .filter((p) => (!upper || p.status === upper) && (!gameId || p.gameId === gameId))
+      .sort((a, b) => sortKey(b, 'createdAt').localeCompare(sortKey(a, 'createdAt')) || b.id.localeCompare(a.id));
+    return { data: pageOf(rows, cursor, 'createdAt', false), status: 200 };
   },
 
-  async getApprovedPictures(gameId?: string) {
-    return {
-      data: mockPictures.filter((p) => p.status === 'APPROVED' && (!gameId || p.gameId === gameId)).map((p) => ({ ...p })),
-      status: 200,
-    };
+  async getApprovedPictures(gameId?: string, cursor?: PictureCursor) {
+    return { data: pageOf(approvedNewestFirst(gameId), cursor, 'uploadedAt', false), status: 200 };
   },
 
   // Players' photowall: approved pictures for the (single mock) game, newest first.
-  // Mirrors the public-safe projection returned by the real endpoint.
-  async getPhotowall() {
+  // Mirrors the public-safe projection and the cursor paging of the real endpoint.
+  async getPhotowall(_teamId?: string, cursor?: PictureCursor) {
+    const page = pageOf(approvedNewestFirst(), cursor, 'uploadedAt', false);
     return {
-      data: mockPictures
-        .filter((p) => p.status === 'APPROVED')
-        .sort((a, b) => (b.uploadedAt ?? '').localeCompare(a.uploadedAt ?? ''))
-        .map((p) => ({
+      data: {
+        ...page,
+        pictures: page.pictures.map((p) => ({
           id: p.id,
           gameId: p.gameId,
           contentType: p.contentType,
@@ -331,6 +388,7 @@ export const mockApi = {
           teamName: p.teamName,
           teamDescription: p.teamDescription,
         })),
+      },
       status: 200,
     };
   },

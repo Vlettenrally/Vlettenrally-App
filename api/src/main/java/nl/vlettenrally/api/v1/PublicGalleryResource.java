@@ -10,7 +10,6 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import nl.vlettenrally.api.security.PublicEndpointToken;
 import nl.vlettenrally.data.domain.Picture;
-import nl.vlettenrally.data.enums.PictureStatus;
 import nl.vlettenrally.service.PictureService;
 
 import java.util.List;
@@ -65,7 +64,7 @@ public class PublicGalleryResource {
     @GET
     @Path("/pictures")
     public Response allApproved() {
-        return pictures(pictureService.findByStatus(PictureStatus.APPROVED));
+        return pictures(pictureService.findAllApproved());
     }
 
     private Response pictures(List<Picture> pics) {
