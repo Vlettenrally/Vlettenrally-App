@@ -117,7 +117,7 @@ public class PictureServiceImpl implements PictureService {
 
         if (pictureRepository.countActiveByTeamId(teamId) >= maxPerTeam) {
             throw new PictureException(Response.Status.CONFLICT,
-                "Picture limit reached (" + maxPerTeam + " per team). Delete a picture to upload a new one.");
+                "Picture limit reached (" + maxPerTeam + " per team). Wait for a picture to be moderated.");
         }
 
         // Reserve the row (and thus the slot + unique key) BEFORE issuing the URL.
@@ -248,16 +248,6 @@ public class PictureServiceImpl implements PictureService {
             }
             pictureRepository.delete(picture.getId());
         }
-    }
-
-    @Override
-    public void deleteOwnPicture(UUID teamId, UUID pictureId) {
-        Picture picture = ownedPicture(teamId, pictureId);
-        if (picture.getStatus() != PictureStatus.PENDING) {
-            throw new PictureException(Response.Status.CONFLICT, "Only pending pictures can be deleted");
-        }
-        storageService.delete(picture.getObjectKey());
-        pictureRepository.delete(picture.getId());
     }
 
     @Override

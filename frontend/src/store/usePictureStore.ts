@@ -18,7 +18,6 @@ interface PictureState {
 
   setPictures: (pictures: Picture[]) => void;
   upsertPicture: (picture: Picture) => void;
-  removePicture: (pictureId: string) => void;
   setUploadProgress: (key: string, percent: number) => void;
   clearUploadProgress: (key: string) => void;
 
@@ -49,8 +48,6 @@ export const usePictureStore = create<PictureState>((set) => ({
           : [picture, ...state.pictures],
       };
     }),
-  removePicture: (pictureId) =>
-    set((state) => ({ pictures: state.pictures.filter((p) => p.id !== pictureId) })),
   setUploadProgress: (key, percent) =>
     set((state) => ({ uploadProgress: { ...state.uploadProgress, [key]: percent } })),
   clearUploadProgress: (key) =>

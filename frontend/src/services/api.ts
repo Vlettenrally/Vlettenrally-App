@@ -1006,10 +1006,6 @@ async getGames() : Promise<ApiResponse<Game[]>> {
     return this.get(`/teams/${teamId}/pictures`);
   }
 
-  async deletePicture(teamId: string, pictureId: string): Promise<ApiResponse<void>> {
-    return this.delete(`/teams/${teamId}/pictures/${pictureId}`);
-  }
-
   // Players' photowall: all approved pictures for the team's game, newest first.
   // Returns the public-safe projection (no moderation metadata) — it's a shared wall.
   // Paged: pass the cursor from the previous page to load older photos.

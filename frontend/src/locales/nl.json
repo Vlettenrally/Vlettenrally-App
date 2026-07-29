@@ -192,7 +192,6 @@
       "uploadLimitReached": "Je hebt het maximale aantal foto-uploads bereikt.",
       "uploading": "Uploaden… {{percent}}%",
       "noPhotos": "Nog geen foto's geüpload.",
-      "delete": "Verwijderen",
       "photoAlt": "Geüploade foto",
       "publicWarning": "Let op: foto's die je uploadt kunnen na goedkeuring openbaar zichtbaar zijn (bijvoorbeeld in de diavoorstelling). Upload geen foto's die niet iedereen mag zien.",
       "loadError": "Kon de foto's niet laden.",
@@ -201,8 +200,7 @@
       "uploadFailed": "Uploaden mislukt.",
       "storageFailed": "Uploaden naar de opslag is mislukt.",
       "confirmFailed": "Bevestigen van de upload is mislukt.",
-      "uploadRetry": "Uploaden mislukt. Probeer het opnieuw.",
-      "deleteFailed": "Verwijderen mislukt."
+      "uploadRetry": "Uploaden mislukt. Probeer het opnieuw."
     },
     "photowall": {
       "title": "Fotomuur",

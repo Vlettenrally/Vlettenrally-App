@@ -68,13 +68,6 @@ public interface PictureService {
     void deleteAllForTeam(UUID teamId);
 
     /**
-     * Delete a team's own picture (only while PENDING) and its object, freeing a slot.
-     *
-     * @throws PictureException 404 if not found for the team, 409 if it is not PENDING.
-     */
-    void deleteOwnPicture(UUID teamId, UUID pictureId);
-
-    /**
      * One page of the moderation queue, oldest first. {@code gameId} null means all games.
      *
      * @throws PictureException 400 if the cursor is malformed.

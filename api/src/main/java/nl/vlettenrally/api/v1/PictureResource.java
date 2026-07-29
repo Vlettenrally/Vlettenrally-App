@@ -6,7 +6,6 @@ import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
-import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -155,22 +154,6 @@ public class PictureResource {
             return Response.ok(new PublicPictureListResponse(
                 pictureService.toPublicResponses(page.pictures()),
                 cursorAt(page), cursorId(page), page.hasMore())).build();
-        } catch (PictureException e) {
-            return error(e);
-        }
-    }
-
-    /**
-     * Delete a team's own pending picture (frees a slot).
-     */
-    @DELETE
-    @Path("/teams/{teamId}/pictures/{pictureId}")
-    @RolesAllowed("team")
-    @TeamScoped
-    public Response deletePicture(@PathParam("teamId") UUID teamId, @PathParam("pictureId") UUID pictureId) {
-        try {
-            pictureService.deleteOwnPicture(teamId, pictureId);
-            return Response.noContent().build();
         } catch (PictureException e) {
             return error(e);
         }

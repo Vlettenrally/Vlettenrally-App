@@ -347,12 +347,6 @@ export const mockApi = {
     return { data: mockPictures.filter((p) => p.teamId === teamId).map((p) => ({ ...p })), status: 200 };
   },
 
-  async deletePicture(_teamId: string, pictureId: string) {
-    const idx = mockPictures.findIndex((p) => p.id === pictureId);
-    if (idx >= 0) mockPictures.splice(idx, 1);
-    return { data: undefined, status: 204 };
-  },
-
   async getPendingPictures(gameId?: string, cursor?: PictureCursor) {
     const rows = mockPictures
       .filter((p) => p.status === 'PENDING' && p.uploadedAt && (!gameId || p.gameId === gameId))

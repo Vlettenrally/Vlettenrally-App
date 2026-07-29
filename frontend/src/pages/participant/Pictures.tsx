@@ -16,15 +16,12 @@ import {
   CircularProgress,
   Container,
   Dialog,
-  IconButton,
   LinearProgress,
   Stack,
-  Tooltip,
   Typography,
 } from '@mui/material';
 import PictureImage from '../../components/PictureImage';
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
-import DeleteIcon from '@mui/icons-material/Delete';
 import PublicIcon from '@mui/icons-material/Public';
 import { useTeamStore } from '../../store/useTeamStore';
 import { useGameStore } from '../../store/useGameStore';
@@ -44,7 +41,7 @@ export default function Pictures() {
   const { team } = useTeamStore();
   const { game } = useGameStore();
   const {
-    pictures, setPictures, upsertPicture, removePicture,
+    pictures, setPictures, upsertPicture,
     uploadProgress, setUploadProgress, clearUploadProgress,
   } = usePictureStore();
 
@@ -133,16 +130,6 @@ export default function Pictures() {
     } finally {
       clearUploadProgress(progressKey);
       setUploading(false);
-    }
-  };
-
-  const handleDelete = async (picture: Picture) => {
-    if (!team) return;
-    const res = await apiToUse.deletePicture(team.id, picture.id);
-    if (res.status === 204 || res.status === 200) {
-      removePicture(picture.id);
-    } else {
-      setError(res.error || t('participant.pictures.deleteFailed'));
     }
   };
 
@@ -241,19 +228,6 @@ export default function Pictures() {
                   <Box sx={{ position: 'absolute', top: 8, left: 8 }}>
                     <Chip size="small" label={status.label} color={status.color} />
                   </Box>
-                  {picture.status === 'PENDING' && (
-                    <Box sx={{ position: 'absolute', top: 4, right: 4 }}>
-                      <Tooltip title={t('participant.pictures.delete')}>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleDelete(picture)}
-                          sx={{ bgcolor: 'rgba(255,255,255,0.8)', '&:hover': { bgcolor: 'white' } }}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  )}
                 </Card>
               );
             })}

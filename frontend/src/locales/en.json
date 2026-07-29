@@ -192,7 +192,6 @@
       "uploadLimitReached": "You have reached the maximum number of photo uploads.",
       "uploading": "Uploading… {{percent}}%",
       "noPhotos": "No photos uploaded yet.",
-      "delete": "Delete",
       "photoAlt": "Uploaded photo",
       "publicWarning": "Note: photos you upload may be publicly visible after approval (for example in the slideshow). Do not upload photos that not everyone should see.",
       "loadError": "Failed to load photos.",
@@ -201,8 +200,7 @@
       "uploadFailed": "Upload failed.",
       "storageFailed": "Uploading to storage failed.",
       "confirmFailed": "Failed to confirm the upload.",
-      "uploadRetry": "Upload failed. Please try again.",
-      "deleteFailed": "Delete failed."
+      "uploadRetry": "Upload failed. Please try again."
     },
     "photowall": {
       "title": "Photo Wall",

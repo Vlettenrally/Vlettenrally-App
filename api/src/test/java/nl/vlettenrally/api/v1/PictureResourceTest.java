@@ -135,24 +135,6 @@ class PictureResourceTest {
         assertEquals(422, response.getStatus());
     }
 
-    // ==================== delete ====================
-
-    @Test
-    void deletePicture_returns204() {
-        Response response = resource.deletePicture(teamId, pictureId);
-        assertEquals(204, response.getStatus());
-    }
-
-    @Test
-    void deletePicture_mapsConflict() {
-        org.mockito.Mockito.doThrow(new PictureException(Response.Status.CONFLICT, "not pending"))
-            .when(pictureService).deleteOwnPicture(teamId, pictureId);
-
-        Response response = resource.deletePicture(teamId, pictureId);
-
-        assertEquals(409, response.getStatus());
-    }
-
     // ==================== admin listing ====================
 
     @Test

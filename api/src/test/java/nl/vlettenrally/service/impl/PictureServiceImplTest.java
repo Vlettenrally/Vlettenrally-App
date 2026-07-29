@@ -235,31 +235,6 @@ class PictureServiceImplTest {
         verify(storageService, never()).head(any());
     }
 
-    // ==================== deleteOwnPicture ====================
-
-    @Test
-    void deleteOwnPicture_pending_deletesObjectAndRow() {
-        Picture pending = reservation();
-        when(pictureRepository.findById(pending.getId())).thenReturn(Optional.of(pending));
-
-        service.deleteOwnPicture(teamId, pending.getId());
-
-        verify(storageService).delete(pending.getObjectKey());
-        verify(pictureRepository).delete(pending.getId());
-    }
-
-    @Test
-    void deleteOwnPicture_nonPending_with409() {
-        Picture approved = reservation();
-        approved.setStatus(PictureStatus.APPROVED);
-        when(pictureRepository.findById(approved.getId())).thenReturn(Optional.of(approved));
-
-        PictureException ex = assertThrows(PictureException.class,
-            () -> service.deleteOwnPicture(teamId, approved.getId()));
-        assertEquals(409, ex.getStatusCode());
-        verify(pictureRepository, never()).delete(any());
-    }
-
     // ==================== approve / reject ====================
 
     @Test
