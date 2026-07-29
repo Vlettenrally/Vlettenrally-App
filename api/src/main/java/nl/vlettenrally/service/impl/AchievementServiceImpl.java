@@ -18,6 +18,7 @@ import nl.vlettenrally.data.repository.CheckpointRepository;
 import nl.vlettenrally.data.repository.FcmTokenRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.fcm.FcmHttpClient;
+import nl.vlettenrally.fcm.PushUrgency;
 import nl.vlettenrally.observability.DeliveryMetrics;
 import nl.vlettenrally.observability.DeliveryMetrics.FcmCaller;
 import nl.vlettenrally.service.AchievementService;
@@ -98,6 +99,9 @@ public class AchievementServiceImpl implements AchievementService {
 
     @ConfigProperty(name = "vlettenrally.achievement.rejection-expiry-minutes", defaultValue = "15")
     long rejectionExpiryMinutes;
+
+    @ConfigProperty(name = "vlettenrally.firebase.ephemeral-ttl-seconds", defaultValue = "900")
+    int ephemeralTtlSeconds;
 
     /**
      * Drops REJECTED achievements whose verifiedAt is older than the configured
@@ -217,7 +221,7 @@ public class AchievementServiceImpl implements AchievementService {
         // 2) Durable FCM push to subscribed admins (independent of WS state)
         Set<UUID> adminIds = checkpointFcmSubscriptionManager.getSubscribedAdmins(checkpoint.getId());
         if (adminIds.isEmpty()) {
-            Log.debugf("No FCM subscribers for checkpoint %s — skipping push", checkpoint.getId());
+            Log.infof("No FCM subscribers for checkpoint %s — skipping push", checkpoint.getId());
             return;
         }
 
@@ -234,7 +238,11 @@ public class AchievementServiceImpl implements AchievementService {
                         "type", "CHECKPOINT_DETECTION",
                         "checkpointId", checkpoint.getId().toString(),
                         "teamId", teamId.toString()
-                    )
+                    ),
+                    // A team is standing at the checkpoint right now, so this is worth a
+                    // wakeup — and worthless once they have moved on, so it expires.
+                    PushUrgency.HIGH,
+                    ephemeralTtlSeconds
                 );
             } catch (FcmHttpClient.FcmException e) {
                 Log.warnf("Failed to send FCM checkpoint detection to token %s: %s", fcmToken.getId(), e.getMessage());

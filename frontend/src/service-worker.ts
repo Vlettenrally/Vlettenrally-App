@@ -30,16 +30,27 @@ function openNotificationDb(): Promise<IDBDatabase> {
   });
 }
 
-async function addPendingMessageId(messageId: string): Promise<void> {
+async function addPendingMessageId(messageId: string, deliveryLatencyMs?: number): Promise<void> {
   try {
     const db = await openNotificationDb();
     const transaction = db.transaction(STORE_NAME, 'readwrite');
     const store = transaction.objectStore(STORE_NAME);
-    store.put({ messageId, timestamp: Date.now() });
+    store.put({ messageId, timestamp: Date.now(), deliveryLatencyMs });
     transaction.oncomplete = () => db.close();
   } catch (error) {
     console.error('[service-worker.ts] Failed to add pending message:', error);
   }
+}
+
+/**
+ * How long the push actually took to arrive, from the backend's `sentAt` stamp to now.
+ * Push services defer low-urgency messages for minutes while a device is idle, and that
+ * delay is invisible from the app side — this is the only place both timestamps exist.
+ * Returns undefined when `sentAt` is absent (older backend, or a non-FCM push path).
+ */
+function deliveryLatencyMs(payloadData?: Record<string, string>): number | undefined {
+  const sentAt = Number(payloadData?.sentAt);
+  return Number.isFinite(sentAt) && sentAt > 0 ? Date.now() - sentAt : undefined;
 }
 
 // ==================== BroadcastChannel for immediate sync ====================
@@ -103,11 +114,16 @@ function initializeFirebase() {
     // Handle background messages via Firebase
     onBackgroundMessage(messaging, (payload) => {
       console.log('[service-worker.ts] Received background message via Firebase', payload);
-      
+
+      const latencyMs = deliveryLatencyMs(payload.data);
+      if (latencyMs !== undefined) {
+        console.log(`[service-worker.ts] Push delivery latency: ${latencyMs} ms`);
+      }
+
       // Queue messageId for sync when app opens
       const messageId = payload.data?.messageId;
       if (messageId) {
-        addPendingMessageId(messageId).then(() => {
+        addPendingMessageId(messageId, latencyMs).then(() => {
           broadcastNotification('NEW_MESSAGE', messageId);
         });
       }

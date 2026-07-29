@@ -15,6 +15,7 @@ import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.enums.TransmissionChannel;
 import nl.vlettenrally.data.repository.FcmTokenRepository;
 import nl.vlettenrally.fcm.FcmHttpClient;
+import nl.vlettenrally.fcm.PushUrgency;
 import nl.vlettenrally.observability.DeliveryMetrics;
 import nl.vlettenrally.observability.DeliveryMetrics.FcmCaller;
 
@@ -27,6 +28,9 @@ public class FirebasePushTransmitter implements MessageTransmitter {
 
     @ConfigProperty(name = "vlettenrally.firebase.enabled", defaultValue = "false")
     boolean enabled;
+
+    @ConfigProperty(name = "vlettenrally.firebase.ephemeral-ttl-seconds", defaultValue = "900")
+    int ephemeralTtlSeconds;
 
     @Inject
     FcmTokenRepository fcmTokenRepository;
@@ -76,13 +80,20 @@ public class FirebasePushTransmitter implements MessageTransmitter {
         boolean anySuccess = false;
         String lastError = null;
 
+        // Two independent decisions: whether it is worth waking the device, and whether it is
+        // still worth showing if that takes a while.
+        PushUrgency urgency = message.getMessageType().isUrgent() ? PushUrgency.HIGH : PushUrgency.NORMAL;
+        Integer ttlSeconds = message.getMessageType().isEphemeral() ? ephemeralTtlSeconds : null;
+
         for (FcmToken fcmToken : tokens) {
             try {
                 String messageId = fcmHttpClient.sendNotification(
                         fcmToken.getToken(),
                         getNotificationTitle(message),
                         message.getContent(),
-                        data
+                        data,
+                        urgency,
+                        ttlSeconds
                 );
 
                 Log.infof("Push notification sent successfully: %s", messageId);

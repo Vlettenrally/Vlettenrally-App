@@ -45,6 +45,8 @@ class FcmHttpClientTest {
 
     private FcmHttpClient fcmHttpClient;
 
+    private static final Integer EPHEMERAL_TTL_SECONDS = 900;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @BeforeEach
@@ -98,8 +100,86 @@ class FcmHttpClientTest {
         assertEquals("GENERAL", dataNode.get("messageType").asText());
         assertEquals("456", dataNode.get("teamId").asText());
 
-        // Verify data has exactly 5 fields (title, body, messageId, messageType, teamId)
-        assertEquals(5, dataNode.size());
+        // Verify data has exactly 6 fields (title, body, messageId, messageType, teamId, sentAt)
+        assertEquals(6, dataNode.size());
+    }
+
+    @Test
+    void testBuildFcmPayload_HighUrgencyWithTtl() throws Exception {
+        // Act
+        String payloadJson = invokeBuildFcmPayload(
+            "mock-fcm-token", "Test Title", "Test Body", null, PushUrgency.HIGH, 900);
+
+        // Assert
+        JsonNode headers = webpushHeaders(payloadJson);
+
+        // CRITICAL: at normal urgency the push service defers delivery while the device is
+        // idle, which shows up as notifications arriving minutes after they were sent.
+        assertEquals("high", headers.get("Urgency").asText(),
+                     "High urgency must reach the wire as 'high' so Android does not wait for the next Doze window");
+        assertEquals("900", headers.get("TTL").asText(),
+                     "Ephemeral notifications must expire rather than surface stale");
+    }
+
+    @Test
+    void testBuildFcmPayload_NormalUrgency() throws Exception {
+        // Act - GENERAL messages ride along with whatever wakeup the device was going to do anyway
+        String payloadJson = invokeBuildFcmPayload(
+            "mock-fcm-token", "Test Title", "Test Body", null, PushUrgency.NORMAL, null);
+
+        // Assert
+        assertEquals("normal", webpushHeaders(payloadJson).get("Urgency").asText(),
+                     "Normal urgency must reach the wire as 'normal', letting the device batch the wakeup");
+    }
+
+    @Test
+    void testBuildFcmPayload_NullTtlOmitsHeader() throws Exception {
+        // Act - a null TTL means "deliver whenever it lands", used for everything that is not ephemeral
+        String payloadJson = invokeBuildFcmPayload(
+            "mock-fcm-token", "Test Title", "Test Body", null, PushUrgency.HIGH, null);
+
+        // Assert - a TTL header would silently discard the message, so it must be absent
+        // entirely rather than sent with a large value.
+        JsonNode headers = webpushHeaders(payloadJson);
+        assertNull(headers.get("TTL"),
+                   "Non-ephemeral notifications must not carry a TTL - expiry would drop them");
+        assertEquals("high", headers.get("Urgency").asText(),
+                     "Urgency and TTL are independent: dropping the TTL must not downgrade urgency");
+    }
+
+    private JsonNode webpushHeaders(String payloadJson) throws Exception {
+        return objectMapper.readTree(payloadJson).get("message").path("webpush").path("headers");
+    }
+
+    @Test
+    void testBuildFcmPayload_StampsSentAt() throws Exception {
+        // Arrange
+        long before = System.currentTimeMillis();
+
+        // Act
+        String payloadJson = invokeBuildFcmPayload("mock-fcm-token", "Test Title", "Test Body", null);
+
+        // Assert - the service worker subtracts this from its own clock to report delivery latency
+        JsonNode dataNode = objectMapper.readTree(payloadJson).get("message").get("data");
+        long sentAt = Long.parseLong(dataNode.get("sentAt").asText());
+
+        assertTrue(sentAt >= before && sentAt <= System.currentTimeMillis(),
+                   "sentAt must be the wall-clock send time in epoch millis");
+    }
+
+    @Test
+    void testBuildFcmPayload_SentAtNotShadowedByCallerData() throws Exception {
+        // Arrange - a caller passing its own sentAt must not be able to skew the latency metric
+        Map<String, String> data = new HashMap<>();
+        data.put("sentAt", "1");
+
+        // Act
+        String payloadJson = invokeBuildFcmPayload("mock-fcm-token", "Test Title", "Test Body", data);
+
+        // Assert
+        JsonNode dataNode = objectMapper.readTree(payloadJson).get("message").get("data");
+        assertNotEquals("1", dataNode.get("sentAt").asText(),
+                        "sentAt must be written after the caller's data map, not overwritten by it");
     }
 
     @Test
@@ -120,8 +200,8 @@ class FcmHttpClientTest {
         assertNotNull(dataNode);
         assertEquals(title, dataNode.get("title").asText());
         assertEquals(body, dataNode.get("body").asText());
-        // Should only have title and body when additional data is null
-        assertEquals(2, dataNode.size());
+        // Should only have title, body and sentAt when additional data is null
+        assertEquals(3, dataNode.size());
     }
 
     @Test
@@ -143,8 +223,8 @@ class FcmHttpClientTest {
         assertNotNull(dataNode);
         assertEquals(title, dataNode.get("title").asText());
         assertEquals(body, dataNode.get("body").asText());
-        // Should only have title and body when additional data is empty
-        assertEquals(2, dataNode.size());
+        // Should only have title, body and sentAt when additional data is empty
+        assertEquals(3, dataNode.size());
     }
 
     @Test
@@ -167,7 +247,7 @@ class FcmHttpClientTest {
                 .thenReturn(httpResponse);
 
         // Act
-        String messageId = fcmHttpClient.sendNotification(fcmToken, title, body, data);
+        String messageId = fcmHttpClient.sendNotification(fcmToken, title, body, data, PushUrgency.HIGH, EPHEMERAL_TTL_SECONDS);
 
         // Assert
         assertEquals("projects/mock-project-id/messages/msg-12345", messageId);
@@ -182,7 +262,7 @@ class FcmHttpClientTest {
         // Act & Assert
         FcmHttpClient.FcmException exception = assertThrows(
             FcmHttpClient.FcmException.class,
-            () -> fcmHttpClient.sendNotification("token", "title", "body", null)
+            () -> fcmHttpClient.sendNotification("token", "title", "body", null, PushUrgency.HIGH, EPHEMERAL_TTL_SECONDS)
         );
         assertEquals("Firebase is disabled", exception.getMessage());
     }
@@ -195,7 +275,7 @@ class FcmHttpClientTest {
         // Act & Assert
         FcmHttpClient.FcmException exception = assertThrows(
             FcmHttpClient.FcmException.class,
-            () -> fcmHttpClient.sendNotification("token", "title", "body", null)
+            () -> fcmHttpClient.sendNotification("token", "title", "body", null, PushUrgency.HIGH, EPHEMERAL_TTL_SECONDS)
         );
         assertEquals("Firebase authenticator not initialized", exception.getMessage());
     }
@@ -216,7 +296,7 @@ class FcmHttpClientTest {
         // Act & Assert
         FcmHttpClient.FcmException exception = assertThrows(
             FcmHttpClient.FcmException.class,
-            () -> fcmHttpClient.sendNotification("token", "title", "body", null)
+            () -> fcmHttpClient.sendNotification("token", "title", "body", null, PushUrgency.HIGH, EPHEMERAL_TTL_SECONDS)
         );
         assertTrue(exception.getMessage().contains("400"));
         assertTrue(exception.getMessage().contains("Invalid FCM token"));
@@ -235,7 +315,7 @@ class FcmHttpClientTest {
         // Act & Assert
         FcmHttpClient.FcmException exception = assertThrows(
             FcmHttpClient.FcmException.class,
-            () -> fcmHttpClient.sendNotification("token", "title", "body", null)
+            () -> fcmHttpClient.sendNotification("token", "title", "body", null, PushUrgency.HIGH, EPHEMERAL_TTL_SECONDS)
         );
         assertTrue(exception.getMessage().contains("Network error"));
     }
@@ -253,7 +333,7 @@ class FcmHttpClientTest {
         // Act & Assert
         FcmHttpClient.FcmException exception = assertThrows(
             FcmHttpClient.FcmException.class,
-            () -> fcmHttpClient.sendNotification("token", "title", "body", null)
+            () -> fcmHttpClient.sendNotification("token", "title", "body", null, PushUrgency.HIGH, EPHEMERAL_TTL_SECONDS)
         );
         assertTrue(exception.getMessage().contains("interrupted"));
         assertTrue(Thread.currentThread().isInterrupted());
@@ -289,10 +369,15 @@ class FcmHttpClientTest {
      */
     private String invokeBuildFcmPayload(String fcmToken, String title, String body, Map<String, String> data)
             throws Exception {
+        return invokeBuildFcmPayload(fcmToken, title, body, data, PushUrgency.HIGH, EPHEMERAL_TTL_SECONDS);
+    }
+
+    private String invokeBuildFcmPayload(String fcmToken, String title, String body, Map<String, String> data,
+            PushUrgency urgency, Integer ttlSeconds) throws Exception {
         Method method = FcmHttpClient.class.getDeclaredMethod(
-            "buildFcmPayload", String.class, String.class, String.class, Map.class);
+            "buildFcmPayload", String.class, String.class, String.class, Map.class, PushUrgency.class, Integer.class);
         method.setAccessible(true);
-        return (String) method.invoke(fcmHttpClient, fcmToken, title, body, data);
+        return (String) method.invoke(fcmHttpClient, fcmToken, title, body, data, urgency, ttlSeconds);
     }
 }
 

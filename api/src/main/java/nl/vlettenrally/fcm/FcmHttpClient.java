@@ -58,12 +58,18 @@ public class FcmHttpClient {
      * @param title Notification title
      * @param body Notification body
      * @param data Additional data payload
+     * @param urgency Whether the push service may defer this to save battery — see
+     *                {@link nl.vlettenrally.data.enums.MessageType#isUrgent()}.
+     * @param ttlSeconds How long FCM may keep retrying, or {@code null} to let FCM apply its
+     *                   own default (4 weeks). Only pass a value for notifications that are
+     *                   better dropped than delivered stale — see
+     *                   {@link nl.vlettenrally.data.enums.MessageType#isEphemeral()}.
      * @return FCM message ID if successful
      * @throws FcmException if sending fails
      */
-    public String sendNotification(String fcmToken, String title, String body, java.util.Map<String, String> data) 
-            throws FcmException {
-        
+    public String sendNotification(String fcmToken, String title, String body, java.util.Map<String, String> data,
+            PushUrgency urgency, Integer ttlSeconds) throws FcmException {
+
         if (!enabled) {
             metrics.fcmRequest(FcmOutcome.DISABLED);
             throw new FcmException("Firebase is disabled");
@@ -80,7 +86,7 @@ public class FcmHttpClient {
             String projectId = authenticator.getProjectId();
             
             // Build FCM message payload
-            String jsonPayload = buildFcmPayload(fcmToken, title, body, data);
+            String jsonPayload = buildFcmPayload(fcmToken, title, body, data, urgency, ttlSeconds);
             
             // Build HTTP request
             String fcmEndpoint = String.format(FCM_ENDPOINT_TEMPLATE, projectId);
@@ -149,16 +155,30 @@ public class FcmHttpClient {
      * Build FCM message payload in JSON format.
      * Uses data-only messages to prevent duplicate notifications on web clients.
      * The notification fields are sent as data so the service worker can display them.
+     * <p>
+     * Every token here is a browser token, so FCM delivers over the Web Push protocol, where
+     * the {@code webpush} block carries the two delivery knobs. Both are the caller's call
+     * because they fail in opposite directions: too low an {@code Urgency} and Android holds
+     * the push until the next Doze maintenance window (minutes, lengthening the longer the
+     * phone stays idle), while a {@code TTL} that expires discards the message silently. The
+     * {@code android}/{@code apns} blocks are deliberately absent: FCM applies those only to
+     * native app tokens, which this project has none of.
      */
-    private String buildFcmPayload(String fcmToken, String title, String body, java.util.Map<String, String> data) 
-            throws IOException {
-        
+    private String buildFcmPayload(String fcmToken, String title, String body, java.util.Map<String, String> data,
+            PushUrgency urgency, Integer ttlSeconds) throws IOException {
+
         var messageNode = objectMapper.createObjectNode();
         var message = messageNode.putObject("message");
-        
+
         // Set token
         message.put("token", fcmToken);
-        
+
+        var webpushHeaders = message.putObject("webpush").putObject("headers");
+        webpushHeaders.put("Urgency", urgency.headerValue());
+        if (ttlSeconds != null) {
+            webpushHeaders.put("TTL", String.valueOf(ttlSeconds));
+        }
+
         var dataNode = message.putObject("data");
         dataNode.put("title", title);
         dataNode.put("body", body);
@@ -167,7 +187,11 @@ public class FcmHttpClient {
         if (data != null && !data.isEmpty()) {
             data.forEach(dataNode::put);
         }
-        
+
+        // Written last so a caller's data map cannot shadow it: this is what the service
+        // worker subtracts from its own clock to report actual delivery latency.
+        dataNode.put("sentAt", String.valueOf(System.currentTimeMillis()));
+
         return objectMapper.writeValueAsString(messageNode);
     }
     
