@@ -833,6 +833,15 @@ async getGames() : Promise<ApiResponse<Game[]>> {
     return this.post(`/games/${gameId}/rankings/publish`);
   }
 
+  /**
+   * Mint the token that unlocks this game's public narrowcasting map. The token is derived, not
+   * stored, so this is safe to call repeatedly — it always returns the same value. Answers 503 when
+   * the public API has no secret configured, i.e. a link would be dead on arrival.
+   */
+  async getPublicMapToken(gameId: string): Promise<ApiResponse<{ token: string }>> {
+    return this.get(`/games/${gameId}/public-map-token`);
+  }
+
   // Achievements endpoints
   async getTeamAchievements(teamId: string) {
     return this.get(`/teams/${teamId}/achievements`);

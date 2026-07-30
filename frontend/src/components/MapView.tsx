@@ -107,10 +107,20 @@ interface MapViewProps {
   markerStyle?: 'circle' | 'pin';
   /** When true: always add TeamLocateControl instead of GeolocateControl. Set at mount time. */
   followTeamLocation?: boolean;
+  /** When false: render no control buttons at all. For unattended displays with no pointer,
+   *  where buttons nobody can press only cover up the map. Set at mount time. */
+  showControls?: boolean;
+  /** When true: re-frame the game area whenever the map is resized, the same fit it does on
+   *  open. For unattended displays, which get resized by screen rotation or a resolution
+   *  change and have nobody to pan them back. Set at mount time. */
+  refitOnResize?: boolean;
   /** Fired once the maplibre instance finished loading — imperative handle calls
    *  (flyToPoint etc.) issued before this are silent no-ops. */
   onMapReady?: () => void;
 }
+
+/** Resize events arrive continuously through a drag-resize; only refit once things settle. */
+const REFIT_DEBOUNCE_MS = 300;
 
 
 /** Teardrop-shaped pin SVG, anchored at its bottom tip. Colour is fixed and matches the default team marker. */
@@ -121,7 +131,7 @@ const PIN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="44" 
 const PIN_IMAGE_ID = 'team-pin';
 
 export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
-  { markers, center, zoom, className, teamLocation, tracks, markerStyle = 'circle', followTeamLocation = false, onMapReady },
+  { markers, center, zoom, className, teamLocation, tracks, markerStyle = 'circle', followTeamLocation = false, showControls = true, refitOnResize = false, onMapReady },
   ref,
 ) {
   const { t } = useTranslation();
@@ -150,6 +160,8 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const isFollowingRef = useRef(false);
   // The locate button DOM element; updated by TeamLocateControl on mount/unmount.
   const locateButtonRef = useRef<HTMLButtonElement | null>(null);
+  // Pending refit-on-resize timer, cleared on unmount so it can't fire against a removed map.
+  const refitTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const fitToContent = useCallback(() => {
     const map = mapRef.current;
@@ -332,7 +344,22 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
         map.touchZoomRotate.disableRotation();
 
-        map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+        // Every control below is opt-out via showControls: an unattended display has no pointer,
+        // so buttons there only obscure the map. Attribution comes from the constructor and stays
+        // regardless — the OSM tiles require it.
+        if (showControls) {
+          map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+        }
+
+        // Re-frame the game area whenever the container changes size, matching the fit done on
+        // open. MapLibre v5 observes the container itself and fires 'resize', so this covers a
+        // screen rotation or resolution change without any observer of our own.
+        if (refitOnResize) {
+          map.on('resize', () => {
+            clearTimeout(refitTimerRef.current);
+            refitTimerRef.current = setTimeout(() => fitToContentRef.current(), REFIT_DEBOUNCE_MS);
+          });
+        }
 
         // Custom control that re-frames the game area (checkpoints, else teams).
         class FitToAreaControl implements maplibregl.IControl {
@@ -371,7 +398,9 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           }
         }
 
-        map.addControl(new FitToAreaControl(), 'top-right');
+        if (showControls) {
+          map.addControl(new FitToAreaControl(), 'top-right');
+        }
 
         if (followTeamLocation) {
           // Custom locate button that follows the team's reported tracker location
@@ -419,7 +448,9 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
             }
           }
 
-          map.addControl(new TeamLocateControl(), 'top-right');
+          if (showControls) {
+            map.addControl(new TeamLocateControl(), 'top-right');
+          }
 
           // Stop following when the user starts a drag gesture.
           map.on('dragstart', () => {
@@ -431,7 +462,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
               }
             }
           });
-        } else {
+        } else if (showControls) {
           // Admin / non-participant maps: use browser geolocation.
           map.addControl(new maplibregl.GeolocateControl({
             positionOptions: { enableHighAccuracy: true },
@@ -674,6 +705,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
     return () => {
       markersSourceRef.current = false;
+      clearTimeout(refitTimerRef.current);
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;

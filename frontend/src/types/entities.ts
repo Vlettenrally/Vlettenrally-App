@@ -561,6 +561,40 @@ export interface PublicPicture {
 }
 
 /**
+ * A zone as drawn on the public narrowcasting map.
+ *
+ * Mirrors {@link Checkpoint} minus everything a public display has no business showing:
+ * `externalId`, `points`, and — deliberately — `hidden`. Hidden zones are filtered out server-side
+ * and the flag is not on the wire at all, so there is nothing here to accidentally render.
+ */
+export interface PublicMapZone {
+  id: string;
+  name: string;
+  latitude?: number;
+  longitude?: number;
+  zoneType: 'circle' | 'polygon';
+  radiusMeters: number;
+  /** Polygon vertices as [[lat, lng], ...] — only for polygon zones */
+  polygonPoints?: number[][];
+  openingTime?: string;
+  closingTime?: string;
+  /** Hex color for map display, e.g. "#ff9800"; absent means default orange */
+  color?: string;
+}
+
+/**
+ * One poll of the public narrowcasting map: every team's latest position plus the visible zones.
+ * Team positions reuse {@link TeamLocation}, the same shape the admin map and the LOCATION_UPDATE
+ * websocket event carry.
+ */
+export interface PublicMapResponse {
+  gameId: string;
+  gameName: string;
+  teams: TeamLocation[];
+  zones: PublicMapZone[];
+}
+
+/**
  * Position in a keyset-paged picture list. Opaque to the client: echo back whatever the
  * previous page returned to get the next one.
  */

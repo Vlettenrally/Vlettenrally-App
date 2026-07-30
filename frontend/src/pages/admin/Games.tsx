@@ -22,12 +22,15 @@ import {
   DialogActions,
   CircularProgress,
   Alert,
+  TextField,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Leaderboard as LeaderboardIcon,
+  Cast as CastIcon,
+  ContentCopy as ContentCopyIcon,
 } from '@mui/icons-material';
 import api from '../../services/api';
 import { gameService } from '../../services/gameService';
@@ -73,6 +76,14 @@ const Games = () => {
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
   const [gameToPublish, setGameToPublish] = useState<Game | null>(null);
   const [publishing, setPublishing] = useState(false);
+
+  // Public narrowcasting map link
+  const [mapLinkDialogOpen, setMapLinkDialogOpen] = useState(false);
+  const [gameToShare, setGameToShare] = useState<Game | null>(null);
+  const [mapLink, setMapLink] = useState<string | null>(null);
+  const [mapLinkError, setMapLinkError] = useState<string | null>(null);
+  const [mapLinkLoading, setMapLinkLoading] = useState(false);
+  const [mapLinkCopied, setMapLinkCopied] = useState(false);
 
   // Get games, loading state, and actions from store
   const { games, isLoading, error, fetchGames, setSelectedGameId } = useGameStore();
@@ -140,6 +151,46 @@ const Games = () => {
       setLocalError(err instanceof Error ? err.message : t('admin.games.releaseRankingsFailed'));
     } finally {
       setPublishing(false);
+    }
+  };
+
+  /**
+   * Fetch the game's public map token and compose the display URL from this app's own origin — the
+   * API deliberately returns only the token, so it never has to know where the frontend is hosted.
+   */
+  const handleMapLinkClick = async (game: Game) => {
+    setGameToShare(game);
+    setMapLink(null);
+    setMapLinkError(null);
+    setMapLinkCopied(false);
+    setMapLinkDialogOpen(true);
+    setMapLinkLoading(true);
+    try {
+      const response = await api.getPublicMapToken(game.id);
+      if (response.status === 503) {
+        setMapLinkError(t('admin.games.publicMapLinkDisabled'));
+      } else if (response.error || !response.data?.token) {
+        setMapLinkError(response.error || t('admin.games.publicMapLinkFailed'));
+      } else {
+        const params = new URLSearchParams({ g: game.id, t: response.data.token });
+        setMapLink(`${window.location.origin}/public/map?${params.toString()}`);
+      }
+    } catch (err) {
+      setMapLinkError(err instanceof Error ? err.message : t('admin.games.publicMapLinkFailed'));
+    } finally {
+      setMapLinkLoading(false);
+    }
+  };
+
+  const handleCopyMapLink = async () => {
+    if (!mapLink) return;
+    try {
+      await navigator.clipboard.writeText(mapLink);
+      setMapLinkCopied(true);
+    } catch {
+      // Clipboard access can be blocked (non-secure origin, permissions). The link is on screen
+      // and selectable, so this is a non-event — just don't claim it was copied.
+      setMapLinkCopied(false);
     }
   };
 
@@ -256,6 +307,13 @@ const Games = () => {
                     )}
                     <IconButton
                       size="small"
+                      onClick={() => handleMapLinkClick(game)}
+                      title={t('admin.games.publicMapLink')}
+                    >
+                      <CastIcon />
+                    </IconButton>
+                    <IconButton
+                      size="small"
                       onClick={() => handleEditGame(game)}
                       title={t('admin.games.editGame')}
                     >
@@ -304,6 +362,48 @@ const Games = () => {
           >
             {t('admin.games.release')}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Public Narrowcasting Map Link Dialog */}
+      <Dialog open={mapLinkDialogOpen} onClose={() => setMapLinkDialogOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>{t('admin.games.publicMapLink')}</DialogTitle>
+        <DialogContent>
+          {mapLinkLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+              <CircularProgress />
+            </Box>
+          ) : mapLinkError ? (
+            <Alert severity="warning">{mapLinkError}</Alert>
+          ) : (
+            <>
+              <DialogContentText sx={{ mb: 2 }}>
+                {t('admin.games.publicMapLinkDescription', { name: gameToShare?.name })}
+              </DialogContentText>
+              <TextField
+                fullWidth
+                value={mapLink ?? ''}
+                slotProps={{ input: { readOnly: true } }}
+                onFocus={(e) => e.target.select()}
+                size="small"
+              />
+              <Alert severity="info" sx={{ mt: 2 }}>
+                {t('admin.games.publicMapLinkWarning')}
+              </Alert>
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setMapLinkDialogOpen(false)}>{t('common.close')}</Button>
+          {mapLink && (
+            <Button
+              onClick={handleCopyMapLink}
+              variant="contained"
+              startIcon={<ContentCopyIcon />}
+            >
+              {mapLinkCopied ? t('admin.games.publicMapLinkCopied') : t('admin.games.publicMapLinkCopy')}
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
 

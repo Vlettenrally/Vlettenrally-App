@@ -16,6 +16,7 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
+import nl.vlettenrally.api.security.PublicMapTokenService;
 import nl.vlettenrally.api.security.SecurityRoles;
 import nl.vlettenrally.client.LocationApiClient;
 import nl.vlettenrally.client.dto.TestConnectionResult;
@@ -33,6 +34,7 @@ import nl.vlettenrally.data.dto.game.LocationTestResponse;
 import nl.vlettenrally.data.dto.game.TeamImportResponse;
 import nl.vlettenrally.data.dto.game.AssignTrackersResponse;
 import nl.vlettenrally.data.dto.game.BackfillResponse;
+import nl.vlettenrally.data.dto.game.PublicMapTokenResponse;
 import nl.vlettenrally.data.converter.TeamConverter;
 import nl.vlettenrally.data.domain.Checkpoint;
 import nl.vlettenrally.data.domain.CircleCheckpoint;
@@ -40,6 +42,7 @@ import nl.vlettenrally.data.domain.PolygonCheckpoint;
 import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.dto.achievement.CheckpointTeamResponse;
+import nl.vlettenrally.data.mapper.CheckpointMapper;
 import nl.vlettenrally.service.AchievementService;
 import nl.vlettenrally.service.AutomationEngine;
 import nl.vlettenrally.service.LocationGuardConfig;
@@ -63,9 +66,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-
-import org.locationtech.jts.geom.Coordinate;
-import org.locationtech.jts.geom.Polygon;
 
 /**
  * REST Resource for Game operations
@@ -138,6 +138,9 @@ public class GameResource {
 
     @Inject
     WebSocketPublisher webSocketPublisher;
+
+    @Inject
+    PublicMapTokenService publicMapTokenService;
 
     /**
      * Get all games
@@ -284,6 +287,30 @@ public class GameResource {
                 return Response.ok(toDto(updated)).build();
             })
             .orElse(gameNotFoundResponse());
+    }
+
+    /**
+     * Mint the token that unlocks this game's public narrowcasting map.
+     * <p>
+     * Returns the token only; the admin UI composes the display URL from its own origin, which keeps
+     * a public-base-URL config property out of the API. The token is derived, not stored, so calling
+     * this repeatedly always yields the same value — there is no link to revoke, only the shared
+     * secret to rotate.
+     */
+    @GET
+    @Path("/{gameId}/public-map-token")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
+    public Response getPublicMapToken(@PathParam("gameId") UUID gameId) {
+        if (gameService.findById(gameId).isEmpty()) {
+            return gameNotFoundResponse();
+        }
+        return publicMapTokenService.tokenFor(gameId)
+            .map(token -> Response.ok(new PublicMapTokenResponse(token)).build())
+            // No secret configured: the public API is disabled, so a link would be dead on arrival.
+            // Say so explicitly rather than handing out something that always 401s.
+            .orElseGet(() -> Response.status(Response.Status.SERVICE_UNAVAILABLE)
+                .entity(new ErrorResponse("Public endpoints are not enabled"))
+                .build());
     }
 
     /**
@@ -769,7 +796,7 @@ public class GameResource {
         if (checkpoint instanceof CircleCheckpoint circle) {
             radiusMeters = circle.getRadiusMeters();
         } else if (checkpoint instanceof PolygonCheckpoint polygon) {
-            polygonPoints = fromPolygon(polygon.getZonePolygon());
+            polygonPoints = CheckpointMapper.polygonToLatLngPairs(polygon.getZonePolygon());
         }
 
         return new CheckpointResponse(
@@ -811,18 +838,4 @@ public class GameResource {
             .build();
     }
 
-    /**
-     * Extract polygon vertices as a list of [lat, lng] pairs from a JTS Polygon.
-     * Excludes the closing point (which duplicates the first).
-     */
-    private List<List<Double>> fromPolygon(Polygon polygon) {
-        if (polygon == null) return null;
-        Coordinate[] coords = polygon.getExteriorRing().getCoordinates();
-        List<List<Double>> result = new ArrayList<>();
-        // Skip the last coordinate (closing point that duplicates the first)
-        for (int i = 0; i < coords.length - 1; i++) {
-            result.add(List.of(coords[i].getY(), coords[i].getX())); // [lat, lng]
-        }
-        return result;
-    }
 }

@@ -44,6 +44,9 @@ const PicturesPage = lazy(() => import('./pages/participant/Pictures'));
 const PhotowallPage = lazy(() => import('./pages/participant/Photowall'));
 const InviteTeammatesPage = lazy(() => import('./pages/participant/InviteTeammates'));
 
+// Lazy-loaded public (login-less) pages
+const PublicMapPage = lazy(() => import('./pages/public/PublicMap'));
+
 // Lazy-loaded admin pages
 const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'));
 const AdminMap = lazy(() => import('./pages/admin/Map'));
@@ -519,6 +522,10 @@ function App() {
         <Routes>
           <Route path="/" element={<RootRedirect />} />
           <Route path="/mock-entry" element={import.meta.env.DEV && config.useMocks ? <MockModeLauncher /> : <Navigate to="/" replace />} />
+
+          {/* Narrowcasting display: no guard and no layout by design. The per-game token in
+              ?t= is the whole credential, so this must never redirect to a login screen. */}
+          <Route path="/public/map" element={<Suspense fallback={<PageLoader />}><PublicMapPage /></Suspense>} />
 
           {/* Team/Participant routes */}
           <Route

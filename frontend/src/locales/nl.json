@@ -7,6 +7,12 @@
     "open": "Open",
     "closed": "Gesloten"
   },
+  "public": {
+    "map": {
+      "missingLink": "Deze link is onvolledig. Vraag een organisator om een nieuwe publieke kaartlink.",
+      "invalidLink": "Deze link is niet meer geldig. Vraag een organisator om een nieuwe publieke kaartlink."
+    }
+  },
   "common": {
     "save": "Opslaan",
     "cancel": "Annuleren",
@@ -296,6 +302,13 @@
       "releaseRankingsConfirm": "Weet je zeker dat je de eindstand van \"{{name}}\" wilt vrijgeven? Alle teams zien dan direct de volledige ranglijst. Doe dit pas tijdens de prijsuitreiking.",
       "release": "Vrijgeven",
       "releaseRankingsFailed": "Vrijgeven van eindstand mislukt",
+      "publicMapLink": "Publieke kaartlink",
+      "publicMapLinkDescription": "Open deze link op een narrowcastingscherm om de live kaart van \"{{name}}\" te tonen. Inloggen is niet nodig.",
+      "publicMapLinkWarning": "Iedereen met deze link ziet de live posities van de teams in dit spel. Verborgen zones worden nooit getoond.",
+      "publicMapLinkCopy": "Link kopiëren",
+      "publicMapLinkCopied": "Gekopieerd",
+      "publicMapLinkDisabled": "De publieke API staat niet aan op de server, dus er kan geen link gemaakt worden. Stel eerst het PUBLIC_GALLERY_TOKEN-secret in.",
+      "publicMapLinkFailed": "Genereren van de publieke kaartlink mislukt",
       "copyFailed": "Kopiëren mislukt...",
       "editGame": "Spel bewerken",
       "deleteGame": "Spel verwijderen",

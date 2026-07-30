@@ -7,6 +7,12 @@
     "open": "Open",
     "closed": "Closed"
   },
+  "public": {
+    "map": {
+      "missingLink": "This link is incomplete. Ask an organiser for a new public map link.",
+      "invalidLink": "This link is no longer valid. Ask an organiser for a new public map link."
+    }
+  },
   "common": {
     "save": "Save",
     "cancel": "Cancel",
@@ -296,6 +302,13 @@
       "releaseRankingsConfirm": "Are you sure you want to release the final rankings for \"{{name}}\"? All teams will immediately see the full leaderboard. Only do this during the award ceremony.",
       "release": "Release",
       "releaseRankingsFailed": "Failed to publish rankings",
+      "publicMapLink": "Public map link",
+      "publicMapLinkDescription": "Open this link on a narrowcasting display to show the live map for \"{{name}}\". No login is needed.",
+      "publicMapLinkWarning": "Anyone with this link can see live team positions for this game. Hidden zones are never shown.",
+      "publicMapLinkCopy": "Copy link",
+      "publicMapLinkCopied": "Copied",
+      "publicMapLinkDisabled": "The public API is not enabled on the server, so no link can be generated. Set the PUBLIC_GALLERY_TOKEN secret first.",
+      "publicMapLinkFailed": "Failed to generate the public map link",
       "copyFailed": "Copy failed...",
       "editGame": "Edit game",
       "deleteGame": "Delete game",
