@@ -858,8 +858,6 @@
       "iconHint": "Emoji or text icon for the message",
       "saveAsTemplate": "Save as template",
       "templateName": "Template name",
-      "comingSoon": "Coming soon",
-      "schedule": "Schedule",
       "sending": "Sending...",
       "confirmAndSend": "Confirm and send",
       "send": "Send",

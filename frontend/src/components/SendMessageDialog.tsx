@@ -19,13 +19,11 @@ import {
   CircularProgress,
   Typography,
   Chip,
-  Tooltip,
   Switch,
   FormHelperText,
 } from '@mui/material';
 import {
   Send as SendIcon,
-  Schedule as ScheduleIcon,
   Warning as WarningIcon,
 } from '@mui/icons-material';
 import type { AdminTeam, MessageTemplate, MessageType, SendAdminMessageRequest } from '../types/entities';
@@ -364,13 +362,6 @@ export default function SendMessageDialog({
         <Button onClick={handleCancel}>
           {showRallydeskWarning ? t('common.back') : t('common.cancel')}
         </Button>
-        <Tooltip title={t('components.sendMessage.comingSoon')} arrow>
-          <span>
-            <Button disabled startIcon={<ScheduleIcon />}>
-              {t('components.sendMessage.schedule')}
-            </Button>
-          </span>
-        </Tooltip>
         <Button
           variant="contained"
           onClick={handleSend}
