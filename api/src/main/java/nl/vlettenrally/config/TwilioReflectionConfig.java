@@ -31,7 +31,18 @@ import io.quarkus.runtime.annotations.RegisterForReflection;
         com.twilio.converter.Promoter.class,
         com.twilio.converter.DateConverter.class,
         com.twilio.converter.PrefixedCollapsibleMap.class,
+
+        // Twilio (de)serializers. Jackson instantiates these reflectively from the
+        // @JsonDeserialize/@JsonSerialize annotations on the resource classes, so an
+        // unregistered one fails at runtime with "has no default (no arg) constructor".
+        // Message uses RFC2822Deserializer and CurrencyDeserializer; the rest are
+        // registered so sibling date fields on other resources cannot hit the same trap.
         com.twilio.converter.CurrencyDeserializer.class,
+        com.twilio.converter.RFC2822Deserializer.class,
+        com.twilio.converter.ISO8601Deserializer.class,
+        com.twilio.converter.ISO8601Serializer.class,
+        com.twilio.converter.LocalDateDeserializer.class,
+        com.twilio.converter.ZonedDateTimeListDeserializer.class,
 
         // Twilio base classes
         com.twilio.base.Resource.class,
