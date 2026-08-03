@@ -464,6 +464,37 @@ class LocationIngestServiceTest {
         return game;
     }
 
+    @Test
+    void computeGate_pausedGame_freezesScoringAndCheckpointsButKeepsSpeedAlerts() {
+        Game paused = new Game();
+        paused.setId(gameId);
+        paused.setStatus(Game.GameStatus.PAUSED);
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(new Team()));
+
+        LocationIngestService.IngestGate gate = service.computeGate(paused, teamId, Instant.now());
+
+        assertFalse(gate.creditDistance(), "no distance points while the rally is frozen");
+        assertFalse(gate.detectCheckpoints(), "a boat must not gain ground during an emergency stop");
+        assertTrue(gate.speedAlerts(), "a speeding boat is still worth an alert during a stop");
+    }
+
+    @Test
+    void computeGate_pausedGame_finishedTeamIsGatedOutOfEverything() {
+        Game paused = new Game();
+        paused.setId(gameId);
+        paused.setStatus(Game.GameStatus.PAUSED);
+        Team finished = new Team();
+        finished.setFinished(true);
+        finished.setFinishedAt(Instant.now());
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(finished));
+
+        LocationIngestService.IngestGate gate = service.computeGate(paused, teamId, Instant.now());
+
+        assertFalse(gate.creditDistance());
+        assertFalse(gate.speedAlerts());
+        assertFalse(gate.detectCheckpoints());
+    }
+
     private Game completedGame(Instant endTime, int tailMinutes) {
         Game game = new Game();
         game.setId(gameId);

@@ -102,8 +102,9 @@ export function useTeamRealtime({ gameId, teamId }: UseRealtimeTeamOptions) {
 
     // Subscribe to game status changes. Used to gate the Rankings page.
     const unsubscribeGameStatus = subscribe('GAME_STATUS', (message) => {
-      const payload = message.payload as { status?: 'planned' | 'active' | 'completed' } | undefined;
-      if (payload?.status) setGameStatus(payload.status);
+      const payload = message.payload as
+        { status?: 'planned' | 'active' | 'paused' | 'completed'; reason?: string } | undefined;
+      if (payload?.status) setGameStatus(payload.status, payload.reason);
     });
 
     // Admin reset of the team's check-in: drop session and bounce back to /check-in.

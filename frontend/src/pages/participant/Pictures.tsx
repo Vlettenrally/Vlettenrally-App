@@ -71,8 +71,10 @@ export default function Pictures() {
   const slotsFull = activeCount >= MAX_PICTURES;
   const attemptsExhausted = pictures.length >= MAX_UPLOAD_ATTEMPTS;
   // Uploading is only allowed while the game is ongoing (the backend enforces this too).
-  // In mock mode there is no real game status loaded, so don't block the demo.
-  const gameOngoing = config.useMocks || game?.status === 'active';
+  // An emergency stop counts as ongoing: it freezes scoring, not the harmless things teams
+  // can do while they wait it out. In mock mode there is no real game status loaded, so
+  // don't block the demo.
+  const gameOngoing = config.useMocks || game?.status === 'active' || game?.status === 'paused';
 
   const handlePick = () => {
     setError(null);

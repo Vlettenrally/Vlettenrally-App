@@ -28,7 +28,10 @@ import java.util.UUID;
  *       as SCHEDULED_TIME and is compared against the recorded pass time.</li>
  *   <li>SCHEDULED_TIME — {@code mode}; ABSOLUTE needs {@code absoluteTime},
  *       RELATIVE needs {@code relativeTo} + {@code offsetMinutes}</li>
- *   <li>GAME_STATUS_CHANGE — {@code toStatus} (ACTIVE or COMPLETED)</li>
+ *   <li>GAME_STATUS_CHANGE — {@code toStatus} (ACTIVE, PAUSED or COMPLETED). PAUSED fires on
+ *       an emergency stop, which is how "tell every team why we stopped" gets wired. There is
+ *       no resume trigger: resume does not fire the hook, or every fire-once "the rally has
+ *       started" rule would re-broadcast each time play restarted.</li>
  *   <li>TEAM_INACTIVITY — {@code inactiveMinutes}</li>
  *   <li>RIVAL_OVERTAKE — no config</li>
  *   <li>DISTANCE_TRAVELED — {@code pointsPer100m} (points credited per whole

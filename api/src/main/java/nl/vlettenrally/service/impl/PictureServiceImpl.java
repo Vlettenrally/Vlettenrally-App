@@ -103,10 +103,12 @@ public class PictureServiceImpl implements PictureService {
         Team team = teamRepository.findById(teamId)
             .orElseThrow(() -> new PictureException(Response.Status.NOT_FOUND, "Team not found: " + teamId));
 
-        // Pictures may only be uploaded while the game is ongoing (ACTIVE).
+        // Pictures may only be uploaded while the game is ongoing. PAUSED counts as ongoing:
+        // an emergency stop freezes scoring, and there is no reason to also take away a
+        // harmless thing teams can do while they wait it out.
         Game game = gameRepository.findById(team.getGameId())
             .orElseThrow(() -> new PictureException(Response.Status.NOT_FOUND, "Game not found: " + team.getGameId()));
-        if (game.getStatus() != Game.GameStatus.ACTIVE) {
+        if (game.getStatus() != Game.GameStatus.ACTIVE && game.getStatus() != Game.GameStatus.PAUSED) {
             throw new PictureException(Response.Status.CONFLICT,
                 "Pictures can only be uploaded while the game is ongoing.");
         }

@@ -115,12 +115,15 @@ public class LocationPollingScheduler {
             return;
         }
 
-        // Active games, plus PLANNED games whose pre-start lead window is open: polling a
-        // game before kickoff seeds recent fixes so a team sitting in the start zone is
-        // detected the instant the game goes ACTIVE (see GameStatusScheduler / the sweep).
-        // Also COMPLETED games whose post-end tail window is still open, so a late finish-zone
-        // crossing is detected and its automation fires (see LocationIngestService gate).
+        // Active games, plus PAUSED ones: an emergency stop freezes the competition, not the
+        // tracking — knowing where every boat is matters most during the incident that caused
+        // the stop. Plus PLANNED games whose pre-start lead window is open: polling a game
+        // before kickoff seeds recent fixes so a team sitting in the start zone is detected the
+        // instant the game goes ACTIVE (see GameStatusScheduler / the sweep). Also COMPLETED
+        // games whose post-end tail window is still open, so a late finish-zone crossing is
+        // detected and its automation fires (see LocationIngestService gate).
         List<Game> games = new ArrayList<>(gameService.findByStatus(Game.GameStatus.ACTIVE));
+        games.addAll(gameService.findByStatus(Game.GameStatus.PAUSED));
         Instant now = Instant.now();
         for (Game game : gameService.findByStatus(Game.GameStatus.PLANNED)) {
             if (game.isWithinPollingLeadWindow(now)) {

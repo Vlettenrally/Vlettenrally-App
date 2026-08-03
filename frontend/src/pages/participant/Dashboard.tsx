@@ -17,6 +17,7 @@ import {
 import {
   EmojiEvents as TrophyIcon,
   Flag as FlagIcon,
+  PauseCircle as PauseCircleIcon,
 } from '@mui/icons-material';
 import { useTeamStore, type Achievement } from '../../store/useTeamStore';
 import { useGameStore, type Checkpoint } from '../../store/useGameStore';
@@ -57,6 +58,29 @@ function GameStatusCard() {
         <CardContent sx={{ p: 1, '&:last-child': { pb: 1 }, textAlign: 'center' }}>
           <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.95rem' }}>{t('participant.dashboard.gameOver')}</Typography>
           <Typography variant="caption" sx={{ fontSize: '0.8rem', opacity: 0.9 }}>{t('participant.dashboard.thankYou')}</Typography>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Emergency stop. Ranked above the finished-team card on purpose: why the rally stopped is
+  // safety information every team needs to see, including one whose own race is already over.
+  // The countdown to the end keeps running underneath — a stop does not extend the end time.
+  if (game.status === 'paused') {
+    return (
+      <Card sx={{ mb: 3, bgcolor: 'error.main', color: 'error.contrastText', boxShadow: 'none' }}>
+        <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <PauseCircleIcon fontSize="large" />
+            <Box sx={{ flexGrow: 1 }}>
+              <Typography variant="body2" sx={{ fontWeight: 700, fontSize: '1.1rem' }}>
+                {t('participant.dashboard.gamePaused')}
+              </Typography>
+              <Typography variant="caption" sx={{ fontSize: '0.85rem', opacity: 0.9, display: 'block' }}>
+                {game.pauseReason || t('participant.dashboard.gamePausedDefault')}
+              </Typography>
+            </Box>
+          </Box>
         </CardContent>
       </Card>
     );

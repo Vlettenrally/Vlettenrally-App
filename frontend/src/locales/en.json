@@ -64,7 +64,9 @@
       "gameStarted": "The Vlettenrally has started!",
       "startsIn": "The Vlettenrally starts in:",
       "almostStarting": "Almost starting!",
-      "getReady": "Get ready to start!"
+      "getReady": "Get ready to start!",
+      "gamePaused": "The Vlettenrally is paused",
+      "gamePausedDefault": "Pay attention to the messages from the Rallydesk"
     },
     "checkin": {
       "title": "Vlettenrally",
@@ -319,8 +321,21 @@
       "gameStatus": {
         "planned": "Planned",
         "active": "Active",
-        "completed": "Completed"
-      }
+        "completed": "Completed",
+        "paused": "Paused"
+      },
+      "pauseGame": "Pause rally",
+      "resumeGame": "Resume rally",
+      "pause": "Pause",
+      "resume": "Resume",
+      "pauseGameConfirm": "Are you sure you want to pause \"{{name}}\"?",
+      "resumeGameConfirm": "Are you sure you want to resume \"{{name}}\"?",
+      "pauseGameEffects": "Tracking keeps running and stays visible on the map, but teams earn no distance points and checkpoints do not count while the rally is stopped. The end time does not shift.",
+      "resumeGameEffects": "The rally counts again. Teams currently inside a checkpoint zone are credited for it.",
+      "pauseReason": "Reason (optional)",
+      "pauseReasonHelp": "Shown to all teams on their dashboard.",
+      "pauseGameFailed": "Failed to pause the game",
+      "resumeGameFailed": "Failed to resume the game"
     },
     "teams": {
       "title": "Teams",
@@ -622,7 +637,8 @@
       "timeOffsetBefore": "{{minutes}} min before {{anchor}}",
       "timeOffsetAfter": "{{minutes}} min after {{anchor}}",
       "anchorStart": "start",
-      "anchorEnd": "end"
+      "anchorEnd": "end",
+      "descGamePaused": "Rally paused"
     },
     "zones": {
       "title": "Zones",
@@ -985,7 +1001,9 @@
       "startTimeHint": "When the race starts (auto-activates game)",
       "trackerBaseUrlHint": "Base URL of the Legendstracking event — without trailing slash and without /details, /participants_locations or /participants_checkpoints",
       "registrations": "{{count}} registrations",
-      "participantInfoHint": "Shown in the participant app for this game. Markdown is supported."
+      "participantInfoHint": "Shown in the participant app for this game. Markdown is supported.",
+      "statusPaused": "Paused",
+      "statusPausedHelp": "Use the Resume button in the games overview to restart the rally."
     },
     "zoneForm": {
       "addTitle": "Add zone",
@@ -1132,7 +1150,8 @@
       "setPublicRankingsEnabledHint": "Controls the public scoreboard API for consumers outside the app, such as a big screen or the website. Changes nothing for teams in the app. Note: while the ranking is shown to participants the public scoreboard stays open — disabling it has no effect then.",
       "placeholderExample": "Example: {team}",
       "placeholderCheckpoint": ", {checkpoint}",
-      "placeholderRival": ", {rival}"
+      "placeholderRival": ", {rival}",
+      "statusPaused": "Paused (emergency stop)"
     },
     "copyAutomations": {
       "title": "Copy automations",

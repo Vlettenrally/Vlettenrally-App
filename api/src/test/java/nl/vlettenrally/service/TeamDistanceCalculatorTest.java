@@ -9,8 +9,10 @@ import java.util.List;
 import java.util.UUID;
 
 import nl.vlettenrally.data.domain.Game;
+import nl.vlettenrally.data.domain.GamePausePeriod;
 import nl.vlettenrally.data.domain.LocationData;
 import nl.vlettenrally.data.domain.TeamDistanceSegment;
+import nl.vlettenrally.data.repository.mock.MockGamePausePeriodRepository;
 import nl.vlettenrally.data.repository.mock.MockLocationDataRepository;
 import nl.vlettenrally.data.repository.mock.MockTeamDistanceSegmentRepository;
 import nl.vlettenrally.service.util.GeoDistance;
@@ -34,6 +36,7 @@ class TeamDistanceCalculatorTest {
 
     private MockLocationDataRepository locationRepo;
     private MockTeamDistanceSegmentRepository segmentRepo;
+    private MockGamePausePeriodRepository pauseRepo;
     private TeamDistanceCalculator calculator;
     private Instant base;
     private Game game;
@@ -43,10 +46,15 @@ class TeamDistanceCalculatorTest {
         // The CDI @PostConstruct seed is not run by `new`, so the store starts empty.
         locationRepo = new MockLocationDataRepository();
         segmentRepo = new MockTeamDistanceSegmentRepository();
+        pauseRepo = new MockGamePausePeriodRepository();
+
+        GamePauseWindowCache pauseWindowCache = new GamePauseWindowCache();
+        pauseWindowCache.pausePeriodRepository = pauseRepo;
 
         calculator = new TeamDistanceCalculator();
         calculator.locationDataRepository = locationRepo;
         calculator.segmentRepository = segmentRepo;
+        calculator.pauseWindowCache = pauseWindowCache;
         calculator.minSegmentMeters = MIN_SEGMENT_METERS;
 
         base = Instant.parse("2026-06-11T10:00:00Z");
@@ -72,6 +80,33 @@ class TeamDistanceCalculatorTest {
         LocationData f = fix(lon, lat, secondsFromBase);
         locationRepo.save(f);
         return calculator.accrueFix(TEAM, game, f);
+    }
+
+    /**
+     * A calculator over the same stored fixes and pause windows but an empty chain, for
+     * asserting that a one-pass rebuild lands on the same total as incremental accrual.
+     */
+    private TeamDistanceCalculator freshCalculator() {
+        GamePauseWindowCache pauseWindowCache = new GamePauseWindowCache();
+        pauseWindowCache.pausePeriodRepository = pauseRepo;
+
+        TeamDistanceCalculator fresh = new TeamDistanceCalculator();
+        fresh.locationDataRepository = locationRepo;
+        fresh.segmentRepository = new MockTeamDistanceSegmentRepository();
+        fresh.pauseWindowCache = pauseWindowCache;
+        fresh.minSegmentMeters = MIN_SEGMENT_METERS;
+        return fresh;
+    }
+
+    /** Record an emergency stop over {@code [fromSeconds, toSeconds)}; null toSeconds = still open. */
+    private void pause(int fromSeconds, Integer toSeconds) {
+        GamePausePeriod period = new GamePausePeriod();
+        period.setGameId(GAME);
+        period.setPausedAt(base.plus(fromSeconds, ChronoUnit.SECONDS));
+        if (toSeconds != null) {
+            period.setResumedAt(base.plus(toSeconds, ChronoUnit.SECONDS));
+        }
+        pauseRepo.save(period);
     }
 
     @Test
@@ -154,10 +189,7 @@ class TeamDistanceCalculatorTest {
         }
 
         // A fresh chain rebuilt from the stored fixes in one pass must reach the same total.
-        TeamDistanceCalculator fullCalc = new TeamDistanceCalculator();
-        fullCalc.locationDataRepository = locationRepo;
-        fullCalc.segmentRepository = new MockTeamDistanceSegmentRepository();
-        fullCalc.minSegmentMeters = MIN_SEGMENT_METERS;
+        TeamDistanceCalculator fullCalc = freshCalculator();
         double fullPass = fullCalc.recomputeAfter(TEAM, game, Instant.EPOCH);
 
         assertEquals(fullPass, incremental, 1e-6);
@@ -299,13 +331,120 @@ class TeamDistanceCalculatorTest {
             incremental = ingest(4.9000, lats[i], seconds[i]);
         }
 
-        TeamDistanceCalculator fullCalc = new TeamDistanceCalculator();
-        fullCalc.locationDataRepository = locationRepo;
-        fullCalc.segmentRepository = new MockTeamDistanceSegmentRepository();
-        fullCalc.minSegmentMeters = MIN_SEGMENT_METERS;
+        TeamDistanceCalculator fullCalc = freshCalculator();
         double fullPass = fullCalc.recomputeAfter(TEAM, game, Instant.EPOCH);
 
         assertTrue(incremental > 0);
         assertEquals(fullPass, incremental, 1e-6);
+    }
+
+    @Test
+    void fixDuringPause_isNotCounted() {
+        pause(45, 105);
+
+        double lon = 4.9000;
+        ingest(lon, 52.3700, 0);
+        double beforePause = ingest(lon, 52.3702, 30);
+        // Two fixes inside the stop, kilometres apart: stored, but never counted.
+        double duringPause = ingest(lon, 52.3800, 60);
+        duringPause = ingest(lon, 52.3900, 90);
+
+        assertEquals(beforePause, duringPause, 1e-9, "distance must not move while frozen");
+        assertEquals(2, segmentRepo.findByTeamId(TEAM).size(), "seed + the one pre-pause segment");
+    }
+
+    @Test
+    void firstFixAfterResume_bridgesWithoutCreditingTheFrozenTravel() {
+        pause(45, 105);
+
+        double lon = 4.9000;
+        ingest(lon, 52.3700, 0);
+        double beforePause = ingest(lon, 52.3702, 30);
+        ingest(lon, 52.3900, 60);              // ~2.2 km travelled while frozen
+        double afterResume = ingest(lon, 52.3902, 120);
+
+        assertEquals(beforePause, afterResume, 1e-9, "the hop across the stop earns nothing");
+
+        List<TeamDistanceSegment> segments = segmentRepo.findByTeamId(TEAM);
+        TeamDistanceSegment bridge = segments.getLast();
+        assertEquals(0.0, bridge.getMeters(), 1e-9);
+        assertEquals(base.plus(120, ChronoUnit.SECONDS), bridge.getToTime(), "anchor moved to the post-resume fix");
+        // Not a second seed: V69's uq_tds_from allows only one null from_time per team.
+        assertTrue(segments.stream().filter(TeamDistanceSegment::isSeed).count() == 1);
+
+        // Movement after the bridge accrues from the post-resume position, as normal.
+        double afterMoving = ingest(lon, 52.3904, 150);
+        assertTrue(afterMoving > afterResume);
+    }
+
+    @Test
+    void openPause_freezesEveryLaterFix() {
+        pause(45, null);
+
+        double lon = 4.9000;
+        ingest(lon, 52.3700, 0);
+        double beforePause = ingest(lon, 52.3702, 30);
+        ingest(lon, 52.3800, 60);
+        double latest = ingest(lon, 52.3900, 600);
+
+        assertEquals(beforePause, latest, 1e-9, "an unresolved stop freezes everything after it");
+    }
+
+    @Test
+    void repeatedPauses_countOnlyTheUnfrozenLegs() {
+        pause(45, 105);
+        pause(195, 255);
+        pause(345, 405);
+
+        double lon = 4.9000;
+        // Legs alternate: play, frozen, play, frozen, play, frozen, play.
+        int[] seconds = {0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360, 390, 420, 450};
+        double total = 0;
+        for (int i = 0; i < seconds.length; i++) {
+            total = ingest(lon, 52.3700 + i * 0.0002, seconds[i]);
+        }
+
+        // Only the three in-play legs count; each is two 30 s steps of ~22 m.
+        double expected = 0;
+        for (int[] leg : new int[][] {{0, 1}, {1, 2}, {6, 7}, {7, 8}, {12, 13}, {13, 14}}) {
+            expected += GeoDistance.haversineMeters(lon, 52.3700 + leg[0] * 0.0002, lon, 52.3700 + leg[1] * 0.0002);
+        }
+        assertEquals(expected, total, 0.01);
+
+        // And the whole thing rebuilds to exactly the same number.
+        assertEquals(freshCalculator().recomputeAfter(TEAM, game, Instant.EPOCH), total, 1e-6);
+    }
+
+    @Test
+    void pausedRange_incrementalAccrualMatchesFullRecompute() {
+        // The invariant a status flag could never give us: a rebuild long after the fact must
+        // reproduce which stretches were frozen, so backfilling across a stop cannot re-credit it.
+        pause(45, 105);
+        pause(195, 255);
+
+        double incremental = 0;
+        int[] seconds = {0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300};
+        for (int i = 0; i < seconds.length; i++) {
+            incremental = ingest(4.9000, 52.3700 + i * 0.0002, seconds[i]);
+        }
+
+        assertEquals(freshCalculator().recomputeAfter(TEAM, game, Instant.EPOCH), incremental, 1e-6);
+    }
+
+    @Test
+    void recomputeAcrossPause_isIdempotent() {
+        pause(45, 105);
+
+        double incremental = 0;
+        int[] seconds = {0, 30, 60, 90, 120, 150};
+        for (int i = 0; i < seconds.length; i++) {
+            incremental = ingest(4.9000, 52.3700 + i * 0.0002, seconds[i]);
+        }
+
+        double once = calculator.recomputeAfter(TEAM, game, base);
+        double twice = calculator.recomputeAfter(TEAM, game, base);
+
+        assertEquals(incremental, once, 1e-6);
+        assertEquals(once, twice, 1e-6);
     }
 }

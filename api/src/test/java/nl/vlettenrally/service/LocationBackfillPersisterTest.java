@@ -20,6 +20,8 @@ import nl.vlettenrally.client.dto.legendstracking.EventParticipantLocation;
 import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.LocationData;
 import nl.vlettenrally.data.domain.Team;
+import nl.vlettenrally.data.domain.GamePausePeriod;
+import nl.vlettenrally.data.repository.mock.MockGamePausePeriodRepository;
 import nl.vlettenrally.data.repository.mock.MockLocationDataRepository;
 import nl.vlettenrally.observability.LocationMetrics;
 import nl.vlettenrally.observability.LocationMetrics.FixOutcome;
@@ -53,6 +55,7 @@ class LocationBackfillPersisterTest {
     @Mock LocationMetrics metrics;
 
     private MockLocationDataRepository locationRepo;
+    private MockGamePausePeriodRepository pauseRepo;
     private LocationBackfillPersister persister;
     private Game game;
     private Team team;
@@ -60,12 +63,18 @@ class LocationBackfillPersisterTest {
     @BeforeEach
     void setUp() {
         locationRepo = new MockLocationDataRepository();
+        // Real cache over a real (empty) mock repo rather than a stub: the pause windows decide
+        // checkpoint eligibility per replayed segment, so the tests should exercise that path.
+        pauseRepo = new MockGamePausePeriodRepository();
+        GamePauseWindowCache pauseWindowCache = new GamePauseWindowCache();
+        pauseWindowCache.pausePeriodRepository = pauseRepo;
 
         persister = new LocationBackfillPersister();
         persister.locationDataRepository = locationRepo;
         persister.locationIngestService = locationIngestService;
         persister.teamDistanceCalculator = teamDistanceCalculator;
         persister.automationEngine = automationEngine;
+        persister.pauseWindowCache = pauseWindowCache;
         persister.metrics = metrics;
 
         game = new Game();
@@ -99,7 +108,7 @@ class LocationBackfillPersisterTest {
         when(locationIngestService.validate(any())).thenReturn(FixOutcome.ACCEPTED);
         lenient().when(locationIngestService.guardDecision(any(), any(), any())).thenReturn(Decision.ACCEPT);
         when(locationIngestService.computeGate(any(), any(), any()))
-            .thenReturn(new LocationIngestService.IngestGate(false, false));
+            .thenReturn(new LocationIngestService.IngestGate(false, false, false));
         when(teamDistanceCalculator.recomputeAfter(eq(team.getId()), same(game), any(Instant.class))).thenReturn(42.0);
 
         // Two fixes already stored (t=0 and t=300).
@@ -130,7 +139,7 @@ class LocationBackfillPersisterTest {
     void persist_dropsPointRejectedByGuard() {
         when(locationIngestService.validate(any())).thenReturn(FixOutcome.ACCEPTED);
         when(locationIngestService.computeGate(any(), any(), any()))
-            .thenReturn(new LocationIngestService.IngestGate(false, false));
+            .thenReturn(new LocationIngestService.IngestGate(false, false, false));
         lenient().when(teamDistanceCalculator.recomputeAfter(eq(team.getId()), same(game), any(Instant.class))).thenReturn(10.0);
 
         // A stored fix just before the gap makes the guard active for the first candidate.
@@ -154,7 +163,7 @@ class LocationBackfillPersisterTest {
         when(locationIngestService.validate(any())).thenReturn(FixOutcome.ACCEPTED);
         lenient().when(locationIngestService.guardDecision(any(), any(), any())).thenReturn(Decision.ACCEPT);
         when(locationIngestService.computeGate(any(), any(), any()))
-            .thenReturn(new LocationIngestService.IngestGate(true, true));
+            .thenReturn(new LocationIngestService.IngestGate(true, true, true));
         when(teamDistanceCalculator.recomputeAfter(eq(team.getId()), same(game), any(Instant.class))).thenReturn(500.0);
         // Each consecutive pair reports one newly-credited pass.
         when(locationIngestService.detectCheckpointPasses(any(), any())).thenReturn(1);
@@ -179,7 +188,7 @@ class LocationBackfillPersisterTest {
         when(locationIngestService.validate(any())).thenReturn(FixOutcome.ACCEPTED);
         lenient().when(locationIngestService.guardDecision(any(), any(), any())).thenReturn(Decision.ACCEPT);
         when(locationIngestService.computeGate(any(), any(), any()))
-            .thenReturn(new LocationIngestService.IngestGate(false, false));
+            .thenReturn(new LocationIngestService.IngestGate(false, false, false));
         when(teamDistanceCalculator.recomputeAfter(eq(team.getId()), same(game), any(Instant.class))).thenReturn(500.0);
         game.setStartTime(BASE.plus(150, ChronoUnit.SECONDS));
 
@@ -223,7 +232,7 @@ class LocationBackfillPersisterTest {
         when(locationIngestService.validate(any())).thenReturn(FixOutcome.ACCEPTED);
         lenient().when(locationIngestService.guardDecision(any(), any(), any())).thenReturn(Decision.ACCEPT);
         when(locationIngestService.computeGate(any(), any(), any()))
-            .thenReturn(new LocationIngestService.IngestGate(false, false));
+            .thenReturn(new LocationIngestService.IngestGate(false, false, false));
         when(teamDistanceCalculator.recomputeAfter(eq(team.getId()), same(game), any(Instant.class))).thenReturn(500.0);
         game.setStartTime(BASE.minus(1, ChronoUnit.HOURS));
         // Tracker was reassigned to this team mid-track: everything before that moment is the
@@ -269,7 +278,7 @@ class LocationBackfillPersisterTest {
         when(locationIngestService.validate(any())).thenReturn(FixOutcome.ACCEPTED);
         lenient().when(locationIngestService.guardDecision(any(), any(), any())).thenReturn(Decision.ACCEPT);
         when(locationIngestService.computeGate(any(), any(), any()))
-            .thenReturn(new LocationIngestService.IngestGate(false, false));
+            .thenReturn(new LocationIngestService.IngestGate(false, false, false));
         when(teamDistanceCalculator.recomputeAfter(eq(team.getId()), same(game), any(Instant.class))).thenReturn(500.0);
         // Assignment predates the game start; the later of the two bounds (startTime) applies.
         team.setTrackerAssignedAt(BASE);
@@ -291,7 +300,7 @@ class LocationBackfillPersisterTest {
         when(locationIngestService.validate(any())).thenReturn(FixOutcome.ACCEPTED);
         lenient().when(locationIngestService.guardDecision(any(), any(), any())).thenReturn(Decision.ACCEPT);
         when(locationIngestService.computeGate(any(), any(), any()))
-            .thenReturn(new LocationIngestService.IngestGate(true, true));
+            .thenReturn(new LocationIngestService.IngestGate(true, true, true));
         when(teamDistanceCalculator.recomputeAfter(eq(team.getId()), same(game), any(Instant.class))).thenReturn(500.0);
         when(locationIngestService.detectCheckpointPasses(any(), any())).thenReturn(1);
         game.setStartTime(BASE.plus(150, ChronoUnit.SECONDS));
@@ -320,7 +329,7 @@ class LocationBackfillPersisterTest {
         when(locationIngestService.validate(any())).thenReturn(FixOutcome.ACCEPTED);
         lenient().when(locationIngestService.guardDecision(any(), any(), any())).thenReturn(Decision.ACCEPT);
         when(locationIngestService.computeGate(any(), any(), any()))
-            .thenReturn(new LocationIngestService.IngestGate(true, true));
+            .thenReturn(new LocationIngestService.IngestGate(true, true, true));
         when(teamDistanceCalculator.recomputeAfter(eq(team.getId()), same(game), any(Instant.class))).thenReturn(500.0);
         // In the real pipeline, a CHECKPOINT_ENTRY automation rule can finish the team synchronously
         // from inside detectCheckpointPasses (AutomationEngine.onCheckpointPass -> FinishTeam action).
@@ -351,7 +360,7 @@ class LocationBackfillPersisterTest {
         when(locationIngestService.validate(any())).thenReturn(FixOutcome.ACCEPTED);
         lenient().when(locationIngestService.guardDecision(any(), any(), any())).thenReturn(Decision.ACCEPT);
         when(locationIngestService.computeGate(any(), any(), any()))
-            .thenReturn(new LocationIngestService.IngestGate(false, false));
+            .thenReturn(new LocationIngestService.IngestGate(false, false, false));
         when(teamDistanceCalculator.recomputeAfter(eq(team.getId()), same(game), any(Instant.class))).thenReturn(500.0);
         when(locationIngestService.detectCheckpointPasses(any(), any())).thenReturn(1);
         game.setStartTime(BASE.minus(1, ChronoUnit.HOURS));
@@ -380,7 +389,7 @@ class LocationBackfillPersisterTest {
         when(locationIngestService.validate(any())).thenReturn(FixOutcome.ACCEPTED);
         lenient().when(locationIngestService.guardDecision(any(), any(), any())).thenReturn(Decision.ACCEPT);
         when(locationIngestService.computeGate(any(), any(), any()))
-            .thenReturn(new LocationIngestService.IngestGate(false, false));
+            .thenReturn(new LocationIngestService.IngestGate(false, false, false));
         when(teamDistanceCalculator.recomputeAfter(eq(team.getId()), same(game), any(Instant.class))).thenReturn(500.0);
         when(locationIngestService.detectCheckpointPasses(any(), any())).thenReturn(1);
         game.setStartTime(BASE.minus(1, ChronoUnit.HOURS));
@@ -408,7 +417,7 @@ class LocationBackfillPersisterTest {
         when(locationIngestService.validate(any())).thenReturn(FixOutcome.ACCEPTED);
         lenient().when(locationIngestService.guardDecision(any(), any(), any())).thenReturn(Decision.ACCEPT);
         when(locationIngestService.computeGate(any(), any(), any()))
-            .thenReturn(new LocationIngestService.IngestGate(false, false));
+            .thenReturn(new LocationIngestService.IngestGate(false, false, false));
         when(teamDistanceCalculator.recomputeAfter(eq(team.getId()), same(game), any(Instant.class))).thenReturn(500.0);
         lenient().when(locationIngestService.detectCheckpointPasses(any(), any())).thenReturn(1);
         game.setStartTime(BASE.minus(1, ChronoUnit.HOURS));
@@ -428,5 +437,45 @@ class LocationBackfillPersisterTest {
 
         assertEquals(2, result.inserted());
         assertEquals(2, locationRepo.findByTeamId(team.getId()).size());
+    }
+
+    @Test
+    void persist_doesNotCreditCheckpointsForSegmentsInsideAPauseWindow() {
+        // Live ingest froze checkpoint detection for the whole stop. A backfill covering that
+        // stretch must not hand the passes back — eligibility is decided per replayed segment
+        // here, not by the single gate snapshot, so this is where the pause test has to live.
+        when(locationIngestService.validate(any())).thenReturn(FixOutcome.ACCEPTED);
+        lenient().when(locationIngestService.guardDecision(any(), any(), any())).thenReturn(Decision.ACCEPT);
+        when(locationIngestService.computeGate(any(), any(), any()))
+            .thenReturn(new LocationIngestService.IngestGate(true, true, true));
+        when(teamDistanceCalculator.recomputeAfter(eq(team.getId()), same(game), any(Instant.class))).thenReturn(500.0);
+        lenient().when(locationIngestService.detectCheckpointPasses(any(), any())).thenReturn(1);
+        game.setStartTime(BASE.minus(1, ChronoUnit.HOURS));
+
+        pauseFrom(150, 350);
+
+        List<EventParticipantLocation> track = List.of(
+            providerPoint(4.90, 52.3700, 100),   // in play
+            providerPoint(4.90, 52.3710, 200),   // frozen
+            providerPoint(4.90, 52.3720, 300),   // frozen
+            providerPoint(4.90, 52.3730, 400)    // in play again
+        );
+
+        LocationBackfillService.BackfillResult result = persister.persist(game, team, track);
+
+        assertEquals(4, result.inserted(), "all four fixes are still stored");
+        // Only the t=400 arrival is creditable: t=100 opens the walk, t=200 and t=300 arrive
+        // while frozen.
+        assertEquals(1, result.checkpointPassesDetected());
+        verify(locationIngestService, times(1)).detectCheckpointPasses(any(), any());
+    }
+
+    /** Record an emergency stop over {@code [fromSeconds, toSeconds)} on the game under test. */
+    private void pauseFrom(int fromSeconds, int toSeconds) {
+        GamePausePeriod period = new GamePausePeriod();
+        period.setGameId(GAME_ID);
+        period.setPausedAt(BASE.plus(fromSeconds, ChronoUnit.SECONDS));
+        period.setResumedAt(BASE.plus(toSeconds, ChronoUnit.SECONDS));
+        pauseRepo.save(period);
     }
 }

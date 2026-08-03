@@ -70,6 +70,14 @@ public class Game {
     public enum GameStatus {
         PLANNED,
         ACTIVE,
+        /**
+         * Emergency stop. Location ingest keeps running (tracking a capsized boat is
+         * exactly when it matters most) but the competition is frozen: no distance
+         * points, no checkpoint passes, no scheduled automations. Reached and left only
+         * via the pause/resume endpoints, which also record the {@link GamePausePeriod}
+         * that makes the frozen stretch reproducible for a later rebuild.
+         */
+        PAUSED,
         COMPLETED
     }
 

@@ -834,6 +834,20 @@ async getGames() : Promise<ApiResponse<Game[]>> {
   }
 
   /**
+   * Emergency stop: freeze the competition without stopping tracking. Answers 409 when the
+   * game is not running. Separate from updateGame because pausing also opens the pause period
+   * that keeps the frozen stretch out of the distance totals.
+   */
+  async pauseGame(gameId: string, reason?: string): Promise<ApiResponse<Game>> {
+    return this.post(`/games/${gameId}/pause`, { reason });
+  }
+
+  /** Resume a paused game. Answers 409 when the game is not paused. */
+  async resumeGame(gameId: string): Promise<ApiResponse<Game>> {
+    return this.post(`/games/${gameId}/resume`);
+  }
+
+  /**
    * Mint the token that unlocks this game's public narrowcasting map. The token is derived, not
    * stored, so this is safe to call repeatedly — it always returns the same value. Answers 503 when
    * the public API has no secret configured, i.e. a link would be dead on arrival.

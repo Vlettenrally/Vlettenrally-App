@@ -266,10 +266,25 @@ CREATE TABLE games (
   start_time TIMESTAMP NOT NULL,
   end_time TIMESTAMP NOT NULL,
   check_in_start_time TIMESTAMP,
-  status VARCHAR(50) DEFAULT 'planned', -- planned, active, completed
+  status VARCHAR(50) DEFAULT 'planned', -- planned, active, paused, completed
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );
+
+-- Emergency stops. One row per pause; a game may be stopped and resumed any number
+-- of times. See "Emergency stop (pause)" below for why these are timestamped periods
+-- rather than a flag on the game.
+CREATE TABLE game_pause_periods (
+  id UUID PRIMARY KEY,
+  game_id UUID REFERENCES games(id) ON DELETE CASCADE,
+  paused_at TIMESTAMPTZ NOT NULL,
+  resumed_at TIMESTAMPTZ,           -- NULL = still paused
+  reason TEXT,
+  paused_by UUID REFERENCES admins(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+-- At most one open pause per game.
+CREATE UNIQUE INDEX uq_gpp_open ON game_pause_periods (game_id) WHERE resumed_at IS NULL;
 
 -- Checkpoints
 CREATE TABLE checkpoints (
@@ -722,7 +737,42 @@ public enum WebSocketEventType {
 - Session management with Redis
 - CSRF protection
 
-#### 5. Responsive Design
+#### 5. Emergency stop (pause)
+
+An admin can freeze a running rally from the games overview (`POST /api/v1/games/{id}/pause`,
+`.../resume`). While a game is `PAUSED`:
+
+- **Location ingest keeps running.** The poller and the Traccar/OsmAnd endpoint both keep
+  accepting fixes, and boats stay live on the admin map — knowing where everyone is matters
+  most during whatever caused the stop.
+- **No distance points, no checkpoint passes, no scheduled or inactivity automations.**
+- **Picture uploads, speed alerts and rival selection keep working.** A speeding boat is still
+  worth an alert during an incident.
+- **The end time does not move.** The rally still ends when it was planned to; an admin who
+  wants to give the time back edits `endTime` separately. A game left paused past its end time
+  auto-completes on schedule, closing its open period at that instant.
+
+Each stop is stored as a row in `game_pause_periods`, not as a flag on the game, and a game may
+be paused and resumed any number of times. The reason is the invariant in
+`TeamDistanceCalculator`: its counting window is derived purely from timestamps so that live
+accrual and a rebuild months later always agree. A status flag alone tells a rebuild nothing
+about which metres were travelled while frozen, so a backfill covering the stop would hand back
+exactly the points the live path refused. With periods, fixes inside a window are skipped and
+the first counted fix after a resume chains from the anchor with `meters = 0` (a *bridge*), so
+travel across the frozen stretch earns nothing either way. Windows are half-open
+`[paused_at, resumed_at)`, and every consumer takes one snapshot per operation — a resume
+landing mid-rebuild would otherwise produce a chain nothing else reproduces.
+
+Checkpoint detection is frozen outright during a stop; on resume, the existing kickoff sweep
+credits any team still sitting inside a zone. A team that entered and left a zone while frozen
+gets nothing — the intended cost of freezing, and an admin can still verify such a pass by hand.
+
+Pausing fires `GAME_STATUS_CHANGE` automations configured with `toStatus = PAUSED` (how "tell
+every team why we stopped" gets wired). Resuming deliberately fires nothing: the engine dedupes
+game-level rules on a `from->to` key, so `PAUSED->ACTIVE` would be a fresh key and every
+fire-once "the rally has started" rule would re-broadcast on each restart.
+
+#### 6. Responsive Design
 - Mobile-first approach
 - Breakpoints: Mobile (< 768px), Tablet (768-1024px), Desktop (> 1024px)
 - Touch-friendly UI elements

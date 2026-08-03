@@ -31,6 +31,8 @@ import {
   Leaderboard as LeaderboardIcon,
   Cast as CastIcon,
   ContentCopy as ContentCopyIcon,
+  PauseCircle as PauseCircleIcon,
+  PlayCircle as PlayCircleIcon,
 } from '@mui/icons-material';
 import api from '../../services/api';
 import { gameService } from '../../services/gameService';
@@ -46,6 +48,8 @@ const getStatusColor = (status?: string): 'default' | 'warning' | 'success' | 'e
       return 'warning';
     case 'active':
       return 'success';
+    case 'paused':
+      return 'error';
     case 'completed':
       return 'default';
     default:
@@ -76,6 +80,12 @@ const Games = () => {
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
   const [gameToPublish, setGameToPublish] = useState<Game | null>(null);
   const [publishing, setPublishing] = useState(false);
+
+  // Emergency stop / resume
+  const [pauseDialogOpen, setPauseDialogOpen] = useState(false);
+  const [gameToPause, setGameToPause] = useState<Game | null>(null);
+  const [pauseReason, setPauseReason] = useState('');
+  const [pausing, setPausing] = useState(false);
 
   // Public narrowcasting map link
   const [mapLinkDialogOpen, setMapLinkDialogOpen] = useState(false);
@@ -151,6 +161,38 @@ const Games = () => {
       setLocalError(err instanceof Error ? err.message : t('admin.games.releaseRankingsFailed'));
     } finally {
       setPublishing(false);
+    }
+  };
+
+  const handlePauseClick = (game: Game) => {
+    setGameToPause(game);
+    setPauseReason('');
+    setPauseDialogOpen(true);
+  };
+
+  /**
+   * Stop or restart the rally. Both go through their own endpoint rather than a status edit,
+   * because pausing also opens the period that keeps the frozen stretch out of the scores.
+   */
+  const handlePauseConfirm = async () => {
+    if (!gameToPause) return;
+
+    const resuming = gameToPause.status === 'paused';
+    setPausing(true);
+    try {
+      if (resuming) {
+        await gameService.resumeGame(gameToPause.id);
+      } else {
+        await gameService.pauseGame(gameToPause.id, pauseReason.trim() || undefined);
+      }
+      setPauseDialogOpen(false);
+      setGameToPause(null);
+      await fetchGames();
+    } catch (err) {
+      setLocalError(err instanceof Error ? err.message
+        : t(resuming ? 'admin.games.resumeGameFailed' : 'admin.games.pauseGameFailed'));
+    } finally {
+      setPausing(false);
     }
   };
 
@@ -294,6 +336,16 @@ const Games = () => {
                     )}
                   </TableCell>
                   <TableCell align="right">
+                    {(game.status === 'active' || game.status === 'paused') && (
+                      <IconButton
+                        size="small"
+                        onClick={() => handlePauseClick(game)}
+                        color={game.status === 'paused' ? 'error' : 'default'}
+                        title={game.status === 'paused' ? t('admin.games.resumeGame') : t('admin.games.pauseGame')}
+                      >
+                        {game.status === 'paused' ? <PlayCircleIcon /> : <PauseCircleIcon />}
+                      </IconButton>
+                    )}
                     {game.status === 'completed' && (
                       <IconButton
                         size="small"
@@ -361,6 +413,51 @@ const Games = () => {
             startIcon={publishing ? <CircularProgress size={16} /> : <LeaderboardIcon />}
           >
             {t('admin.games.release')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Emergency Stop / Resume Dialog */}
+      <Dialog open={pauseDialogOpen} onClose={() => setPauseDialogOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>
+          {gameToPause?.status === 'paused' ? t('admin.games.resumeGame') : t('admin.games.pauseGame')}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            {gameToPause?.status === 'paused'
+              ? t('admin.games.resumeGameConfirm', { name: gameToPause?.name })
+              : t('admin.games.pauseGameConfirm', { name: gameToPause?.name })}
+          </DialogContentText>
+          {gameToPause?.status === 'paused' ? (
+            <Alert severity="info">{t('admin.games.resumeGameEffects')}</Alert>
+          ) : (
+            <>
+              <Alert severity="warning" sx={{ mb: 2 }}>{t('admin.games.pauseGameEffects')}</Alert>
+              <TextField
+                fullWidth
+                autoFocus
+                multiline
+                minRows={2}
+                label={t('admin.games.pauseReason')}
+                helperText={t('admin.games.pauseReasonHelp')}
+                value={pauseReason}
+                onChange={(e) => setPauseReason(e.target.value)}
+              />
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPauseDialogOpen(false)}>{t('common.cancel')}</Button>
+          <Button
+            onClick={handlePauseConfirm}
+            color={gameToPause?.status === 'paused' ? 'primary' : 'error'}
+            variant="contained"
+            disabled={pausing}
+            startIcon={pausing
+              ? <CircularProgress size={16} />
+              : gameToPause?.status === 'paused' ? <PlayCircleIcon /> : <PauseCircleIcon />}
+          >
+            {gameToPause?.status === 'paused' ? t('admin.games.resume') : t('admin.games.pause')}
           </Button>
         </DialogActions>
       </Dialog>

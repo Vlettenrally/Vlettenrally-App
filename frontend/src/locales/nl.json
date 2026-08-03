@@ -64,7 +64,9 @@
       "gameStarted": "De Vlettenrally is gestart!",
       "startsIn": "De Vlettenrally start over:",
       "almostStarting": "Bijna van start!",
-      "getReady": "Maak je klaar om te starten!"
+      "getReady": "Maak je klaar om te starten!",
+      "gamePaused": "De Vlettenrally is gepauzeerd",
+      "gamePausedDefault": "Hou de meldingen van de Rallydesk in de gaten."
     },
     "checkin": {
       "title": "Vlettenrally",
@@ -319,8 +321,21 @@
       "gameStatus": {
         "planned": "Gepland",
         "active": "Actief",
-        "completed": "Afgerond"
-      }
+        "completed": "Afgerond",
+        "paused": "Stilgelegd"
+      },
+      "pauseGame": "Rally stilleggen",
+      "resumeGame": "Rally hervatten",
+      "pause": "Stilleggen",
+      "resume": "Hervatten",
+      "pauseGameConfirm": "Weet je zeker dat je \"{{name}}\" wilt stilleggen?",
+      "resumeGameConfirm": "Weet je zeker dat je \"{{name}}\" wilt hervatten?",
+      "pauseGameEffects": "Tracking loopt door en blijft zichtbaar op de kaart, maar teams krijgen geen afstandspunten en checkpoints tellen niet mee zolang de rally stilligt. De eindtijd schuift niet op.",
+      "resumeGameEffects": "De rally telt weer mee. Teams die nu in een checkpointzone liggen krijgen dat checkpoint alsnog.",
+      "pauseReason": "Reden (optioneel)",
+      "pauseReasonHelp": "Wordt aan alle teams getoond op hun dashboard.",
+      "pauseGameFailed": "Stilleggen mislukt",
+      "resumeGameFailed": "Hervatten mislukt"
     },
     "teams": {
       "title": "Teams",
@@ -622,7 +637,8 @@
       "timeOffsetBefore": "{{minutes}} min voor {{anchor}}",
       "timeOffsetAfter": "{{minutes}} min na {{anchor}}",
       "anchorStart": "start",
-      "anchorEnd": "einde"
+      "anchorEnd": "einde",
+      "descGamePaused": "Rally stilgelegd"
     },
     "zones": {
       "title": "Zones",
@@ -985,7 +1001,9 @@
       "startTimeHint": "Wanneer de race start (game wordt automatisch geactiveerd)",
       "trackerBaseUrlHint": "Base URL van het Legendstracking event — zonder trailing slash en zonder /details, /participants_locations of /participants_checkpoints",
       "registrations": "{{count}} registraties",
-      "participantInfoHint": "Getoond in de deelnemers-app voor deze game. Markdown wordt ondersteund."
+      "participantInfoHint": "Getoond in de deelnemers-app voor deze game. Markdown wordt ondersteund.",
+      "statusPaused": "Paused",
+      "statusPausedHelp": "Gebruik de knop Hervatten in het speloverzicht om de rally weer te starten."
     },
     "zoneForm": {
       "addTitle": "Zone toevoegen",
@@ -1132,7 +1150,8 @@
       "setPublicRankingsEnabledHint": "Regelt de publieke scorebord-API voor buiten de app, bijvoorbeeld een groot scherm of de website. Verandert niets voor deelnemers in de app. Let op: zolang de ranglijst is vrijgegeven aan deelnemers blijft het publieke scorebord open — uitschakelen heeft dan geen effect.",
       "placeholderExample": "Voorbeeld: {team}",
       "placeholderCheckpoint": ", {checkpoint}",
-      "placeholderRival": ", {rival}"
+      "placeholderRival": ", {rival}",
+      "statusPaused": "Stilgelegd (noodstop)"
     },
     "copyAutomations": {
       "title": "Automatiseringen kopiëren",

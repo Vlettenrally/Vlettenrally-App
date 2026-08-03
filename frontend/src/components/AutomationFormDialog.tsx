@@ -434,9 +434,12 @@ export default function AutomationFormDialog({
             <Select
               label={t('components.automationForm.newStatus')}
               value={config.toStatus ?? ''}
-              onChange={(e) => setConfig({ toStatus: e.target.value as 'ACTIVE' | 'COMPLETED' })}
+              onChange={(e) => setConfig({ toStatus: e.target.value as 'ACTIVE' | 'PAUSED' | 'COMPLETED' })}
             >
               <MenuItem value="ACTIVE">{t('components.automationForm.statusActive')}</MenuItem>
+              {/* No resume trigger: resume deliberately does not fire the hook, or every
+                  fire-once "the rally has started" rule would re-broadcast on each restart. */}
+              <MenuItem value="PAUSED">{t('components.automationForm.statusPaused')}</MenuItem>
               <MenuItem value="COMPLETED">{t('components.automationForm.statusCompleted')}</MenuItem>
             </Select>
           </FormControl>

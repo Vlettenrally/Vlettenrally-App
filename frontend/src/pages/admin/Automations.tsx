@@ -113,9 +113,9 @@ export default function Automations() {
       case 'TEAM_INACTIVITY':
         return t('admin.automations.descTeamInactivity', { minutes: config.inactiveMinutes ?? '?' });
       case 'GAME_STATUS_CHANGE':
-        return config.toStatus === 'COMPLETED'
-          ? t('admin.automations.descGameCompleted')
-          : t('admin.automations.descGameStarted');
+        if (config.toStatus === 'COMPLETED') return t('admin.automations.descGameCompleted');
+        if (config.toStatus === 'PAUSED') return t('admin.automations.descGamePaused');
+        return t('admin.automations.descGameStarted');
       case 'SCHEDULED_TIME':
         return describeTimeSpec(config);
       case 'CHECKPOINT_ENTRY': {

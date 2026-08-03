@@ -103,6 +103,10 @@ export default function GameFormDialog({
   // Location test state
   const [testingLocation, setTestingLocation] = useState(false);
   const [locationTestResult, setLocationTestResult] = useState<LocationTestResult | null>(null);
+
+  // Editing a game that is under an emergency stop: the status field is read-only, since only
+  // the pause/resume endpoints may move a game into or out of that state.
+  const isPaused = game?.status === 'paused';
   
   const [formData, setFormData] = useState<GameRequest>({
     name: '',
@@ -349,7 +353,13 @@ export default function GameFormDialog({
             />
           </Box>
 
-          <FormControl fullWidth>
+          {/*
+            A paused game's status is locked: pausing and resuming open and close the pause
+            period that keeps the frozen stretch out of the scores, so the API rejects a plain
+            status write in either direction. Showing the select enabled would offer an edit
+            that 400s and takes the rest of the form's changes down with it.
+          */}
+          <FormControl fullWidth disabled={isPaused}>
             <InputLabel>{t('components.gameForm.status')}</InputLabel>
             <Select
               value={formData.status}
@@ -358,8 +368,12 @@ export default function GameFormDialog({
             >
               <MenuItem value="planned">{t('components.gameForm.statusPlanned')}</MenuItem>
               <MenuItem value="active">{t('components.gameForm.statusActive')}</MenuItem>
+              <MenuItem value="paused">{t('components.gameForm.statusPaused')}</MenuItem>
               <MenuItem value="completed">{t('components.gameForm.statusCompleted')}</MenuItem>
             </Select>
+            {isPaused && (
+              <FormHelperText>{t('components.gameForm.statusPausedHelp')}</FormHelperText>
+            )}
           </FormControl>
 
           <Divider />

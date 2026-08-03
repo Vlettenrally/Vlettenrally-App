@@ -5,6 +5,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.LocationData;
+import nl.vlettenrally.data.domain.PauseWindows;
 import nl.vlettenrally.data.domain.TeamDistanceSegment;
 import nl.vlettenrally.data.repository.LocationDataRepository;
 import nl.vlettenrally.data.repository.TeamDistanceSegmentRepository;
@@ -36,6 +37,16 @@ import java.util.UUID;
  * window is derived purely from timestamps, never from the game's (mutable) status, so
  * a live accrual and a later rebuild always agree.
  * <p>
+ * An emergency stop punches holes in that window: fixes inside a
+ * {@link nl.vlettenrally.data.domain.PauseWindows pause window} are skipped exactly like
+ * out-of-window ones, and the first counted fix after a stop chains from the anchor with
+ * {@code meters = 0} — a <em>bridge</em> — so travel across the frozen stretch earns
+ * nothing. Recording pauses as timestamped periods rather than reading the game's status
+ * is what keeps the invariant above true: a status flag tells a rebuild nothing about
+ * which meters were travelled while frozen. Because the holes come from the same
+ * timestamp snapshot, a game may be paused and resumed any number of times without the
+ * live total and a rebuilt total drifting apart.
+ * <p>
  * Both methods must run inside the caller's transaction: they take the per-team
  * advisory lock ({@link TeamDistanceSegmentRepository#lockTeam}) first, which
  * serializes concurrent updates from the Legendstracking poller, the Traccar/OsmAnd
@@ -50,6 +61,9 @@ public class TeamDistanceCalculator {
     @Inject
     TeamDistanceSegmentRepository segmentRepository;
 
+    @Inject
+    GamePauseWindowCache pauseWindowCache;
+
     @ConfigProperty(name = "vlettenrally.distance.min-segment-meters", defaultValue = "8")
     double minSegmentMeters;
 
@@ -60,7 +74,8 @@ public class TeamDistanceCalculator {
      */
     public double accrueFix(UUID teamId, Game game, LocationData fix) {
         segmentRepository.lockTeam(teamId);
-        appendFix(teamId, game, segmentRepository.findLastByTeamId(teamId).orElse(null), fix);
+        appendFix(teamId, game, pauseWindows(game),
+                segmentRepository.findLastByTeamId(teamId).orElse(null), fix);
         return segmentRepository.sumMetersByTeamId(teamId);
     }
 
@@ -88,10 +103,14 @@ public class TeamDistanceCalculator {
         segmentRepository.lockTeam(teamId);
         segmentRepository.deleteFromTime(teamId, earliestChangedTime);
 
+        // One snapshot for the whole walk: a resume landing mid-rebuild would otherwise
+        // have the early fixes see a different set of holes than the later ones, producing
+        // a chain neither live accrual nor the next rebuild reproduces.
+        PauseWindows pauses = pauseWindows(game);
         TeamDistanceSegment anchor = segmentRepository.findLastByTeamId(teamId).orElse(null);
         Instant after = anchor != null ? anchor.getToTime() : Instant.EPOCH;
         for (LocationData fix : locationDataRepository.findByTeamIdAfter(teamId, after)) {
-            anchor = appendFix(teamId, game, anchor, fix);
+            anchor = appendFix(teamId, game, pauses, anchor, fix);
         }
         return segmentRepository.sumMetersByTeamId(teamId);
     }
@@ -108,11 +127,20 @@ public class TeamDistanceCalculator {
      * team's carryover seed is already the anchor, so its first in-window fix chains
      * from the carryover endpoint and the pre-start gap is credited (pre-existing
      * legacy behaviour, accepted).
+     * <p>
+     * A fix separated from the anchor by an emergency stop gets a <em>bridge</em>: a
+     * zero-metre segment moving the anchor to the new position. It cannot be a second
+     * seed row — V69's {@code uq_tds_from UNIQUE NULLS NOT DISTINCT (team_id, from_time)}
+     * allows only one null-from_time row per team — and it must be written even when the
+     * hop is below the jitter threshold, or the anchor would linger at the pre-pause
+     * position and credit that hop to the fix after it.
      */
-    private TeamDistanceSegment appendFix(UUID teamId, Game game, TeamDistanceSegment anchor, LocationData fix) {
-        if (!countsForDistance(game, fix.getLocationTime())) {
-            // Lead/tail-window fix (or overtime past a strict end): stored, never counted.
-            // Deliberately quiet — pre-start polling skips one fix per team per cycle.
+    private TeamDistanceSegment appendFix(UUID teamId, Game game, PauseWindows pauses,
+                                          TeamDistanceSegment anchor, LocationData fix) {
+        if (!countsForDistance(game, pauses, fix.getLocationTime())) {
+            // Lead/tail-window fix, overtime past a strict end, or a fix from during an
+            // emergency stop: stored, never counted. Deliberately quiet — pre-start polling
+            // skips one fix per team per cycle.
             return anchor;
         }
 
@@ -136,8 +164,9 @@ public class TeamDistanceCalculator {
             return anchor;
         }
 
+        boolean bridgesPause = pauses.separates(anchor.getToTime(), fix.getLocationTime());
         double d = GeoDistance.haversineMeters(anchor.getToLon(), anchor.getToLat(), p.getX(), p.getY());
-        if (d < minSegmentMeters) {
+        if (d < minSegmentMeters && !bridgesPause) {
             // Jitter below the threshold — hold the anchor, no segment.
             return anchor;
         }
@@ -150,20 +179,33 @@ public class TeamDistanceCalculator {
         segment.setToTime(fix.getLocationTime());
         segment.setToLon(p.getX());
         segment.setToLat(p.getY());
-        segment.setMeters(d);
+        segment.setMeters(bridgesPause ? 0 : d);
         return segmentRepository.save(segment);
     }
 
     /**
-     * Whether a fix at {@code t} falls inside the game's playing window
-     * {@code [startTime, endTime]}, inclusive on both ends. A null bound is unbounded
-     * on that side (mirroring {@link Game#isWithinPollingLeadWindow}'s convention; a
-     * game without an end time never auto-completes and keeps accruing). A null game
-     * is unbounded too — defensive only, the fix's game FK guarantees the row exists.
+     * The game's emergency-stop windows, snapshotted once per operation. A null game is
+     * defensive only — the fix's game FK guarantees the row exists.
      */
-    private static boolean countsForDistance(Game game, Instant t) {
+    private PauseWindows pauseWindows(Game game) {
+        return game == null ? PauseWindows.none() : pauseWindowCache.windowsFor(game.getId());
+    }
+
+    /**
+     * Whether a fix at {@code t} falls inside the game's playing window
+     * {@code [startTime, endTime]}, inclusive on both ends, and outside every emergency
+     * stop. A null bound is unbounded on that side (mirroring
+     * {@link Game#isWithinPollingLeadWindow}'s convention; a game without an end time
+     * never auto-completes and keeps accruing). A null game is unbounded too — defensive
+     * only, the fix's game FK guarantees the row exists.
+     */
+    private static boolean countsForDistance(Game game, PauseWindows pauses, Instant t) {
         if (t == null) {
             // Ingest validation rejects these; skip defensively like a null location.
+            return false;
+        }
+        if (pauses.contains(t)) {
+            // Travelled while the game was frozen: stored and broadcast, never counted.
             return false;
         }
         if (game == null) {

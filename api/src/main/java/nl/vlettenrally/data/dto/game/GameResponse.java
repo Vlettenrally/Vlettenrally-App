@@ -30,6 +30,8 @@ public record GameResponse(
     Long locStaleFixSeconds,
     Boolean rankingsPublished,
     Boolean publicRankingsEnabled,
+    /** Why the rally was stopped. Only set while the game is paused. */
+    String pauseReason,
     String createdAt,
     String updatedAt
 ) {}

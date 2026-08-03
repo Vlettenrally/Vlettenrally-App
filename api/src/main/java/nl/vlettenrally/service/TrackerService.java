@@ -131,12 +131,14 @@ public class TrackerService {
     }
 
     /**
-     * Every team currently holding a tracker, across PLANNED and ACTIVE games.
-     * A completed game's trackers are back at the desk and count as unassigned.
+     * Every team currently holding a tracker, across PLANNED, ACTIVE and PAUSED games.
+     * A completed game's trackers are back at the desk and count as unassigned; a paused
+     * game's are still very much out on the water.
      */
     private List<Holder> currentHolders() {
         List<Holder> holders = new ArrayList<>();
-        for (Game.GameStatus status : List.of(Game.GameStatus.PLANNED, Game.GameStatus.ACTIVE)) {
+        for (Game.GameStatus status : List.of(
+                Game.GameStatus.PLANNED, Game.GameStatus.ACTIVE, Game.GameStatus.PAUSED)) {
             for (Game game : gameRepository.findByStatus(status)) {
                 for (Team team : teamRepository.findByGameId(game.getId())) {
                     String trackerId = team.getTrackerId();

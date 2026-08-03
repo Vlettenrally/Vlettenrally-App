@@ -52,9 +52,12 @@ public class JpaGameRepository extends ReadReplicaAwareRepository implements Gam
 
     @Override
     public List<Game> findActiveGames() {
+        // PAUSED counts as running: an emergency stop must not make the game vanish from
+        // the admin's game picker (or from the admin picture upload, which takes the first
+        // hit) halfway through the rally.
         List<GameEntity> entities = getReadEntityManager()
-                .createQuery("SELECT g FROM GameEntity g WHERE g.status = :status ORDER BY g.startTime DESC", GameEntity.class)
-                .setParameter("status", GameEntity.GameStatus.ACTIVE)
+                .createQuery("SELECT g FROM GameEntity g WHERE g.status IN :statuses ORDER BY g.startTime DESC", GameEntity.class)
+                .setParameter("statuses", List.of(GameEntity.GameStatus.ACTIVE, GameEntity.GameStatus.PAUSED))
                 .getResultList();
         return entities.stream()
                 .map(GameMapper::toDomain)
@@ -104,6 +107,7 @@ public class JpaGameRepository extends ReadReplicaAwareRepository implements Gam
         return switch (status) {
             case PLANNED -> GameEntity.GameStatus.PLANNED;
             case ACTIVE -> GameEntity.GameStatus.ACTIVE;
+            case PAUSED -> GameEntity.GameStatus.PAUSED;
             case COMPLETED -> GameEntity.GameStatus.COMPLETED;
         };
     }

@@ -19,6 +19,9 @@ import java.util.Map;
  * Transitions:
  * - PLANNED → ACTIVE: When startTime is reached
  * - ACTIVE → COMPLETED: When endTime is reached
+ * - PAUSED → COMPLETED: When endTime is reached, closing the open pause period at that
+ *   instant. An emergency stop never extends the end time, so a game left paused past it
+ *   still ends on schedule rather than hanging with a window nothing would ever close.
  * <p>
  * Runs on a single instance at a time — leader election via
  * {@link PollingLeader} (Valkey-backed lease, shared with the other
@@ -41,6 +44,9 @@ public class GameStatusScheduler {
 
     @Inject
     PollingLeader pollingLeader;
+
+    @Inject
+    GamePauseService gamePauseService;
 
     /**
      * Check for game status transitions on the automation tick interval
@@ -72,9 +78,22 @@ public class GameStatusScheduler {
                 transitionToCompleted(game);
             }
         }
+
+        // PAUSED games complete on schedule too: an emergency stop does not extend the end
+        // time, so the rally genuinely ends when it was planned to. Leaving one paused past
+        // its end would also strand the open pause period, which every later rebuild would
+        // keep treating as "frozen from then on".
+        List<Game> pausedGames = gameService.findByStatus(Game.GameStatus.PAUSED);
+        for (Game game : pausedGames) {
+            if (game.getEndTime() != null && !now.isBefore(game.getEndTime())) {
+                gamePauseService.closeOpenPeriod(game.getId(), game.getEndTime());
+                transitionToCompleted(game);
+            }
+        }
     }
 
     private void transitionToActive(Game game) {
+        Game.GameStatus previousStatus = game.getStatus();
         game.setStatus(Game.GameStatus.ACTIVE);
         gameService.save(game);
 
@@ -85,19 +104,22 @@ public class GameStatusScheduler {
             Map.of(
                 "gameId", game.getId(),
                 "status", "active",
-                "previousStatus", "planned"
+                "previousStatus", previousStatus.name().toLowerCase()
             )
         );
 
         Log.info("Game '" + game.getName() + "' transitioned to ACTIVE");
 
-        automationEngine.onGameStatusChange(game, Game.GameStatus.PLANNED, Game.GameStatus.ACTIVE);
+        automationEngine.onGameStatusChange(game, previousStatus, Game.GameStatus.ACTIVE);
 
         // Fire automations for teams already sitting inside a zone at kickoff.
         locationIngestService.evaluateCurrentPositions(game.getId());
     }
 
     private void transitionToCompleted(Game game) {
+        // Read before the write: a game can reach its end time from ACTIVE or from PAUSED, and
+        // reporting the wrong one to clients (and to GAME_STATUS_CHANGE rules) would be a lie.
+        Game.GameStatus previousStatus = game.getStatus();
         game.setStatus(Game.GameStatus.COMPLETED);
         gameService.save(game);
 
@@ -108,13 +130,13 @@ public class GameStatusScheduler {
             Map.of(
                 "gameId", game.getId(),
                 "status", "completed",
-                "previousStatus", "active"
+                "previousStatus", previousStatus.name().toLowerCase()
             )
         );
 
 
         Log.info("Game '" + game.getName() + "' transitioned to COMPLETED");
 
-        automationEngine.onGameStatusChange(game, Game.GameStatus.ACTIVE, Game.GameStatus.COMPLETED);
+        automationEngine.onGameStatusChange(game, previousStatus, Game.GameStatus.COMPLETED);
     }
 }

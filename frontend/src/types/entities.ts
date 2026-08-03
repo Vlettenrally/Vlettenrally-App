@@ -6,7 +6,7 @@ export interface Game {
   checkInStartTime?: Date;
   description?: string;
   participantInfo?: string;
-  status?: 'planned' | 'active' | 'completed';
+  status?: 'planned' | 'active' | 'paused' | 'completed';
   // Whether the final ranking has been revealed to players (admin-triggered at the ceremony).
   rankingsPublished?: boolean;
   // Whether the ranking is visible on the public scoreboard API (independent of player-app visibility).
@@ -29,6 +29,8 @@ export interface Game {
   locMinBearingSegmentMeters?: number;
   locMaxAccuracyMeters?: number;
   locStaleFixSeconds?: number;
+  // Why the rally was stopped. Only set while status is 'paused'.
+  pauseReason?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -850,7 +852,7 @@ export interface AutomationTriggerConfig {
   absoluteTime?: string | null;
   relativeTo?: 'GAME_START' | 'GAME_END' | null;
   offsetMinutes?: number | null;
-  toStatus?: 'ACTIVE' | 'COMPLETED' | null;
+  toStatus?: 'ACTIVE' | 'PAUSED' | 'COMPLETED' | null;
   inactiveMinutes?: number | null;
   pointsPer100m?: number | null;
   comparison?: 'BEFORE' | 'AFTER' | null;

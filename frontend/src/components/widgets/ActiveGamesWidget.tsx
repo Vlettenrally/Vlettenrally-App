@@ -36,7 +36,9 @@ export function ActiveGamesWidget({ collapsed = false }: ActiveGamesWidgetProps)
 
   useAdminResync(loadGames);
 
-  const activeGames = games.filter((g) => g.status === 'active');
+  // A paused game is still a running game — an emergency stop must not make it disappear
+  // from the dashboard halfway through the rally.
+  const activeGames = games.filter((g) => g.status === 'active' || g.status === 'paused');
   const plannedGames = games.filter((g) => g.status === 'planned');
 
   if (collapsed) {

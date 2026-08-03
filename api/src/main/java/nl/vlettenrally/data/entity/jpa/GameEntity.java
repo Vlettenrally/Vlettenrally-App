@@ -111,6 +111,7 @@ public class GameEntity {
     public enum GameStatus {
         PLANNED,
         ACTIVE,
+        PAUSED,
         COMPLETED
     }
 

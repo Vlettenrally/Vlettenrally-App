@@ -27,6 +27,7 @@ import nl.vlettenrally.data.dto.game.CheckpointRequest;
 import nl.vlettenrally.data.dto.game.CheckpointResponse;
 import nl.vlettenrally.data.dto.game.CopyCheckpointsRequest;
 import nl.vlettenrally.data.dto.game.CopyCheckpointsResult;
+import nl.vlettenrally.data.dto.game.GamePauseRequest;
 import nl.vlettenrally.data.dto.game.GameRequest;
 import nl.vlettenrally.data.dto.game.GameResponse;
 import nl.vlettenrally.data.dto.game.TeamGameResponse;
@@ -45,6 +46,8 @@ import nl.vlettenrally.data.dto.achievement.CheckpointTeamResponse;
 import nl.vlettenrally.data.mapper.CheckpointMapper;
 import nl.vlettenrally.service.AchievementService;
 import nl.vlettenrally.service.AutomationEngine;
+import nl.vlettenrally.service.GamePauseException;
+import nl.vlettenrally.service.GamePauseService;
 import nl.vlettenrally.service.LocationGuardConfig;
 import nl.vlettenrally.service.LocationBackfillService;
 import nl.vlettenrally.service.LocationIngestService;
@@ -84,6 +87,8 @@ import java.util.UUID;
  * - PUT /api/v1/games/{gameId}/checkpoints/{checkpointId} - Update a checkpoint
  * - DELETE /api/v1/games/{gameId}/checkpoints/{checkpointId} - Delete a checkpoint
  * - POST /api/v1/games/{gameId}/import-checkpoints - Import checkpoints (zones) from location tracker
+ * - POST /api/v1/games/{gameId}/pause - Emergency stop: freeze the competition, keep tracking
+ * - POST /api/v1/games/{gameId}/resume - Resume a paused game
  */
 @Path("/api/v1/games")
 @RolesAllowed({SecurityRoles.STAFF, SecurityRoles.TEAM})
@@ -93,6 +98,9 @@ public class GameResource {
 
     @Inject
     GameService gameService;
+
+    @Inject
+    GamePauseService gamePauseService;
 
     @Inject
     CheckpointService checkpointService;
@@ -290,6 +298,49 @@ public class GameResource {
     }
 
     /**
+     * Emergency stop: freeze a running game.
+     * <p>
+     * Tracking carries on — fixes keep arriving, keep being stored and keep reaching the admin
+     * map, which is the point when the reason for the stop is a boat in trouble — but the
+     * competition freezes: no distance points, no checkpoint passes, no scheduled automations.
+     * Picture uploads, speed alerts and rival selection stay open, and the game's end time is
+     * not extended.
+     * <p>
+     * Its own endpoint rather than a status on {@code PUT} because pausing is not just a status:
+     * it opens the pause period that lets a later rebuild reproduce which stretch did not count.
+     */
+    @POST
+    @Path("/{gameId}/pause")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
+    public Response pauseGame(@PathParam("gameId") UUID gameId, GamePauseRequest request,
+                              @Context SecurityContext ctx) {
+        try {
+            String reason = request != null ? request.reason() : null;
+            return Response.ok(toDto(gamePauseService.pause(gameId, reason, actingAdminId(ctx)))).build();
+        } catch (GamePauseException e) {
+            return Response.status(e.getStatusCode()).entity(new ErrorResponse(e.getMessage())).build();
+        }
+    }
+
+    /**
+     * Resume a paused game, closing its open pause period.
+     * <p>
+     * Sweeps current positions on the way out, so a team still sitting inside a checkpoint zone
+     * when play restarts is credited. A team that entered and left a zone during the stop is not:
+     * that is the intended cost of freezing detection.
+     */
+    @POST
+    @Path("/{gameId}/resume")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.GAME_MASTER})
+    public Response resumeGame(@PathParam("gameId") UUID gameId) {
+        try {
+            return Response.ok(toDto(gamePauseService.resume(gameId))).build();
+        } catch (GamePauseException e) {
+            return Response.status(e.getStatusCode()).entity(new ErrorResponse(e.getMessage())).build();
+        }
+    }
+
+    /**
      * Mint the token that unlocks this game's public narrowcasting map.
      * <p>
      * Returns the token only; the admin UI composes the display URL from its own origin, which keeps
@@ -335,7 +386,16 @@ public class GameResource {
 
         if (request.status() != null) {
             try {
-                game.setStatus(Game.GameStatus.valueOf(request.status().toUpperCase()));
+                Game.GameStatus status = Game.GameStatus.valueOf(request.status().toUpperCase());
+                if (status == Game.GameStatus.PAUSED) {
+                    // A game in PAUSED without a pause period would freeze nothing: the windows
+                    // that gate scoring would be empty, and there would be nothing for resume to
+                    // close. Only POST /pause can produce that state.
+                    return Response.status(Response.Status.BAD_REQUEST)
+                        .entity(new ErrorResponse("A game cannot be created paused. Create it, then use POST /games/{gameId}/pause."))
+                        .build();
+                }
+                game.setStatus(status);
             } catch (IllegalArgumentException e) {
                 return Response.status(Response.Status.BAD_REQUEST)
                     .entity(new ErrorResponse("Invalid status: " + request.status()))
@@ -375,6 +435,14 @@ public class GameResource {
         return gameService.findById(gameId)
             .map(game -> {
                 Game.GameStatus oldStatus = game.getStatus();
+                // Validate the status transition before touching anything: entering or leaving
+                // PAUSED must go through the pause/resume endpoints, which are what open and
+                // close the period row that makes the frozen stretch reproducible. Checked first
+                // so a rejected edit does not half-apply the rest of the request.
+                Response statusRejection = rejectPauseTransition(oldStatus, request.status());
+                if (statusRejection != null) {
+                    return statusRejection;
+                }
                 if (request.name() != null) game.setName(request.name());
                 if (request.description() != null) game.setDescription(request.description());
                 if (request.participantInfo() != null) game.setParticipantInfo(request.participantInfo());
@@ -784,6 +852,7 @@ public class GameResource {
             game.getLocStaleFixSeconds(),
             game.getRankingsPublished() != null && game.getRankingsPublished(),
             game.getPublicRankingsEnabled() != null && game.getPublicRankingsEnabled(),
+            pauseReasonOf(game),
             game.getCreatedAt() != null ? game.getCreatedAt().toString() : null,
             game.getUpdatedAt() != null ? game.getUpdatedAt().toString() : null
         );
@@ -828,14 +897,69 @@ public class GameResource {
             game.getCheckInStartTime() != null ? game.getCheckInStartTime().toString() : null,
             game.getStatus() != null ? game.getStatus().name().toLowerCase() : null,
             game.getRankingsPublished() != null && game.getRankingsPublished(),
-            game.getPublicRankingsEnabled() != null && game.getPublicRankingsEnabled()
+            game.getPublicRankingsEnabled() != null && game.getPublicRankingsEnabled(),
+            pauseReasonOf(game)
         );
+    }
+
+    /**
+     * Why the rally is currently stopped, or null when it is not. Looked up only for a paused
+     * game so listing every game does not cost one query per row, and served from the API (not
+     * just the WebSocket event) so a team opening the app mid-stop still sees the explanation.
+     */
+    private String pauseReasonOf(Game game) {
+        if (game.getStatus() != Game.GameStatus.PAUSED) {
+            return null;
+        }
+        return gamePauseService.currentPauseReason(game.getId()).orElse(null);
     }
 
     private Response gameNotFoundResponse() {
         return Response.status(Response.Status.NOT_FOUND)
             .entity(new ErrorResponse("Game not found"))
             .build();
+    }
+
+    /**
+     * Reject a {@code PUT} that would move a game into or out of PAUSED, since neither
+     * direction is a plain status write: entering opens a pause period, leaving closes one and
+     * sweeps positions. Returns null when the requested status is fine (including a no-op
+     * {@code paused → paused}, so an admin can still edit a paused game's other fields).
+     */
+    private Response rejectPauseTransition(Game.GameStatus current, String requestedStatus) {
+        if (requestedStatus == null) {
+            return null;
+        }
+        Game.GameStatus requested;
+        try {
+            requested = Game.GameStatus.valueOf(requestedStatus.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            // Genuinely unparseable: left to the existing silently-ignored path below.
+            return null;
+        }
+        if (requested == Game.GameStatus.PAUSED && current != Game.GameStatus.PAUSED) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("Use POST /games/{gameId}/pause to pause a game."))
+                .build();
+        }
+        if (current == Game.GameStatus.PAUSED && requested != Game.GameStatus.PAUSED) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("Use POST /games/{gameId}/resume to resume a paused game."))
+                .build();
+        }
+        return null;
+    }
+
+    /** The admin acting on this request, or null for an unauthenticated context (dev mode). */
+    private static UUID actingAdminId(SecurityContext ctx) {
+        if (ctx == null || ctx.getUserPrincipal() == null) {
+            return null;
+        }
+        try {
+            return UUID.fromString(ctx.getUserPrincipal().getName());
+        } catch (IllegalArgumentException notAUuid) {
+            return null;
+        }
     }
 
 }

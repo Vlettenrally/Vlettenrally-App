@@ -15,5 +15,7 @@ public record TeamGameResponse(
     String checkInStartTime,
     String status,
     Boolean rankingsPublished,
-    Boolean publicRankingsEnabled
+    Boolean publicRankingsEnabled,
+    /** Why the rally was stopped. Only set while the game is paused. */
+    String pauseReason
 ) {}

@@ -88,8 +88,9 @@ public class MockGameRepository implements GameRepository {
     @Override
     public List<Game> findActiveGames() {
         return games.values().stream()
-                .filter(g -> g.getStatus() == Game.GameStatus.ACTIVE || 
-                            g.getStatus() == Game.GameStatus.PLANNED)
+                .filter(g -> g.getStatus() == Game.GameStatus.ACTIVE
+                            || g.getStatus() == Game.GameStatus.PAUSED
+                            || g.getStatus() == Game.GameStatus.PLANNED)
                 .collect(Collectors.toList());
     }
 

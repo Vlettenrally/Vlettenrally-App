@@ -20,7 +20,12 @@ interface GameState {
   selectedGameId: string | null;
   
   setGame: (game: Game) => void;
-  setGameStatus: (status: 'planned' | 'active' | 'completed') => void;
+  /**
+   * Apply a live GAME_STATUS event. The pause reason rides along with it so a team already
+   * looking at the dashboard when the rally is stopped sees why, without waiting for a refetch;
+   * leaving PAUSED clears it.
+   */
+  setGameStatus: (status: 'planned' | 'active' | 'paused' | 'completed', pauseReason?: string) => void;
   setRankingsPublished: (published: boolean) => void;
   setCheckpoints: (checkpoints: Checkpoint[]) => void;
   setLoading: (loading: boolean) => void;
@@ -45,8 +50,12 @@ export const useGameStore = create<GameState>((set) => ({
   selectedGameId: storage.getGameId(),
 
   setGame: (game) => set({ game }),
-  setGameStatus: (status) =>
-    set((state) => ({ game: state.game ? { ...state.game, status } : null })),
+  setGameStatus: (status, pauseReason) =>
+    set((state) => ({
+      game: state.game
+        ? { ...state.game, status, pauseReason: status === 'paused' ? pauseReason : undefined }
+        : null,
+    })),
   setRankingsPublished: (published) =>
     set((state) => ({ game: state.game ? { ...state.game, rankingsPublished: published } : null })),
   setCheckpoints: (checkpoints) => set({ checkpoints }),

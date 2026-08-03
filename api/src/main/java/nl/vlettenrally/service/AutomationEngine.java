@@ -403,13 +403,20 @@ public class AutomationEngine {
         evaluateInactivity(now);
     }
 
-    /** Scheduler tick: evaluate SCHEDULED_TIME rules. */
+    /**
+     * Scheduler tick: evaluate SCHEDULED_TIME rules.
+     * <p>
+     * Deliberately not gated on ACTIVE — a rule anchored to GAME_START with a negative offset
+     * is supposed to fire while the game is still PLANNED. Only a paused game is skipped: an
+     * emergency stop freezes the schedule too. Because {@link #SCHEDULED_FIRE_WINDOW} is 24h,
+     * a rule whose moment passed during the stop fires on resume rather than being lost.
+     */
     public void evaluateScheduledTime(Instant now) {
         if (EXECUTING.get()) return;
         for (AutomationRule rule : ruleRepository.findEnabledByTriggerType(AutomationTriggerType.SCHEDULED_TIME)) {
             try {
                 Game game = gameService.findById(rule.getGameId()).orElse(null);
-                if (game == null) continue;
+                if (game == null || game.getStatus() == Game.GameStatus.PAUSED) continue;
 
                 Instant fireAt = computeFireAt(rule.getTriggerConfig(), game);
                 if (fireAt == null || now.isBefore(fireAt)) continue;

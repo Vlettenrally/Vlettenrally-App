@@ -60,6 +60,22 @@ export const gameService = {
     return response.data!;
   },
 
+  pauseGame: async (gameId: string, reason?: string): Promise<Game> => {
+    const response = await api.pauseGame(gameId, reason);
+    if (response.error) {
+      throw new Error(response.error);
+    }
+    return response.data!;
+  },
+
+  resumeGame: async (gameId: string): Promise<Game> => {
+    const response = await api.resumeGame(gameId);
+    if (response.error) {
+      throw new Error(response.error);
+    }
+    return response.data!;
+  },
+
   deleteGame: async (gameId: string): Promise<void> => {
     const response = await api.deleteGame(gameId);
     if (response.error) {

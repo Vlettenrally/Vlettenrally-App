@@ -149,6 +149,7 @@ public class GameMapper {
         return switch (status) {
             case PLANNED -> Game.GameStatus.PLANNED;
             case ACTIVE -> Game.GameStatus.ACTIVE;
+            case PAUSED -> Game.GameStatus.PAUSED;
             case COMPLETED -> Game.GameStatus.COMPLETED;
         };
     }
@@ -160,6 +161,7 @@ public class GameMapper {
         return switch (status) {
             case PLANNED -> GameEntity.GameStatus.PLANNED;
             case ACTIVE -> GameEntity.GameStatus.ACTIVE;
+            case PAUSED -> GameEntity.GameStatus.PAUSED;
             case COMPLETED -> GameEntity.GameStatus.COMPLETED;
         };
     }

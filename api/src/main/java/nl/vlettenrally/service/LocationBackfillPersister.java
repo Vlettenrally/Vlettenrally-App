@@ -6,6 +6,7 @@ import jakarta.transaction.Transactional;
 import nl.vlettenrally.client.dto.legendstracking.EventParticipantLocation;
 import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.LocationData;
+import nl.vlettenrally.data.domain.PauseWindows;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.repository.LocationDataRepository;
 import nl.vlettenrally.observability.LocationMetrics;
@@ -62,6 +63,9 @@ public class LocationBackfillPersister {
 
     @Inject
     AutomationEngine automationEngine;
+
+    @Inject
+    GamePauseWindowCache pauseWindowCache;
 
     @Inject
     LocationMetrics metrics;
@@ -182,7 +186,11 @@ public class LocationBackfillPersister {
         LocationIngestService.IngestGate gate = locationIngestService.computeGate(game, teamId, maxT);
         double cumulative = teamDistanceCalculator.recomputeAfter(
             teamId, game, accepted.getFirst().getLocationTime());
-        automationEngine.onDistanceUpdate(gameId, teamId, cumulative, gate.scoringActive());
+        // A backfill of a pre-pause gap that lands while the game is frozen finds creditDistance
+        // false and credits nothing yet. The meters are not lost: accrueDistance treats its
+        // baseline as a high-water mark, so the next accrual after the resume picks them up. Same
+        // deferral the COMPLETED case has always had.
+        automationEngine.onDistanceUpdate(gameId, teamId, cumulative, gate.creditDistance());
 
         // Checkpoint eligibility is decided per segment inside replayCheckpoints, not by this single
         // gate.detectCheckpoints() snapshot: unlike the live poller (one fix, evaluated at its own
@@ -233,6 +241,9 @@ public class LocationBackfillPersister {
             walk.add(neighbourAfter);
         }
 
+        // One snapshot for the whole walk, for the same reason the distance rebuild takes one:
+        // a resume landing mid-replay must not make two halves of the same batch disagree.
+        PauseWindows pauses = pauseWindowCache.windowsFor(game.getId());
         boolean wasFinishedAtStart = team.isFinished();
         int passes = 0;
         for (int i = 1; i < walk.size(); i++) {
@@ -240,7 +251,7 @@ public class LocationBackfillPersister {
                 break;
             }
             LocationData reading = walk.get(i);
-            if (!isCheckpointEligible(game, team, reading.getLocationTime())) {
+            if (!isCheckpointEligible(game, team, pauses, reading.getLocationTime())) {
                 continue;
             }
             passes += locationIngestService.detectCheckpointPasses(walk.get(i - 1), reading);
@@ -250,12 +261,20 @@ public class LocationBackfillPersister {
 
     /**
      * Whether a fix at {@code t} could legitimately have been a checkpoint crossing: at/after the
-     * game's start time, at/before its end time (or within the post-end tail window), and before the
-     * team's recorded finish instant (if any). Mirrors {@link Game#isWithinPollingLeadWindow} /
-     * {@link Game#isWithinPollingTailWindow}'s convention that a missing boundary means the window never
-     * applies, so an unconfigured/never-started game never yields checkpoint credit.
+     * game's start time, at/before its end time (or within the post-end tail window), outside every
+     * emergency stop, and before the team's recorded finish instant (if any). Mirrors
+     * {@link Game#isWithinPollingLeadWindow} / {@link Game#isWithinPollingTailWindow}'s convention
+     * that a missing boundary means the window never applies, so an unconfigured/never-started game
+     * never yields checkpoint credit.
+     * <p>
+     * The pause test is what stops a backfill from handing back exactly the passes live ingest
+     * froze — this method, not {@code gate.detectCheckpoints()}, is the real checkpoint gate on
+     * the replay path.
      */
-    private boolean isCheckpointEligible(Game game, Team team, Instant t) {
+    private boolean isCheckpointEligible(Game game, Team team, PauseWindows pauses, Instant t) {
+        if (pauses.contains(t)) {
+            return false;
+        }
         Instant start = game.getStartTime();
         if (start == null || t.isBefore(start)) {
             return false;
@@ -272,7 +291,7 @@ public class LocationBackfillPersister {
      * Upper storage bound for backfilled fixes: once the game has COMPLETED, live polling stops
      * when the post-end tail window closes ({@link Game#isWithinPollingTailWindow}), so backfill
      * must not import past that point either. Null (no bound) while the game is still
-     * PLANNED/ACTIVE — a game running past its planned end time keeps ingesting live, and
+     * PLANNED/ACTIVE/PAUSED — a game running past its planned end time keeps ingesting live, and
      * backfill must match — or when no end time is configured.
      */
     private static Instant completedTailWindowEnd(Game game) {

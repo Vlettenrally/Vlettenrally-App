@@ -117,20 +117,21 @@ public class LocationIngestService {
         // The game drives distance accrual, scoring and checkpoint detection; look it
         // up once here, the single choke point for every fix.
         //
-        // Distance only accrues for fixes inside the game's [startTime, endTime] window
-        // (enforced in TeamDistanceCalculator) — lead/tail-window fixes are stored and
-        // broadcast but never counted. Point scoring (distance + speed) is additionally
-        // ACTIVE-only and gated out for a finished team. Checkpoint detection also runs
-        // while a COMPLETED game is inside its post-end tail window, so a late finish-zone
-        // crossing is still detected and its automation fires (e.g. a CHECKPOINT_ENTRY rule
-        // comparing AFTER the game end). The rule itself still decides whether/how to act.
+        // Distance only accrues for fixes inside the game's [startTime, endTime] window and
+        // outside every emergency stop (both enforced in TeamDistanceCalculator) — lead/tail-
+        // window and paused fixes are stored and broadcast but never counted. Distance credit
+        // is additionally ACTIVE-only and gated out for a finished team; speed alerts stay live
+        // through a pause. Checkpoint detection also runs while a COMPLETED game is inside its
+        // post-end tail window, so a late finish-zone crossing is still detected and its
+        // automation fires (e.g. a CHECKPOINT_ENTRY rule comparing AFTER the game end). The rule
+        // itself still decides whether/how to act.
         Game game = gameService.findById(reading.getGameId()).orElse(null);
         IngestGate gate = computeGate(game, reading.getTeamId(), reading.getLocationTime());
 
         double cumulativeMeters = teamDistanceCalculator.accrueFix(reading.getTeamId(), game, reading);
-        automationEngine.onDistanceUpdate(reading.getGameId(), reading.getTeamId(), cumulativeMeters, gate.scoringActive());
+        automationEngine.onDistanceUpdate(reading.getGameId(), reading.getTeamId(), cumulativeMeters, gate.creditDistance());
 
-        if (gate.scoringActive() && reading.getSpeed() != null) {
+        if (gate.speedAlerts() && reading.getSpeed() != null) {
             automationEngine.onSpeedExceeded(
                 reading.getGameId(), reading.getTeamId(),
                 reading.getSpeed().doubleValue());
@@ -223,25 +224,39 @@ public class LocationIngestService {
     }
 
     /**
-     * The two gating flags derived from game/team state, shared by the live ingest path and the
+     * The gating flags derived from game/team state, shared by the live ingest path and the
      * bulk backfill path so both decide scoring and checkpoint detection identically.
+     * <p>
+     * They are three rather than one because an emergency stop does not freeze everything
+     * uniformly: the competition stops, but a speeding boat is still worth an alert.
      */
-    record IngestGate(boolean scoringActive, boolean detectCheckpoints) {}
+    record IngestGate(boolean creditDistance, boolean speedAlerts, boolean detectCheckpoints) {}
 
     /**
-     * Scoring (distance + speed) is ACTIVE-only; checkpoint detection additionally runs while a
-     * COMPLETED game is inside its post-end tail window. A finished team is gated out of both.
+     * Distance credit is ACTIVE-only. Speed alerts also run while PAUSED — an emergency stop is
+     * precisely when an operator wants to know a boat is going too fast. Checkpoint detection
+     * runs while ACTIVE, and while a COMPLETED game is inside its post-end tail window, but not
+     * during a stop: a boat must not gain ground while the rally is frozen. A finished team is
+     * gated out of all three.
+     * <p>
+     * Distance credit is belt-and-braces here: {@link TeamDistanceCalculator} already excludes
+     * fixes inside a pause window, so the cumulative total does not move during a stop and there
+     * is nothing to credit either way. The freeze that matters lives in the calculator, where it
+     * survives a rebuild.
      */
     IngestGate computeGate(Game game, UUID teamId, Instant atTime) {
-        boolean gameActive = game != null && game.getStatus() == Game.GameStatus.ACTIVE;
-        boolean inTailWindow = game != null && game.getStatus() == Game.GameStatus.COMPLETED
+        Game.GameStatus status = game != null ? game.getStatus() : null;
+        boolean gameActive = status == Game.GameStatus.ACTIVE;
+        boolean gamePaused = status == Game.GameStatus.PAUSED;
+        boolean inTailWindow = status == Game.GameStatus.COMPLETED
             && game.isWithinPollingTailWindow(atTime);
         boolean teamFinished = teamRepository.findById(teamId)
             .map(Team::isFinished)
             .orElse(false);
-        boolean scoringActive = gameActive && !teamFinished;
+        boolean creditDistance = gameActive && !teamFinished;
+        boolean speedAlerts = (gameActive || gamePaused) && !teamFinished;
         boolean detectCheckpoints = (gameActive || inTailWindow) && !teamFinished;
-        return new IngestGate(scoringActive, detectCheckpoints);
+        return new IngestGate(creditDistance, speedAlerts, detectCheckpoints);
     }
 
     /**
