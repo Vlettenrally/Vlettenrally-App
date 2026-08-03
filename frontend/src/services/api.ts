@@ -885,6 +885,15 @@ async getGames() : Promise<ApiResponse<Game[]>> {
     return this.post('/achievements/detect', { teamId, checkpointId });
   }
 
+  /**
+   * Add a team to a checkpoint as verified in one step. Unlike detectProximity this
+   * never conflicts: it overrides an existing pending/rejected entry, and adding an
+   * already-verified team is a no-op.
+   */
+  async recordManualPass(teamId: string, checkpointId: string): Promise<ApiResponse<Achievement>> {
+    return this.post('/achievements/manual', { teamId, checkpointId });
+  }
+
   // FCM Token registration
   async registerFcmToken(token: string): Promise<ApiResponse<FcmTokenRegistrationResponse>> {
     // Admins and teams have separate device-row keys (one device_registrations row

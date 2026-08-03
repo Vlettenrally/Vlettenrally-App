@@ -289,46 +289,31 @@ export default function CheckpointStation() {
     if (!addTeam) return;
     setDetecting(true);
 
-    const res = await api.detectProximity(addTeam.id, selectedCheckpointId);
-
-    if (res.data) {
-      // A manual entry is an explicit operator confirmation, so verify it
-      // straight away rather than leaving a PENDING hit for a second review.
-      const verified = await api.verifyAchievement(res.data.id);
-      setDetecting(false);
-      setAddDialogOpen(false);
-      setAddTeam(null);
-      await fetchTeams();
-      if (verified.data) {
-        const total = verified.data.pointsEarned ?? 0;
-        setSnackbar({
-          message: t('admin.checkpointStation.verifiedMessage', { teamName: addTeam.name, points: total }),
-          severity: 'success',
-        });
-      } else {
-        setSnackbar({
-          message: verified.error ?? t('admin.checkpointStation.verifyFailed'),
-          severity: 'error',
-        });
-      }
-      return;
-    }
-
+    // A manual entry is an explicit operator confirmation, so the backend verifies it
+    // in the same request — including when the team was already pending or rejected.
+    const res = await api.recordManualPass(addTeam.id, selectedCheckpointId);
     setDetecting(false);
-    if (res.status === 409) {
-      setAddDialogOpen(false);
-      setAddTeam(null);
-      await fetchTeams();
-      setSnackbar({
-        message: t('admin.checkpointStation.addAlreadyRegistered'),
-        severity: 'info',
-      });
-    } else {
+
+    if (!res.data) {
       setSnackbar({
         message: res.error ?? t('admin.checkpointStation.addFailed'),
         severity: 'error',
       });
+      return;
     }
+
+    setAddDialogOpen(false);
+    setAddTeam(null);
+    await fetchTeams();
+
+    const total = res.data.pointsEarned ?? 0;
+    const bonus = res.data.bonusPoints;
+    setSnackbar({
+      message: bonus > 0
+        ? t('admin.checkpointStation.verifiedWithBonus', { teamName: addTeam.name, total, base: total - bonus, bonus })
+        : t('admin.checkpointStation.verifiedMessage', { teamName: addTeam.name, points: total }),
+      severity: 'success',
+    });
   };
 
   const statusChip = (team: CheckpointTeamStatus) => {

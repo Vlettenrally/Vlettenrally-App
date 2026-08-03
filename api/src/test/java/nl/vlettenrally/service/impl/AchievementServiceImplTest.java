@@ -398,4 +398,156 @@ class AchievementServiceImplTest {
         assertEquals(15, payload.get("pointsEarned"), "base 10 + bonus 5");
         assertEquals(115, payload.get("totalPoints"), "baseline 100 (mocked cache) + 15 earned");
     }
+
+    // ==================== Manual add from the checkpoint station ====================
+
+    @Test
+    void recordManualPass_createsVerifiedAchievement_whenNoneExists() {
+        UUID operatorId = UUID.randomUUID();
+        when(achievementRepository.findByTeamIdAndCheckpointId(teamId, checkpointId))
+            .thenReturn(Optional.empty());
+        when(checkpointRepository.findById(checkpointId)).thenReturn(Optional.of(checkpoint));
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+        when(achievementRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Optional<Achievement> result = service.recordManualPass(teamId, checkpointId, operatorId);
+
+        assertTrue(result.isPresent());
+        Achievement saved = result.get();
+        assertEquals(AchievementStatus.VERIFIED, saved.getStatus(), "a manual add is never left pending");
+        assertEquals(operatorId, saved.getVerifiedBy());
+        assertEquals(0, saved.getBonusPoints());
+
+        verify(pointsLedgerService).createEntry(
+            eq(teamId), eq(gameId), eq(PointEntryType.CHECKPOINT_VERIFICATION),
+            eq(10), any(), any(), any(), eq(null));
+        verify(automationEngine).onCheckpointPass(eq(gameId), eq(teamId), eq(checkpointId), any());
+    }
+
+    @Test
+    void recordManualPass_promotesPendingToVerified_preservingBonusPoints() {
+        UUID operatorId = UUID.randomUUID();
+        Instant detectedAt = Instant.parse("2026-03-09T17:45:34Z");
+        Achievement pending = new Achievement();
+        pending.setTeamId(teamId);
+        pending.setCheckpointId(checkpointId);
+        pending.setStatus(AchievementStatus.PENDING);
+        pending.setDetectedAt(detectedAt);
+        pending.setBonusPoints(5);
+
+        when(achievementRepository.findByTeamIdAndCheckpointId(teamId, checkpointId))
+            .thenReturn(Optional.of(pending));
+        when(checkpointRepository.findById(checkpointId)).thenReturn(Optional.of(checkpoint));
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+        when(achievementRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Optional<Achievement> result = service.recordManualPass(teamId, checkpointId, operatorId);
+
+        assertTrue(result.isPresent());
+        Achievement saved = result.get();
+        assertEquals(AchievementStatus.VERIFIED, saved.getStatus());
+        assertEquals(operatorId, saved.getVerifiedBy());
+        assertEquals(5, saved.getBonusPoints(), "operator-set bonus must be preserved");
+        assertEquals(detectedAt, saved.getDetectedAt(), "the original detection time still stands");
+
+        verify(pointsLedgerService).createEntry(
+            eq(teamId), eq(gameId), eq(PointEntryType.CHECKPOINT_VERIFICATION),
+            eq(15), any(), any(), any(), eq(null)); // base 10 + bonus 5
+        // The team was in the zone at detection time, not when the operator got around to it.
+        verify(automationEngine).onCheckpointPass(eq(gameId), eq(teamId), eq(checkpointId), eq(detectedAt));
+    }
+
+    @Test
+    void recordManualPass_promotesRejectedToVerified_clearingRejectionReason() {
+        Achievement rejected = new Achievement();
+        rejected.setTeamId(teamId);
+        rejected.setCheckpointId(checkpointId);
+        rejected.setStatus(AchievementStatus.REJECTED);
+        rejected.setNotes("verkeerde vlet");
+
+        when(achievementRepository.findByTeamIdAndCheckpointId(teamId, checkpointId))
+            .thenReturn(Optional.of(rejected));
+        when(checkpointRepository.findById(checkpointId)).thenReturn(Optional.of(checkpoint));
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+        when(achievementRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Optional<Achievement> result = service.recordManualPass(teamId, checkpointId, UUID.randomUUID());
+
+        assertTrue(result.isPresent(), "a manual add overrides an earlier rejection");
+        assertEquals(AchievementStatus.VERIFIED, result.get().getStatus());
+        org.junit.jupiter.api.Assertions.assertNull(result.get().getNotes(),
+            "the rejection reason no longer applies");
+        verify(pointsLedgerService).createEntry(
+            eq(teamId), eq(gameId), eq(PointEntryType.CHECKPOINT_VERIFICATION),
+            eq(10), any(), any(), any(), eq(null));
+    }
+
+    @Test
+    void recordManualPass_isNoOp_whenAlreadyVerified() {
+        Instant earlier = Instant.parse("2026-03-09T17:45:34Z");
+        Achievement existing = new Achievement();
+        existing.setTeamId(teamId);
+        existing.setCheckpointId(checkpointId);
+        existing.setStatus(AchievementStatus.VERIFIED);
+        existing.setVerifiedAt(earlier);
+        existing.setBonusPoints(3);
+
+        when(achievementRepository.findByTeamIdAndCheckpointId(teamId, checkpointId))
+            .thenReturn(Optional.of(existing));
+        when(checkpointRepository.findById(checkpointId)).thenReturn(Optional.of(checkpoint));
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+
+        Optional<Achievement> result = service.recordManualPass(teamId, checkpointId, UUID.randomUUID());
+
+        assertTrue(result.isPresent());
+        assertEquals(earlier, result.get().getVerifiedAt(), "re-adding must not restamp the record");
+        verify(achievementRepository, never()).save(any());
+        verify(pointsLedgerService, never()).createEntry(any(), any(), any(), anyInt(), any(), any(), any(), any());
+        verify(automationEngine, never()).onCheckpointPass(any(), any(), any(), any());
+    }
+
+    @Test
+    void recordManualPass_awardsPass_whenCheckpointClosed() {
+        // Unlike an automatic pass, an operator standing at the checkpoint overrides the window.
+        checkpoint.setOpeningTime(Instant.parse("2026-03-09T10:00:00Z"));
+        checkpoint.setClosingTime(Instant.parse("2026-03-09T14:00:00Z"));
+
+        when(achievementRepository.findByTeamIdAndCheckpointId(teamId, checkpointId))
+            .thenReturn(Optional.empty());
+        when(checkpointRepository.findById(checkpointId)).thenReturn(Optional.of(checkpoint));
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+        when(achievementRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Optional<Achievement> result = service.recordManualPass(teamId, checkpointId, UUID.randomUUID());
+
+        assertTrue(result.isPresent());
+        assertEquals(AchievementStatus.VERIFIED, result.get().getStatus());
+        verify(pointsLedgerService).createEntry(
+            eq(teamId), eq(gameId), eq(PointEntryType.CHECKPOINT_VERIFICATION),
+            eq(10), any(), any(), any(), eq(null));
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void recordManualPass_pushesTeamAchievementAfterCommit() {
+        when(achievementRepository.findByTeamIdAndCheckpointId(teamId, checkpointId))
+            .thenReturn(Optional.empty());
+        when(checkpointRepository.findById(checkpointId)).thenReturn(Optional.of(checkpoint));
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+        when(achievementRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Optional<Achievement> result = service.recordManualPass(teamId, checkpointId, UUID.randomUUID());
+        assertTrue(result.isPresent());
+
+        verify(webSocketPublisher, never()).sendToTeam(any(), any(), any(), any());
+        fireAfterCommit();
+
+        ArgumentCaptor<Map<String, Object>> payloadCaptor = ArgumentCaptor.forClass(Map.class);
+        verify(webSocketPublisher).sendToTeam(
+            eq(gameId), eq(teamId), eq(WebSocketMessageType.TEAM_ACHIEVEMENT.getValue()), payloadCaptor.capture());
+        Map<String, Object> payload = payloadCaptor.getValue();
+        assertEquals(checkpointId, payload.get("checkpointId"));
+        assertEquals(10, payload.get("pointsEarned"));
+        assertEquals(110, payload.get("totalPoints"), "baseline 100 (mocked cache) + 10 earned");
+    }
 }

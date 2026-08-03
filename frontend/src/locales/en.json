@@ -754,7 +754,6 @@
       "addDialogTitle": "Manually add team",
       "addSearchTeam": "Search team",
       "addAction": "Add",
-      "addAlreadyRegistered": "Team was already registered — choose an action in the list",
       "addFailed": "Adding failed",
       "detectionSnackbar": "Team {{teamName}} detected at this checkpoint",
       "refreshTooltip": "Refresh"

@@ -275,13 +275,39 @@ public class AchievementServiceImpl implements AchievementService {
         // Award (current checkpoint base + bonus) to the team's total via the ledger
         Checkpoint checkpoint = checkpointRepository.findById(achievement.getCheckpointId())
             .orElseThrow(() -> new IllegalStateException("Checkpoint not found: " + achievement.getCheckpointId()));
-        int total = checkpoint.getPoints() + bonusPoints;
+
+        return Optional.of(awardCheckpointPoints(achievement, checkpoint,
+            "Checkpoint " + checkpoint.getName() + " geverifieerd",
+            verifiedAt, inZoneAt(achievement, verifiedAt)));
+    }
+
+    /**
+     * When the team was actually inside the checkpoint zone: detectedAt if we have it,
+     * otherwise the fallback. Operator confirmations carry a verifiedAt that is merely
+     * when the game master got around to it, which is not what automations should see.
+     */
+    private static Instant inZoneAt(Achievement achievement, Instant fallback) {
+        return achievement.getDetectedAt() != null ? achievement.getDetectedAt() : fallback;
+    }
+
+    /**
+     * Persist an achievement that has just been flipped to VERIFIED and pay out for it:
+     * points ledger entry, live team notification, and automation triggers. Every path
+     * that verifies an achievement routes through here so the payout stays identical.
+     *
+     * @param ledgerDescription Human-readable reason recorded on the ledger entry
+     * @param achievedAt        Timestamp reported to the team's own live update
+     * @param automationTime    When the team was in the zone, for automation rules
+     */
+    private Achievement awardCheckpointPoints(Achievement achievement, Checkpoint checkpoint,
+                                              String ledgerDescription, Instant achievedAt, Instant automationTime) {
+        int total = checkpoint.getPoints() + achievement.getBonusPoints();
 
         // Save the achievement before the ledger entry so totals stay consistent on a rollback
-        Achievement savedAchievement = achievementRepository.save(achievement);
+        Achievement saved = achievementRepository.save(achievement);
 
-        Team team = teamRepository.findById(achievement.getTeamId())
-            .orElseThrow(() -> new IllegalStateException("Team not found: " + achievement.getTeamId()));
+        Team team = teamRepository.findById(saved.getTeamId())
+            .orElseThrow(() -> new IllegalStateException("Team not found: " + saved.getTeamId()));
 
         int oldTotal = pointsTotalsCache.get(team.getId());
 
@@ -291,27 +317,23 @@ public class AchievementServiceImpl implements AchievementService {
             PointEntryType.CHECKPOINT_VERIFICATION,
             total,
             resolveCheckpointLocation(checkpoint),
-            "Checkpoint " + checkpoint.getName() + " geverifieerd",
-            savedAchievement.getId(),
+            ledgerDescription,
+            saved.getId(),
             null
         );
 
         notifyTeamAchievementAfterCommit(team.getGameId(), team.getId(), Map.of(
-            "id", savedAchievement.getId(),
+            "id", saved.getId(),
             "teamId", team.getId(),
             "checkpointId", checkpoint.getId(),
             "pointsEarned", total,
-            "achievedAt", verifiedAt.toString(),
+            "achievedAt", achievedAt.toString(),
             "totalPoints", oldTotal + total
         ));
 
-        // Manual verification: detectedAt is when the team was actually in the
-        // zone; verifiedAt is merely when the game master confirmed it.
-        automationEngine.onCheckpointPass(team.getGameId(), team.getId(), checkpoint.getId(),
-            savedAchievement.getDetectedAt() != null
-                ? savedAchievement.getDetectedAt() : savedAchievement.getVerifiedAt());
+        automationEngine.onCheckpointPass(team.getGameId(), team.getId(), checkpoint.getId(), automationTime);
 
-        return Optional.of(savedAchievement);
+        return saved;
     }
 
     /**
@@ -414,41 +436,13 @@ public class AchievementServiceImpl implements AchievementService {
             achievement.setVerifiedAt(passTime);
             // Leave verifiedBy null and preserve existing bonusPoints/notes set during proximity detection.
 
-            int total = checkpoint.getPoints() + achievement.getBonusPoints();
-
-            Achievement saved = achievementRepository.save(achievement);
-
-            Team team = teamRepository.findById(teamId)
-                .orElseThrow(() -> new IllegalStateException("Team not found: " + teamId));
-
-            int oldTotal = pointsTotalsCache.get(team.getId());
-
-            pointsLedgerService.createEntry(
-                team.getId(),
-                team.getGameId(),
-                PointEntryType.CHECKPOINT_VERIFICATION,
-                total,
-                resolveCheckpointLocation(checkpoint),
+            return Optional.of(awardCheckpointPoints(achievement, checkpoint,
                 "Checkpoint " + checkpoint.getName() + " geverifieerd (automatisch)",
-                saved.getId(),
-                null
-            );
-
-            notifyTeamAchievementAfterCommit(team.getGameId(), team.getId(), Map.of(
-                "id", saved.getId(),
-                "teamId", team.getId(),
-                "checkpointId", checkpoint.getId(),
-                "pointsEarned", total,
-                "achievedAt", passTime.toString(),
-                "totalPoints", oldTotal + total
-            ));
-
-            automationEngine.onCheckpointPass(team.getGameId(), team.getId(), checkpointId, passTime);
-            return Optional.of(saved);
+                passTime, passTime));
         }
 
         // No prior record — create a VERIFIED achievement directly.
-        Team team = teamRepository.findById(teamId)
+        teamRepository.findById(teamId)
             .orElseThrow(() -> new IllegalArgumentException("Team not found: " + teamId));
 
         Achievement achievement = new Achievement();
@@ -459,33 +453,53 @@ public class AchievementServiceImpl implements AchievementService {
         achievement.setVerifiedAt(passTime);
         achievement.setBonusPoints(0);
 
-        Achievement saved = achievementRepository.save(achievement);
-
-        int oldTotal = pointsTotalsCache.get(team.getId());
-
-        pointsLedgerService.createEntry(
-            team.getId(),
-            team.getGameId(),
-            PointEntryType.CHECKPOINT_VERIFICATION,
-            checkpoint.getPoints(),
-            resolveCheckpointLocation(checkpoint),
+        return Optional.of(awardCheckpointPoints(achievement, checkpoint,
             "Checkpoint " + checkpoint.getName() + " geverifieerd (automatisch)",
-            saved.getId(),
-            null
-        );
+            passTime, passTime));
+    }
 
-        notifyTeamAchievementAfterCommit(team.getGameId(), team.getId(), Map.of(
-            "id", saved.getId(),
-            "teamId", team.getId(),
-            "checkpointId", checkpoint.getId(),
-            "pointsEarned", checkpoint.getPoints(),
-            "achievedAt", passTime.toString(),
-            "totalPoints", oldTotal + checkpoint.getPoints()
-        ));
+    @Override
+    public Optional<Achievement> recordManualPass(UUID teamId, UUID checkpointId, UUID gameMasterId) {
+        // Drop stale rejections first, so an expired one is deleted rather than promoted
+        purgeExpiredRejections();
 
-        automationEngine.onCheckpointPass(team.getGameId(), team.getId(), checkpointId, passTime);
+        Checkpoint checkpoint = checkpointRepository.findById(checkpointId)
+            .orElseThrow(() -> new IllegalArgumentException("Checkpoint not found: " + checkpointId));
 
-        return Optional.of(saved);
+        teamRepository.findById(teamId)
+            .orElseThrow(() -> new IllegalArgumentException("Team not found: " + teamId));
+
+        // The operator is standing at the checkpoint looking at the boat, so this is an
+        // override: it is deliberately not gated by the checkpoint's opening window, and
+        // it wins over an earlier PENDING detection or REJECTED call.
+        Instant now = Instant.now();
+        Achievement achievement = achievementRepository.findByTeamIdAndCheckpointId(teamId, checkpointId)
+            .orElse(null);
+
+        if (achievement != null) {
+            if (achievement.getStatus() == AchievementStatus.VERIFIED) {
+                // Adding a team that is already verified is a no-op, never a second payout.
+                return Optional.of(achievement);
+            }
+            if (achievement.getStatus() == AchievementStatus.REJECTED) {
+                // The notes hold the rejection reason, which no longer applies.
+                achievement.setNotes(null);
+            }
+        } else {
+            achievement = new Achievement();
+            achievement.setTeamId(teamId);
+            achievement.setCheckpointId(checkpointId);
+            achievement.setDetectedAt(now);
+            achievement.setBonusPoints(0);
+        }
+
+        achievement.setStatus(AchievementStatus.VERIFIED);
+        achievement.setVerifiedAt(now);
+        achievement.setVerifiedBy(gameMasterId);
+
+        return Optional.of(awardCheckpointPoints(achievement, checkpoint,
+            "Checkpoint " + checkpoint.getName() + " geverifieerd (handmatig)",
+            now, inZoneAt(achievement, now)));
     }
 
     @Override

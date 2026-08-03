@@ -99,6 +99,25 @@ public interface AchievementService {
      */
     Optional<Achievement> recordVerifiedPass(UUID teamId, UUID checkpointId, Instant passTime);
 
+    /**
+     * Record a checkpoint pass that an operator adds by hand at the checkpoint station,
+     * because the team never auto-detected via location polling.
+     * <p>
+     * A manual add is an explicit human confirmation that the team is standing at the
+     * checkpoint, so it always ends VERIFIED and overrides whatever was there before:
+     * an existing PENDING is promoted (preserving bonus points), an existing REJECTED is
+     * promoted with its rejection reason cleared. An already-VERIFIED achievement is
+     * returned unchanged so a repeated add never awards points twice. Unlike
+     * {@link #recordVerifiedPass}, this is not gated by the checkpoint's opening window.
+     *
+     * @param teamId       Team the operator is adding
+     * @param checkpointId Checkpoint being manned
+     * @param gameMasterId Operator credit, stored as verifiedBy
+     * @return The created or promoted achievement
+     * @throws IllegalArgumentException if the team or checkpoint does not exist
+     */
+    Optional<Achievement> recordManualPass(UUID teamId, UUID checkpointId, UUID gameMasterId);
+
     Achievement save(Achievement achievement);
 
     void delete(UUID id);

@@ -754,7 +754,6 @@
       "addDialogTitle": "Team handmatig toevoegen",
       "addSearchTeam": "Zoek team",
       "addAction": "Toevoegen",
-      "addAlreadyRegistered": "Team was al geregistreerd — kies een actie in de lijst",
       "addFailed": "Toevoegen mislukt",
       "detectionSnackbar": "Team {{teamName}} gedetecteerd bij dit checkpoint",
       "refreshTooltip": "Vernieuwen"

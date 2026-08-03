@@ -31,7 +31,8 @@ import java.util.UUID;
  * <p>
  * Achievement Flow:
  * 1. Location polling auto-creates VERIFIED achievements via AchievementService.recordVerifiedPass();
- *    POST /api/v1/achievements/detect is the manual fallback used from the checkpoint station UI.
+ *    POST /api/v1/achievements/manual is the operator fallback used from the checkpoint station UI,
+ *    and POST /api/v1/achievements/detect registers a team as PENDING for a later decision.
  * 2. Game master sees pending achievements → GET /api/v1/checkpoints/{id}/achievements/pending
  * 3. Game master verifies → POST /api/v1/achievements/{id}/verify
  * 4. Game master rejects → POST /api/v1/achievements/{id}/reject
@@ -199,6 +200,38 @@ public class AchievementResource {
                     .build())
                 .orElse(Response.status(Response.Status.CONFLICT)
                     .entity(new ErrorResponse("Achievement already detected or verified for this checkpoint"))
+                    .build());
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.NOT_FOUND)
+                .entity(new ErrorResponse(e.getMessage()))
+                .build();
+        }
+    }
+
+    /**
+     * Manually add a team to a checkpoint as VERIFIED, in one atomic step.
+     * <p>
+     * Used from the checkpoint station's "add team" dialog: the operator is looking at the
+     * boat, so there is nothing left to review. Overrides an existing PENDING or REJECTED
+     * achievement and is a no-op when the team is already VERIFIED — never a 409.
+     */
+    @POST
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.CHECKPOINT_MANAGER})
+    @Path("/achievements/manual")
+    public Response recordManualPass(ProximityDetectionRequest request, @Context SecurityContext securityContext) {
+        if (request == null || request.teamId() == null || request.checkpointId() == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("teamId and checkpointId are required"))
+                .build();
+        }
+        UUID gameMasterId = securityContext.getUserPrincipal() != null
+            ? UUID.fromString(securityContext.getUserPrincipal().getName()) : null;
+
+        try {
+            return achievementService.recordManualPass(request.teamId(), request.checkpointId(), gameMasterId)
+                .map(achievement -> Response.ok(toDto(achievement)).build())
+                .orElse(Response.status(Response.Status.NOT_FOUND)
+                    .entity(new ErrorResponse("Could not register visit"))
                     .build());
         } catch (IllegalArgumentException e) {
             return Response.status(Response.Status.NOT_FOUND)
