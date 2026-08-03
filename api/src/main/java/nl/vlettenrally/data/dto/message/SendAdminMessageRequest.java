@@ -13,5 +13,8 @@ public record SendAdminMessageRequest(
     String content,
     String icon,
     boolean saveAsTemplate,
-    String templateName
+    String templateName,
+    // Force SMS to every recipient's first emergency number, bypassing the inactivity fallback
+    // rule. Only meaningful for RALLYDESK; a body that omits it deserialises to false.
+    boolean sendViaSms
 ) {}

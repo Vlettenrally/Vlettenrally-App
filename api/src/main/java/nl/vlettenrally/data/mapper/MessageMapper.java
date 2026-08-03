@@ -37,6 +37,7 @@ public class MessageMapper {
         domain.setSource(entity.getSource());
         domain.setSentByAdminId(entity.getSentByAdmin() != null ? entity.getSentByAdmin().getId() : null);
         domain.setBatchId(entity.getBatchId());
+        domain.setSendViaSms(entity.isSendViaSms());
 
         return domain;
     }
@@ -62,6 +63,7 @@ public class MessageMapper {
         entity.setTransmissionError(domain.getTransmissionError());
         entity.setSource(domain.getSource());
         entity.setBatchId(domain.getBatchId());
+        entity.setSendViaSms(domain.isSendViaSms());
 
         return entity;
     }
@@ -83,5 +85,6 @@ public class MessageMapper {
         entity.setTransmissionError(domain.getTransmissionError());
         entity.setSource(domain.getSource());
         entity.setBatchId(domain.getBatchId());
+        entity.setSendViaSms(domain.isSendViaSms());
     }
 }

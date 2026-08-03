@@ -71,6 +71,7 @@ export default function SendMessageDialog({
   const [content, setContent] = useState('');
   const [icon, setIcon] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState<MessageTemplate | null>(null);
+  const [sendViaSms, setSendViaSms] = useState(false);
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
   const [templateName, setTemplateName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -121,6 +122,7 @@ export default function SendMessageDialog({
       icon: icon.trim() || undefined,
       saveAsTemplate,
       templateName: saveAsTemplate ? templateName.trim() : undefined,
+      sendViaSms: isRallydesk && sendViaSms,
     };
 
     const result = await api.sendAdminMessage(request);
@@ -158,10 +160,10 @@ export default function SendMessageDialog({
         {showRallydeskWarning ? (
           <Alert severity="warning" sx={{ mt: 1 }}>
             <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-              {t('components.sendMessage.smsWarning')}
+              {sendViaSms ? t('components.sendMessage.smsForcedWarning') : t('components.sendMessage.smsWarning')}
             </Typography>
             <Typography variant="body2">
-              {t('components.sendMessage.smsWarningText')}
+              {sendViaSms ? t('components.sendMessage.smsForcedWarningText') : t('components.sendMessage.smsWarningText')}
             </Typography>
             <Typography variant="body2" sx={{ mt: 1 }}>
               {t('components.sendMessage.confirmMessage', {
@@ -277,7 +279,15 @@ export default function SendMessageDialog({
               <Select
                 value={messageType}
                 label={t('components.sendMessage.messageType')}
-                onChange={(e) => setMessageType(e.target.value as MessageType)}
+                onChange={(e) => {
+                  const next = e.target.value as MessageType;
+                  setMessageType(next);
+                  // The toggle is only offered for rallydesk, so a switch away has to clear it —
+                  // the backend rejects a forced SMS on any other type.
+                  if (next !== 'rallydesk') {
+                    setSendViaSms(false);
+                  }
+                }}
               >
                 {MESSAGE_TYPES.map((type) => (
                   <MenuItem key={type.value} value={type.value}>
@@ -332,6 +342,22 @@ export default function SendMessageDialog({
               placeholder={t('components.sendMessage.iconPlaceholder')}
               helperText={t('components.sendMessage.iconHint')}
             />
+
+            {/* Force SMS (rallydesk only) */}
+            {isRallydesk && (
+              <Box>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={sendViaSms}
+                      onChange={(e) => setSendViaSms(e.target.checked)}
+                    />
+                  }
+                  label={t('components.sendMessage.sendViaSms')}
+                />
+                <FormHelperText>{t('components.sendMessage.sendViaSmsHelper')}</FormHelperText>
+              </Box>
+            )}
 
             {/* Save as template */}
             <Box>

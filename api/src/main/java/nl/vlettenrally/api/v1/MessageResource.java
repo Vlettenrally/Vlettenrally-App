@@ -188,6 +188,15 @@ public class MessageResource {
                     .build();
         }
 
+        // Forcing SMS costs money per team, so it stays tied to the one type the participants are
+        // told to treat as an instruction from the desk. Rejecting rather than silently ignoring
+        // the flag keeps a mis-typed broadcast from looking like it reached phones.
+        if (request.sendViaSms() && !type.isCritical()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("SMS can only be forced for rallydesk messages")
+                    .build();
+        }
+
         UUID adminId = securityContext.getUserPrincipal() != null
                 ? UUID.fromString(securityContext.getUserPrincipal().getName())
                 : null;
@@ -198,7 +207,8 @@ public class MessageResource {
                 type,
                 request.content(),
                 request.icon(),
-                adminId
+                adminId,
+                request.sendViaSms()
         );
 
         // Optionally save as template

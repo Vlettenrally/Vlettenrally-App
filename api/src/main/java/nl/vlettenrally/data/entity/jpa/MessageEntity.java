@@ -83,6 +83,9 @@ public class MessageEntity {
     @Column(name = "batch_id")
     private UUID batchId;
 
+    @Column(name = "send_via_sms", nullable = false)
+    private boolean sendViaSms = false;
+
     public MessageEntity() {
         this.id = UUID.randomUUID();
         this.sentAt = Instant.now();

@@ -1,5 +1,6 @@
 package nl.vlettenrally.service.impl;
 
+import nl.vlettenrally.data.domain.DeviceRegistration;
 import nl.vlettenrally.data.domain.Message;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.dto.message.AdminMessageBatchResult;
@@ -11,6 +12,7 @@ import nl.vlettenrally.data.repository.DeviceRegistrationRepository;
 import nl.vlettenrally.data.repository.MessageRepository;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.provider.MessageTransmitter;
+import nl.vlettenrally.provider.TransmissionResult;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 import nl.vlettenrally.websockets.WebSocketSessionManager;
 import nl.vlettenrally.observability.DeliveryMetrics;
@@ -420,7 +422,6 @@ class MessageServiceImplTest {
         when(teamRepository.findById(team.getId())).thenReturn(Optional.of(team));
         when(messageRepository.save(any(Message.class))).thenAnswer(inv -> inv.getArgument(0));
         when(webSocketSessionManager.getSessionByTeam(team.getId())).thenReturn(null);
-        when(deviceRegistrationRepository.findAllByTeamId(team.getId())).thenReturn(List.of());
         when(transmitters.iterator()).thenReturn(Collections.emptyIterator());
 
         AdminMessageBatchResult result = messageService.sendAutomationMessage(
@@ -444,10 +445,9 @@ class MessageServiceImplTest {
         when(teamRepository.findById(team2.getId())).thenReturn(Optional.of(team2));
         when(messageRepository.save(any(Message.class))).thenAnswer(inv -> inv.getArgument(0));
         when(webSocketSessionManager.getSessionByTeam(any())).thenReturn(null);
-        when(deviceRegistrationRepository.findAllByTeamId(any())).thenReturn(List.of());
         when(transmitters.iterator()).thenReturn(Collections.emptyIterator());
 
-        messageService.sendAdminMessage(gameId, null, MessageType.GENERAL, "Hoi {team}!", null, adminId);
+        messageService.sendAdminMessage(gameId, null, MessageType.GENERAL, "Hoi {team}!", null, adminId, false);
 
         ArgumentCaptor<Message> captor = ArgumentCaptor.forClass(Message.class);
         verify(messageRepository, atLeastOnce()).save(captor.capture());
@@ -508,11 +508,115 @@ class MessageServiceImplTest {
         assertFalse(sent.getTransmittedVia().contains(TransmissionChannel.WEBSOCKET));
     }
 
+    // No device stub: activity is only consulted for a critical message that was not forced, and
+    // none of the callers of this helper send one.
     private void arrangeSend(Team team, MessageTransmitter... channels) {
         when(teamRepository.findById(team.getId())).thenReturn(Optional.of(team));
         when(messageRepository.save(any(Message.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(deviceRegistrationRepository.findAllByTeamId(team.getId())).thenReturn(List.of());
         when(transmitters.iterator()).thenReturn(List.of(channels).iterator());
+    }
+
+    // ==================== Forced SMS Tests ====================
+
+    /**
+     * The point of the flag: the desk has decided the message must reach a phone, so how recently
+     * the team's devices were seen stops being part of the decision — the activity lookup is not
+     * even performed.
+     */
+    @Test
+    void sendAdminMessage_sendViaSms_transmitsSmsWithoutConsultingTeamActivity() {
+        Team team = createTeam("De Watervlooien");
+        MessageTransmitter sms = mock(MessageTransmitter.class);
+        when(sms.getChannel()).thenReturn(TransmissionChannel.SMS);
+        when(sms.transmit(any(), eq(team))).thenReturn(TransmissionResult.success(TransmissionChannel.SMS));
+        arrangeAdminSend(team, sms);
+
+        messageService.sendAdminMessage(gameId, List.of(team.getId()), MessageType.RALLYDESK,
+                "Kom terug naar de steiger", null, adminId, true);
+
+        Message saved = captureSavedMessage();
+        assertTrue(saved.isSendViaSms());
+        assertTrue(saved.getTransmittedVia().contains(TransmissionChannel.SMS));
+        verify(deliveryMetrics).transmitted(TransmissionChannel.SMS, TransmitOutcome.SUCCESS);
+        verify(deviceRegistrationRepository, never()).findAllByTeamId(any());
+    }
+
+    /** Without the flag, an active team is still spared the SMS — the old fallback rule stands. */
+    @Test
+    void sendAdminMessage_withoutSendViaSms_activeTeam_gatesSms() {
+        Team team = createTeam("De Watervlooien");
+        MessageTransmitter sms = mock(MessageTransmitter.class);
+        when(sms.getChannel()).thenReturn(TransmissionChannel.SMS);
+        arrangeAdminSend(team, sms);
+        DeviceRegistration device = activeDevice();
+        when(deviceRegistrationRepository.findAllByTeamId(team.getId())).thenReturn(List.of(device));
+
+        messageService.sendAdminMessage(gameId, List.of(team.getId()), MessageType.RALLYDESK,
+                "Kom terug naar de steiger", null, adminId, false);
+
+        verify(deliveryMetrics).routed(TransmissionChannel.SMS, RouteDecision.GATED);
+        verify(sms, never()).transmit(any(), any());
+    }
+
+    /**
+     * A team with no emergency number is the one case the desk cannot see from the compose screen,
+     * so the skip has to reach the delivery table rather than disappear into supports().
+     */
+    @Test
+    void sendAdminMessage_sendViaSms_teamWithoutPhoneNumber_recordsReasonOnMessage() {
+        Team team = createTeam("De Watervlooien");
+        MessageTransmitter sms = mock(MessageTransmitter.class);
+        when(sms.getChannel()).thenReturn(TransmissionChannel.SMS);
+        // Deliberately no supports() stub: a forced SMS must not consult it, because its "no"
+        // collapses "disabled", "not initialised" and "no number" into one silent skip.
+        when(sms.transmit(any(), eq(team)))
+                .thenReturn(TransmissionResult.skipped(TransmissionChannel.SMS, "No phone number for team"));
+        arrangeAdminSend(team, sms);
+
+        messageService.sendAdminMessage(gameId, List.of(team.getId()), MessageType.RALLYDESK,
+                "Kom terug naar de steiger", null, adminId, true);
+
+        Message saved = captureSavedMessage();
+        assertNotNull(saved.getTransmissionError());
+        assertTrue(saved.getTransmissionError().contains("No phone number for team"),
+                "expected the transmitter's reason on the message, got: " + saved.getTransmissionError());
+        verify(deliveryMetrics).transmitted(TransmissionChannel.SMS, TransmitOutcome.SKIPPED);
+    }
+
+    /** A rule fires unattended and often repeatedly, so it can never escalate an active team to SMS. */
+    @Test
+    void sendAutomationMessage_rallydeskToActiveTeam_doesNotSendSms() {
+        Team team = createTeam("De Watervlooien");
+        MessageTransmitter sms = mock(MessageTransmitter.class);
+        when(sms.getChannel()).thenReturn(TransmissionChannel.SMS);
+        arrangeAdminSend(team, sms);
+        DeviceRegistration device = activeDevice();
+        when(deviceRegistrationRepository.findAllByTeamId(team.getId())).thenReturn(List.of(device));
+
+        messageService.sendAutomationMessage(gameId, List.of(team.getId()), MessageType.RALLYDESK,
+                "Kom terug naar de steiger", null, UUID.randomUUID());
+
+        Message saved = captureSavedMessage();
+        assertFalse(saved.isSendViaSms());
+        verify(sms, never()).transmit(any(), any());
+    }
+
+    private void arrangeAdminSend(Team team, MessageTransmitter... channels) {
+        when(teamRepository.findById(team.getId())).thenReturn(Optional.of(team));
+        when(messageRepository.save(any(Message.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(transmitters.iterator()).thenReturn(List.of(channels).iterator());
+    }
+
+    private DeviceRegistration activeDevice() {
+        DeviceRegistration device = mock(DeviceRegistration.class);
+        when(device.isInactive(anyInt())).thenReturn(false);
+        return device;
+    }
+
+    private Message captureSavedMessage() {
+        ArgumentCaptor<Message> captor = ArgumentCaptor.forClass(Message.class);
+        verify(messageRepository, atLeastOnce()).save(captor.capture());
+        return captor.getAllValues().getFirst();
     }
 
     // ==================== Helper Methods ====================

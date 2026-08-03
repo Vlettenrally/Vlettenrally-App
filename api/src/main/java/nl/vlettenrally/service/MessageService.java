@@ -36,14 +36,19 @@ public interface MessageService {
      * @param content Message content
      * @param icon Optional icon
      * @param adminId The admin ID who sent the message
+     * @param sendViaSms Send SMS to every recipient's first emergency number regardless of how
+     *                   recently its devices were seen. Only honoured for critical types.
      * @return Batch result with aggregated delivery statistics
      */
-    AdminMessageBatchResult sendAdminMessage(UUID gameId, List<UUID> teamIds, MessageType type, String content, String icon, UUID adminId);
+    AdminMessageBatchResult sendAdminMessage(UUID gameId, List<UUID> teamIds, MessageType type, String content, String icon, UUID adminId, boolean sendViaSms);
 
     /**
      * Send a message on behalf of an automation rule. Same batch semantics and
      * delivery pipeline as {@link #sendAdminMessage}, but tagged with source
      * AUTOMATION (and therefore not listed among admin message batches).
+     * <p>
+     * A rule can never force SMS: it fires unattended and often repeatedly, so escalation stays
+     * on the inactivity fallback that has always governed it.
      *
      * @param teamIds Teams to send to (null or empty for all teams in game)
      * @param automationRuleId The rule that fired (for logging/tracing)

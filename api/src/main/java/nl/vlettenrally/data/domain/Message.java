@@ -33,6 +33,11 @@ public class Message {
     private UUID sentByAdminId;
     /** Groups messages from the same admin broadcast */
     private UUID batchId;
+    /**
+     * The rally desk asked for this message to reach a phone, so SMS is sent whether or not the
+     * team's devices are active. Persisted rather than derived so a retry escalates the same way.
+     */
+    private boolean sendViaSms;
 
 
     public Message() {

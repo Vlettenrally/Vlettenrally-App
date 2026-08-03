@@ -46,7 +46,8 @@ import java.util.stream.Collectors;
  * Transmission strategy:
  * 1. Always attempt WebSocket broadcast (real-time)
  * 2. Always attempt Firebase push notification (if FCM token exists)
- * 3. If team is inactive AND message is critical, fallback to SMS
+ * 3. Send SMS for a critical message, either because the sender forced it or because the team
+ *    has been inactive long enough that the app is no longer a plausible way to reach it
  */
 @ApplicationScoped
 public class MessageServiceImpl implements MessageService {
@@ -134,7 +135,8 @@ public class MessageServiceImpl implements MessageService {
      * Strategy:
      * 1. Always attempt WebSocket broadcast
      * 2. Always attempt Firebase push (if token exists)
-     * 3. If team inactive AND message is critical, send SMS
+     * 3. Send SMS if the message is critical and either carries {@code sendViaSms} or targets an
+     *    inactive team
      */
     private void transmitMessage(Message message) {
         Optional<Team> teamOpt = teamRepository.findById(message.getTeamId());
@@ -161,26 +163,35 @@ public class MessageServiceImpl implements MessageService {
             message.addTransmissionChannel(TransmissionChannel.WEBSOCKET);
         }
 
-        // 2. Check if team is inactive (for SMS fallback decision)
-        boolean teamIsInactive = isTeamInactive(team);
-        
+        // 2. Decide whether SMS is on the table for this message.
+        //
+        // A forced SMS is the rally desk deciding the message has to reach a phone; the activity
+        // check only ever answers "is anyone likely reading the app", which is not the question
+        // being asked. Short-circuiting on the flag also skips a device query per team on a
+        // forced broadcast.
+        boolean smsForced = message.isSendViaSms();
+        boolean smsAllowed = message.getMessageType().isCritical()
+                && (smsForced || isTeamInactive(team));
+
         // 3. Transmit via registered transmitters (Firebase, SMS)
         for (MessageTransmitter transmitter : transmitters) {
             TransmissionChannel channel = transmitter.getChannel();
-            
-            // Skip SMS unless team is inactive AND message is critical
-            if (channel == TransmissionChannel.SMS) {
-                if (!teamIsInactive || !message.getMessageType().isCritical()) {
-                    Log.debugf("Skipping SMS for message %s: inactive=%s, critical=%s",
-                            message.getId(), teamIsInactive, message.getMessageType().isCritical());
-                    // Expected for almost every message — only RALLYDESK is critical — so GATED
-                    // is what distinguishes "the rules said no" from "the transmitter is broken".
-                    deliveryMetrics.routed(channel, RouteDecision.GATED);
-                    continue;
-                }
+
+            if (channel == TransmissionChannel.SMS && !smsAllowed) {
+                Log.debugf("Skipping SMS for message %s: forced=%s, critical=%s",
+                        message.getId(), smsForced, message.getMessageType().isCritical());
+                // Expected for almost every message — only RALLYDESK is critical — so GATED
+                // is what distinguishes "the rules said no" from "the transmitter is broken".
+                deliveryMetrics.routed(channel, RouteDecision.GATED);
+                continue;
             }
 
-            if (!transmitter.supports(team)) {
+            // A forced SMS runs transmit() even when supports() says no. The transmitter's own
+            // checks (disabled / not initialised / no number) all short-circuit before any API
+            // call and return a precise reason, and that reason is what the delivery table has to
+            // show — supports() collapses all three into a silent skip.
+            boolean forcedSms = channel == TransmissionChannel.SMS && smsForced;
+            if (!forcedSms && !transmitter.supports(team)) {
                 Log.debugf("Transmitter %s does not support team %s",
                         channel, team.getName());
                 deliveryMetrics.routed(channel, RouteDecision.NOT_SUPPORTED);
@@ -338,17 +349,17 @@ public class MessageServiceImpl implements MessageService {
     }
 
     @Override
-    public AdminMessageBatchResult sendAdminMessage(UUID gameId, List<UUID> teamIds, MessageType type, String content, String icon, UUID adminId) {
-        return sendBatch(gameId, teamIds, type, content, icon, MessageSource.ADMIN, adminId);
+    public AdminMessageBatchResult sendAdminMessage(UUID gameId, List<UUID> teamIds, MessageType type, String content, String icon, UUID adminId, boolean sendViaSms) {
+        return sendBatch(gameId, teamIds, type, content, icon, MessageSource.ADMIN, adminId, sendViaSms);
     }
 
     @Override
     public AdminMessageBatchResult sendAutomationMessage(UUID gameId, List<UUID> teamIds, MessageType type, String content, String icon, UUID automationRuleId) {
         Log.infof("Automation rule %s sending message to game %s", automationRuleId, gameId);
-        return sendBatch(gameId, teamIds, type, content, icon, MessageSource.AUTOMATION, null);
+        return sendBatch(gameId, teamIds, type, content, icon, MessageSource.AUTOMATION, null, false);
     }
 
-    private AdminMessageBatchResult sendBatch(UUID gameId, List<UUID> teamIds, MessageType type, String content, String icon, MessageSource source, UUID adminId) {
+    private AdminMessageBatchResult sendBatch(UUID gameId, List<UUID> teamIds, MessageType type, String content, String icon, MessageSource source, UUID adminId, boolean sendViaSms) {
         // Determine target teams
         List<Team> targetTeams;
         if (teamIds == null || teamIds.isEmpty()) {
@@ -388,6 +399,9 @@ public class MessageServiceImpl implements MessageService {
             message.setSentAt(sentAt);
             message.setDelivered(false);
             message.setRead(false);
+            // Set before the first save so the flag is on the row transmitMessage reads back, and
+            // so a later retry of this message escalates the same way the original send did.
+            message.setSendViaSms(sendViaSms);
 
             // Save message first
             Message savedMessage = messageRepository.save(message);

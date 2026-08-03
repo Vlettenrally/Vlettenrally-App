@@ -395,6 +395,8 @@ export interface SendAdminMessageRequest {
   icon?: string;
   saveAsTemplate?: boolean;
   templateName?: string;
+  /** Force SMS to each team's first emergency number, whatever its devices are doing. Rallydesk only. */
+  sendViaSms?: boolean;
 }
 
 /**
