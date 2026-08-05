@@ -106,4 +106,31 @@ class GameTest {
         game.setLocationPollingTailMinutes(30);
         assertFalse(game.isWithinPollingTailWindow(Instant.now()));
     }
+
+    // --- checkInWindowClosesAt: whichever is later of checkedInAt+window and startTime+window ---
+
+    @Test
+    void checkInWindowClosesAt_noStartTime_fallsBackToCheckedInDeadline() {
+        Game game = new Game();
+        Instant checkedInAt = Instant.parse("2026-06-30T10:00:00Z");
+        assertEquals(checkedInAt.plus(Duration.ofMinutes(30)), game.checkInWindowClosesAt(checkedInAt, 30));
+    }
+
+    @Test
+    void checkInWindowClosesAt_earlyCheckIn_startDeadlineWins() {
+        // Checked in well before the game starts: checkedInAt+30 is long past by the time
+        // the game starts, so the window should extend to startTime+30 instead.
+        Game game = game();
+        Instant checkedInAt = START.minus(Duration.ofHours(2));
+        assertEquals(START.plus(Duration.ofMinutes(30)), game.checkInWindowClosesAt(checkedInAt, 30));
+    }
+
+    @Test
+    void checkInWindowClosesAt_lateCheckIn_checkedInDeadlineWins() {
+        // Checked in after the game already started: startTime+30 has already passed, so
+        // the team still gets its own full window from checkedInAt.
+        Game game = game();
+        Instant checkedInAt = START.plus(Duration.ofHours(1));
+        assertEquals(checkedInAt.plus(Duration.ofMinutes(30)), game.checkInWindowClosesAt(checkedInAt, 30));
+    }
 }

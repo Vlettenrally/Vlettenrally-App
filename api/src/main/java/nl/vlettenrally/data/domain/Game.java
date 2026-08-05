@@ -141,4 +141,21 @@ public class Game {
             && !now.isAfter(endTime.plus(Duration.ofMinutes(tail)));
     }
 
+    /**
+     * The instant at which a team's digital check-in window closes: whichever is later of
+     * {@code windowMinutes} after the team's own physical check-in and {@code windowMinutes}
+     * after this game's planned {@link #startTime}. A team that checks in well before the game
+     * starts still gets the post-start grace period; a team that checks in late still keeps its
+     * own full window. Falls back to the check-in-relative deadline alone when the game has no
+     * planned start time.
+     */
+    public Instant checkInWindowClosesAt(Instant checkedInAt, int windowMinutes) {
+        Instant checkedInDeadline = checkedInAt.plus(Duration.ofMinutes(windowMinutes));
+        if (startTime == null) {
+            return checkedInDeadline;
+        }
+        Instant startDeadline = startTime.plus(Duration.ofMinutes(windowMinutes));
+        return checkedInDeadline.isAfter(startDeadline) ? checkedInDeadline : startDeadline;
+    }
+
 }

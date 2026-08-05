@@ -199,6 +199,47 @@ class CheckInCoordinationServiceImplTest {
     }
 
     @Test
+    void firstDevice_afterCheckInWindow_butGameNotYetStarted_isAllowed() {
+        // Physically checked in 20 min ago (window is 15 min, so checkedInAt+window has
+        // passed), but the game itself doesn't start for another hour, so startTime+window
+        // hasn't passed yet -> the extended window keeps this allowed.
+        physicallyCheckedIn(20);
+        game.setStartTime(Instant.now().plus(1, ChronoUnit.HOURS));
+        when(deviceRegistrationRepository.findAllByTeamId(teamId)).thenReturn(List.of());
+
+        RegisterDeviceResponse response =
+            service.registerDevice(gameId, teamId, null, "Early bird", null);
+
+        assertTrue(response.isMainDevice());
+    }
+
+    @Test
+    void device_afterCheckInWindow_andAfterGameStartWindow_isRejected() {
+        // Both checkedInAt+window and startTime+window have passed -> rejected.
+        physicallyCheckedIn(20);
+        game.setStartTime(Instant.now().minus(1, ChronoUnit.HOURS));
+        when(deviceRegistrationRepository.findAllByTeamId(teamId)).thenReturn(List.of());
+
+        assertThrows(CheckInWindowClosedException.class,
+            () -> service.registerDevice(gameId, teamId, null, "Too late", null));
+    }
+
+    @Test
+    void device_checkedInAfterGameStart_stillGetsOwnWindow() {
+        // Checked in physically after the game already started: startTime+window has
+        // already passed, but the team should still keep its own full window from its
+        // own checkedInAt.
+        game.setStartTime(Instant.now().minus(1, ChronoUnit.HOURS));
+        physicallyCheckedIn(5);
+        when(deviceRegistrationRepository.findAllByTeamId(teamId)).thenReturn(List.of());
+
+        RegisterDeviceResponse response =
+            service.registerDevice(gameId, teamId, null, "Late arrival", null);
+
+        assertTrue(response.isMainDevice());
+    }
+
+    @Test
     void resumedDevice_afterWindow_isAllowed() {
         DeviceRegistration existing = existingDevice();
         team.setMainDeviceId(UUID.randomUUID());
@@ -236,5 +277,44 @@ class CheckInCoordinationServiceImplTest {
         assertFalse(result.get(teamId));  // A, not checked in
         assertTrue(result.get(teamBId));  // B within window
         assertFalse(result.get(teamCId)); // C past window
+    }
+
+    @Test
+    void acceptingNewDevicesByTeam_unknownGame_fallsBackToCheckedInWindow_doesNotThrow() {
+        // GET /check-in/games/{gameId}/teams is public and has always tolerated a
+        // stale/unknown gameId. A missing Game must not turn that into an error — it
+        // should just fall back to the plain checkedInAt+window calculation.
+        UUID unknownGameId = UUID.randomUUID();
+        when(gameRepository.findById(unknownGameId)).thenReturn(Optional.empty());
+
+        Team e = new Team(UUID.randomUUID(), unknownGameId, "E", "");
+        e.setCheckedIn(true);
+        e.setCheckedInAt(Instant.now().minus(5, ChronoUnit.MINUTES));
+        Team f = new Team(UUID.randomUUID(), unknownGameId, "F", "");
+        f.setCheckedIn(true);
+        f.setCheckedInAt(Instant.now().minus(30, ChronoUnit.MINUTES));
+
+        when(teamRepository.findByGameId(unknownGameId)).thenReturn(List.of(e, f));
+
+        Map<UUID, Boolean> result = service.acceptingNewDevicesByTeam(unknownGameId);
+
+        assertTrue(result.get(e.getId()));
+        assertFalse(result.get(f.getId()));
+    }
+
+    @Test
+    void acceptingNewDevicesByTeam_extendsWindowUntilGameStart() {
+        // Game hasn't started yet, so the extended window keeps a team accepting even
+        // though its own checkedInAt+window has already elapsed.
+        game.setStartTime(Instant.now().plus(1, ChronoUnit.HOURS));
+        Team d = new Team(teamId, gameId, "D", "");
+        d.setCheckedIn(true);
+        d.setCheckedInAt(Instant.now().minus(30, ChronoUnit.MINUTES));
+
+        when(teamRepository.findByGameId(gameId)).thenReturn(List.of(d));
+
+        Map<UUID, Boolean> result = service.acceptingNewDevicesByTeam(gameId);
+
+        assertTrue(result.get(teamId));
     }
 }

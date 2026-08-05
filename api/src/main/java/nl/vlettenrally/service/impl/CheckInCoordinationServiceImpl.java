@@ -22,10 +22,10 @@ import nl.vlettenrally.websockets.WebSocketPublisher;
 import nl.vlettenrally.websockets.dto.WebSocketMessageType;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -131,7 +131,7 @@ public class CheckInCoordinationServiceImpl implements CheckInCoordinationServic
             Instant checkedInAt = team.getCheckedInAt();
             if (checkedInAt != null
                 && !inviteGrantsAccess(inviteToken, teamId)
-                && Instant.now().isAfter(checkedInAt.plus(digitalCheckinWindowMinutes, ChronoUnit.MINUTES))) {
+                && Instant.now().isAfter(game.checkInWindowClosesAt(checkedInAt, digitalCheckinWindowMinutes))) {
                 throw new CheckInWindowClosedException(
                     "This team's check-in window has closed. Ask your team to share their QR code, or ask an admin.");
             }
@@ -200,16 +200,28 @@ public class CheckInCoordinationServiceImpl implements CheckInCoordinationServic
     public Map<UUID, Boolean> acceptingNewDevicesByTeam(UUID gameId) {
         Instant now = Instant.now();
 
+        // This is consulted by the public, unauthenticated team picker (GET
+        // /check-in/games/{gameId}/teams), which has always tolerated an unknown/stale
+        // gameId by returning an empty team list rather than erroring. Look the game up
+        // without throwing so that behavior is preserved — a missing game just means the
+        // window can't be extended past checkedInAt, same as before this feature existed.
+        Game game = gameRepository.findById(gameId).orElse(null);
+
         // A team accepts new devices through the regular picker only once it has been
-        // physically checked in, and then only until its digital check-in window
-        // (measured from that check-in) closes. Teams not yet checked in, or past the
-        // window, are only joinable via an invite QR or an admin.
+        // physically checked in, and then only until its digital check-in window closes
+        // (whichever is later of check-in-relative and game-start-relative — see
+        // Game#checkInWindowClosesAt). Teams not yet checked in, or past the window, are
+        // only joinable via an invite QR or an admin.
         Map<UUID, Boolean> result = new HashMap<>();
         for (Team team : teamRepository.findByGameId(gameId)) {
             Instant checkedInAt = team.getCheckedInAt();
+            Instant windowClosesAt = checkedInAt == null
+                ? null
+                : (game == null
+                    ? checkedInAt.plus(Duration.ofMinutes(digitalCheckinWindowMinutes))
+                    : game.checkInWindowClosesAt(checkedInAt, digitalCheckinWindowMinutes));
             boolean accepting = team.isCheckedIn()
-                && (checkedInAt == null
-                    || !now.isAfter(checkedInAt.plus(digitalCheckinWindowMinutes, ChronoUnit.MINUTES)));
+                && (checkedInAt == null || !now.isAfter(windowClosesAt));
             result.put(team.getId(), accepting);
         }
         return result;
