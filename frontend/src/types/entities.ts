@@ -130,6 +130,11 @@ export interface TrackerExportOptions {
   includeUnassigned: boolean;
 }
 
+/** Shapes the team CSV export; `since` (ISO-8601 instant) restricts to teams changed after that moment. */
+export interface TeamExportOptions extends TrackerExportOptions {
+  since?: string;
+}
+
 /**
  * Result of bulk-adding tracker IDs to the global pool.
  */

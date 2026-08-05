@@ -14,6 +14,7 @@ import type {
   TrackerAssignResult,
   Tracker,
   TrackerExportOptions,
+  TeamExportOptions,
   AddTrackersResult,
   DeleteTrackersResult,
   LocationTestResult,
@@ -663,6 +664,27 @@ async getGames() : Promise<ApiResponse<Game[]>> {
     }
     const query = params.toString();
     return this.fetchFile(`/games/${gameId}/trackers/export${query ? `?${query}` : ''}`);
+  }
+
+  // Same shape as exportTrackers, but team-scoped: not the provider-facing tracker
+  // mapping, so it's the one that supports filtering to recently-changed teams.
+  async exportTeams(
+    gameId: string,
+    options: TeamExportOptions,
+  ): Promise<{ file?: Blob; error?: string }> {
+    const params = new URLSearchParams();
+    options.columns.forEach(({ field, header }) => {
+      params.append('field', field);
+      params.append('header', header);
+    });
+    if (options.includeUnassigned) {
+      params.append('includeUnassigned', 'true');
+    }
+    if (options.since) {
+      params.append('since', options.since);
+    }
+    const query = params.toString();
+    return this.fetchFile(`/games/${gameId}/teams/export${query ? `?${query}` : ''}`);
   }
 
   // The standings as a CSV file: place, boat number, scouting group, notes and points.

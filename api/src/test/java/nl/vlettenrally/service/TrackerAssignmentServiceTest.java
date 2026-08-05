@@ -221,6 +221,39 @@ class TrackerAssignmentServiceTest {
     }
 
     @Test
+    void exportCsv_withoutSince_usesFindByGameId() {
+        Team a = team("7", "T1");
+        when(teamRepository.findByGameId(gameId)).thenReturn(List.of(a));
+
+        String csv = service.exportCsv(gameId, TrackerAssignmentService.DEFAULT_COLUMNS, false, null);
+
+        assertEquals(
+                """
+                        trackerId,boatNumber,scoutingGroup
+                        T1,7,
+                        """,
+            csv);
+        verify(teamRepository, never()).findByGameIdUpdatedAfter(any(), any());
+    }
+
+    @Test
+    void exportCsv_withSince_usesFindByGameIdUpdatedAfter() {
+        Instant since = Instant.now().minusSeconds(3600);
+        Team changed = team("7", "T1");
+        when(teamRepository.findByGameIdUpdatedAfter(gameId, since)).thenReturn(List.of(changed));
+
+        String csv = service.exportCsv(gameId, TrackerAssignmentService.DEFAULT_COLUMNS, false, since);
+
+        assertEquals(
+                """
+                        trackerId,boatNumber,scoutingGroup
+                        T1,7,
+                        """,
+            csv);
+        verify(teamRepository, never()).findByGameId(any());
+    }
+
+    @Test
     void availableTrackers_returnsEnabledMinusThisGamesAssigned_sorted() {
         Team assigned = team("7", "T2");
         when(teamRepository.findByGameId(gameId)).thenReturn(List.of(assigned, team("12", null)));

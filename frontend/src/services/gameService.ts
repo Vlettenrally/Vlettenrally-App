@@ -1,5 +1,5 @@
 import api from './api';
-import { type Game, type GameRequest, type ExternalEvent, type TeamImportResult, type TrackerAssignResult, type LocationTestResult, type BackfillResult, type TrackerExportOptions } from '../types/entities';
+import { type Game, type GameRequest, type ExternalEvent, type TeamImportResult, type TrackerAssignResult, type LocationTestResult, type BackfillResult, type TrackerExportOptions, type TeamExportOptions } from '../types/entities';
 
 export type BackfillOutcome =
   | { status: 'ok'; result: BackfillResult }
@@ -106,6 +106,14 @@ export const gameService = {
 
   exportTrackers: async (gameId: string, options?: TrackerExportOptions): Promise<Blob> => {
     const { file, error } = await api.exportTrackers(gameId, options);
+    if (error || file === undefined) {
+      throw new Error(error ?? 'Export mislukt');
+    }
+    return file;
+  },
+
+  exportTeams: async (gameId: string, options: TeamExportOptions): Promise<Blob> => {
+    const { file, error } = await api.exportTeams(gameId, options);
     if (error || file === undefined) {
       throw new Error(error ?? 'Export mislukt');
     }

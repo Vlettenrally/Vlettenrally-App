@@ -200,9 +200,20 @@ public class TrackerAssignmentService {
      * @param includeUnassigned also emit teams that have no tracker yet
      */
     public String exportCsv(UUID gameId, List<ExportColumn> columns, boolean includeUnassigned) {
+        return exportCsv(gameId, columns, includeUnassigned, null);
+    }
+
+    /**
+     * Same as {@link #exportCsv(UUID, List, boolean)}, restricted to teams whose
+     * record changed after {@code since} when given.
+     */
+    public String exportCsv(UUID gameId, List<ExportColumn> columns, boolean includeUnassigned, Instant since) {
         StringBuilder sb = new StringBuilder();
         appendRow(sb, columns.stream().map(ExportColumn::header));
-        teamRepository.findByGameId(gameId).stream()
+        List<Team> teams = since == null
+                ? teamRepository.findByGameId(gameId)
+                : teamRepository.findByGameIdUpdatedAfter(gameId, since);
+        teams.stream()
                 .filter(t -> includeUnassigned || normalize(t.getTrackerId()) != null)
                 .forEach(t -> appendRow(sb, columns.stream().map(c -> c.field().accessor.apply(t))));
         return sb.toString();

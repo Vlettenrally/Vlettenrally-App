@@ -358,6 +358,7 @@
         "fieldName": "Boat number",
         "fieldDescription": "Group name",
         "includeUnassigned": "Also include teams without a tracker",
+        "onlyRecentlyChanged": "Only teams changed since",
         "moveUp": "Move column up",
         "moveDown": "Move column down",
         "export": "Export"

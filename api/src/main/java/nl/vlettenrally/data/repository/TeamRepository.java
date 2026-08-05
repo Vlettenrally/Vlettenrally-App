@@ -1,5 +1,6 @@
 package nl.vlettenrally.data.repository;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -10,13 +11,15 @@ import nl.vlettenrally.data.domain.Team;
  * Repository interface for Team entities
  */
 public interface TeamRepository {
-    
+
     Optional<Team> findById(UUID id);
-    
+
     List<Team> findAll();
-    
+
     List<Team> findByGameId(UUID gameId);
-    
+
+    List<Team> findByGameIdUpdatedAfter(UUID gameId, Instant after);
+
     Optional<Team> findByDeviceId(UUID deviceId);
     
     List<Team> findRivals(UUID teamId);

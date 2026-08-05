@@ -65,6 +65,8 @@ import nl.vlettenrally.service.TeamImportService;
 import nl.vlettenrally.websockets.WebSocketPublisher;
 import nl.vlettenrally.websockets.dto.WebSocketMessageType;
 
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -700,6 +702,46 @@ public class GameResource {
         String csv = trackerAssignmentService.exportCsv(gameId, columns, includeUnassigned);
         return Response.ok(csv)
             .header("Content-Disposition", "attachment; filename=\"trackers-" + gameId + ".csv\"")
+            .build();
+    }
+
+    /**
+     * Export teams as CSV, optionally restricted to those changed since a given instant.
+     *
+     * <p>Shares its column model with {@link #exportTrackers}: {@code field}/{@code header}
+     * work the same way. Unlike that endpoint, this one is not the provider-facing tracker
+     * mapping, so {@code since} filtering lives here rather than on it.
+     */
+    @GET
+    @Path("/{gameId}/teams/export")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.RALLY_DESK})
+    @Produces("text/csv")
+    public Response exportTeams(@PathParam("gameId") UUID gameId,
+                                 @QueryParam("field") List<String> fields,
+                                 @QueryParam("header") List<String> headers,
+                                 @QueryParam("includeUnassigned") @DefaultValue("false") boolean includeUnassigned,
+                                 @QueryParam("since") String since) {
+        if (gameService.findById(gameId).isEmpty()) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        List<TrackerAssignmentService.ExportColumn> columns;
+        Instant sinceInstant = null;
+        try {
+            columns = toExportColumns(fields, headers);
+            if (since != null && !since.isBlank()) {
+                sinceInstant = Instant.parse(since);
+            }
+        } catch (IllegalArgumentException | DateTimeParseException e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .type(MediaType.APPLICATION_JSON)
+                .entity(new ErrorResponse(e.getMessage()))
+                .build();
+        }
+
+        String csv = trackerAssignmentService.exportCsv(gameId, columns, includeUnassigned, sinceInstant);
+        return Response.ok(csv)
+            .header("Content-Disposition", "attachment; filename=\"teams-" + gameId + ".csv\"")
             .build();
     }
 

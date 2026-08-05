@@ -152,6 +152,14 @@ public class MockTeamRepository implements TeamRepository {
     }
 
     @Override
+    public List<Team> findByGameIdUpdatedAfter(UUID gameId, Instant after) {
+        return teams.values().stream()
+                .filter(t -> gameId.equals(t.getGameId()))
+                .filter(t -> t.getUpdatedAt() != null && t.getUpdatedAt().isAfter(after))
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public Optional<Team> findByDeviceId(UUID deviceId) {
         return teams.values().stream()
                 .filter(t -> deviceId.equals(t.getDeviceId()))

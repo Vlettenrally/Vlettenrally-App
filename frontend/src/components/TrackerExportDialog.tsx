@@ -47,11 +47,21 @@ const fieldLabelKeys: Record<TrackerExportField, string> = {
   description: 'admin.teams.exportDialog.fieldDescription',
 };
 
+// Ten hours ago, formatted for a datetime-local input using local (not UTC) getters,
+// so the value shown matches the browser's clock instead of shifting by the UTC offset.
+function defaultSinceLocal(): string {
+  const d = new Date(Date.now() - 10 * 60 * 60 * 1000);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export default function TrackerExportDialog({ open, onClose, gameId }: TrackerExportDialogProps) {
   const { t } = useTranslation();
 
   const [columns, setColumns] = useState<ColumnChoice[]>(DEFAULT_COLUMNS);
   const [includeUnassigned, setIncludeUnassigned] = useState(false);
+  const [onlyRecent, setOnlyRecent] = useState(false);
+  const [sinceLocal, setSinceLocal] = useState(defaultSinceLocal);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,6 +69,8 @@ export default function TrackerExportDialog({ open, onClose, gameId }: TrackerEx
     if (open) {
       setColumns(DEFAULT_COLUMNS);
       setIncludeUnassigned(false);
+      setOnlyRecent(false);
+      setSinceLocal(defaultSinceLocal());
       setError(null);
     }
   }, [open]);
@@ -83,11 +95,15 @@ export default function TrackerExportDialog({ open, onClose, gameId }: TrackerEx
     setLoading(true);
     setError(null);
     try {
-      const file = await gameService.exportTrackers(gameId, {
-        columns: selected.map(({ field, header }) => ({ field, header: header.trim() })),
-        includeUnassigned,
-      });
-      downloadFile(file, `trackers-${gameId}.csv`);
+      const columns = selected.map(({ field, header }) => ({ field, header: header.trim() }));
+      const file = onlyRecent
+        ? await gameService.exportTeams(gameId, {
+            columns,
+            includeUnassigned,
+            since: new Date(sinceLocal).toISOString(),
+          })
+        : await gameService.exportTrackers(gameId, { columns, includeUnassigned });
+      downloadFile(file, onlyRecent ? `teams-${gameId}.csv` : `trackers-${gameId}.csv`);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : t('admin.teams.exportFailed'));
@@ -157,6 +173,27 @@ export default function TrackerExportDialog({ open, onClose, gameId }: TrackerEx
             }
             label={t('admin.teams.exportDialog.includeUnassigned')}
           />
+
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={onlyRecent}
+                onChange={(e) => setOnlyRecent(e.target.checked)}
+              />
+            }
+            label={t('admin.teams.exportDialog.onlyRecentlyChanged')}
+          />
+          {onlyRecent && (
+            <TextField
+              size="small"
+              type="datetime-local"
+              label={t('admin.teams.exportDialog.onlyRecentlyChanged')}
+              value={sinceLocal}
+              onChange={(e) => setSinceLocal(e.target.value)}
+              slotProps={{ inputLabel: { shrink: true } }}
+              sx={{ width: 220 }}
+            />
+          )}
         </Box>
       </DialogContent>
       <DialogActions>

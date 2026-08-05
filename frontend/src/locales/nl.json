@@ -358,6 +358,7 @@
         "fieldName": "Bootnummer",
         "fieldDescription": "Groepsnaam",
         "includeUnassigned": "Ook teams zonder tracker meenemen",
+        "onlyRecentlyChanged": "Alleen teams gewijzigd sinds",
         "moveUp": "Kolom omhoog",
         "moveDown": "Kolom omlaag",
         "export": "Exporteren"

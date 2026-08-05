@@ -51,6 +51,18 @@ public class JpaTeamRepository extends ReadReplicaAwareRepository implements Tea
     }
 
     @Override
+    public List<Team> findByGameIdUpdatedAfter(UUID gameId, Instant after) {
+        List<TeamEntity> entities = getReadEntityManager()
+                .createQuery("SELECT t FROM TeamEntity t WHERE t.game.id = :gameId AND t.updatedAt > :after ORDER BY t.name", TeamEntity.class)
+                .setParameter("gameId", gameId)
+                .setParameter("after", after)
+                .getResultList();
+        return entities.stream()
+                .map(TeamMapper::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public Optional<Team> findByDeviceId(UUID deviceId) {
         try {
             TeamEntity entity = getReadEntityManager()
