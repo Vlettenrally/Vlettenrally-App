@@ -28,20 +28,21 @@ import {
 } from '@mui/material';
 import {
   ArrowBack as BackIcon,
-  GpsFixed as TrackerIcon,
   Smartphone as DigitalIcon,
   EditNote as ManualIcon,
 } from '@mui/icons-material';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useGameStore } from '../../store/useGameStore';
 import { useAdminResync } from '../../hooks/useAdminSync';
 import { teamService } from '../../services/teamService';
 import { gameService } from '../../services/gameService';
+import { trackerService } from '../../services/trackerService';
 import TeamCheckInChip from '../../components/TeamCheckInChip';
+import TrackerStatusBox from '../../components/TrackerStatusBox';
 import { isPhoneNumber, validateParticipantNames } from '../../utils/validators';
 import { teamMatchesQuery } from '../../utils/teamSearch';
-import type { AdminTeam } from '../../types/entities';
+import type { AdminTeam, Tracker } from '../../types/entities';
 
 type Step = 'search' | 'overview' | 'manual';
 
@@ -52,6 +53,10 @@ export default function CheckIn() {
   const [teams, setTeams] = useState<AdminTeam[]>([]);
   const [step, setStep] = useState<Step>('search');
   const [selectedTeam, setSelectedTeam] = useState<AdminTeam | null>(null);
+
+  // undefined = health not fetched yet, null = fetched but no matching pool record.
+  const [selectedTrackerHealth, setSelectedTrackerHealth] = useState<Tracker | null | undefined>(undefined);
+  const latestTrackerRequestRef = useRef<string | undefined>(undefined);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +83,31 @@ export default function CheckIn() {
   }, [reloadTeams]);
 
   useAdminResync(reloadTeams);
+
+  // Fetch the selected team's tracker health for the "verify tracker" box. Guarded
+  // against out-of-order responses: if the team is switched again before this
+  // resolves, latestTrackerRequestRef will have moved on and the stale result is
+  // dropped.
+  useEffect(() => {
+    const trackerId = selectedTeam?.trackerId ?? undefined;
+    latestTrackerRequestRef.current = trackerId;
+    if (!trackerId) {
+      setSelectedTrackerHealth(undefined);
+      return;
+    }
+    setSelectedTrackerHealth(undefined);
+    trackerService
+      .getTrackers()
+      .then((trackers) => {
+        if (latestTrackerRequestRef.current !== trackerId) return;
+        setSelectedTrackerHealth(trackers.find((tr) => tr.trackerId === trackerId) ?? null);
+      })
+      .catch((err) => {
+        console.error('Failed to load tracker health:', err);
+        if (latestTrackerRequestRef.current !== trackerId) return;
+        setSelectedTrackerHealth(null);
+      });
+  }, [selectedTeam?.trackerId]);
 
   // Reset the whole flow back to team search (after a completed check-in, or on
   // game change).
@@ -229,31 +259,6 @@ export default function CheckIn() {
     }
   };
 
-  const renderTracker = (team: AdminTeam) => (
-    <Box
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 1.5,
-        p: 2,
-        borderRadius: 2,
-        border: '1px solid',
-        borderColor: 'divider',
-        bgcolor: 'background.default',
-      }}
-    >
-      <TrackerIcon color={team.trackerId ? 'primary' : 'disabled'} />
-      <Box>
-        <Typography variant="overline" color="text.secondary" sx={{ display: 'block', lineHeight: 1.2 }}>
-          {t('admin.checkIn.verifyTracker')}
-        </Typography>
-        <Typography variant="h6" sx={{ wordBreak: 'break-all' }}>
-          {team.trackerId || t('admin.checkIn.noTrackerAssigned')}
-        </Typography>
-      </Box>
-    </Box>
-  );
-
   return (
     <Box sx={{ p: 3, maxWidth: 700, mx: 'auto' }}>
       <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold', mb: 1 }}>
@@ -335,7 +340,12 @@ export default function CheckIn() {
                   </Box>
                 </Box>
 
-                {renderTracker(selectedTeam)}
+                <TrackerStatusBox
+                  trackerId={selectedTeam.trackerId}
+                  tracker={selectedTrackerHealth}
+                  label={t('admin.checkIn.verifyTracker')}
+                  noTrackerLabel={t('admin.checkIn.noTrackerAssigned')}
+                />
 
                 {selectedTeam.checkedIn && (
                   <Alert severity="info">
@@ -390,7 +400,12 @@ export default function CheckIn() {
                   {t('admin.checkIn.digitalDescription')}
                 </Typography>
 
-                {renderTracker(selectedTeam)}
+                <TrackerStatusBox
+                  trackerId={selectedTeam.trackerId}
+                  tracker={selectedTrackerHealth}
+                  label={t('admin.checkIn.verifyTracker')}
+                  noTrackerLabel={t('admin.checkIn.noTrackerAssigned')}
+                />
 
                 <TextField
                   label={t('admin.checkIn.participants')}

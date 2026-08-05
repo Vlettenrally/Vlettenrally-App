@@ -19,14 +19,16 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { GpsFixed as TrackerIcon, AssignmentTurnedIn as HandedInIcon } from '@mui/icons-material';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AssignmentTurnedIn as HandedInIcon } from '@mui/icons-material';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useGameStore } from '../../store/useGameStore';
 import { useAdminResync } from '../../hooks/useAdminSync';
 import { teamService } from '../../services/teamService';
+import { trackerService } from '../../services/trackerService';
+import TrackerStatusBox from '../../components/TrackerStatusBox';
 import { teamMatchesQuery } from '../../utils/teamSearch';
-import type { AdminTeam } from '../../types/entities';
+import type { AdminTeam, Tracker } from '../../types/entities';
 
 export default function Checkout() {
   const { t } = useTranslation();
@@ -34,6 +36,10 @@ export default function Checkout() {
 
   const [teams, setTeams] = useState<AdminTeam[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<AdminTeam | null>(null);
+
+  // undefined = health not fetched yet, null = fetched but no matching pool record.
+  const [selectedTrackerHealth, setSelectedTrackerHealth] = useState<Tracker | null | undefined>(undefined);
+  const latestTrackerRequestRef = useRef<string | undefined>(undefined);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +59,30 @@ export default function Checkout() {
   }, [reloadTeams]);
 
   useAdminResync(reloadTeams);
+
+  // Fetch the selected team's tracker health for the hand-in box. Guarded against
+  // out-of-order responses: if the team is switched again before this resolves,
+  // latestTrackerRequestRef will have moved on and the stale result is dropped.
+  useEffect(() => {
+    const trackerId = selectedTeam?.trackerId ?? undefined;
+    latestTrackerRequestRef.current = trackerId;
+    if (!trackerId) {
+      setSelectedTrackerHealth(undefined);
+      return;
+    }
+    setSelectedTrackerHealth(undefined);
+    trackerService
+      .getTrackers()
+      .then((trackers) => {
+        if (latestTrackerRequestRef.current !== trackerId) return;
+        setSelectedTrackerHealth(trackers.find((tr) => tr.trackerId === trackerId) ?? null);
+      })
+      .catch((err) => {
+        console.error('Failed to load tracker health:', err);
+        if (latestTrackerRequestRef.current !== trackerId) return;
+        setSelectedTrackerHealth(null);
+      });
+  }, [selectedTeam?.trackerId]);
 
   const resetToSearch = useCallback(() => {
     setSelectedTeam(null);
@@ -179,28 +209,12 @@ export default function Checkout() {
                     </Typography>
                   </Box>
 
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1.5,
-                      p: 2,
-                      borderRadius: 2,
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      bgcolor: 'background.default',
-                    }}
-                  >
-                    <TrackerIcon color={selectedTeam.trackerId ? 'primary' : 'disabled'} />
-                    <Box>
-                      <Typography variant="overline" color="text.secondary" sx={{ display: 'block', lineHeight: 1.2 }}>
-                        {t('admin.checkout.trackerLabel')}
-                      </Typography>
-                      <Typography variant="h6" sx={{ wordBreak: 'break-all' }}>
-                        {selectedTeam.trackerId || t('admin.checkout.noTrackerAssigned')}
-                      </Typography>
-                    </Box>
-                  </Box>
+                  <TrackerStatusBox
+                    trackerId={selectedTeam.trackerId}
+                    tracker={selectedTrackerHealth}
+                    label={t('admin.checkout.trackerLabel')}
+                    noTrackerLabel={t('admin.checkout.noTrackerAssigned')}
+                  />
 
                   {selectedTeam.trackerHandedIn ? (
                     <Alert severity="success">{t('admin.checkout.alreadyHandedInNote')}</Alert>

@@ -51,16 +51,11 @@ import { useTranslation } from 'react-i18next';
 import { trackerService } from '../../services/trackerService';
 import MapPopupDialog from '../../components/admin/MapPopupDialog';
 import { STALE_AFTER_MS } from './mapConstants';
+import { batteryColor } from '../../utils/trackerStatus';
 import type { Tracker } from '../../types/entities';
 
 // Refresh cadence so last-seen/battery stay current while the page is open.
 const REFRESH_INTERVAL_MS = 30_000; // 30 seconds
-
-function batteryColor(percentage: number): 'success' | 'warning' | 'error' {
-  if (percentage <= 15) return 'error';
-  if (percentage <= 35) return 'warning';
-  return 'success';
-}
 
 // The teams/games holding this tracker, or null when it is free. Only teams in a
 // planned or active game count, so a completed game's trackers read as unassigned.
