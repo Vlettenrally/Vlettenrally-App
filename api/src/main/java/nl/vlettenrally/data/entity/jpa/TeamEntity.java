@@ -94,6 +94,15 @@ public class TeamEntity {
     @Column(name = "tracker_assigned_at")
     private Instant trackerAssignedAt;
 
+    // Whether the team has physically returned its tracker at the end of the game.
+    // Independent of trackerId/trackerAssignedAt — returning a tracker does not
+    // clear its assignment.
+    @Column(name = "tracker_handed_in", nullable = false)
+    private boolean trackerHandedIn = false;
+
+    @Column(name = "tracker_handed_in_at")
+    private Instant trackerHandedInAt;
+
     @Version
     @Column(name = "version", nullable = false)
     private long version;

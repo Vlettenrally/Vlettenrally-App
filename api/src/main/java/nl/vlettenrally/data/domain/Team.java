@@ -59,6 +59,11 @@ public class Team {
     // imported. Cleared with trackerId; re-assigning the same tracker after a clear
     // re-stamps (while unassigned it may have served another team). Null = no bound.
     private Instant trackerAssignedAt;
+    // Whether the team has physically returned its tracker at the end of the game
+    // (set via the admin checkout desk). Independent of trackerId/trackerAssignedAt —
+    // returning a tracker does not clear its assignment.
+    private boolean trackerHandedIn;
+    private Instant trackerHandedInAt;
 
     @Setter(AccessLevel.NONE)
     private List<String> emergencyPhoneNumbers;
@@ -74,6 +79,7 @@ public class Team {
         this.checkedIn = false;
         this.checkedInDigitally = false;
         this.finished = false;
+        this.trackerHandedIn = false;
         this.traccarEnabled = false;
         this.createdAt = Instant.now();
         this.updatedAt = Instant.now();

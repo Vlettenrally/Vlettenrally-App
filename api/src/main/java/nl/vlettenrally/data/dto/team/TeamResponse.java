@@ -23,6 +23,9 @@ public record TeamResponse(
     boolean traccarEnabled,
     String traccarIdentifier,
     String trackerId,
+    boolean trackerHandedIn,
+    /* ISO-8601 instant the tracker was marked handed in; null when it has not been. */
+    String trackerHandedInAt,
     int totalPoints,
     List<UUID> rivals,
     String notes,

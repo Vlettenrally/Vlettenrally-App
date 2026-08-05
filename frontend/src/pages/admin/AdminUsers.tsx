@@ -58,6 +58,7 @@ const PAGE_KEYS: Record<string, string> = {
   '/admin/games':              'admin.layout.games',
   '/admin/teams':              'admin.layout.teams',
   '/admin/check-in':           'admin.layout.checkIn',
+  '/admin/checkout':           'admin.layout.checkout',
   '/admin/zones':              'admin.layout.zones',
   '/admin/automations':        'admin.layout.automations',
   '/admin/settings':           'admin.layout.settings',

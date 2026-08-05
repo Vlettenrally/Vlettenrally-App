@@ -93,6 +93,7 @@ export default function TeamDetailDialog({
     traccarEnabled: false,
     finished: false,
     trackerId: '',
+    trackerHandedIn: false,
   });
 
   const { t } = useTranslation();
@@ -111,6 +112,7 @@ export default function TeamDetailDialog({
         traccarEnabled: team.traccarEnabled,
         finished: team.finished,
         trackerId: team.trackerId ?? '',
+        trackerHandedIn: team.trackerHandedIn,
       });
       setIsEditing(false);
       setBackfillMessage(null);
@@ -168,6 +170,7 @@ export default function TeamDetailDialog({
         traccarEnabled: false,
         finished: false,
         trackerId: '',
+        trackerHandedIn: false,
       });
       setIsEditing(true);
       setRivalTeams([]);
@@ -336,6 +339,7 @@ export default function TeamDetailDialog({
           traccarEnabled: team.traccarEnabled,
           finished: team.finished,
           trackerId: team.trackerId ?? '',
+          trackerHandedIn: team.trackerHandedIn,
         });
       }
       setError(null);
@@ -366,6 +370,7 @@ export default function TeamDetailDialog({
         ...checkInStatusToFields(formData.checkInStatus),
         traccarEnabled: formData.traccarEnabled,
         finished: formData.finished,
+        trackerHandedIn: formData.trackerHandedIn,
       };
 
       if (isCreateMode) {
@@ -454,7 +459,7 @@ export default function TeamDetailDialog({
     }));
   };
 
-  const handleCheckboxChange = (field: 'traccarEnabled' | 'finished') => (
+  const handleCheckboxChange = (field: 'traccarEnabled' | 'finished' | 'trackerHandedIn') => (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     const newValue = event.target.checked;
@@ -680,6 +685,29 @@ export default function TeamDetailDialog({
                       </Alert>
                     )}
                   </Box>
+                )}
+              </Box>
+
+              <Box>
+                <Typography variant="subtitle2" gutterBottom>
+                  {t('components.teamDetail.trackerHandedIn')}
+                </Typography>
+                {isEditing ? (
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={formData.trackerHandedIn}
+                        onChange={handleCheckboxChange('trackerHandedIn')}
+                      />
+                    }
+                    label={t('components.teamDetail.trackerHandedInLabel')}
+                  />
+                ) : (
+                  <Chip
+                    label={team.trackerHandedIn ? t('components.teamDetail.trackerHandedIn') : t('components.teamDetail.trackerNotHandedIn')}
+                    color={team.trackerHandedIn ? 'success' : 'default'}
+                    size="small"
+                  />
                 )}
               </Box>
 

@@ -279,6 +279,9 @@ export interface AdminTeam extends TeamBase {
   traccarEnabled: boolean;
   traccarIdentifier?: string | null;
   trackerId?: string | null;
+  trackerHandedIn: boolean;
+  /** ISO instant the tracker was marked handed in; null/absent while not handed in. */
+  trackerHandedInAt?: string | null;
   rivals: string[];
   notes?: string;
   emergencyPhoneNumbers?: string[];

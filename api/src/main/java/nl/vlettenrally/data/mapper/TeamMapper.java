@@ -46,6 +46,8 @@ public class TeamMapper {
         domain.setTraccarIdentifier(entity.getTraccarIdentifier());
         domain.setTrackerId(entity.getTrackerId());
         domain.setTrackerAssignedAt(entity.getTrackerAssignedAt());
+        domain.setTrackerHandedIn(entity.isTrackerHandedIn());
+        domain.setTrackerHandedInAt(entity.getTrackerHandedInAt());
         domain.setNotes(entity.getNotes());
         // Set emergency phone numbers without validation (already validated on input)
         domain.getEmergencyPhoneNumbers().clear();
@@ -88,6 +90,8 @@ public class TeamMapper {
         entity.setTraccarIdentifier(domain.getTraccarIdentifier());
         entity.setTrackerId(domain.getTrackerId());
         entity.setTrackerAssignedAt(domain.getTrackerAssignedAt());
+        entity.setTrackerHandedIn(domain.isTrackerHandedIn());
+        entity.setTrackerHandedInAt(domain.getTrackerHandedInAt());
         entity.setNotes(domain.getNotes());
         entity.setEmergencyPhoneNumbers(new ArrayList<>(domain.getEmergencyPhoneNumbers()));
         entity.setCreatedAt(domain.getCreatedAt());
@@ -120,6 +124,8 @@ public class TeamMapper {
         entity.setTraccarIdentifier(domain.getTraccarIdentifier());
         entity.setTrackerId(domain.getTrackerId());
         entity.setTrackerAssignedAt(domain.getTrackerAssignedAt());
+        entity.setTrackerHandedIn(domain.isTrackerHandedIn());
+        entity.setTrackerHandedInAt(domain.getTrackerHandedInAt());
         entity.setNotes(domain.getNotes());
         entity.setEmergencyPhoneNumbers(new ArrayList<>(domain.getEmergencyPhoneNumbers()));
         entity.setUpdatedAt(domain.getUpdatedAt());

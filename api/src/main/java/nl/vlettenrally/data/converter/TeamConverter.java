@@ -44,6 +44,8 @@ public class TeamConverter {
                 domain.isTraccarEnabled(),
                 domain.getTraccarIdentifier(),
                 domain.getTrackerId(),
+                domain.isTrackerHandedIn(),
+                domain.getTrackerHandedInAt() != null ? domain.getTrackerHandedInAt().toString() : null,
                 pointsTotalsCache.get(domain.getId()),
                 domain.getRivals(),
                 domain.getNotes(),

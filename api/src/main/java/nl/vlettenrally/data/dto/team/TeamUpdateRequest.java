@@ -16,5 +16,6 @@ public record TeamUpdateRequest(
     CheckInMethod checkInMethod,
     Boolean traccarEnabled,
     Boolean finished,
+    Boolean trackerHandedIn,
     String notes
 ) {}

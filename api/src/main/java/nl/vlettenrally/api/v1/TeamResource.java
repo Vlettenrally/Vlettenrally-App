@@ -365,6 +365,14 @@ public class TeamResource {
                 finishedChanged = true;
             }
 
+            // Admin checkout desk: mark the tracker physically returned. Reversible
+            // (desk mistake); does not touch trackerId/trackerAssignedAt (assignment
+            // is a separate fact from return) and does not un-finish the team.
+            if (request.trackerHandedIn() != null && request.trackerHandedIn() != team.isTrackerHandedIn()) {
+                team.setTrackerHandedIn(request.trackerHandedIn());
+                team.setTrackerHandedInAt(request.trackerHandedIn() ? java.time.Instant.now() : null);
+            }
+
             Team updatedTeam = teamService.save(team);
 
             // A finish after the game's end time costs the game's flat penalty.

@@ -46,6 +46,7 @@ export const ADMIN_PAGE_ROLES: Record<string, string[]> = {
   '/admin/teams': [AdminRole.GAME_MASTER, AdminRole.RALLY_DESK],
   '/admin/trackers': [AdminRole.RALLY_DESK],
   '/admin/check-in': [AdminRole.GAME_MASTER, AdminRole.RALLY_DESK],
+  '/admin/checkout': [AdminRole.GAME_MASTER, AdminRole.RALLY_DESK],
   '/admin/zones': [AdminRole.GAME_MASTER],
   '/admin/automations': [AdminRole.GAME_MASTER],
 
