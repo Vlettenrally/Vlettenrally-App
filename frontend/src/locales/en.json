@@ -182,6 +182,7 @@
       "subtitle": "The definitive ranking of {{game}}.",
       "team": "Team",
       "points": "Points",
+      "class": "Class",
       "finish": "Finish",
       "rank": "#",
       "noData": "No ranking data available.",
@@ -700,6 +701,7 @@
       "rank": "Rank",
       "team": "Team",
       "points": "Points",
+      "class": "Class",
       "finish": "Finish",
       "noData": "No ranking data yet.",
       "export": "Export ranking",
@@ -863,6 +865,10 @@
       "late": "Late",
       "dnf": "DNF"
     },
+    "teamClassChip": {
+      "lelieClass": "Lelievlet",
+      "freeClass": "Free class"
+    },
     "teamLayout": {
       "dashboard": "Dashboard",
       "info": "Game info",
@@ -929,6 +935,10 @@
       "emergencyPhones": "Emergency Phone Numbers",
       "emergencyPhonesHint": "One phone number per line",
       "notes": "Notes",
+      "boatClass": "Boat class",
+      "freeClassLabel": "Free class",
+      "freeClass": "Free class",
+      "lelieClass": "Lelievlet",
       "checkInStatus": "Check-in status (admin override)",
       "status": "Status",
       "traccarTracking": "Traccar tracking",

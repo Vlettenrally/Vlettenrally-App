@@ -85,7 +85,8 @@ public class RankingService {
             }
             ranking.add(new RankingResponse(rank, team.getId(), team.getName(), team.getDescription(), teamTotal,
                 team.isFinished(),
-                team.getFinishedAt() != null ? team.getFinishedAt().toString() : null));
+                team.getFinishedAt() != null ? team.getFinishedAt().toString() : null,
+                team.isFreeClass()));
         }
         return ranking;
     }

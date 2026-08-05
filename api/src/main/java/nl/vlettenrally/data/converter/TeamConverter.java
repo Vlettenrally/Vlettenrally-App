@@ -41,6 +41,7 @@ public class TeamConverter {
                 domain.getCheckInMethod(),
                 domain.isFinished(),
                 domain.getFinishedAt() != null ? domain.getFinishedAt().toString() : null,
+                domain.isFreeClass(),
                 domain.isTraccarEnabled(),
                 domain.getTraccarIdentifier(),
                 domain.getTrackerId(),

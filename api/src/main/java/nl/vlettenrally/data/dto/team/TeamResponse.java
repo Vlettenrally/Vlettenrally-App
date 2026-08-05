@@ -20,6 +20,7 @@ public record TeamResponse(
     boolean finished,
     /* ISO-8601 instant the team was marked finished; null when it has not finished. */
     String finishedAt,
+    boolean freeClass,
     boolean traccarEnabled,
     String traccarIdentifier,
     String trackerId,

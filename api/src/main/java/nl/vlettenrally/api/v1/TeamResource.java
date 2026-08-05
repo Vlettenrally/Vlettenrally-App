@@ -356,6 +356,10 @@ public class TeamResource {
                 team.setTraccarEnabled(request.traccarEnabled());
             }
 
+            if (request.freeClass() != null) {
+                team.setFreeClass(request.freeClass());
+            }
+
             // Admin override for the finished state (set/reverse a finish). Stamp
             // finishedAt on transition to finished; clear it when un-finishing.
             boolean finishedChanged = false;
@@ -462,6 +466,7 @@ public class TeamResource {
             team.setParticipants(request.participants() != null ? request.participants() : new ArrayList<>());
             team.setEmergencyPhoneNumbers(request.emergencyPhoneNumbers() != null ? request.emergencyPhoneNumbers() : new ArrayList<>());
             team.setNotes(request.notes());
+            team.setFreeClass(Boolean.TRUE.equals(request.freeClass()));
 
             Team savedTeam = teamService.save(team);
             

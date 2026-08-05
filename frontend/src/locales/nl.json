@@ -182,6 +182,7 @@
       "subtitle": "De definitieve ranglijst van {{game}}.",
       "team": "Team",
       "points": "Punten",
+      "class": "Klasse",
       "finish": "Finish",
       "rank": "#",
       "noData": "Geen ranglijstgegevens beschikbaar.",
@@ -700,6 +701,7 @@
       "rank": "Plaats",
       "team": "Team",
       "points": "Punten",
+      "class": "Klasse",
       "finish": "Finish",
       "noData": "Nog geen ranglijstgegevens.",
       "export": "Ranglijst exporteren",
@@ -863,6 +865,10 @@
       "late": "Te laat",
       "dnf": "DNF"
     },
+    "teamClassChip": {
+      "lelieClass": "Lelievlet",
+      "freeClass": "Vrije klasse"
+    },
     "teamLayout": {
       "dashboard": "Dashboard",
       "info": "Spelinformatie",
@@ -929,6 +935,10 @@
       "emergencyPhones": "Emergency Phone Numbers",
       "emergencyPhonesHint": "One phone number per line",
       "notes": "Notes",
+      "boatClass": "Bootklasse",
+      "freeClassLabel": "Vrije klasse",
+      "freeClass": "Vrije klasse",
+      "lelieClass": "Lelievlet",
       "checkInStatus": "Check-in status (admin override)",
       "status": "Status",
       "traccarTracking": "Traccar-tracking",

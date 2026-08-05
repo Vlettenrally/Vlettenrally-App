@@ -281,6 +281,8 @@ export interface AdminTeam extends TeamBase {
   finished: boolean;
   /** ISO instant the team was marked finished; null/absent while not finished. */
   finishedAt?: string | null;
+  /** Vrije klasse (faster boats racing outside the standard fleet). False = Lelievlet. */
+  freeClass: boolean;
   traccarEnabled: boolean;
   traccarIdentifier?: string | null;
   trackerId?: string | null;
@@ -326,6 +328,8 @@ export interface RankingEntry {
   finished?: boolean;
   /** ISO instant the team was marked finished; null/absent while not finished. */
   finishedAt?: string | null;
+  /** Vrije klasse (faster boats racing outside the standard fleet). False/absent = Lelievlet. */
+  freeClass?: boolean;
 }
 
 /**

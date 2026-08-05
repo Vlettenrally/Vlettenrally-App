@@ -42,6 +42,7 @@ public class TeamMapper {
         domain.setCheckedInAt(entity.getCheckedInAt());
         domain.setFinished(entity.isFinished());
         domain.setFinishedAt(entity.getFinishedAt());
+        domain.setFreeClass(entity.isFreeClass());
         domain.setTraccarEnabled(entity.isTraccarEnabled());
         domain.setTraccarIdentifier(entity.getTraccarIdentifier());
         domain.setTrackerId(entity.getTrackerId());
@@ -86,6 +87,7 @@ public class TeamMapper {
         entity.setCheckedInAt(domain.getCheckedInAt());
         entity.setFinished(domain.isFinished());
         entity.setFinishedAt(domain.getFinishedAt());
+        entity.setFreeClass(domain.isFreeClass());
         entity.setTraccarEnabled(domain.isTraccarEnabled());
         entity.setTraccarIdentifier(domain.getTraccarIdentifier());
         entity.setTrackerId(domain.getTrackerId());
@@ -120,6 +122,7 @@ public class TeamMapper {
         entity.setCheckedInAt(domain.getCheckedInAt());
         entity.setFinished(domain.isFinished());
         entity.setFinishedAt(domain.getFinishedAt());
+        entity.setFreeClass(domain.isFreeClass());
         entity.setTraccarEnabled(domain.isTraccarEnabled());
         entity.setTraccarIdentifier(domain.getTraccarIdentifier());
         entity.setTrackerId(domain.getTrackerId());

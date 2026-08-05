@@ -79,6 +79,9 @@ public class TeamEntity {
     @Column(name = "finished_at")
     private Instant finishedAt;
 
+    @Column(name = "free_class", nullable = false)
+    private boolean freeClass = false;
+
     @Column(name = "traccar_enabled", nullable = false)
     private boolean traccarEnabled = false;
 

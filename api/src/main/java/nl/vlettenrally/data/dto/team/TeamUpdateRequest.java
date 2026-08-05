@@ -17,5 +17,6 @@ public record TeamUpdateRequest(
     Boolean traccarEnabled,
     Boolean finished,
     Boolean trackerHandedIn,
-    String notes
+    String notes,
+    Boolean freeClass
 ) {}

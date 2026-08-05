@@ -94,6 +94,7 @@ export default function TeamDetailDialog({
     finished: false,
     trackerId: '',
     trackerHandedIn: false,
+    freeClass: false,
   });
 
   const { t } = useTranslation();
@@ -113,6 +114,7 @@ export default function TeamDetailDialog({
         finished: team.finished,
         trackerId: team.trackerId ?? '',
         trackerHandedIn: team.trackerHandedIn,
+        freeClass: team.freeClass,
       });
       setIsEditing(false);
       setBackfillMessage(null);
@@ -171,6 +173,7 @@ export default function TeamDetailDialog({
         finished: false,
         trackerId: '',
         trackerHandedIn: false,
+        freeClass: false,
       });
       setIsEditing(true);
       setRivalTeams([]);
@@ -340,6 +343,7 @@ export default function TeamDetailDialog({
           finished: team.finished,
           trackerId: team.trackerId ?? '',
           trackerHandedIn: team.trackerHandedIn,
+          freeClass: team.freeClass,
         });
       }
       setError(null);
@@ -371,6 +375,7 @@ export default function TeamDetailDialog({
         traccarEnabled: formData.traccarEnabled,
         finished: formData.finished,
         trackerHandedIn: formData.trackerHandedIn,
+        freeClass: formData.freeClass,
       };
 
       if (isCreateMode) {
@@ -459,7 +464,7 @@ export default function TeamDetailDialog({
     }));
   };
 
-  const handleCheckboxChange = (field: 'traccarEnabled' | 'finished' | 'trackerHandedIn') => (
+  const handleCheckboxChange = (field: 'traccarEnabled' | 'finished' | 'trackerHandedIn' | 'freeClass') => (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     const newValue = event.target.checked;
@@ -560,6 +565,29 @@ export default function TeamDetailDialog({
             rows={3}
             fullWidth
           />
+
+          <Box>
+            <Typography variant="subtitle2" gutterBottom>
+              {t('components.teamDetail.boatClass')}
+            </Typography>
+            {isEditing ? (
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={formData.freeClass}
+                    onChange={handleCheckboxChange('freeClass')}
+                  />
+                }
+                label={t('components.teamDetail.freeClassLabel')}
+              />
+            ) : (
+              <Chip
+                label={t(formData.freeClass ? 'components.teamDetail.freeClass' : 'components.teamDetail.lelieClass')}
+                color={formData.freeClass ? 'warning' : 'success'}
+                size="small"
+              />
+            )}
+          </Box>
 
           {!isCreateMode && team && (
             <>

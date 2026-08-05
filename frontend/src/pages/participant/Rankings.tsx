@@ -25,6 +25,7 @@ import { useTeamStore } from '../../store/useTeamStore';
 import { useGameStore } from '../../store/useGameStore';
 import api from '../../services/api';
 import TeamFinishChip from '../../components/TeamFinishChip';
+import TeamClassChip from '../../components/TeamClassChip';
 import type { RankingEntry } from '../../types/entities';
 
 export default function Rankings() {
@@ -108,13 +109,14 @@ export default function Rankings() {
                   <TableCell width={60}>{t('participant.rankings.rank')}</TableCell>
                   <TableCell>{t('participant.rankings.team')}</TableCell>
                   <TableCell align="right">{t('participant.rankings.points')}</TableCell>
+                  <TableCell align="center">{t('participant.rankings.class')}</TableCell>
                   <TableCell align="center">{t('participant.rankings.finish')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {!loading && rankings.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={4} sx={{ color: 'text.secondary' }}>
+                    <TableCell colSpan={5} sx={{ color: 'text.secondary' }}>
                       {t('participant.rankings.noData')}
                     </TableCell>
                   </TableRow>
@@ -133,6 +135,9 @@ export default function Rankings() {
                       )}
                     </TableCell>
                     <TableCell align="right">{row.points}</TableCell>
+                    <TableCell align="center">
+                      <TeamClassChip team={row} />
+                    </TableCell>
                     <TableCell align="center">
                       <TeamFinishChip team={row} game={game} />
                     </TableCell>

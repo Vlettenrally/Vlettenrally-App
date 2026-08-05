@@ -17,5 +17,6 @@ public record RankingResponse(
       derives the finish status (finished / late / DNF) from this plus the game's end time and
       status, so a game that completes flips teams to DNF without a refetch.
      */
-    String finishedAt
+    String finishedAt,
+    boolean freeClass
 ) {}

@@ -44,6 +44,9 @@ public class Team {
     // but stops accruing automatic points (checkpoint passes + distance).
     private boolean finished;
     private Instant finishedAt;
+    // Vrije klasse: faster boats racing outside the standard fleet. Defaults to
+    // false ("Lelievlet", the standard class).
+    private boolean freeClass;
     private List<UUID> rivals;
     private String notes;
     // Traccar GPS tracking: opt-in per team. traccarIdentifier is a long-lived
@@ -81,6 +84,7 @@ public class Team {
         this.finished = false;
         this.trackerHandedIn = false;
         this.traccarEnabled = false;
+        this.freeClass = false;
         this.createdAt = Instant.now();
         this.updatedAt = Instant.now();
     }

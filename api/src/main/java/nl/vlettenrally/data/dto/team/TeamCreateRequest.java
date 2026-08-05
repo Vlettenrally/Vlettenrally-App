@@ -12,5 +12,6 @@ public record TeamCreateRequest(
     String description,
     List<String> participants,
     List<String> emergencyPhoneNumbers,
-    String notes
+    String notes,
+    Boolean freeClass
 ) {}
