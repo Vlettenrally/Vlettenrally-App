@@ -4,7 +4,7 @@
  * `ranking` admin heartbeat topic.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 // Passthrough translations so assertions can target i18n keys / rendered data.
 vi.mock('react-i18next', () => ({
@@ -37,6 +37,12 @@ vi.mock('../../hooks/useAdminHeartbeat', () => ({
 }));
 
 vi.mock('../../hooks/useAdminSync', () => ({ useAdminResync: vi.fn() }));
+
+const exportRankings = vi.hoisted(() => vi.fn());
+vi.mock('../../services/gameService', () => ({ gameService: { exportRankings } }));
+
+const downloadFile = vi.hoisted(() => vi.fn());
+vi.mock('../../utils/download', () => ({ downloadFile }));
 
 import Ranking from './Ranking';
 import { useGameStore } from '../../store/useGameStore';
@@ -102,5 +108,27 @@ describe('admin Ranking page', () => {
     unmount();
     fireRankingUpdate([{ position: 1, teamId: 't9', teamName: 'Ghost', points: 5 }]);
     expect(screen.queryByText('Ghost')).toBeNull();
+  });
+
+  it('downloads the server-generated CSV for the selected game', async () => {
+    // The file is passed through untouched — the server's BOM and delimiter must survive.
+    const file = new Blob(['﻿plaats;bootnummer\n1;De Watervlooien\n'], { type: 'text/csv' });
+    exportRankings.mockResolvedValue(file);
+    render(<Ranking />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'admin.ranking.export' }));
+
+    await waitFor(() => expect(exportRankings).toHaveBeenCalledWith('game-1'));
+    expect(downloadFile).toHaveBeenCalledWith(file, 'ranglijst-game-1.csv');
+  });
+
+  it('surfaces an export failure instead of downloading', async () => {
+    exportRankings.mockRejectedValue(new Error('Export mislukt (403)'));
+    render(<Ranking />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'admin.ranking.export' }));
+
+    await waitFor(() => expect(screen.getByText('Export mislukt (403)')).toBeTruthy());
+    expect(downloadFile).not.toHaveBeenCalled();
   });
 });

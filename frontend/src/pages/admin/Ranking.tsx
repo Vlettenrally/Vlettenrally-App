@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Box,
+  Button,
   Paper,
   Stack,
   Table,
@@ -22,11 +23,14 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material';
+import { Download as DownloadIcon } from '@mui/icons-material';
 import { useGameStore } from '../../store/useGameStore';
 import { useAdminResync } from '../../hooks/useAdminSync';
 import { useAdminTopicHeartbeat, ADMIN_TOPICS } from '../../hooks/useAdminHeartbeat';
 import websocket, { WebSocketEventType } from '../../services/websocket';
 import api from '../../services/api';
+import { gameService } from '../../services/gameService';
+import { downloadFile } from '../../utils/download';
 import type { RankingEntry } from '../../types/entities';
 
 export default function Ranking() {
@@ -34,6 +38,8 @@ export default function Ranking() {
   const { t } = useTranslation();
   const [rankings, setRankings] = useState<RankingEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const loadRankings = useCallback(async () => {
     if (!selectedGameId) return;
@@ -45,6 +51,22 @@ export default function Ranking() {
       setLoading(false);
     }
   }, [selectedGameId]);
+
+  // The file holds more than this table shows — scouting group and the admin-only team
+  // notes — so it is built server-side rather than from the rows in state.
+  const handleExport = async () => {
+    if (!selectedGameId) return;
+    setExporting(true);
+    setExportError(null);
+    try {
+      const file = await gameService.exportRankings(selectedGameId);
+      downloadFile(file, `ranglijst-${selectedGameId}.csv`);
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : t('admin.ranking.exportFailed'));
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // Only receive ranking events from the backend while this page is mounted.
   useAdminTopicHeartbeat(ADMIN_TOPICS.RANKING);
@@ -78,10 +100,21 @@ export default function Ranking() {
         <Stack direction="row" spacing={1.5} alignItems="center">
           <Typography variant="h4" component="h1">{t('admin.ranking.title')}</Typography>
           {loading && <CircularProgress size={20} />}
+          <Box sx={{ flex: 1 }} />
+          <Button
+            variant="outlined"
+            startIcon={exporting ? <CircularProgress size={20} /> : <DownloadIcon />}
+            onClick={handleExport}
+            disabled={exporting}
+          >
+            {t('admin.ranking.export')}
+          </Button>
         </Stack>
         <Typography variant="body2" color="text.secondary">
           {t('admin.ranking.subtitle')}
         </Typography>
+
+        {exportError && <Alert severity="error" onClose={() => setExportError(null)}>{exportError}</Alert>}
 
         <Paper>
           <TableContainer>

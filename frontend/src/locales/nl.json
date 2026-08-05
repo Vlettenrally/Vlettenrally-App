@@ -678,7 +678,9 @@
       "rank": "Plaats",
       "team": "Team",
       "points": "Punten",
-      "noData": "Nog geen ranglijstgegevens."
+      "noData": "Nog geen ranglijstgegevens.",
+      "export": "Ranglijst exporteren",
+      "exportFailed": "Export mislukt"
     },
     "pointsManagement": {
       "title": "Puntenbeheer",

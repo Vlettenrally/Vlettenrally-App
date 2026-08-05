@@ -627,13 +627,31 @@ async getGames() : Promise<ApiResponse<Game[]>> {
     return this.put(`/trackers/${encodeURIComponent(trackerId)}/enabled`, { enabled });
   }
 
-  // Returns the raw CSV text (not the JSON envelope); the caller triggers the download.
+  // The CSV exports return a raw file body rather than the JSON envelope, so they bypass
+  // the request helpers and carry the bearer token themselves. Kept as a Blob rather than
+  // decoded to text: reading the body as text drops any UTF-8 BOM the server wrote, and
+  // the ranking export needs that BOM to survive to disk for Excel.
+  private async fetchFile(path: string): Promise<{ file?: Blob; error?: string }> {
+    const token = storage.getAuthToken();
+    try {
+      const response = await fetch(`${API_BASE_URL}${path}`, {
+        headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+      });
+      if (!response.ok) {
+        return { error: `Export mislukt (${response.status})` };
+      }
+      return { file: await response.blob() };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : 'Network error' };
+    }
+  }
+
+  // Returns the raw CSV file (not the JSON envelope); the caller triggers the download.
   // Without options the server falls back to its default columns.
   async exportTrackers(
     gameId: string,
     options?: TrackerExportOptions,
-  ): Promise<{ csv?: string; error?: string }> {
-    const token = storage.getAuthToken();
+  ): Promise<{ file?: Blob; error?: string }> {
     // field/header are parallel lists: the server pairs them by index, so order matters.
     const params = new URLSearchParams();
     options?.columns.forEach(({ field, header }) => {
@@ -644,20 +662,14 @@ async getGames() : Promise<ApiResponse<Game[]>> {
       params.append('includeUnassigned', 'true');
     }
     const query = params.toString();
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/games/${gameId}/trackers/export${query ? `?${query}` : ''}`,
-        {
-          headers: { ...(token && { Authorization: `Bearer ${token}` }) },
-        },
-      );
-      if (!response.ok) {
-        return { error: `Export mislukt (${response.status})` };
-      }
-      return { csv: await response.text() };
-    } catch (error) {
-      return { error: error instanceof Error ? error.message : 'Network error' };
-    }
+    return this.fetchFile(`/games/${gameId}/trackers/export${query ? `?${query}` : ''}`);
+  }
+
+  // The standings as a CSV file: place, boat number, scouting group, notes and points.
+  // Server-generated because it carries the admin-only team notes, which the ranking
+  // payload this page renders deliberately does not.
+  async exportRankings(gameId: string): Promise<{ file?: Blob; error?: string }> {
+    return this.fetchFile(`/games/${gameId}/rankings/export`);
   }
 
   async testLocationEndpoint(gameId: string) : Promise<ApiResponse<LocationTestResult>> {

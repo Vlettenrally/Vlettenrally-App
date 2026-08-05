@@ -273,6 +273,29 @@ public class GameResource {
     }
 
     /**
+     * Export the standings as CSV for the rally desk.
+     * <p>
+     * Not reachable by teams whatever the publish state: the file carries the admin-only
+     * team notes. Gated on the same {@code ranking} role as the admin ranking page, so
+     * whoever can see the standings can also take them home.
+     */
+    @GET
+    @Path("/{gameId}/rankings/export")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.RANKING})
+    @Produces("text/csv;charset=UTF-8")
+    public Response exportRankings(@PathParam("gameId") UUID gameId) {
+        if (gameService.findById(gameId).isEmpty()) {
+            // No entity: the JSON ErrorResponse the other endpoints return has no writer
+            // for this method's text/csv producer.
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        return Response.ok(rankingService.exportCsv(gameId))
+            .header("Content-Disposition", "attachment; filename=\"ranglijst-" + gameId + ".csv\"")
+            .build();
+    }
+
+    /**
      * Publish (reveal) the final ranking to players.
      * <p>
      * Admin-only. Persists the reveal on the game so it survives players

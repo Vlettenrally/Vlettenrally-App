@@ -7,6 +7,7 @@ import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.domain.Tracker;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.data.repository.TrackerRepository;
+import nl.vlettenrally.util.Csv;
 
 import java.time.Instant;
 import java.util.*;
@@ -209,7 +210,7 @@ public class TrackerAssignmentService {
 
     /** Append one CSV line, escaping each cell. */
     private void appendRow(StringBuilder sb, Stream<String> cells) {
-        sb.append(cells.map(this::csv).collect(Collectors.joining(","))).append('\n');
+        Csv.appendRow(sb, ',', cells);
     }
 
     /** Tracker IDs held by the given (single game's) teams. */
@@ -233,16 +234,5 @@ public class TrackerAssignmentService {
     private String boatLabel(Team team) {
         String name = team.getName();
         return name != null && !name.isBlank() ? name : team.getId().toString();
-    }
-
-    /** RFC-4180 escaping: quote fields containing comma, quote, or newline. */
-    private String csv(String value) {
-        if (value == null) {
-            return "";
-        }
-        if (value.contains(",") || value.contains("\"") || value.contains("\n") || value.contains("\r")) {
-            return '"' + value.replace("\"", "\"\"") + '"';
-        }
-        return value;
     }
 }

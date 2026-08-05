@@ -180,6 +180,32 @@ class GameResourceTest {
     }
 
     @Test
+    void exportRankings_returnsCsvAsAttachment() throws Exception {
+        when(gameService.findById(gameId)).thenReturn(Optional.of(gameWith(Game.GameStatus.COMPLETED, 42)));
+        when(rankingService.exportCsv(gameId)).thenReturn("plaats;bootnummer\n1;Boot 1\n");
+
+        try (Response response = gameResource.exportRankings(gameId)) {
+            assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());
+            assertEquals("plaats;bootnummer\n1;Boot 1\n", response.getEntity());
+            String disposition = response.getHeaderString("Content-Disposition");
+            assertTrue(disposition.startsWith("attachment;"), disposition);
+            assertTrue(disposition.contains("ranglijst-" + gameId + ".csv"), disposition);
+        }
+    }
+
+    @Test
+    void exportRankings_gameNotFound_returnsBodilessNotFound() throws Exception {
+        when(gameService.findById(gameId)).thenReturn(Optional.empty());
+
+        try (Response response = gameResource.exportRankings(gameId)) {
+            assertEquals(Response.Status.NOT_FOUND.getStatusCode(), response.getStatus());
+            // A JSON error body would have no writer under this method's text/csv producer.
+            assertNull(response.getEntity());
+            verify(rankingService, never()).exportCsv(any());
+        }
+    }
+
+    @Test
     void publishRankings_setsFlag_savesAndBroadcasts() throws Exception {
         Game game = gameWith(Game.GameStatus.COMPLETED, 42);
         when(gameService.findById(gameId)).thenReturn(Optional.of(game));

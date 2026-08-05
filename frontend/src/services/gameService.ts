@@ -104,12 +104,20 @@ export const gameService = {
     return response.data ?? [];
   },
 
-  exportTrackers: async (gameId: string, options?: TrackerExportOptions): Promise<string> => {
-    const { csv, error } = await api.exportTrackers(gameId, options);
-    if (error || csv === undefined) {
+  exportTrackers: async (gameId: string, options?: TrackerExportOptions): Promise<Blob> => {
+    const { file, error } = await api.exportTrackers(gameId, options);
+    if (error || file === undefined) {
       throw new Error(error ?? 'Export mislukt');
     }
-    return csv;
+    return file;
+  },
+
+  exportRankings: async (gameId: string): Promise<Blob> => {
+    const { file, error } = await api.exportRankings(gameId);
+    if (error || file === undefined) {
+      throw new Error(error ?? 'Export mislukt');
+    }
+    return file;
   },
 
   testLocationEndpoint: async (gameId: string): Promise<LocationTestResult> => {

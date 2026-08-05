@@ -31,7 +31,7 @@ function stubDownload() {
 
 function renderDialog() {
   stubDownload();
-  exportTrackers.mockResolvedValue('csv');
+  exportTrackers.mockResolvedValue(new Blob(['csv'], { type: 'text/csv' }));
   return render(<TrackerExportDialog open onClose={vi.fn()} gameId={gameId} />);
 }
 

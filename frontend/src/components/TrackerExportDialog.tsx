@@ -19,6 +19,7 @@ import { ArrowUpward, ArrowDownward } from '@mui/icons-material';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { gameService } from '../services/gameService';
+import { downloadFile } from '../utils/download';
 import type { TrackerExportField } from '../types/entities';
 
 interface TrackerExportDialogProps {
@@ -82,19 +83,11 @@ export default function TrackerExportDialog({ open, onClose, gameId }: TrackerEx
     setLoading(true);
     setError(null);
     try {
-      const csv = await gameService.exportTrackers(gameId, {
+      const file = await gameService.exportTrackers(gameId, {
         columns: selected.map(({ field, header }) => ({ field, header: header.trim() })),
         includeUnassigned,
       });
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `trackers-${gameId}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      downloadFile(file, `trackers-${gameId}.csv`);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : t('admin.teams.exportFailed'));

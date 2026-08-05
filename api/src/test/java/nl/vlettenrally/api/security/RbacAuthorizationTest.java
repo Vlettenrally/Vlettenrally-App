@@ -101,6 +101,35 @@ class RbacAuthorizationTest {
             .then().statusCode(403);
     }
 
+    // ---- The ranking CSV export carries admin-only team notes ----
+
+    @Test
+    void rankingRole_reachesRankingExport() {
+        // 404 (unknown game) rather than 403 proves the role gate let the caller through.
+        as("ranking").when().get("/api/v1/games/" + UUID.randomUUID() + "/rankings/export")
+            .then().statusCode(404);
+    }
+
+    @Test
+    void admin_reachesRankingExport() {
+        as("admin").when().get("/api/v1/games/" + UUID.randomUUID() + "/rankings/export")
+            .then().statusCode(404);
+    }
+
+    @Test
+    void team_cannotExportRankings() {
+        // Teams may read published standings, but never the export: it includes team notes.
+        as("team").when().get("/api/v1/games/" + UUID.randomUUID() + "/rankings/export")
+            .then().statusCode(403);
+    }
+
+    @Test
+    void viewer_cannotExportRankings() {
+        // Staff, but without the ranking capability that gates the standings page.
+        as("viewer").when().get("/api/v1/games/" + UUID.randomUUID() + "/rankings/export")
+            .then().statusCode(403);
+    }
+
     // ---- Admin-user management is SUPER_ADMIN only (not even a plain admin) ----
 
     @Test

@@ -678,7 +678,9 @@
       "rank": "Rank",
       "team": "Team",
       "points": "Points",
-      "noData": "No ranking data yet."
+      "noData": "No ranking data yet.",
+      "export": "Export ranking",
+      "exportFailed": "Export failed"
     },
     "pointsManagement": {
       "title": "Points management",

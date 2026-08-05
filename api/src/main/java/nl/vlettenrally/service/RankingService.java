@@ -5,6 +5,7 @@ import jakarta.inject.Inject;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.dto.game.RankingResponse;
 import nl.vlettenrally.data.repository.TeamRepository;
+import nl.vlettenrally.util.Csv;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -12,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Builds the full, sorted ranking for a game.
@@ -23,6 +25,9 @@ import java.util.stream.Collectors;
  */
 @ApplicationScoped
 public class RankingService {
+
+    /** Excel reads a CSV in the Dutch locale as semicolon-separated. */
+    private static final char DELIMITER = ';';
 
     @Inject
     TeamRepository teamRepository;
@@ -77,5 +82,50 @@ public class RankingService {
             ranking.add(new RankingResponse(rank, team.getId(), team.getName(), team.getDescription(), teamTotal));
         }
         return ranking;
+    }
+
+    /**
+     * The standings as a CSV file for the rally desk: place, boat number, scouting group,
+     * notes and points.
+     * <p>
+     * Two things set this apart from what the ranking page and the WebSocket broadcast carry.
+     * It includes the admin-only {@code notes} of each team, which is why it is built here
+     * rather than in the browser and why {@link RankingResponse} is deliberately not widened
+     * to hold it. And it lists <em>every</em> team, not only the checked-in ones the ranking
+     * itself contains: no-shows are appended after the ranked rows without a place, so the
+     * file doubles as the administrative record of the event.
+     * <p>
+     * Semicolon-separated and BOM-prefixed because this file is opened by hand in a
+     * Dutch-locale Excel — see {@link Csv}.
+     */
+    public String exportCsv(UUID gameId) {
+        List<Team> teams = teamRepository.findByGameId(gameId);
+        Map<UUID, String> notes = teams.stream()
+            .filter(t -> t.getNotes() != null)
+            .collect(Collectors.toMap(Team::getId, Team::getNotes));
+
+        StringBuilder sb = new StringBuilder(Csv.UTF8_BOM);
+        Csv.appendRow(sb, DELIMITER, Stream.of("plaats", "bootnummer", "groep", "notities", "punten"));
+
+        for (RankingResponse row : buildRanking(gameId)) {
+            Csv.appendRow(sb, DELIMITER, Stream.of(
+                String.valueOf(row.position()),
+                row.teamName(),
+                row.teamDescription(),
+                notes.get(row.teamId()),
+                String.valueOf(row.points())));
+        }
+
+        teams.stream()
+            .filter(t -> !t.isCheckedIn())
+            .sorted(Comparator.comparing(Team::getName, Comparator.nullsLast(String::compareToIgnoreCase)))
+            .forEach(t -> Csv.appendRow(sb, DELIMITER, Stream.of(
+                "",
+                t.getName(),
+                t.getDescription(),
+                t.getNotes(),
+                String.valueOf(pointsTotalsCache.get(t.getId())))));
+
+        return sb.toString();
     }
 }
