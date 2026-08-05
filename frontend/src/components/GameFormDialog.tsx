@@ -64,20 +64,6 @@ export default function GameFormDialog({
     { value: 300, label: t('components.gameForm.polling5m', { defaultValue: '5 minutes' }) },
   ];
 
-  const POLLING_LEAD_OPTIONS = [
-    { value: 0, label: t('components.gameForm.pollingLeadOff', { defaultValue: 'Off' }) },
-    { value: 15, label: t('components.gameForm.pollingLead15m', { defaultValue: '15 minutes' }) },
-    { value: 30, label: t('components.gameForm.pollingLead30m', { defaultValue: '30 minutes' }) },
-    { value: 60, label: t('components.gameForm.pollingLead1h', { defaultValue: '1 hour' }) },
-  ];
-
-  const POLLING_TAIL_OPTIONS = [
-    { value: 0, label: t('components.gameForm.pollingTailOff', { defaultValue: 'Off' }) },
-    { value: 15, label: t('components.gameForm.pollingTail15m', { defaultValue: '15 minutes' }) },
-    { value: 30, label: t('components.gameForm.pollingTail30m', { defaultValue: '30 minutes' }) },
-    { value: 60, label: t('components.gameForm.pollingTail1h', { defaultValue: '1 hour' }) },
-  ];
-
   // Per-game overrides for the location-ingest outlier guards. Each is optional: an empty
   // field inherits the system-wide default (shown as the input placeholder). `step` controls
   // the number-input increment; `globalDefault` mirrors the backend application.properties.
@@ -121,8 +107,8 @@ export default function GameFormDialog({
     locationEndpointUrl: '',
     locationPollingFrequency: 30,
     locationEndpointActive: false,
-    locationPollingLeadMinutes: 30,
-    locationPollingTailMinutes: 30,
+    locationPollingLeadMinutes: 120,
+    locationPollingTailMinutes: 120,
     lateFinishPenaltyPoints: 50,
   });
 
@@ -155,8 +141,8 @@ export default function GameFormDialog({
         locationEndpointUrl: game.locationEndpointUrl || '',
         locationPollingFrequency: game.locationPollingFrequency || 30,
         locationEndpointActive: game.locationEndpointActive || false,
-        locationPollingLeadMinutes: game.locationPollingLeadMinutes ?? 30,
-        locationPollingTailMinutes: game.locationPollingTailMinutes ?? 30,
+        locationPollingLeadMinutes: game.locationPollingLeadMinutes ?? 120,
+        locationPollingTailMinutes: game.locationPollingTailMinutes ?? 120,
         lateFinishPenaltyPoints: game.lateFinishPenaltyPoints ?? 0,
         // Per-game guard overrides; undefined keeps the field blank (inherit global).
         locMaxSpeedKmh: game.locMaxSpeedKmh,
@@ -180,7 +166,8 @@ export default function GameFormDialog({
         locationEndpointUrl: '',
         locationPollingFrequency: 30,
         locationEndpointActive: false,
-        locationPollingLeadMinutes: 30,
+        locationPollingLeadMinutes: 120,
+        locationPollingTailMinutes: 120,
         lateFinishPenaltyPoints: 0,
       });
     }
@@ -281,6 +268,19 @@ export default function GameFormDialog({
     setFormData((prev) => ({
       ...prev,
       [field]: raw === '' ? undefined : Number(raw),
+    }));
+  };
+
+  // Lead/tail polling-window minutes, unlike the guard overrides above, are non-nullable on the
+  // backend (undefined means "leave unchanged" on update, not "inherit a default"), so a cleared
+  // field coerces to 0 (= off) rather than undefined.
+  const handlePollingWindowChange = (
+    field: 'locationPollingLeadMinutes' | 'locationPollingTailMinutes'
+  ) => (event: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = event.target.value;
+    setFormData((prev) => ({
+      ...prev,
+      [field]: raw === '' ? 0 : Number(raw),
     }));
   };
 
@@ -463,45 +463,33 @@ export default function GameFormDialog({
             />
           </Box>
 
-          <FormControl fullWidth>
-            <InputLabel>{t('components.gameForm.pollingLead')}</InputLabel>
-            <Select
-              value={formData.locationPollingLeadMinutes ?? 30}
-              label={t('components.gameForm.pollingLead')}
-              onChange={(e) => handleChange('locationPollingLeadMinutes')({ target: { value: e.target.value } })}
-            >
-              {POLLING_LEAD_OPTIONS.map((option) => (
-                <MenuItem key={option.value} value={option.value}>
-                  {option.label}
-                </MenuItem>
-              ))}
-            </Select>
-            <FormHelperText>
-              {t('components.gameForm.pollingLeadHint', {
-                defaultValue: 'Start tracking this long before the start signal, so teams already in a zone are detected at kickoff.',
-              })}
-            </FormHelperText>
-          </FormControl>
+          <TextField
+            type="number"
+            label={t('components.gameForm.pollingLead')}
+            value={formData.locationPollingLeadMinutes ?? 120}
+            onChange={handlePollingWindowChange('locationPollingLeadMinutes')}
+            slotProps={{
+              htmlInput: { min: 0, max: 1440, step: 15 },
+            }}
+            helperText={t('components.gameForm.pollingLeadHint', {
+              defaultValue: 'Start tracking this many minutes before the start signal (default 120 = 2 hours; 0 disables), so teams already in a zone are detected at kickoff.',
+            })}
+            fullWidth
+          />
 
-          <FormControl fullWidth>
-            <InputLabel>{t('components.gameForm.pollingTail')}</InputLabel>
-            <Select
-              value={formData.locationPollingTailMinutes ?? 30}
-              label={t('components.gameForm.pollingTail')}
-              onChange={(e) => handleChange('locationPollingTailMinutes')({ target: { value: e.target.value } })}
-            >
-              {POLLING_TAIL_OPTIONS.map((option) => (
-                <MenuItem key={option.value} value={option.value}>
-                  {option.label}
-                </MenuItem>
-              ))}
-            </Select>
-            <FormHelperText>
-              {t('components.gameForm.pollingTailHint', {
-                defaultValue: 'Keep tracking this long after the end time, so a late finish-zone crossing still triggers its automation.',
-              })}
-            </FormHelperText>
-          </FormControl>
+          <TextField
+            type="number"
+            label={t('components.gameForm.pollingTail')}
+            value={formData.locationPollingTailMinutes ?? 120}
+            onChange={handlePollingWindowChange('locationPollingTailMinutes')}
+            slotProps={{
+              htmlInput: { min: 0, max: 1440, step: 15 },
+            }}
+            helperText={t('components.gameForm.pollingTailHint', {
+              defaultValue: 'Keep tracking this many minutes after the end time (default 120 = 2 hours; 0 disables), so a late finish-zone crossing still triggers its automation.',
+            })}
+            fullWidth
+          />
 
           {/* Per-game ingest guard overrides — collapsed by default; blank inherits the system default. */}
           <Accordion disableGutters elevation={0} sx={{ '&:before': { display: 'none' }, border: 1, borderColor: 'divider', borderRadius: 1 }}>

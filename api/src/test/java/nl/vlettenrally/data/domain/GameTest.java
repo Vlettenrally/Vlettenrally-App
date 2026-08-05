@@ -1,5 +1,6 @@
 package nl.vlettenrally.data.domain;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -23,6 +24,13 @@ class GameTest {
         game.setStartTime(START);
         game.setEndTime(END);
         return game;
+    }
+
+    @Test
+    void newGame_defaultsPollingWindowsToTwoHours() {
+        Game game = new Game();
+        assertEquals(120, game.getLocationPollingLeadMinutes());
+        assertEquals(120, game.getLocationPollingTailMinutes());
     }
 
     // --- Lead window: [start - lead, start) ---

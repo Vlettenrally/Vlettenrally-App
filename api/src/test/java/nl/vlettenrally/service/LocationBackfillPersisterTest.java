@@ -393,9 +393,10 @@ class LocationBackfillPersisterTest {
         when(teamDistanceCalculator.recomputeAfter(eq(team.getId()), same(game), any(Instant.class))).thenReturn(500.0);
         when(locationIngestService.detectCheckpointPasses(any(), any())).thenReturn(1);
         game.setStartTime(BASE.minus(1, ChronoUnit.HOURS));
-        // Game ended at t=150s; default locationPollingTailMinutes=30 keeps the tail window open
-        // until t=150s+30min=1950s.
+        // Game ended at t=150s; locationPollingTailMinutes=30 keeps the tail window open until
+        // t=150s+30min=1950s.
         game.setEndTime(BASE.plus(150, ChronoUnit.SECONDS));
+        game.setLocationPollingTailMinutes(30);
 
         List<EventParticipantLocation> track = List.of(
             providerPoint(4.90, 52.3700, 100),   // before end
@@ -421,10 +422,11 @@ class LocationBackfillPersisterTest {
         when(teamDistanceCalculator.recomputeAfter(eq(team.getId()), same(game), any(Instant.class))).thenReturn(500.0);
         lenient().when(locationIngestService.detectCheckpointPasses(any(), any())).thenReturn(1);
         game.setStartTime(BASE.minus(1, ChronoUnit.HOURS));
-        // Game COMPLETED at t=150s; default locationPollingTailMinutes=30 means live polling — and
+        // Game COMPLETED at t=150s; locationPollingTailMinutes=30 means live polling — and
         // therefore backfill storage — stops at t=150s+30min=1950s. A tracker left running past
         // that must not have its points imported.
         game.setEndTime(BASE.plus(150, ChronoUnit.SECONDS));
+        game.setLocationPollingTailMinutes(30);
         game.setStatus(Game.GameStatus.COMPLETED);
 
         List<EventParticipantLocation> track = List.of(

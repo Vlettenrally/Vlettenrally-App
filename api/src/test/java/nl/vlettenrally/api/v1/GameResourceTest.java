@@ -8,6 +8,7 @@ import java.util.List;
 
 import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.dto.common.ErrorResponse;
+import nl.vlettenrally.data.dto.game.GameRequest;
 import nl.vlettenrally.data.dto.game.GameResponse;
 import nl.vlettenrally.data.dto.game.RankingResponse;
 import nl.vlettenrally.data.dto.game.TeamImportResponse;
@@ -269,6 +270,47 @@ class GameResourceTest {
             assertEquals(Response.Status.BAD_REQUEST.getStatusCode(), response.getStatus());
             assertTrue(((ErrorResponse) response.getEntity()).message().contains("notes"));
             verify(trackerAssignmentService, never()).exportCsv(any(), any(), anyBoolean());
+        }
+    }
+
+    private GameRequest requestWithPollingWindow(String name, Integer leadMinutes, Integer tailMinutes) {
+        return new GameRequest(
+            name, null, null, null, null, null, null, null, null, null, null, null,
+            leadMinutes, tailMinutes, null, null, null, null, null, null, null);
+    }
+
+    @Test
+    void createGame_rejectsLeadMinutesAboveMax() {
+        GameRequest request = requestWithPollingWindow("Rally", 1441, 120);
+
+        try (Response response = gameResource.createGame(request)) {
+            assertEquals(Response.Status.BAD_REQUEST.getStatusCode(), response.getStatus());
+            assertTrue(((ErrorResponse) response.getEntity()).message().contains("locationPollingLeadMinutes"));
+            verify(gameService, never()).save(any());
+        }
+    }
+
+    @Test
+    void createGame_rejectsNegativeTailMinutes() {
+        GameRequest request = requestWithPollingWindow("Rally", 120, -1);
+
+        try (Response response = gameResource.createGame(request)) {
+            assertEquals(Response.Status.BAD_REQUEST.getStatusCode(), response.getStatus());
+            assertTrue(((ErrorResponse) response.getEntity()).message().contains("locationPollingTailMinutes"));
+            verify(gameService, never()).save(any());
+        }
+    }
+
+    @Test
+    void updateGame_rejectsOutOfRangePollingWindow() {
+        Game game = gameWith(Game.GameStatus.PLANNED, null);
+        when(gameService.findById(gameId)).thenReturn(Optional.of(game));
+        GameRequest request = requestWithPollingWindow(null, 5000, null);
+
+        try (Response response = gameResource.updateGame(gameId, request)) {
+            assertEquals(Response.Status.BAD_REQUEST.getStatusCode(), response.getStatus());
+            assertTrue(((ErrorResponse) response.getEntity()).message().contains("locationPollingLeadMinutes"));
+            verify(gameService, never()).save(any());
         }
     }
 }

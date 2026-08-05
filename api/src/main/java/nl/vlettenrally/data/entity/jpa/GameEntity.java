@@ -73,11 +73,11 @@ public class GameEntity {
 
     // Minutes before the start signal to begin polling/ingesting locations (0 = off).
     @Column(name = "location_polling_lead_minutes", nullable = false)
-    private Integer locationPollingLeadMinutes = 30;
+    private Integer locationPollingLeadMinutes = 120;
 
     // Minutes after the end time to keep polling/ingesting locations once COMPLETED (0 = off).
     @Column(name = "location_polling_tail_minutes", nullable = false)
-    private Integer locationPollingTailMinutes = 30;
+    private Integer locationPollingTailMinutes = 120;
 
     // Flat points deducted once from a team marked finished after end_time (0 = no penalty).
     @Column(name = "late_finish_penalty_points", nullable = false)

@@ -401,6 +401,11 @@ public class GameResource {
                 .entity(new ErrorResponse("Game name is required"))
                 .build();
         }
+        Response pollingWindowRejection = rejectInvalidPollingWindow(
+            request.locationPollingLeadMinutes(), request.locationPollingTailMinutes());
+        if (pollingWindowRejection != null) {
+            return pollingWindowRejection;
+        }
 
         Game game = new Game();
         game.setName(request.name());
@@ -434,8 +439,8 @@ public class GameResource {
         game.setLocationEndpointUrl(request.locationEndpointUrl());
         game.setLocationPollingFrequency(request.locationPollingFrequency() != null ? request.locationPollingFrequency() : 15);
         game.setLocationEndpointActive(request.locationEndpointActive() != null && request.locationEndpointActive());
-        game.setLocationPollingLeadMinutes(request.locationPollingLeadMinutes() != null ? request.locationPollingLeadMinutes() : 30);
-        game.setLocationPollingTailMinutes(request.locationPollingTailMinutes() != null ? request.locationPollingTailMinutes() : 30);
+        game.setLocationPollingLeadMinutes(request.locationPollingLeadMinutes() != null ? request.locationPollingLeadMinutes() : 120);
+        game.setLocationPollingTailMinutes(request.locationPollingTailMinutes() != null ? request.locationPollingTailMinutes() : 120);
         game.setLateFinishPenaltyPoints(request.lateFinishPenaltyPoints() != null ? request.lateFinishPenaltyPoints() : 0);
 
         // Per-game guard overrides: null leaves the game inheriting the global default.
@@ -469,6 +474,11 @@ public class GameResource {
                 Response statusRejection = rejectPauseTransition(oldStatus, request.status());
                 if (statusRejection != null) {
                     return statusRejection;
+                }
+                Response pollingWindowRejection = rejectInvalidPollingWindow(
+                    request.locationPollingLeadMinutes(), request.locationPollingTailMinutes());
+                if (pollingWindowRejection != null) {
+                    return pollingWindowRejection;
                 }
                 if (request.name() != null) game.setName(request.name());
                 if (request.description() != null) game.setDescription(request.description());
@@ -979,6 +989,27 @@ public class GameResource {
         if (current == Game.GameStatus.PAUSED && requested != Game.GameStatus.PAUSED) {
             return Response.status(Response.Status.BAD_REQUEST)
                 .entity(new ErrorResponse("Use POST /games/{gameId}/resume to resume a paused game."))
+                .build();
+        }
+        return null;
+    }
+
+    private static final int MAX_POLLING_WINDOW_MINUTES = 1440; // 24h
+
+    /**
+     * Reject a lead/tail polling-window minutes value outside {@code [0, 1440]}. A null value
+     * (field omitted from the request) is fine — it's left to the caller's own null-handling
+     * (default on create, "leave unchanged" on update).
+     */
+    private Response rejectInvalidPollingWindow(Integer leadMinutes, Integer tailMinutes) {
+        if (leadMinutes != null && (leadMinutes < 0 || leadMinutes > MAX_POLLING_WINDOW_MINUTES)) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("locationPollingLeadMinutes must be between 0 and " + MAX_POLLING_WINDOW_MINUTES))
+                .build();
+        }
+        if (tailMinutes != null && (tailMinutes < 0 || tailMinutes > MAX_POLLING_WINDOW_MINUTES)) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("locationPollingTailMinutes must be between 0 and " + MAX_POLLING_WINDOW_MINUTES))
                 .build();
         }
         return null;

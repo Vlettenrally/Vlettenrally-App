@@ -93,8 +93,8 @@ public class Game {
         this.status = GameStatus.PLANNED;
         this.locationPollingFrequency = 30; // Matches Legendstracking 30 s cache
         this.locationEndpointActive = false;
-        this.locationPollingLeadMinutes = 30; // Start ingesting 30 min before the start time
-        this.locationPollingTailMinutes = 30; // Keep ingesting 30 min after the end (late-finish automations)
+        this.locationPollingLeadMinutes = 120; // Start ingesting 2h before the start time
+        this.locationPollingTailMinutes = 120; // Keep ingesting 2h after the end (late-finish automations)
         this.lateFinishPenaltyPoints = 0; // No late-finish penalty unless configured per game
 
         this.rankingsPublished = false;
