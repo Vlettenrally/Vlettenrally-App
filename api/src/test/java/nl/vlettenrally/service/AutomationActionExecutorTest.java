@@ -48,6 +48,7 @@ class AutomationActionExecutorTest {
 
     @Mock MessageService messageService;
     @Mock PointsLedgerService pointsLedgerService;
+    @Mock LateFinishPenaltyService lateFinishPenaltyService;
     @Mock WebSocketPublisher webSocketPublisher;
     @Mock MessageTemplateService messageTemplateService;
     @Mock AdminInboxService adminInboxService;
@@ -210,6 +211,20 @@ class AutomationActionExecutorTest {
         assertTrue(captor.getValue().isFinished());
         // The team's own dashboard is notified live (scoped to that team).
         verify(webSocketPublisher).sendToTeam(eq(gameId), eq(team.getId()), eq("TEAM_UPDATE"), any());
+        // A finish after the game's end time costs the game's flat penalty; the service itself
+        // decides whether this one was late.
+        verify(lateFinishPenaltyService).applyIfLate(captor.getValue());
+    }
+
+    @Test
+    void finishTeam_alreadyFinished_doesNotReapplyThePenalty() {
+        team.setFinished(true);
+        rule.setActions(List.of(finish()));
+        when(teamRepository.findById(team.getId())).thenReturn(Optional.of(team));
+
+        executor.execute(rule, List.of(team), EMPTY);
+
+        verify(lateFinishPenaltyService, never()).applyIfLate(any());
     }
 
     @Test

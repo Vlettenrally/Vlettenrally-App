@@ -130,6 +130,9 @@ public class GameResource {
     RankingService rankingService;
 
     @Inject
+    nl.vlettenrally.service.LateFinishPenaltyService lateFinishPenaltyService;
+
+    @Inject
     AutomationService automationService;
 
     @Inject
@@ -433,6 +436,7 @@ public class GameResource {
         game.setLocationEndpointActive(request.locationEndpointActive() != null && request.locationEndpointActive());
         game.setLocationPollingLeadMinutes(request.locationPollingLeadMinutes() != null ? request.locationPollingLeadMinutes() : 30);
         game.setLocationPollingTailMinutes(request.locationPollingTailMinutes() != null ? request.locationPollingTailMinutes() : 30);
+        game.setLateFinishPenaltyPoints(request.lateFinishPenaltyPoints() != null ? request.lateFinishPenaltyPoints() : 0);
 
         // Per-game guard overrides: null leaves the game inheriting the global default.
         game.setLocMaxSpeedKmh(request.locMaxSpeedKmh());
@@ -488,6 +492,7 @@ public class GameResource {
                 if (request.locationEndpointActive() != null) game.setLocationEndpointActive(request.locationEndpointActive());
                 if (request.locationPollingLeadMinutes() != null) game.setLocationPollingLeadMinutes(request.locationPollingLeadMinutes());
                 if (request.locationPollingTailMinutes() != null) game.setLocationPollingTailMinutes(request.locationPollingTailMinutes());
+                if (request.lateFinishPenaltyPoints() != null) game.setLateFinishPenaltyPoints(request.lateFinishPenaltyPoints());
 
                 // Per-game guard overrides: null = "leave unchanged" (consistent with the
                 // other fields above). Clearing back to "inherit global" is a DB-level action.
@@ -503,6 +508,11 @@ public class GameResource {
                 locationGuardConfig.invalidate(updated.getId());
                 if (updated.getStatus() != oldStatus) {
                     // Manual admin transition — the scheduler hook won't see it.
+                    if (updated.getStatus() == Game.GameStatus.COMPLETED) {
+                        // Teams still out are DNF from here; charge the late-finish penalty now,
+                        // the same as the scheduler's automatic transition does.
+                        lateFinishPenaltyService.applyToUnfinishedTeams(updated);
+                    }
                     automationEngine.onGameStatusChange(updated, oldStatus, updated.getStatus());
                     if (updated.getStatus() == Game.GameStatus.ACTIVE
                             && oldStatus != Game.GameStatus.ACTIVE) {
@@ -867,6 +877,7 @@ public class GameResource {
             game.getLocationEndpointActive(),
             game.getLocationPollingLeadMinutes(),
             game.getLocationPollingTailMinutes(),
+            game.getLateFinishPenaltyPoints() != null ? game.getLateFinishPenaltyPoints() : 0,
             game.getLocMaxSpeedKmh(),
             game.getLocBoatMaxSpeedKmh(),
             game.getLocTurnAngleThresholdDegrees(),

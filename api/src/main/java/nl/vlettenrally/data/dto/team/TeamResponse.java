@@ -18,6 +18,8 @@ public record TeamResponse(
     boolean checkedInDigitally,
     CheckInMethod checkInMethod,
     boolean finished,
+    /* ISO-8601 instant the team was marked finished; null when it has not finished. */
+    String finishedAt,
     boolean traccarEnabled,
     String traccarIdentifier,
     String trackerId,

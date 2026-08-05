@@ -48,6 +48,9 @@ public class GameStatusScheduler {
     @Inject
     GamePauseService gamePauseService;
 
+    @Inject
+    LateFinishPenaltyService lateFinishPenaltyService;
+
     /**
      * Check for game status transitions on the automation tick interval
      * ({@code vlettenrally.automation.tick-interval}, default 5s) so auto
@@ -136,6 +139,11 @@ public class GameStatusScheduler {
 
 
         Log.info("Game '" + game.getName() + "' transitioned to COMPLETED");
+
+        // Every checked-in team still out is DNF from this instant and is charged the game's
+        // late-finish penalty now. A team that hands in its tracker later flips to "late" but
+        // is not charged again — the ledger entry written here is the idempotency key.
+        lateFinishPenaltyService.applyToUnfinishedTeams(game);
 
         automationEngine.onGameStatusChange(game, previousStatus, Game.GameStatus.COMPLETED);
     }

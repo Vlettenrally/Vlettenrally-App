@@ -45,6 +45,13 @@ public class Game {
      */
     private Integer locationPollingTailMinutes;
 
+    /**
+     * Flat points deducted once from a team that is marked finished after {@link #endTime}.
+     * Applied by {@code LateFinishPenaltyService} on both finish paths (the FINISH_TEAM
+     * automation action and the admin override). 0 = no penalty.
+     */
+    private Integer lateFinishPenaltyPoints;
+
     /** Whether the final ranking has been revealed to players (admin-triggered at the ceremony). */
     private Boolean rankingsPublished;
 
@@ -88,6 +95,7 @@ public class Game {
         this.locationEndpointActive = false;
         this.locationPollingLeadMinutes = 30; // Start ingesting 30 min before the start time
         this.locationPollingTailMinutes = 30; // Keep ingesting 30 min after the end (late-finish automations)
+        this.lateFinishPenaltyPoints = 0; // No late-finish penalty unless configured per game
 
         this.rankingsPublished = false;
         this.publicRankingsEnabled = false;

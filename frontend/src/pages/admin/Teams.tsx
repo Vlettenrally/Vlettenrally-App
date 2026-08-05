@@ -10,8 +10,10 @@ import { websocket } from '../../services/websocket';
 import TeamDetailDialog from '../../components/TeamDetailDialog';
 import TrackerExportDialog from '../../components/TrackerExportDialog';
 import TeamCheckInChip from '../../components/TeamCheckInChip';
+import TeamFinishChip from '../../components/TeamFinishChip';
 import { teamMatchesQuery } from '../../utils/teamSearch';
 import { checkInStatusRank } from '../../utils/checkInStatus';
+import { finishStatusRank } from '../../utils/finishStatus';
 import type { AdminTeam, Game, TeamImportResult, TrackerAssignResult } from '../../types/entities';
 
 type DetailDialog = { title: string; items: string[] };
@@ -31,7 +33,7 @@ const columns: { column: SortColumn; labelKey: string; align?: 'right' | 'center
 const compareByName = (a: AdminTeam, b: AdminTeam) =>
   a.name.localeCompare(b.name, 'nl', { sensitivity: 'base' });
 
-function compareTeams(a: AdminTeam, b: AdminTeam, column: SortColumn): number {
+function compareTeams(a: AdminTeam, b: AdminTeam, column: SortColumn, game: Game | null): number {
   switch (column) {
     case 'name':
       return compareByName(a, b);
@@ -44,7 +46,7 @@ function compareTeams(a: AdminTeam, b: AdminTeam, column: SortColumn): number {
     case 'checkInStatus':
       return checkInStatusRank(a) - checkInStatusRank(b);
     case 'finished':
-      return Number(a.finished) - Number(b.finished);
+      return finishStatusRank(a, game) - finishStatusRank(b, game);
   }
 }
 
@@ -212,9 +214,9 @@ export default function Teams() {
   const sortedTeams = useMemo(() => {
     const sign = order === 'asc' ? 1 : -1;
     return [...filteredTeams].sort(
-      (a, b) => sign * compareTeams(a, b, orderBy) || compareByName(a, b),
+      (a, b) => sign * compareTeams(a, b, orderBy, game) || compareByName(a, b),
     );
-  }, [filteredTeams, orderBy, order]);
+  }, [filteredTeams, orderBy, order, game]);
 
   return (
     <Box sx={{ p: 3 }}>
@@ -397,9 +399,7 @@ export default function Teams() {
                       <TeamCheckInChip team={team} />
                     </TableCell>
                     <TableCell align="center">
-                      {team.finished && (
-                        <Chip label={t('admin.teams.finished')} color="success" size="small" />
-                      )}
+                      <TeamFinishChip team={team} game={game} />
                     </TableCell>
                   </TableRow>
                 ))}

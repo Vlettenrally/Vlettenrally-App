@@ -22,6 +22,8 @@ export interface Game {
   locationPollingLeadMinutes?: number;
   // Minutes after the end time to keep polling/ingesting once COMPLETED (0 = off).
   locationPollingTailMinutes?: number;
+  // Flat points deducted from a team that finishes after endTime (0 = no penalty).
+  lateFinishPenaltyPoints?: number;
   // Per-game location-ingest guard overrides (undefined = inherit the global default).
   locMaxSpeedKmh?: number;
   locBoatMaxSpeedKmh?: number;
@@ -53,6 +55,8 @@ export interface GameRequest {
   locationEndpointActive?: boolean;
   locationPollingLeadMinutes?: number;
   locationPollingTailMinutes?: number;
+  // Flat points deducted from a team that finishes after endTime (0 = no penalty).
+  lateFinishPenaltyPoints?: number;
   // Per-game location-ingest guard overrides (undefined = inherit the global default).
   locMaxSpeedKmh?: number;
   locBoatMaxSpeedKmh?: number;
@@ -270,6 +274,8 @@ export interface AdminTeam extends TeamBase {
   /** How the team was checked in. Null/absent while not checked in. */
   checkInMethod?: CheckInMethod | null;
   finished: boolean;
+  /** ISO instant the team was marked finished; null/absent while not finished. */
+  finishedAt?: string | null;
   traccarEnabled: boolean;
   traccarIdentifier?: string | null;
   trackerId?: string | null;
@@ -289,6 +295,8 @@ export interface PlayerTeam extends TeamBase {
   checkedIn: boolean;
   checkedInDigitally: boolean;
   finished: boolean;
+  /** ISO instant the team was marked finished; null/absent while not finished. */
+  finishedAt?: string | null;
   rivals: string[];
   createdAt: string;
 }
@@ -307,6 +315,9 @@ export interface RankingEntry {
   teamId: string;
   teamName: string;
   points: number;
+  finished?: boolean;
+  /** ISO instant the team was marked finished; null/absent while not finished. */
+  finishedAt?: string | null;
 }
 
 /**
@@ -774,7 +785,8 @@ export type PointEntryType =
   | 'CHECKPOINT_VERIFICATION'
   | 'MANUAL_ADJUSTMENT'
   | 'AUTOMATION_BONUS'
-  | 'DISTANCE_BONUS';
+  | 'DISTANCE_BONUS'
+  | 'LATE_FINISH_PENALTY';
 
 export interface PointEntry {
   id: string;

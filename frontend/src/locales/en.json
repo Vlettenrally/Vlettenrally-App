@@ -182,6 +182,7 @@
       "subtitle": "The definitive ranking of {{game}}.",
       "team": "Team",
       "points": "Points",
+      "finish": "Finish",
       "rank": "#",
       "noData": "No ranking data available.",
       "you": "You",
@@ -678,6 +679,7 @@
       "rank": "Rank",
       "team": "Team",
       "points": "Points",
+      "finish": "Finish",
       "noData": "No ranking data yet.",
       "export": "Export ranking",
       "exportFailed": "Export failed"
@@ -693,6 +695,7 @@
       "typeManual": "Manual",
       "typeAutomation": "Automation",
       "typeDistance": "Distance",
+      "typeLateFinish": "Late finish",
       "columnTime": "Time",
       "columnTeam": "Team",
       "columnType": "Type",
@@ -833,6 +836,11 @@
       "manual": "Manual",
       "digitalPending": "Digital – waiting on team",
       "digitalCompleted": "Digital"
+    },
+    "teamFinishChip": {
+      "finished": "Finished",
+      "late": "Late",
+      "dnf": "DNF"
     },
     "teamLayout": {
       "dashboard": "Dashboard",
@@ -1003,6 +1011,8 @@
       "guardMaxAccuracy": "Max GPS accuracy (m)",
       "guardStaleFix": "Stale-fix window (s)",
       "checkInStartHint": "When the check-in area opens",
+      "lateFinishPenalty": "Late finish penalty",
+      "lateFinishPenaltyHint": "Deducted once when a team is marked finished after the end time. 0 = no penalty.",
       "startTimeHint": "When the race starts (auto-activates game)",
       "trackerBaseUrlHint": "Base URL of the Legendstracking event — without trailing slash and without /details, /participants_locations or /participants_checkpoints",
       "registrations": "{{count}} registrations",

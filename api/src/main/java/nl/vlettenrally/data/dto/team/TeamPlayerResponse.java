@@ -18,6 +18,8 @@ public record TeamPlayerResponse(
     boolean checkedIn,
     boolean checkedInDigitally,
     boolean finished,
+    /* ISO-8601 instant the team was marked finished; null when it has not finished. */
+    String finishedAt,
     int totalPoints,
     List<UUID> rivals,
     String createdAt

@@ -20,6 +20,8 @@ public record GameRequest(
     Boolean locationEndpointActive,
     Integer locationPollingLeadMinutes,
     Integer locationPollingTailMinutes,
+    /* Flat points deducted from a team that finishes after endTime. 0 / null = no penalty. */
+    Integer lateFinishPenaltyPoints,
     // Per-game location-ingest guard overrides (null = inherit the global default).
     Double locMaxSpeedKmh,
     Double locBoatMaxSpeedKmh,

@@ -123,6 +123,7 @@ export default function GameFormDialog({
     locationEndpointActive: false,
     locationPollingLeadMinutes: 30,
     locationPollingTailMinutes: 30,
+    lateFinishPenaltyPoints: 50,
   });
 
   const isCreateMode = !game;
@@ -156,6 +157,7 @@ export default function GameFormDialog({
         locationEndpointActive: game.locationEndpointActive || false,
         locationPollingLeadMinutes: game.locationPollingLeadMinutes ?? 30,
         locationPollingTailMinutes: game.locationPollingTailMinutes ?? 30,
+        lateFinishPenaltyPoints: game.lateFinishPenaltyPoints ?? 0,
         // Per-game guard overrides; undefined keeps the field blank (inherit global).
         locMaxSpeedKmh: game.locMaxSpeedKmh,
         locBoatMaxSpeedKmh: game.locBoatMaxSpeedKmh,
@@ -179,6 +181,7 @@ export default function GameFormDialog({
         locationPollingFrequency: 30,
         locationEndpointActive: false,
         locationPollingLeadMinutes: 30,
+        lateFinishPenaltyPoints: 0,
       });
     }
     setError(null);
@@ -349,6 +352,23 @@ export default function GameFormDialog({
               onChange={handleChange('checkInStartTime')}
               slotProps={{ inputLabel: { shrink: true } }}
               helperText={t('components.gameForm.checkInStartHint')}
+              fullWidth
+            />
+            <TextField
+              label={t('components.gameForm.lateFinishPenalty')}
+              type="number"
+              value={formData.lateFinishPenaltyPoints ?? 0}
+              onChange={(e) => {
+                // Parsed here rather than via handleChange: that keeps the raw string, and an
+                // emptied field would post "" to an Integer column.
+                const parsed = Number(e.target.value);
+                setFormData((prev) => ({
+                  ...prev,
+                  lateFinishPenaltyPoints: Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 0,
+                }));
+              }}
+              slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: 0, step: 1 } }}
+              helperText={t('components.gameForm.lateFinishPenaltyHint')}
               fullWidth
             />
           </Box>

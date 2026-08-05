@@ -27,6 +27,9 @@ import { teamService } from '../services/teamService';
 import { gameService } from '../services/gameService';
 import { storage } from '../services/storage';
 import TeamCheckInChip from './TeamCheckInChip';
+import TeamFinishChip from './TeamFinishChip';
+import { getFinishStatus } from '../utils/finishStatus';
+import { useGameStore } from '../store/useGameStore';
 import {
   CHECK_IN_STATUSES,
   checkInStatusToFields,
@@ -49,6 +52,8 @@ export default function TeamDetailDialog({
   gameId,
   onSave,
 }: TeamDetailDialogProps) {
+  // End time + status decide whether a finish counts as on-time, late or DNF.
+  const game = useGameStore((s) => s.games.find((g) => g.id === gameId) ?? null);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -692,12 +697,11 @@ export default function TeamDetailDialog({
                     }
                     label={t('components.teamDetail.finishedNoAuto')}
                   />
+                ) : getFinishStatus(team, game) === 'enRoute' ? (
+                  // The chip renders nothing while en route; this dialog says so explicitly.
+                  <Chip label={t('components.teamDetail.stillEnRoute')} color="default" size="small" />
                 ) : (
-                  <Chip
-                    label={team.finished ? t('components.teamDetail.finished') : t('components.teamDetail.stillEnRoute')}
-                    color={team.finished ? 'success' : 'default'}
-                    size="small"
-                  />
+                  <TeamFinishChip team={team} game={game} />
                 )}
               </Box>
 

@@ -31,10 +31,14 @@ import websocket, { WebSocketEventType } from '../../services/websocket';
 import api from '../../services/api';
 import { gameService } from '../../services/gameService';
 import { downloadFile } from '../../utils/download';
+import TeamFinishChip from '../../components/TeamFinishChip';
 import type { RankingEntry } from '../../types/entities';
 
 export default function Ranking() {
   const { selectedGameId } = useGameStore();
+  // The finish chip needs the game's end time and status to tell finished from late from DNF.
+  // AdminLayout keeps `games` populated on mount and on every resync.
+  const game = useGameStore((s) => s.games.find((g) => g.id === s.selectedGameId) ?? null);
   const { t } = useTranslation();
   const [rankings, setRankings] = useState<RankingEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -124,12 +128,13 @@ export default function Ranking() {
                   <TableCell width={60}>{t('admin.ranking.rank')}</TableCell>
                   <TableCell>{t('admin.ranking.team')}</TableCell>
                   <TableCell align="right">{t('admin.ranking.points')}</TableCell>
+                  <TableCell align="center">{t('admin.ranking.finish')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {!loading && rankings.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={3} sx={{ color: 'text.secondary' }}>
+                    <TableCell colSpan={4} sx={{ color: 'text.secondary' }}>
                       {t('admin.ranking.noData')}
                     </TableCell>
                   </TableRow>
@@ -139,6 +144,9 @@ export default function Ranking() {
                     <TableCell>{row.position}</TableCell>
                     <TableCell>{row.teamName}</TableCell>
                     <TableCell align="right">{row.points}</TableCell>
+                    <TableCell align="center">
+                      <TeamFinishChip team={row} game={game} />
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

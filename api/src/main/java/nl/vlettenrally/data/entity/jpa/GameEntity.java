@@ -79,6 +79,10 @@ public class GameEntity {
     @Column(name = "location_polling_tail_minutes", nullable = false)
     private Integer locationPollingTailMinutes = 30;
 
+    // Flat points deducted once from a team marked finished after end_time (0 = no penalty).
+    @Column(name = "late_finish_penalty_points", nullable = false)
+    private Integer lateFinishPenaltyPoints = 50;
+
     // Whether the final ranking has been revealed to players (set by an admin at
     // the award ceremony). Gates all player-facing ranking visibility.
     @Column(name = "rankings_published", nullable = false)

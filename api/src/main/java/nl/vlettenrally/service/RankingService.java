@@ -2,6 +2,7 @@ package nl.vlettenrally.service;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.dto.game.RankingResponse;
 import nl.vlettenrally.data.repository.TeamRepository;
@@ -31,6 +32,9 @@ public class RankingService {
 
     @Inject
     TeamRepository teamRepository;
+
+    @Inject
+    GameService gameService;
 
     @Inject
     PointsTotalsCache pointsTotalsCache;
@@ -79,14 +83,16 @@ public class RankingService {
                 rank = position;
                 previousTotal = teamTotal;
             }
-            ranking.add(new RankingResponse(rank, team.getId(), team.getName(), team.getDescription(), teamTotal));
+            ranking.add(new RankingResponse(rank, team.getId(), team.getName(), team.getDescription(), teamTotal,
+                team.isFinished(),
+                team.getFinishedAt() != null ? team.getFinishedAt().toString() : null));
         }
         return ranking;
     }
 
     /**
      * The standings as a CSV file for the rally desk: place, boat number, scouting group,
-     * notes and points.
+     * notes, points and finish state.
      * <p>
      * Two things set this apart from what the ranking page and the WebSocket broadcast carry.
      * It includes the admin-only {@code notes} of each team, which is why it is built here
@@ -105,15 +111,17 @@ public class RankingService {
             .collect(Collectors.toMap(Team::getId, Team::getNotes));
 
         StringBuilder sb = new StringBuilder(Csv.UTF8_BOM);
-        Csv.appendRow(sb, DELIMITER, Stream.of("plaats", "bootnummer", "groep", "notities", "punten"));
+        Csv.appendRow(sb, DELIMITER, Stream.of("plaats", "bootnummer", "groep", "notities", "punten", "finish"));
 
+        Game game = gameService.findById(gameId).orElse(null);
         for (RankingResponse row : buildRanking(gameId)) {
             Csv.appendRow(sb, DELIMITER, Stream.of(
                 String.valueOf(row.position()),
                 row.teamName(),
                 row.teamDescription(),
                 notes.get(row.teamId()),
-                String.valueOf(row.points())));
+                String.valueOf(row.points()),
+                finishLabel(row, game)));
         }
 
         teams.stream()
@@ -124,8 +132,27 @@ public class RankingService {
                 t.getName(),
                 t.getDescription(),
                 t.getNotes(),
-                String.valueOf(pointsTotalsCache.get(t.getId())))));
+                String.valueOf(pointsTotalsCache.get(t.getId())),
+                // Deliberately blank: a team that never checked in did not start, which is a
+                // different thing from a DNF, and the empty place column already says so.
+                "")));
 
         return sb.toString();
+    }
+
+    /**
+     * The team's finish state for the CSV, matching the chip the ranking page shows: blank while
+     * the game is still running and the team is out, "dnf" once it has ended without them coming
+     * in, "te laat" for a finish after the end time and "gefinisht" for one before it.
+     */
+    private String finishLabel(RankingResponse row, Game game) {
+        if (row.finished()) {
+            if (game != null && game.getEndTime() != null && row.finishedAt() != null
+                && java.time.Instant.parse(row.finishedAt()).isAfter(game.getEndTime())) {
+                return "te laat";
+            }
+            return "gefinisht";
+        }
+        return game != null && game.getStatus() == Game.GameStatus.COMPLETED ? "dnf" : "";
     }
 }

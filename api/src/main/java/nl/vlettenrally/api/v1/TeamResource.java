@@ -92,6 +92,9 @@ public class TeamResource {
     PointsLedgerService pointsLedgerService;
 
     @Inject
+    nl.vlettenrally.service.LateFinishPenaltyService lateFinishPenaltyService;
+
+    @Inject
     nl.vlettenrally.service.AuthService authService;
 
     /**
@@ -363,6 +366,11 @@ public class TeamResource {
             }
 
             Team updatedTeam = teamService.save(team);
+
+            // A finish after the game's end time costs the game's flat penalty.
+            if (finishedChanged && updatedTeam.isFinished()) {
+                lateFinishPenaltyService.applyIfLate(updatedTeam);
+            }
 
             // Broadcast update via WebSocket
             webSocketPublisher.broadcastToGame(

@@ -1,13 +1,16 @@
 package nl.vlettenrally.service;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
+import nl.vlettenrally.data.domain.Game;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.data.dto.game.RankingResponse;
 import nl.vlettenrally.data.repository.TeamRepository;
@@ -24,6 +27,7 @@ class RankingServiceTest {
 
     @Mock TeamRepository teamRepository;
     @Mock PointsTotalsCache pointsTotalsCache;
+    @Mock GameService gameService;
 
     @InjectMocks RankingService rankingService;
 
@@ -111,9 +115,9 @@ class RankingServiceTest {
         String csv = rankingService.exportCsv(gameId);
 
         assertEquals(Csv.UTF8_BOM + """
-            plaats;bootnummer;groep;notities;punten
-            1;Boot 1;Scouting Alpha;Snelle start;30
-            2;Boot 2;Scouting Beta;;20
+            plaats;bootnummer;groep;notities;punten;finish
+            1;Boot 1;Scouting Alpha;Snelle start;30;
+            2;Boot 2;Scouting Beta;;20;
             """, csv, "a team without notes gets an empty cell, not \"null\"");
     }
 
@@ -155,10 +159,65 @@ class RankingServiceTest {
         String csv = rankingService.exportCsv(gameId);
 
         assertEquals(Csv.UTF8_BOM + """
-            plaats;bootnummer;groep;notities;punten
+            plaats;bootnummer;groep;notities;punten;finish
             1;Boot 1;"Scouting ""De Vletten""\";"Te laat; twee keer
-            gestrand";30
+            gestrand";30;
             """, csv);
+    }
+
+    @Test
+    void buildRanking_carriesFinishedFlagAndTimestamp_withoutAffectingOrder() {
+        Team late = team("Laat", 100, true);
+        late.setFinished(true);
+        late.setFinishedAt(Instant.parse("2026-08-05T18:30:00Z"));
+        Team out = team("Onderweg", 50, true);
+
+        when(teamRepository.findByGameId(gameId)).thenReturn(List.of(out, late));
+
+        List<RankingResponse> ranking = rankingService.buildRanking(gameId);
+
+        // A late finish is a marker only: order still follows points.
+        assertEquals(List.of("Laat", "Onderweg"), ranking.stream().map(RankingResponse::teamName).toList());
+        assertEquals(List.of(1, 2), ranking.stream().map(RankingResponse::position).toList());
+        assertTrue(ranking.getFirst().finished());
+        assertEquals("2026-08-05T18:30:00Z", ranking.getFirst().finishedAt());
+        assertFalse(ranking.get(1).finished());
+        assertNull(ranking.get(1).finishedAt(), "an unfinished team carries no timestamp");
+    }
+
+    @Test
+    void exportCsv_labelsFinishStateAgainstTheGameEndTime() {
+        Game game = new Game();
+        game.setEndTime(Instant.parse("2026-08-05T18:00:00Z"));
+        game.setStatus(Game.GameStatus.COMPLETED);
+        when(gameService.findById(gameId)).thenReturn(Optional.of(game));
+
+        Team onTime = team("Boot 1", 40, true);
+        onTime.setFinished(true);
+        onTime.setFinishedAt(Instant.parse("2026-08-05T17:59:00Z"));
+        Team late = team("Boot 2", 30, true);
+        late.setFinished(true);
+        late.setFinishedAt(Instant.parse("2026-08-05T18:20:00Z"));
+        Team neverCameIn = team("Boot 3", 20, true);
+        when(teamRepository.findByGameId(gameId)).thenReturn(List.of(onTime, late, neverCameIn));
+
+        List<String> finish = columnOf(rankingService.exportCsv(gameId), 5);
+
+        assertEquals(List.of("gefinisht", "te laat", "dnf"), finish);
+    }
+
+    @Test
+    void exportCsv_leavesFinishBlankWhileTheGameIsStillRunning() {
+        Game game = new Game();
+        game.setEndTime(Instant.parse("2026-08-05T18:00:00Z"));
+        game.setStatus(Game.GameStatus.ACTIVE);
+        when(gameService.findById(gameId)).thenReturn(Optional.of(game));
+
+        Team stillOut = team("Boot 1", 20, true);
+        when(teamRepository.findByGameId(gameId)).thenReturn(List.of(stillOut));
+
+        assertEquals(List.of(""), columnOf(rankingService.exportCsv(gameId), 5),
+            "a team still on the water during a running game is not DNF yet");
     }
 
     /** The first cell of every row after the header. */

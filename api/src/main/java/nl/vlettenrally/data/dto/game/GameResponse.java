@@ -21,6 +21,8 @@ public record GameResponse(
     Boolean locationEndpointActive,
     Integer locationPollingLeadMinutes,
     Integer locationPollingTailMinutes,
+    /* Flat points deducted from a team that finishes after endTime. 0 = no penalty. */
+    Integer lateFinishPenaltyPoints,
     // Per-game location-ingest guard overrides (null = inherit the global default).
     Double locMaxSpeedKmh,
     Double locBoatMaxSpeedKmh,
@@ -30,7 +32,7 @@ public record GameResponse(
     Long locStaleFixSeconds,
     Boolean rankingsPublished,
     Boolean publicRankingsEnabled,
-    /** Why the rally was stopped. Only set while the game is paused. */
+    /* Why the rally was stopped. Only set while the game is paused. */
     String pauseReason,
     String createdAt,
     String updatedAt

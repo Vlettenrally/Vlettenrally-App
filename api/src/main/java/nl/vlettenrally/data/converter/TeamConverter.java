@@ -40,6 +40,7 @@ public class TeamConverter {
                 domain.isCheckedInDigitally(),
                 domain.getCheckInMethod(),
                 domain.isFinished(),
+                domain.getFinishedAt() != null ? domain.getFinishedAt().toString() : null,
                 domain.isTraccarEnabled(),
                 domain.getTraccarIdentifier(),
                 domain.getTrackerId(),
@@ -64,6 +65,7 @@ public class TeamConverter {
                 domain.isCheckedIn(),
                 domain.isCheckedInDigitally(),
                 domain.isFinished(),
+                domain.getFinishedAt() != null ? domain.getFinishedAt().toString() : null,
                 pointsTotalsCache.get(domain.getId()),
                 domain.getRivals(),
                 domain.getCreatedAt().toString()

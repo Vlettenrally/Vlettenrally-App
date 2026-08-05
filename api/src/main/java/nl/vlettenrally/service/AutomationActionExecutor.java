@@ -48,6 +48,9 @@ public class AutomationActionExecutor {
     PointsLedgerService pointsLedgerService;
 
     @Inject
+    LateFinishPenaltyService lateFinishPenaltyService;
+
+    @Inject
     WebSocketPublisher webSocketPublisher;
 
     @Inject
@@ -190,6 +193,8 @@ public class AutomationActionExecutor {
                 team.setFinished(true);
                 team.setFinishedAt(Instant.now());
                 teamRepository.save(team);
+                // A finish after the game's end time costs the game's flat penalty.
+                lateFinishPenaltyService.applyIfLate(team);
                 // Push the finish to the team's own dashboard live (scoped to this
                 // team, so no other team sees it). The client refetches its own data.
                 webSocketPublisher.sendToTeam(team.getGameId(), team.getId(),

@@ -24,6 +24,7 @@ import { ArrowUpward as ArrowUpwardIcon, MyLocation as MyLocationIcon } from '@m
 import { useTeamStore } from '../../store/useTeamStore';
 import { useGameStore } from '../../store/useGameStore';
 import api from '../../services/api';
+import TeamFinishChip from '../../components/TeamFinishChip';
 import type { RankingEntry } from '../../types/entities';
 
 export default function Rankings() {
@@ -107,12 +108,13 @@ export default function Rankings() {
                   <TableCell width={60}>{t('participant.rankings.rank')}</TableCell>
                   <TableCell>{t('participant.rankings.team')}</TableCell>
                   <TableCell align="right">{t('participant.rankings.points')}</TableCell>
+                  <TableCell align="center">{t('participant.rankings.finish')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {!loading && rankings.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={3} sx={{ color: 'text.secondary' }}>
+                    <TableCell colSpan={4} sx={{ color: 'text.secondary' }}>
                       {t('participant.rankings.noData')}
                     </TableCell>
                   </TableRow>
@@ -131,6 +133,9 @@ export default function Rankings() {
                       )}
                     </TableCell>
                     <TableCell align="right">{row.points}</TableCell>
+                    <TableCell align="center">
+                      <TeamFinishChip team={row} game={game} />
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

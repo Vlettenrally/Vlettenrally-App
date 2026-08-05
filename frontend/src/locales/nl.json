@@ -182,6 +182,7 @@
       "subtitle": "De definitieve ranglijst van {{game}}.",
       "team": "Team",
       "points": "Punten",
+      "finish": "Finish",
       "rank": "#",
       "noData": "Geen ranglijstgegevens beschikbaar.",
       "you": "Jij",
@@ -678,6 +679,7 @@
       "rank": "Plaats",
       "team": "Team",
       "points": "Punten",
+      "finish": "Finish",
       "noData": "Nog geen ranglijstgegevens.",
       "export": "Ranglijst exporteren",
       "exportFailed": "Export mislukt"
@@ -693,6 +695,7 @@
       "typeManual": "Handmatig",
       "typeAutomation": "Automatisering",
       "typeDistance": "Afstand",
+      "typeLateFinish": "Te laat gefinisht",
       "columnTime": "Tijd",
       "columnTeam": "Team",
       "columnType": "Type",
@@ -833,6 +836,11 @@
       "manual": "Handmatig",
       "digitalPending": "Digitaal – wacht op team",
       "digitalCompleted": "Digitaal"
+    },
+    "teamFinishChip": {
+      "finished": "Gefinisht",
+      "late": "Te laat",
+      "dnf": "DNF"
     },
     "teamLayout": {
       "dashboard": "Dashboard",
@@ -1003,6 +1011,8 @@
       "guardMaxAccuracy": "Max. gps-nauwkeurigheid (m)",
       "guardStaleFix": "Verouderde-fix venster (s)",
       "checkInStartHint": "Wanneer het inchecken opent",
+      "lateFinishPenalty": "Strafpunten te laat finishen",
+      "lateFinishPenaltyHint": "Wordt eenmalig afgetrokken als een team na de eindtijd op finish wordt gezet. 0 = geen straf.",
       "startTimeHint": "Wanneer de race start (game wordt automatisch geactiveerd)",
       "trackerBaseUrlHint": "Base URL van het Legendstracking event — zonder trailing slash en zonder /details, /participants_locations of /participants_checkpoints",
       "registrations": "{{count}} registraties",
