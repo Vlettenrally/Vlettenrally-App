@@ -38,7 +38,7 @@ class PublicRankingCacheTest {
         Game newPublished = game("Summer", Instant.parse("2026-06-01T10:00:00Z"), true);
         Game newestUnpublished = game("Autumn", Instant.parse("2026-09-01T10:00:00Z"), false);
         when(gameService.findAll()).thenReturn(List.of(oldPublished, newPublished, newestUnpublished));
-        RankingResponse entry = new RankingResponse(1, UUID.randomUUID(), "De Watervlooien", "Snelle en wendbare vlettenvaarders", 42, false, null, false);
+        RankingResponse entry = new RankingResponse(1, UUID.randomUUID(), "De Watervlooien", "Snelle en wendbare vlettenvaarders", 42, false, null, false, false);
         when(rankingService.buildRanking(newPublished.getId())).thenReturn(List.of(entry));
 
         List<RankingResponse> result = cache.latestPublishedRanking();

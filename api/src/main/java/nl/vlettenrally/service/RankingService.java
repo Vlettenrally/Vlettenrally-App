@@ -64,8 +64,12 @@ public class RankingService {
             .collect(Collectors.toMap(Team::getId,
                 t -> totalOverrides.getOrDefault(t.getId(), pointsTotalsCache.get(t.getId()))));
 
+        // Disqualified teams sink to the bottom, outside the points-based positions
+        // (position 0, rendered as "DSQ" by the client), sorted by points among
+        // themselves same as everyone else.
         List<Team> sorted = checkedIn.stream()
-            .sorted(Comparator.comparingInt((Team t) -> totals.get(t.getId())).reversed())
+            .sorted(Comparator.comparing(Team::isDisqualified)
+                .thenComparing(Comparator.comparingInt((Team t) -> totals.get(t.getId())).reversed()))
             .toList();
 
         // Single pass over the sorted list: position only advances when the total
@@ -78,15 +82,20 @@ public class RankingService {
         Integer previousTotal = null;
         for (Team team : sorted) {
             int teamTotal = totals.get(team.getId());
-            position++;
-            if (previousTotal == null || teamTotal < previousTotal) {
-                rank = position;
-                previousTotal = teamTotal;
+            int teamRank = 0;
+            if (!team.isDisqualified()) {
+                position++;
+                if (previousTotal == null || teamTotal < previousTotal) {
+                    rank = position;
+                    previousTotal = teamTotal;
+                }
+                teamRank = rank;
             }
-            ranking.add(new RankingResponse(rank, team.getId(), team.getName(), team.getDescription(), teamTotal,
+            ranking.add(new RankingResponse(teamRank, team.getId(), team.getName(), team.getDescription(), teamTotal,
                 team.isFinished(),
                 team.getFinishedAt() != null ? team.getFinishedAt().toString() : null,
-                team.isFreeClass()));
+                team.isFreeClass(),
+                team.isDisqualified()));
         }
         return ranking;
     }
@@ -117,7 +126,7 @@ public class RankingService {
         Game game = gameService.findById(gameId).orElse(null);
         for (RankingResponse row : buildRanking(gameId)) {
             Csv.appendRow(sb, DELIMITER, Stream.of(
-                String.valueOf(row.position()),
+                row.disqualified() ? "DSQ" : String.valueOf(row.position()),
                 row.teamName(),
                 row.teamDescription(),
                 notes.get(row.teamId()),
@@ -147,6 +156,9 @@ public class RankingService {
      * in, "te laat" for a finish after the end time and "gefinisht" for one before it.
      */
     private String finishLabel(RankingResponse row, Game game) {
+        if (row.disqualified()) {
+            return "gediskwalificeerd";
+        }
         if (row.finished()) {
             if (game != null && game.getEndTime() != null && row.finishedAt() != null
                 && java.time.Instant.parse(row.finishedAt()).isAfter(game.getEndTime())) {

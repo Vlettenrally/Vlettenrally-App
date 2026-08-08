@@ -494,6 +494,10 @@ public class AutomationEngine {
             metrics.skipped(SkipReason.TEAM_FINISHED);
             return;
         }
+        if (team.isDisqualified()) {
+            metrics.skipped(SkipReason.TEAM_DISQUALIFIED);
+            return;
+        }
         execute(rule, List.of(team), teamId, contextKey);
     }
 
@@ -509,6 +513,7 @@ public class AutomationEngine {
         }
         List<Team> targets = teamRepository.findByGameId(gameId).stream()
             .filter(Team::isCheckedIn)
+            .filter(team -> !team.isDisqualified())
             .filter(team -> rule.isTriggerForFinishedTeams() || !team.isFinished())
             .filter(team -> rule.appliesToTeam(team.getId()))
             .toList();

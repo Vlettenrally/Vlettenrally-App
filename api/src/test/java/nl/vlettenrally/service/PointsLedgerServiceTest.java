@@ -381,7 +381,7 @@ class PointsLedgerServiceTest {
         Game published = game(Game.GameStatus.COMPLETED);
         published.setRankingsPublished(true);
         when(gameService.findById(gameId)).thenReturn(Optional.of(published));
-        List<RankingResponse> full = List.of(new RankingResponse(1, teamId, "Test team", null, 150, false, null, false));
+        List<RankingResponse> full = List.of(new RankingResponse(1, teamId, "Test team", null, 150, false, null, false, false));
         when(rankingService.buildRanking(eq(gameId), any())).thenReturn(full);
 
         ledger.createEntry(teamId, gameId, PointEntryType.CHECKPOINT_VERIFICATION,
@@ -441,7 +441,7 @@ class PointsLedgerServiceTest {
         when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
         when(gameService.findById(gameId)).thenReturn(Optional.of(game(Game.GameStatus.ACTIVE)));
         when(teamRepository.findByGameId(gameId)).thenReturn(List.of(team));
-        List<RankingResponse> full = List.of(new RankingResponse(1, teamId, "Test team", null, 150, false, null, false));
+        List<RankingResponse> full = List.of(new RankingResponse(1, teamId, "Test team", null, 150, false, null, false, false));
         when(rankingService.buildRanking(eq(gameId), any())).thenReturn(full);
 
         ledger.createEntry(teamId, gameId, PointEntryType.CHECKPOINT_VERIFICATION,
@@ -482,7 +482,7 @@ class PointsLedgerServiceTest {
         Game published = game(Game.GameStatus.COMPLETED);
         published.setRankingsPublished(true);
         when(gameService.findById(gameId)).thenReturn(Optional.of(published));
-        List<RankingResponse> full = List.of(new RankingResponse(1, teamId, "Test team", null, 150, false, null, false));
+        List<RankingResponse> full = List.of(new RankingResponse(1, teamId, "Test team", null, 150, false, null, false, false));
         when(rankingService.buildRanking(eq(gameId), any())).thenReturn(full);
 
         ledger.createEntry(teamId, gameId, PointEntryType.CHECKPOINT_VERIFICATION,
@@ -499,7 +499,7 @@ class PointsLedgerServiceTest {
         team.setCheckedIn(true);
         when(gameService.findById(gameId)).thenReturn(Optional.of(game(Game.GameStatus.ACTIVE)));
         when(teamRepository.findByGameId(gameId)).thenReturn(List.of(team));
-        List<RankingResponse> full = List.of(new RankingResponse(1, teamId, "Test team", null, 150, false, null, false));
+        List<RankingResponse> full = List.of(new RankingResponse(1, teamId, "Test team", null, 150, false, null, false, false));
         when(rankingService.buildRanking(eq(gameId), any())).thenReturn(full);
 
         ledger.publishStandingsForTeams(gameId, java.util.Set.of(teamId));

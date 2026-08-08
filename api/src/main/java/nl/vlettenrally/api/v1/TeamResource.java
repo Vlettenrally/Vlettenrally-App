@@ -369,6 +369,13 @@ public class TeamResource {
                 finishedChanged = true;
             }
 
+            // Admin override for disqualification (set/reverse). Stamp disqualifiedAt on
+            // transition to disqualified; clear it when reversed.
+            if (request.disqualified() != null && request.disqualified() != team.isDisqualified()) {
+                team.setDisqualified(request.disqualified());
+                team.setDisqualifiedAt(request.disqualified() ? java.time.Instant.now() : null);
+            }
+
             // Admin checkout desk: mark the tracker physically returned. Reversible
             // (desk mistake); does not touch trackerId/trackerAssignedAt (assignment
             // is a separate fact from return) and does not un-finish the team.

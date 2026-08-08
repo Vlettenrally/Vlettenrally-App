@@ -186,6 +186,51 @@ class RankingServiceTest {
     }
 
     @Test
+    void buildRanking_sinksDisqualifiedTeamsToTheBottom_withoutARankPosition() {
+        Team dsq = team("DSQ team", 999, true); // highest points, but disqualified
+        dsq.setDisqualified(true);
+        Team high = team("High", 30, true);
+        Team low = team("Low", 10, true);
+        when(teamRepository.findByGameId(gameId)).thenReturn(List.of(dsq, low, high));
+
+        List<RankingResponse> ranking = rankingService.buildRanking(gameId);
+
+        assertEquals(List.of("High", "Low", "DSQ team"),
+            ranking.stream().map(RankingResponse::teamName).toList());
+        assertEquals(List.of(1, 2, 0), ranking.stream().map(RankingResponse::position).toList(),
+            "disqualified team gets position 0 rather than a rank, and does not consume one");
+        assertEquals(List.of(false, false, true), ranking.stream().map(RankingResponse::disqualified).toList());
+    }
+
+    @Test
+    void buildRanking_ordersMultipleDisqualifiedTeamsByPointsAmongThemselves() {
+        Team dsqHigh = team("DSQ High", 50, true);
+        dsqHigh.setDisqualified(true);
+        Team dsqLow = team("DSQ Low", 10, true);
+        dsqLow.setDisqualified(true);
+        Team ranked = team("Ranked", 30, true);
+        when(teamRepository.findByGameId(gameId)).thenReturn(List.of(dsqLow, ranked, dsqHigh));
+
+        List<RankingResponse> ranking = rankingService.buildRanking(gameId);
+
+        assertEquals(List.of("Ranked", "DSQ High", "DSQ Low"),
+            ranking.stream().map(RankingResponse::teamName).toList());
+    }
+
+    @Test
+    void exportCsv_showsDsqInPlaceAndFinishColumnsForDisqualifiedTeams() {
+        Team dsq = team("Boot 1", 40, true);
+        dsq.setDisqualified(true);
+        Team ranked = team("Boot 2", 20, true);
+        when(teamRepository.findByGameId(gameId)).thenReturn(List.of(dsq, ranked));
+
+        String csv = rankingService.exportCsv(gameId);
+
+        assertEquals(List.of("1", "DSQ"), placesOf(csv));
+        assertEquals(List.of("", "gediskwalificeerd"), columnOf(csv, 5));
+    }
+
+    @Test
     void exportCsv_labelsFinishStateAgainstTheGameEndTime() {
         Game game = new Game();
         game.setEndTime(Instant.parse("2026-08-05T18:00:00Z"));

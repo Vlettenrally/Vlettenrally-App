@@ -11,6 +11,7 @@ import TeamDetailDialog from '../../components/TeamDetailDialog';
 import TrackerExportDialog from '../../components/TrackerExportDialog';
 import TeamCheckInChip from '../../components/TeamCheckInChip';
 import TeamFinishChip from '../../components/TeamFinishChip';
+import TeamDisqualifiedChip from '../../components/TeamDisqualifiedChip';
 import TrackerHandedInChip from '../../components/TrackerHandedInChip';
 import { teamMatchesQuery } from '../../utils/teamSearch';
 import { checkInStatusRank } from '../../utils/checkInStatus';
@@ -27,7 +28,8 @@ type SortColumn =
   | 'trackerHandedIn'
   | 'totalPoints'
   | 'checkInStatus'
-  | 'finished';
+  | 'finished'
+  | 'disqualified';
 type SortOrder = 'asc' | 'desc';
 
 const columns: { column: SortColumn; labelKey: string; align?: 'right' | 'center' }[] = [
@@ -38,6 +40,7 @@ const columns: { column: SortColumn; labelKey: string; align?: 'right' | 'center
   { column: 'totalPoints', labelKey: 'admin.teams.columnPoints', align: 'right' },
   { column: 'checkInStatus', labelKey: 'admin.teams.columnCheckInStatus', align: 'center' },
   { column: 'finished', labelKey: 'admin.teams.columnFinish', align: 'center' },
+  { column: 'disqualified', labelKey: 'admin.teams.columnDisqualified', align: 'center' },
 ];
 
 const compareByName = (a: AdminTeam, b: AdminTeam) =>
@@ -59,6 +62,8 @@ function compareTeams(a: AdminTeam, b: AdminTeam, column: SortColumn, game: Game
       return checkInStatusRank(a) - checkInStatusRank(b);
     case 'finished':
       return finishStatusRank(a, game) - finishStatusRank(b, game);
+    case 'disqualified':
+      return Number(a.disqualified) - Number(b.disqualified);
   }
 }
 
@@ -415,6 +420,9 @@ export default function Teams() {
                     </TableCell>
                     <TableCell align="center">
                       <TeamFinishChip team={team} game={game} />
+                    </TableCell>
+                    <TableCell align="center">
+                      <TeamDisqualifiedChip team={team} />
                     </TableCell>
                   </TableRow>
                 ))}

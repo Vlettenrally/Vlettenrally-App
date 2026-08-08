@@ -160,7 +160,7 @@ class GameResourceTest {
         game.setRankingsPublished(true);
         when(gameService.findById(gameId)).thenReturn(Optional.of(game));
         when(rankingService.buildRanking(gameId))
-            .thenReturn(java.util.List.of(new RankingResponse(1, UUID.randomUUID(), "Team", null, 10, false, null, false)));
+            .thenReturn(java.util.List.of(new RankingResponse(1, UUID.randomUUID(), "Team", null, 10, false, null, false, false)));
 
         try (Response response = gameResource.getRankings(gameId, ctxWithRole(false))) {
             assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());

@@ -33,6 +33,7 @@ public class AutomationMetrics {
         COOLDOWN,
         TEAM_MISSING,
         TEAM_FINISHED,
+        TEAM_DISQUALIFIED,
         NO_TARGETS
     }
 

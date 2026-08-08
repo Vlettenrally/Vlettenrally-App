@@ -82,6 +82,12 @@ public class TeamEntity {
     @Column(name = "free_class", nullable = false)
     private boolean freeClass = false;
 
+    @Column(name = "disqualified", nullable = false)
+    private boolean disqualified = false;
+
+    @Column(name = "disqualified_at")
+    private Instant disqualifiedAt;
+
     @Column(name = "traccar_enabled", nullable = false)
     private boolean traccarEnabled = false;
 

@@ -168,6 +168,20 @@ class AutomationEngineTest {
     }
 
     @Test
+    void checkpointPass_skipsDisqualifiedTeam_evenWhenRuleOptsInForFinishedTeams() {
+        team.setDisqualified(true);
+        AutomationRule rule = rule(AutomationTriggerType.CHECKPOINT_ENTRY, emptyConfig());
+        rule.setTriggerForFinishedTeams(true);
+        when(ruleRepository.findByGameIdAndTriggerType(gameId, AutomationTriggerType.CHECKPOINT_ENTRY))
+            .thenReturn(List.of(rule));
+
+        engine.onCheckpointPass(gameId, teamId, checkpointId, Instant.now());
+
+        verifyNoInteractions(actionExecutor);
+        verify(executionRepository, never()).save(any());
+    }
+
+    @Test
     void checkpointPass_skipsDisabledRule() {
         AutomationRule rule = rule(AutomationTriggerType.CHECKPOINT_ENTRY, emptyConfig());
         rule.setEnabled(false);
@@ -932,6 +946,32 @@ class AutomationEngineTest {
         engine.evaluateTimeAndInactivity(now);
 
         // Only the non-finished team should be in the targets.
+        verify(actionExecutor).execute(eq(rule), eq(List.of(team)), any());
+    }
+
+    @Test
+    void scheduled_excludesDisqualifiedTeams_evenWhenRuleOptsInForFinishedTeams() {
+        Instant now = Instant.now();
+        activeGame(null, null);
+        AutomationRule rule = rule(AutomationTriggerType.SCHEDULED_TIME,
+            new AutomationTriggerConfig(null, AutomationTriggerConfig.ScheduleMode.ABSOLUTE,
+                now.minus(Duration.ofMinutes(1)), null, null, null, null, null, null));
+        rule.setTriggerForFinishedTeams(true);
+        when(ruleRepository.findEnabledByTriggerType(AutomationTriggerType.SCHEDULED_TIME))
+            .thenReturn(List.of(rule));
+        when(ruleRepository.findEnabledByTriggerType(AutomationTriggerType.TEAM_INACTIVITY))
+            .thenReturn(List.of());
+        when(executionRepository.existsByRuleTeamAndContext(rule.getId(), null, null)).thenReturn(false);
+
+        Team disqualifiedTeam = new Team();
+        disqualifiedTeam.setId(UUID.randomUUID());
+        disqualifiedTeam.setCheckedIn(true);
+        disqualifiedTeam.setDisqualified(true);
+        when(teamRepository.findByGameId(gameId)).thenReturn(List.of(team, disqualifiedTeam));
+
+        engine.evaluateTimeAndInactivity(now);
+
+        // Only the non-disqualified team should be in the targets.
         verify(actionExecutor).execute(eq(rule), eq(List.of(team)), any());
     }
 

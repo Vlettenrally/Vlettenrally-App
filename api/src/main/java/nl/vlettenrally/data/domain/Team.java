@@ -47,6 +47,11 @@ public class Team {
     // Vrije klasse: faster boats racing outside the standard fleet. Defaults to
     // false ("Lelievlet", the standard class).
     private boolean freeClass;
+    // Admin override, e.g. for a rule violation. A disqualified team sinks to the
+    // bottom of the ranking (outside the points-based positions) and, like a
+    // finished team, stops accruing automatic points (checkpoint passes + distance).
+    private boolean disqualified;
+    private Instant disqualifiedAt;
     private List<UUID> rivals;
     private String notes;
     // Traccar GPS tracking: opt-in per team. traccarIdentifier is a long-lived
@@ -85,6 +90,7 @@ public class Team {
         this.trackerHandedIn = false;
         this.traccarEnabled = false;
         this.freeClass = false;
+        this.disqualified = false;
         this.createdAt = Instant.now();
         this.updatedAt = Instant.now();
     }

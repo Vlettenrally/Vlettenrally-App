@@ -127,7 +127,7 @@ export default function Rankings() {
                     ref={row.teamId === team?.id ? ownRowRef : undefined}
                     selected={row.teamId === team?.id}
                   >
-                    <TableCell>{row.position}</TableCell>
+                    <TableCell>{row.disqualified ? t('participant.rankings.disqualifiedPosition') : row.position}</TableCell>
                     <TableCell>
                       {row.teamName}
                       {row.teamId === team?.id && (

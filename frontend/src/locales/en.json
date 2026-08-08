@@ -185,6 +185,7 @@
       "class": "Class",
       "finish": "Finish",
       "rank": "#",
+      "disqualifiedPosition": "DSQ",
       "noData": "No ranking data available.",
       "you": "You",
       "goToMyTeam": "Go to my team",
@@ -350,6 +351,7 @@
       "columnPoints": "Points",
       "columnCheckInStatus": "Check-in",
       "columnFinish": "Finish",
+      "columnDisqualified": "DSQ",
       "newTeam": "New Team",
       "exportTrackers": "Export trackers",
       "exportDialog": {
@@ -700,6 +702,7 @@
       "subtitle": "Live standings — updates automatically as points change.",
       "selectGameFirst": "Select a game in the sidebar first.",
       "rank": "Rank",
+      "disqualifiedPosition": "DSQ",
       "team": "Team",
       "points": "Points",
       "class": "Class",
@@ -866,6 +869,9 @@
       "late": "Late",
       "dnf": "DNF"
     },
+    "teamDisqualifiedChip": {
+      "label": "DSQ"
+    },
     "trackerHandedInChip": {
       "notHandedIn": "Not handed in",
       "handedIn": "Handed in"
@@ -963,6 +969,9 @@
       "finishedNoAuto": "Finished (no automatic points anymore)",
       "finished": "Finished",
       "stillEnRoute": "Still en route",
+      "disqualified": "Disqualification",
+      "disqualifiedLabel": "Disqualified (no automatic points anymore)",
+      "notDisqualified": "Not disqualified",
       "noTrackerAssigned": "No tracker assigned",
       "trackerHandedIn": "Tracker handed in",
       "trackerHandedInLabel": "Tracker has been physically handed in",

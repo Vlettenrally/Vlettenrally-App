@@ -21,6 +21,9 @@ public record TeamResponse(
     /* ISO-8601 instant the team was marked finished; null when it has not finished. */
     String finishedAt,
     boolean freeClass,
+    boolean disqualified,
+    /* ISO-8601 instant the team was marked disqualified; null when it has not been. */
+    String disqualifiedAt,
     boolean traccarEnabled,
     String traccarIdentifier,
     String trackerId,

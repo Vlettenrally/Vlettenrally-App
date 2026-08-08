@@ -185,6 +185,7 @@
       "class": "Klasse",
       "finish": "Finish",
       "rank": "#",
+      "disqualifiedPosition": "DSQ",
       "noData": "Geen ranglijstgegevens beschikbaar.",
       "you": "Jij",
       "goToMyTeam": "Naar mijn team",
@@ -350,6 +351,7 @@
       "columnPoints": "Punten",
       "columnCheckInStatus": "Check-in",
       "columnFinish": "Finish",
+      "columnDisqualified": "DSQ",
       "newTeam": "Nieuw team",
       "exportTrackers": "Trackers exporteren",
       "exportDialog": {
@@ -700,6 +702,7 @@
       "subtitle": "Live stand — werkt automatisch bij zodra punten wijzigen.",
       "selectGameFirst": "Kies eerst een spel in de zijbalk.",
       "rank": "Plaats",
+      "disqualifiedPosition": "DSQ",
       "team": "Team",
       "points": "Punten",
       "class": "Klasse",
@@ -866,6 +869,9 @@
       "late": "Te laat",
       "dnf": "DNF"
     },
+    "teamDisqualifiedChip": {
+      "label": "DSQ"
+    },
     "trackerHandedInChip": {
       "notHandedIn": "Niet ingeleverd",
       "handedIn": "Ingeleverd"
@@ -963,6 +969,9 @@
       "finishedNoAuto": "Gefinisht (geen automatische punten meer)",
       "finished": "Gefinisht",
       "stillEnRoute": "Nog onderweg",
+      "disqualified": "Diskwalificatie",
+      "disqualifiedLabel": "Gediskwalificeerd (geen automatische punten meer)",
+      "notDisqualified": "Niet gediskwalificeerd",
       "noTrackerAssigned": "Geen tracker toegewezen",
       "trackerHandedIn": "Tracker ingeleverd",
       "trackerHandedInLabel": "Tracker is fysiek ingeleverd",

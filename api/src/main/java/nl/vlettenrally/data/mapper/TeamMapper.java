@@ -43,6 +43,8 @@ public class TeamMapper {
         domain.setFinished(entity.isFinished());
         domain.setFinishedAt(entity.getFinishedAt());
         domain.setFreeClass(entity.isFreeClass());
+        domain.setDisqualified(entity.isDisqualified());
+        domain.setDisqualifiedAt(entity.getDisqualifiedAt());
         domain.setTraccarEnabled(entity.isTraccarEnabled());
         domain.setTraccarIdentifier(entity.getTraccarIdentifier());
         domain.setTrackerId(entity.getTrackerId());
@@ -88,6 +90,8 @@ public class TeamMapper {
         entity.setFinished(domain.isFinished());
         entity.setFinishedAt(domain.getFinishedAt());
         entity.setFreeClass(domain.isFreeClass());
+        entity.setDisqualified(domain.isDisqualified());
+        entity.setDisqualifiedAt(domain.getDisqualifiedAt());
         entity.setTraccarEnabled(domain.isTraccarEnabled());
         entity.setTraccarIdentifier(domain.getTraccarIdentifier());
         entity.setTrackerId(domain.getTrackerId());
@@ -123,6 +127,8 @@ public class TeamMapper {
         entity.setFinished(domain.isFinished());
         entity.setFinishedAt(domain.getFinishedAt());
         entity.setFreeClass(domain.isFreeClass());
+        entity.setDisqualified(domain.isDisqualified());
+        entity.setDisqualifiedAt(domain.getDisqualifiedAt());
         entity.setTraccarEnabled(domain.isTraccarEnabled());
         entity.setTraccarIdentifier(domain.getTraccarIdentifier());
         entity.setTrackerId(domain.getTrackerId());

@@ -143,7 +143,7 @@ export default function Ranking() {
                 )}
                 {rankings.map((row) => (
                   <TableRow key={row.teamId}>
-                    <TableCell>{row.position}</TableCell>
+                    <TableCell>{row.disqualified ? t('admin.ranking.disqualifiedPosition') : row.position}</TableCell>
                     <TableCell>{row.teamName}</TableCell>
                     <TableCell align="right">{row.points}</TableCell>
                     <TableCell align="center">

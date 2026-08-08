@@ -18,5 +18,6 @@ public record TeamUpdateRequest(
     Boolean finished,
     Boolean trackerHandedIn,
     String notes,
-    Boolean freeClass
+    Boolean freeClass,
+    Boolean disqualified
 ) {}

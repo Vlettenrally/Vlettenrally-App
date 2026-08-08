@@ -28,6 +28,7 @@ import { gameService } from '../services/gameService';
 import { storage } from '../services/storage';
 import TeamCheckInChip from './TeamCheckInChip';
 import TeamFinishChip from './TeamFinishChip';
+import TeamDisqualifiedChip from './TeamDisqualifiedChip';
 import { getFinishStatus } from '../utils/finishStatus';
 import { useGameStore } from '../store/useGameStore';
 import {
@@ -95,6 +96,7 @@ export default function TeamDetailDialog({
     trackerId: '',
     trackerHandedIn: false,
     freeClass: false,
+    disqualified: false,
   });
 
   const { t } = useTranslation();
@@ -115,6 +117,7 @@ export default function TeamDetailDialog({
         trackerId: team.trackerId ?? '',
         trackerHandedIn: team.trackerHandedIn,
         freeClass: team.freeClass,
+        disqualified: team.disqualified,
       });
       setIsEditing(false);
       setBackfillMessage(null);
@@ -174,6 +177,7 @@ export default function TeamDetailDialog({
         trackerId: '',
         trackerHandedIn: false,
         freeClass: false,
+        disqualified: false,
       });
       setIsEditing(true);
       setRivalTeams([]);
@@ -344,6 +348,7 @@ export default function TeamDetailDialog({
           trackerId: team.trackerId ?? '',
           trackerHandedIn: team.trackerHandedIn,
           freeClass: team.freeClass,
+          disqualified: team.disqualified,
         });
       }
       setError(null);
@@ -376,6 +381,7 @@ export default function TeamDetailDialog({
         finished: formData.finished,
         trackerHandedIn: formData.trackerHandedIn,
         freeClass: formData.freeClass,
+        disqualified: formData.disqualified,
       };
 
       if (isCreateMode) {
@@ -464,7 +470,7 @@ export default function TeamDetailDialog({
     }));
   };
 
-  const handleCheckboxChange = (field: 'traccarEnabled' | 'finished' | 'trackerHandedIn' | 'freeClass') => (
+  const handleCheckboxChange = (field: 'traccarEnabled' | 'finished' | 'trackerHandedIn' | 'freeClass' | 'disqualified') => (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     const newValue = event.target.checked;
@@ -758,6 +764,27 @@ export default function TeamDetailDialog({
                   <Chip label={t('components.teamDetail.stillEnRoute')} color="default" size="small" />
                 ) : (
                   <TeamFinishChip team={team} game={game} />
+                )}
+              </Box>
+
+              <Box>
+                <Typography variant="subtitle2" gutterBottom>
+                  {t('components.teamDetail.disqualified')}
+                </Typography>
+                {isEditing ? (
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={formData.disqualified}
+                        onChange={handleCheckboxChange('disqualified')}
+                      />
+                    }
+                    label={t('components.teamDetail.disqualifiedLabel')}
+                  />
+                ) : team.disqualified ? (
+                  <TeamDisqualifiedChip team={team} />
+                ) : (
+                  <Chip label={t('components.teamDetail.notDisqualified')} color="default" size="small" />
                 )}
               </Box>
 

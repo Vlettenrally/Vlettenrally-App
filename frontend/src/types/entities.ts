@@ -283,6 +283,10 @@ export interface AdminTeam extends TeamBase {
   finishedAt?: string | null;
   /** Vrije klasse (faster boats racing outside the standard fleet). False = Lelievlet. */
   freeClass: boolean;
+  /** Admin override, e.g. for a rule violation. Shown as DSQ; sinks to the bottom of the ranking. */
+  disqualified: boolean;
+  /** ISO instant the team was marked disqualified; null/absent while not disqualified. */
+  disqualifiedAt?: string | null;
   traccarEnabled: boolean;
   traccarIdentifier?: string | null;
   trackerId?: string | null;
@@ -330,6 +334,11 @@ export interface RankingEntry {
   finishedAt?: string | null;
   /** Vrije klasse (faster boats racing outside the standard fleet). False/absent = Lelievlet. */
   freeClass?: boolean;
+  /**
+   * True once disqualified. Disqualified teams still appear (sunk to the bottom) but
+   * position is 0 — render "DSQ" instead of a rank number.
+   */
+  disqualified?: boolean;
 }
 
 /**
