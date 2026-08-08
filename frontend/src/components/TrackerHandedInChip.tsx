@@ -9,7 +9,7 @@ import type { AdminTeam } from '../types/entities';
  * A team's tracker return state as one chip. Renders nothing when no tracker is assigned,
  * keeping the column quiet until it's actually relevant.
  */
-const styles: Partial<Record<TrackerHandInStatus, { color: ChipProps['color']; icon?: React.ReactElement }>> = {
+const styles: Record<Exclude<TrackerHandInStatus, 'noTracker'>, { color: ChipProps['color']; icon?: React.ReactElement }> = {
   notHandedIn: { color: 'default' },
   handedIn: { color: 'success', icon: <HandedInIcon /> },
 };
