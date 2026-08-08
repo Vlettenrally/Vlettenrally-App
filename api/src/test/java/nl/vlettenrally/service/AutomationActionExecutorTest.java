@@ -49,6 +49,7 @@ class AutomationActionExecutorTest {
     @Mock MessageService messageService;
     @Mock PointsLedgerService pointsLedgerService;
     @Mock LateFinishPenaltyService lateFinishPenaltyService;
+    @Mock EarlyFinishBonusService earlyFinishBonusService;
     @Mock WebSocketPublisher webSocketPublisher;
     @Mock MessageTemplateService messageTemplateService;
     @Mock AdminInboxService adminInboxService;

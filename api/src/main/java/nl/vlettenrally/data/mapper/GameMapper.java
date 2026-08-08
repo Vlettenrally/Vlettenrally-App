@@ -43,6 +43,8 @@ public class GameMapper {
         domain.setLocationPollingLeadMinutes(entity.getLocationPollingLeadMinutes());
         domain.setLocationPollingTailMinutes(entity.getLocationPollingTailMinutes());
         domain.setLateFinishPenaltyPoints(entity.getLateFinishPenaltyPoints());
+        domain.setEarlyFinishBonusPoints(entity.getEarlyFinishBonusPoints());
+        domain.setEarlyFinishBonusMinutes(entity.getEarlyFinishBonusMinutes());
 
         domain.setRankingsPublished(entity.getRankingsPublished());
         domain.setPublicRankingsEnabled(entity.getPublicRankingsEnabled());
@@ -89,6 +91,8 @@ public class GameMapper {
         entity.setLocationPollingLeadMinutes(domain.getLocationPollingLeadMinutes());
         entity.setLocationPollingTailMinutes(domain.getLocationPollingTailMinutes());
         entity.setLateFinishPenaltyPoints(domain.getLateFinishPenaltyPoints());
+        entity.setEarlyFinishBonusPoints(domain.getEarlyFinishBonusPoints());
+        entity.setEarlyFinishBonusMinutes(domain.getEarlyFinishBonusMinutes());
 
         entity.setRankingsPublished(domain.getRankingsPublished());
         entity.setPublicRankingsEnabled(domain.getPublicRankingsEnabled());
@@ -132,6 +136,8 @@ public class GameMapper {
         entity.setLocationPollingLeadMinutes(domain.getLocationPollingLeadMinutes());
         entity.setLocationPollingTailMinutes(domain.getLocationPollingTailMinutes());
         entity.setLateFinishPenaltyPoints(domain.getLateFinishPenaltyPoints());
+        entity.setEarlyFinishBonusPoints(domain.getEarlyFinishBonusPoints());
+        entity.setEarlyFinishBonusMinutes(domain.getEarlyFinishBonusMinutes());
 
         entity.setRankingsPublished(domain.getRankingsPublished());
         entity.setPublicRankingsEnabled(domain.getPublicRankingsEnabled());

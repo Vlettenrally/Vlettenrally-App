@@ -8,5 +8,6 @@ public enum PointEntryType {
     MANUAL_ADJUSTMENT,          // Admin-initiated points change (correction or bonus)
     AUTOMATION_BONUS,           // Awarded by an automation rule's AWARD_POINTS action
     DISTANCE_BONUS,             // Continuous distance-traveled accrual (one growing entry per team)
-    LATE_FINISH_PENALTY         // Flat deduction for finishing after the game's end time
+    LATE_FINISH_PENALTY,        // Flat deduction for finishing after the game's end time
+    EARLY_FINISH_BONUS          // Flat bonus for finishing within the pre-end-time window
 }

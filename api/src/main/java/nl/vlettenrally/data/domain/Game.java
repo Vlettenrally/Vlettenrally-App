@@ -52,6 +52,19 @@ public class Game {
      */
     private Integer lateFinishPenaltyPoints;
 
+    /**
+     * Flat points awarded once to a team that finishes within the closing stretch of the game:
+     * at or after ({@link #endTime} minus {@link #earlyFinishBonusMinutes}) and at or before
+     * {@link #endTime}. Finishing earlier than that window earns nothing — this rewards a
+     * strong finish, not simply racing through as fast as possible. Applied by
+     * {@code EarlyFinishBonusService} on both finish paths (the FINISH_TEAM automation action
+     * and the admin override). 0 = no bonus.
+     */
+    private Integer earlyFinishBonusPoints;
+
+    /** Width, in minutes before {@link #endTime}, of the {@link #earlyFinishBonusPoints} window. */
+    private Integer earlyFinishBonusMinutes;
+
     /** Whether the final ranking has been revealed to players (admin-triggered at the ceremony). */
     private Boolean rankingsPublished;
 
@@ -96,6 +109,8 @@ public class Game {
         this.locationPollingLeadMinutes = 120; // Start ingesting 2h before the start time
         this.locationPollingTailMinutes = 120; // Keep ingesting 2h after the end (late-finish automations)
         this.lateFinishPenaltyPoints = 0; // No late-finish penalty unless configured per game
+        this.earlyFinishBonusPoints = 50;
+        this.earlyFinishBonusMinutes = 60;
 
         this.rankingsPublished = false;
         this.publicRankingsEnabled = false;

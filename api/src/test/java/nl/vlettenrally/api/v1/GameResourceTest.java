@@ -276,7 +276,7 @@ class GameResourceTest {
     private GameRequest requestWithPollingWindow(String name, Integer leadMinutes, Integer tailMinutes) {
         return new GameRequest(
             name, null, null, null, null, null, null, null, null, null, null, null,
-            leadMinutes, tailMinutes, null, null, null, null, null, null, null);
+            leadMinutes, tailMinutes, null, null, null, null, null, null, null, null, null);
     }
 
     @Test

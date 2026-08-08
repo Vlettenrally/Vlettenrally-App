@@ -23,6 +23,10 @@ public record GameResponse(
     Integer locationPollingTailMinutes,
     /* Flat points deducted from a team that finishes after endTime. 0 = no penalty. */
     Integer lateFinishPenaltyPoints,
+    /* Flat points awarded to a team finishing within earlyFinishBonusMinutes of endTime. 0 = no bonus. */
+    Integer earlyFinishBonusPoints,
+    /* Width, in minutes before endTime, of the early-finish bonus window. */
+    Integer earlyFinishBonusMinutes,
     // Per-game location-ingest guard overrides (null = inherit the global default).
     Double locMaxSpeedKmh,
     Double locBoatMaxSpeedKmh,

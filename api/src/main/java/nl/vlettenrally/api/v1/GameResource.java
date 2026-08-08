@@ -444,6 +444,8 @@ public class GameResource {
         game.setLocationPollingLeadMinutes(request.locationPollingLeadMinutes() != null ? request.locationPollingLeadMinutes() : 120);
         game.setLocationPollingTailMinutes(request.locationPollingTailMinutes() != null ? request.locationPollingTailMinutes() : 120);
         game.setLateFinishPenaltyPoints(request.lateFinishPenaltyPoints() != null ? request.lateFinishPenaltyPoints() : 0);
+        game.setEarlyFinishBonusPoints(request.earlyFinishBonusPoints() != null ? request.earlyFinishBonusPoints() : 50);
+        game.setEarlyFinishBonusMinutes(request.earlyFinishBonusMinutes() != null ? request.earlyFinishBonusMinutes() : 60);
 
         // Per-game guard overrides: null leaves the game inheriting the global default.
         game.setLocMaxSpeedKmh(request.locMaxSpeedKmh());
@@ -505,6 +507,8 @@ public class GameResource {
                 if (request.locationPollingLeadMinutes() != null) game.setLocationPollingLeadMinutes(request.locationPollingLeadMinutes());
                 if (request.locationPollingTailMinutes() != null) game.setLocationPollingTailMinutes(request.locationPollingTailMinutes());
                 if (request.lateFinishPenaltyPoints() != null) game.setLateFinishPenaltyPoints(request.lateFinishPenaltyPoints());
+                if (request.earlyFinishBonusPoints() != null) game.setEarlyFinishBonusPoints(request.earlyFinishBonusPoints());
+                if (request.earlyFinishBonusMinutes() != null) game.setEarlyFinishBonusMinutes(request.earlyFinishBonusMinutes());
 
                 // Per-game guard overrides: null = "leave unchanged" (consistent with the
                 // other fields above). Clearing back to "inherit global" is a DB-level action.
@@ -930,6 +934,8 @@ public class GameResource {
             game.getLocationPollingLeadMinutes(),
             game.getLocationPollingTailMinutes(),
             game.getLateFinishPenaltyPoints() != null ? game.getLateFinishPenaltyPoints() : 0,
+            game.getEarlyFinishBonusPoints() != null ? game.getEarlyFinishBonusPoints() : 50,
+            game.getEarlyFinishBonusMinutes() != null ? game.getEarlyFinishBonusMinutes() : 60,
             game.getLocMaxSpeedKmh(),
             game.getLocBoatMaxSpeedKmh(),
             game.getLocTurnAngleThresholdDegrees(),

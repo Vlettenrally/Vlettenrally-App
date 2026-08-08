@@ -74,6 +74,7 @@ export default function PointsManagement() {
     AUTOMATION_BONUS: t('admin.pointsManagement.typeAutomation'),
     DISTANCE_BONUS: t('admin.pointsManagement.typeDistance'),
     LATE_FINISH_PENALTY: t('admin.pointsManagement.typeLateFinish'),
+    EARLY_FINISH_BONUS: t('admin.pointsManagement.typeEarlyFinish'),
   };
 
   const entries = usePointEntryStore((s) => s.entries);
@@ -276,6 +277,7 @@ export default function PointsManagement() {
               <MenuItem value="AUTOMATION_BONUS">{t('admin.pointsManagement.typeAutomation')}</MenuItem>
               <MenuItem value="DISTANCE_BONUS">{t('admin.pointsManagement.typeDistance')}</MenuItem>
               <MenuItem value="LATE_FINISH_PENALTY">{t('admin.pointsManagement.typeLateFinish')}</MenuItem>
+              <MenuItem value="EARLY_FINISH_BONUS">{t('admin.pointsManagement.typeEarlyFinish')}</MenuItem>
             </TextField>
           </Stack>
         </CardContent>
@@ -341,6 +343,7 @@ export default function PointsManagement() {
                                 : entry.entryType === 'DISTANCE_BONUS' ? 'success'
                                 : entry.entryType === 'AUTOMATION_BONUS' ? 'secondary'
                                 : entry.entryType === 'LATE_FINISH_PENALTY' ? 'warning'
+                                : entry.entryType === 'EARLY_FINISH_BONUS' ? 'success'
                                 : 'default'
                               }
                               variant="outlined"

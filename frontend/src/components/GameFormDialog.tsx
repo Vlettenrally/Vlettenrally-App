@@ -110,6 +110,8 @@ export default function GameFormDialog({
     locationPollingLeadMinutes: 120,
     locationPollingTailMinutes: 120,
     lateFinishPenaltyPoints: 50,
+    earlyFinishBonusPoints: 50,
+    earlyFinishBonusMinutes: 60,
   });
 
   const isCreateMode = !game;
@@ -144,6 +146,8 @@ export default function GameFormDialog({
         locationPollingLeadMinutes: game.locationPollingLeadMinutes ?? 120,
         locationPollingTailMinutes: game.locationPollingTailMinutes ?? 120,
         lateFinishPenaltyPoints: game.lateFinishPenaltyPoints ?? 0,
+        earlyFinishBonusPoints: game.earlyFinishBonusPoints ?? 50,
+        earlyFinishBonusMinutes: game.earlyFinishBonusMinutes ?? 60,
         // Per-game guard overrides; undefined keeps the field blank (inherit global).
         locMaxSpeedKmh: game.locMaxSpeedKmh,
         locBoatMaxSpeedKmh: game.locBoatMaxSpeedKmh,
@@ -169,6 +173,8 @@ export default function GameFormDialog({
         locationPollingLeadMinutes: 120,
         locationPollingTailMinutes: 120,
         lateFinishPenaltyPoints: 0,
+        earlyFinishBonusPoints: 50,
+        earlyFinishBonusMinutes: 60,
       });
     }
     setError(null);
@@ -369,6 +375,38 @@ export default function GameFormDialog({
               }}
               slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: 0, step: 1 } }}
               helperText={t('components.gameForm.lateFinishPenaltyHint')}
+              fullWidth
+            />
+            <TextField
+              label={t('components.gameForm.earlyFinishBonus')}
+              type="number"
+              value={formData.earlyFinishBonusPoints ?? 0}
+              onChange={(e) => {
+                // Parsed here rather than via handleChange: that keeps the raw string, and an
+                // emptied field would post "" to an Integer column.
+                const parsed = Number(e.target.value);
+                setFormData((prev) => ({
+                  ...prev,
+                  earlyFinishBonusPoints: Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 0,
+                }));
+              }}
+              slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: 0, step: 1 } }}
+              helperText={t('components.gameForm.earlyFinishBonusHint')}
+              fullWidth
+            />
+            <TextField
+              label={t('components.gameForm.earlyFinishBonusMinutes')}
+              type="number"
+              value={formData.earlyFinishBonusMinutes ?? 0}
+              onChange={(e) => {
+                const parsed = Number(e.target.value);
+                setFormData((prev) => ({
+                  ...prev,
+                  earlyFinishBonusMinutes: Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 0,
+                }));
+              }}
+              slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: 0, step: 1 } }}
+              helperText={t('components.gameForm.earlyFinishBonusMinutesHint')}
               fullWidth
             />
           </Box>

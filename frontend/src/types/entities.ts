@@ -24,6 +24,10 @@ export interface Game {
   locationPollingTailMinutes?: number;
   // Flat points deducted from a team that finishes after endTime (0 = no penalty).
   lateFinishPenaltyPoints?: number;
+  // Flat points awarded to a team finishing within earlyFinishBonusMinutes of endTime (0 = no bonus).
+  earlyFinishBonusPoints?: number;
+  // Width, in minutes before endTime, of the early-finish bonus window.
+  earlyFinishBonusMinutes?: number;
   // Per-game location-ingest guard overrides (undefined = inherit the global default).
   locMaxSpeedKmh?: number;
   locBoatMaxSpeedKmh?: number;
@@ -57,6 +61,10 @@ export interface GameRequest {
   locationPollingTailMinutes?: number;
   // Flat points deducted from a team that finishes after endTime (0 = no penalty).
   lateFinishPenaltyPoints?: number;
+  // Flat points awarded to a team finishing within earlyFinishBonusMinutes of endTime (0 = no bonus).
+  earlyFinishBonusPoints?: number;
+  // Width, in minutes before endTime, of the early-finish bonus window.
+  earlyFinishBonusMinutes?: number;
   // Per-game location-ingest guard overrides (undefined = inherit the global default).
   locMaxSpeedKmh?: number;
   locBoatMaxSpeedKmh?: number;
@@ -807,7 +815,8 @@ export type PointEntryType =
   | 'MANUAL_ADJUSTMENT'
   | 'AUTOMATION_BONUS'
   | 'DISTANCE_BONUS'
-  | 'LATE_FINISH_PENALTY';
+  | 'LATE_FINISH_PENALTY'
+  | 'EARLY_FINISH_BONUS';
 
 export interface PointEntry {
   id: string;

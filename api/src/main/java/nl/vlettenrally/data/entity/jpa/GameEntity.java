@@ -83,6 +83,15 @@ public class GameEntity {
     @Column(name = "late_finish_penalty_points", nullable = false)
     private Integer lateFinishPenaltyPoints = 50;
 
+    // Flat points awarded once to a team finishing within earlyFinishBonusMinutes of end_time
+    // (0 = no bonus).
+    @Column(name = "early_finish_bonus_points", nullable = false)
+    private Integer earlyFinishBonusPoints = 50;
+
+    // Width, in minutes before end_time, of the early-finish bonus window.
+    @Column(name = "early_finish_bonus_minutes", nullable = false)
+    private Integer earlyFinishBonusMinutes = 60;
+
     // Whether the final ranking has been revealed to players (set by an admin at
     // the award ceremony). Gates all player-facing ranking visibility.
     @Column(name = "rankings_published", nullable = false)
