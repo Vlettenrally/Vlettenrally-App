@@ -789,7 +789,9 @@
       "addAction": "Add",
       "addFailed": "Adding failed",
       "detectionSnackbar": "Team {{teamName}} detected at this checkpoint",
-      "refreshTooltip": "Refresh"
+      "refreshTooltip": "Refresh",
+      "searchPlaceholder": "Search teams…",
+      "bonusAwarded": "Bonus: +{{amount}}"
     },
     "inbox": {
       "title": "Inbox",

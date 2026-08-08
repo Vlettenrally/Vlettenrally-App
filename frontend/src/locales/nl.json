@@ -789,7 +789,9 @@
       "addAction": "Toevoegen",
       "addFailed": "Toevoegen mislukt",
       "detectionSnackbar": "Team {{teamName}} gedetecteerd bij dit checkpoint",
-      "refreshTooltip": "Vernieuwen"
+      "refreshTooltip": "Vernieuwen",
+      "searchPlaceholder": "Zoek teams…",
+      "bonusAwarded": "Bonus: +{{amount}}"
     },
     "inbox": {
       "title": "Inbox",

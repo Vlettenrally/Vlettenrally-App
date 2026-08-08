@@ -45,6 +45,7 @@ import { teamService } from '../../services/teamService';
 import { websocket } from '../../services/websocket';
 import api from '../../services/api';
 import { teamMatchesQuery } from '../../utils/teamSearch';
+import { useInfiniteScroll } from '../../hooks/useInfiniteScroll';
 import type { WebSocketMessage } from '../../services/websocket';
 import type { AdminTeam, CheckpointTeamStatus } from '../../types/entities';
 import type { Checkpoint } from '../../types/entities.ts';
@@ -56,6 +57,7 @@ interface CheckpointDetectionPayload {
 
 const POLLING_INTERVAL_MS = 30_000;
 const HEARTBEAT_INTERVAL_MS = 10_000;
+const PAGE_SIZE = 50;
 
 export default function CheckpointStation() {
   const { t } = useTranslation();
@@ -68,6 +70,8 @@ export default function CheckpointStation() {
   const [teams, setTeams] = useState<CheckpointTeamStatus[]>([]);
   const [allTeams, setAllTeams] = useState<AdminTeam[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   const [verifyTarget, setVerifyTarget] = useState<CheckpointTeamStatus | null>(null);
   const [bonusPoints, setBonusPoints] = useState<number | ''>('');
@@ -99,6 +103,12 @@ export default function CheckpointStation() {
   if (prevCheckpointId !== selectedCheckpointId) {
     setPrevCheckpointId(selectedCheckpointId);
     if (!selectedCheckpointId) setTeams([]);
+    setVisibleCount(PAGE_SIZE);
+  }
+  const [prevSearchQuery, setPrevSearchQuery] = useState(searchQuery);
+  if (prevSearchQuery !== searchQuery) {
+    setPrevSearchQuery(searchQuery);
+    setVisibleCount(PAGE_SIZE);
   }
 
   const selectedCheckpoint: Checkpoint | undefined = checkpoints.find((c) => c.id === selectedCheckpointId);
@@ -319,7 +329,22 @@ export default function CheckpointStation() {
   const statusChip = (team: CheckpointTeamStatus) => {
     const status = team.achievementStatus;
     if (status === 'PENDING') return <Chip label={t('admin.checkpointStation.statusPending')} color="warning" size="small" />;
-    if (status === 'VERIFIED') return <Chip label={t('admin.checkpointStation.statusVerified')} color="success" size="small" />;
+    if (status === 'VERIFIED') {
+      const bonusAmount = (team.pointsEarned ?? 0) - team.defaultPoints;
+      return (
+        <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+          <Chip label={t('admin.checkpointStation.statusVerified')} color="success" size="small" />
+          {bonusAmount > 0 && (
+            <Chip
+              label={t('admin.checkpointStation.bonusAwarded', { amount: bonusAmount })}
+              color="info"
+              size="small"
+              variant="outlined"
+            />
+          )}
+        </Box>
+      );
+    }
     if (status === 'REJECTED') {
       return (
         <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
@@ -341,23 +366,20 @@ export default function CheckpointStation() {
   const actionable = (status: CheckpointTeamStatus['achievementStatus']) =>
     status !== 'VERIFIED' && status !== 'REJECTED';
 
-  const oneHourAgo = Date.now() - 60 * 60 * 1000;
-  const sortedVerified = teams
-    .filter((team) => team.achievementStatus === 'VERIFIED')
+  const matchingTeams = teams.filter((team) => teamMatchesQuery({ name: team.teamName }, searchQuery));
+  const actionableTeams = matchingTeams.filter((team) => actionable(team.achievementStatus));
+  const historicalTeams = matchingTeams
+    .filter((team) => !actionable(team.achievementStatus))
     .sort((a, b) => (b.verifiedAt ?? '').localeCompare(a.verifiedAt ?? ''));
 
-  const recentVerifiedIds = new Set(
-    sortedVerified
-      .filter(
-        (team, index) =>
-          index < 20 ||
-          (team.verifiedAt != null && new Date(team.verifiedAt).getTime() >= oneHourAgo),
-      )
-      .map((team) => team.teamId),
-  );
-  const visibleTeams = teams.filter(
-    (team) => team.achievementStatus !== 'VERIFIED' || recentVerifiedIds.has(team.teamId),
-  );
+  const visibleTeams = [...actionableTeams, ...historicalTeams.slice(0, visibleCount)];
+  const hasMore = historicalTeams.length > visibleCount;
+
+  const sentinelRef = useInfiniteScroll({
+    hasMore,
+    loading: false,
+    onLoadMore: () => setVisibleCount((c) => c + PAGE_SIZE),
+  });
 
   return (
     <Box sx={{ p: 3 }}>
@@ -379,6 +401,15 @@ export default function CheckpointStation() {
               ))}
             </Select>
           </FormControl>
+          {selectedCheckpointId && (
+            <TextField
+              size="small"
+              placeholder={t('admin.checkpointStation.searchPlaceholder')}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              sx={{ minWidth: 180 }}
+            />
+          )}
           <Tooltip title={t('admin.checkpointStation.refreshTooltip')}>
             <span>
               <IconButton onClick={handleRefresh} disabled={!selectedCheckpointId || loading} size="small">
@@ -479,6 +510,7 @@ export default function CheckpointStation() {
                       )}
                     </Box>
                   ))}
+                  {hasMore && <Box ref={sentinelRef} sx={{ py: 2 }} />}
                 </Stack>
               ) : (
                 <TableContainer>
@@ -545,6 +577,7 @@ export default function CheckpointStation() {
                   </Table>
                 </TableContainer>
               )}
+              {hasMore && !isMobile && <Box ref={sentinelRef} sx={{ py: 2 }} />}
             </CardContent>
           </Card>
         </>
