@@ -346,6 +346,7 @@
       "columnTeamName": "Teamnaam",
       "columnDescription": "Groepsnaam",
       "columnTracker": "Tracker",
+      "columnTrackerHandedIn": "Ingeleverd",
       "columnPoints": "Punten",
       "columnCheckInStatus": "Check-in",
       "columnFinish": "Finish",
@@ -864,6 +865,10 @@
       "finished": "Gefinisht",
       "late": "Te laat",
       "dnf": "DNF"
+    },
+    "trackerHandedInChip": {
+      "notHandedIn": "Niet ingeleverd",
+      "handedIn": "Ingeleverd"
     },
     "teamClassChip": {
       "lelieClass": "Lelievlet",

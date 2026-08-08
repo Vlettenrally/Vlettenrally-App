@@ -346,6 +346,7 @@
       "columnTeamName": "Team Name",
       "columnDescription": "Group Name",
       "columnTracker": "Tracker",
+      "columnTrackerHandedIn": "Handed in",
       "columnPoints": "Points",
       "columnCheckInStatus": "Check-in",
       "columnFinish": "Finish",
@@ -864,6 +865,10 @@
       "finished": "Finished",
       "late": "Late",
       "dnf": "DNF"
+    },
+    "trackerHandedInChip": {
+      "notHandedIn": "Not handed in",
+      "handedIn": "Handed in"
     },
     "teamClassChip": {
       "lelieClass": "Lelievlet",

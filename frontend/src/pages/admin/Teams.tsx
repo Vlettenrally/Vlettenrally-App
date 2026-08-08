@@ -11,20 +11,30 @@ import TeamDetailDialog from '../../components/TeamDetailDialog';
 import TrackerExportDialog from '../../components/TrackerExportDialog';
 import TeamCheckInChip from '../../components/TeamCheckInChip';
 import TeamFinishChip from '../../components/TeamFinishChip';
+import TrackerHandedInChip from '../../components/TrackerHandedInChip';
 import { teamMatchesQuery } from '../../utils/teamSearch';
 import { checkInStatusRank } from '../../utils/checkInStatus';
 import { finishStatusRank } from '../../utils/finishStatus';
+import { trackerHandInStatusRank } from '../../utils/trackerHandInStatus';
 import type { AdminTeam, Game, TeamImportResult, TrackerAssignResult } from '../../types/entities';
 
 type DetailDialog = { title: string; items: string[] };
 
-type SortColumn = 'name' | 'description' | 'trackerId' | 'totalPoints' | 'checkInStatus' | 'finished';
+type SortColumn =
+  | 'name'
+  | 'description'
+  | 'trackerId'
+  | 'trackerHandedIn'
+  | 'totalPoints'
+  | 'checkInStatus'
+  | 'finished';
 type SortOrder = 'asc' | 'desc';
 
 const columns: { column: SortColumn; labelKey: string; align?: 'right' | 'center' }[] = [
   { column: 'name', labelKey: 'admin.teams.columnTeamName' },
   { column: 'description', labelKey: 'admin.teams.columnDescription' },
   { column: 'trackerId', labelKey: 'admin.teams.columnTracker' },
+  { column: 'trackerHandedIn', labelKey: 'admin.teams.columnTrackerHandedIn', align: 'center' },
   { column: 'totalPoints', labelKey: 'admin.teams.columnPoints', align: 'right' },
   { column: 'checkInStatus', labelKey: 'admin.teams.columnCheckInStatus', align: 'center' },
   { column: 'finished', labelKey: 'admin.teams.columnFinish', align: 'center' },
@@ -41,6 +51,8 @@ function compareTeams(a: AdminTeam, b: AdminTeam, column: SortColumn, game: Game
       return a.description.localeCompare(b.description, 'nl', { sensitivity: 'base' });
     case 'trackerId':
       return (a.trackerId ?? '').localeCompare(b.trackerId ?? '', 'nl', { sensitivity: 'base' });
+    case 'trackerHandedIn':
+      return trackerHandInStatusRank(a) - trackerHandInStatusRank(b);
     case 'totalPoints':
       return a.totalPoints - b.totalPoints;
     case 'checkInStatus':
@@ -394,6 +406,9 @@ export default function Teams() {
                     <TableCell>{team.name}</TableCell>
                     <TableCell>{team.description}</TableCell>
                     <TableCell>{team.trackerId || '—'}</TableCell>
+                    <TableCell align="center">
+                      <TrackerHandedInChip team={team} />
+                    </TableCell>
                     <TableCell align="right">{team.totalPoints}</TableCell>
                     <TableCell align="center">
                       <TeamCheckInChip team={team} />
