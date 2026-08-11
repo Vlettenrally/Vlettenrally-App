@@ -6,7 +6,7 @@ metadata:
     app: loadtest-location
     role: loadtest
 spec:
-  replicas: 1
+  replicas: 0
   selector:
     matchLabels:
       app: loadtest-location

@@ -40,8 +40,8 @@ spec:
           image: ghcr.io/joostvanviegen/vlettenrally-api:2026-08-08-1-native
           resources:
             requests:
-              memory: "512Mi"
-              cpu: "250m"
+              memoßry: "125Mi"
+              cpu: "125m"
           ports:
             - name: http
               containerPort: 8080
@@ -267,8 +267,8 @@ spec:
           image: ghcr.io/joostvanviegen/vlettenrally-api:2026-08-08-1-native
           resources:
             requests:
-              memory: "512Mi"
-              cpu: "1"
+              memory: "125Mi"
+              cpu: "125m"
           ports:
             - name: http
               containerPort: 8080
@@ -647,8 +647,8 @@ spec:
           # rewrites.
           resources:
             requests:
-              memory: "1536Mi"
-              cpu: "250m"
+              memory: "100Mi"
+              cpu: "100m"
             limits:
               memory: "1536Mi"
               cpu: "1"
