@@ -40,7 +40,7 @@ spec:
           image: ghcr.io/joostvanviegen/vlettenrally-api:2026-08-11-1-native
           resources:
             requests:
-              memoßry: "125Mi"
+              memory: "125Mi"
               cpu: "125m"
           ports:
             - name: http
