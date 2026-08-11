@@ -50,6 +50,7 @@ import {
   Flag as FlagIcon,
   Scoreboard as ScoreboardIcon,
   EmojiEvents as RankingIcon,
+  BarChart as StatisticsIcon,
   PhotoLibrary as PhotoLibraryIcon,
   GpsFixed as TrackerIcon,
 } from '@mui/icons-material';
@@ -123,6 +124,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { text: t('admin.layout.trackers'), icon: <TrackerIcon />, path: '/admin/trackers' },
     { text: t('admin.layout.pointsManagement'), icon: <ScoreboardIcon />, path: '/admin/points-management' },
     { text: t('admin.layout.ranking'), icon: <RankingIcon />, path: '/admin/ranking' },
+    { text: t('admin.layout.statistics'), icon: <StatisticsIcon />, path: '/admin/statistics' },
     { text: t('admin.layout.zones'), icon: <PlaceIcon />, path: '/admin/zones' },
     { text: t('admin.layout.adminUsers'), icon: <ManageAccountsIcon />, path: '/admin/admin-users' },
     { text: t('admin.layout.checkpointStation'), icon: <FlagIcon />, path: '/admin/checkpoint-station' },

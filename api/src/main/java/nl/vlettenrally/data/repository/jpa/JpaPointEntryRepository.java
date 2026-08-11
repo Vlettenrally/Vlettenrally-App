@@ -77,6 +77,21 @@ public class JpaPointEntryRepository extends ReadReplicaAwareRepository implemen
     }
 
     @Override
+    public int sumCurrentAmountByGame(UUID gameId, PointEntryType entryType) {
+        StringBuilder jpql = new StringBuilder(
+                "SELECT COALESCE(SUM(e.currentAmount), 0) FROM PointEntryEntity e WHERE e.game.id = :gameId");
+        if (entryType != null) jpql.append(" AND e.entryType = :entryType");
+
+        TypedQuery<Long> query = getReadEntityManager()
+                .createQuery(jpql.toString(), Long.class)
+                .setParameter("gameId", gameId);
+        if (entryType != null) query.setParameter("entryType", entryType);
+
+        Long result = query.getSingleResult();
+        return result == null ? 0 : result.intValue();
+    }
+
+    @Override
     public long countByCreatedByOrEditedBy(UUID adminId) {
         // Primary EM: this count gates an irreversible admin delete, so replication lag
         // must not let a ledger entry slip through unseen.

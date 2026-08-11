@@ -152,6 +152,15 @@ public class MockPointEntryRepository implements PointEntryRepository {
     }
 
     @Override
+    public int sumCurrentAmountByGame(UUID gameId, PointEntryType entryType) {
+        return entries.values().stream()
+                .filter(e -> gameId.equals(e.getGameId()))
+                .filter(e -> entryType == null || entryType == e.getEntryType())
+                .mapToInt(PointEntry::getCurrentAmount)
+                .sum();
+    }
+
+    @Override
     public long countByCreatedByOrEditedBy(UUID adminId) {
         return entries.values().stream()
                 .filter(e -> adminId.equals(e.getCreatedBy()) || adminId.equals(e.getEditedBy()))

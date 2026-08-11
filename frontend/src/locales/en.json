@@ -272,6 +272,7 @@
       "trackers": "Trackers",
       "pointsManagement": "Points Management",
       "ranking": "Ranking",
+      "statistics": "Statistics",
       "zones": "Zones",
       "adminUsers": "Admin Users",
       "checkpointStation": "Checkpoint Station",
@@ -832,11 +833,26 @@
       "downloadFailed": "Could not prepare the download.",
       "downloadMockNotice": "In demo mode there is no server to download the zip file from."
     },
-    "analytics": {
-      "title": "Analytics",
-      "teamActivity": "Team Activity",
-      "messageDelivery": "Message Delivery",
-      "noData": "No data available"
+    "statistics": {
+      "title": "Statistics",
+      "teamsSection": "Team Participation",
+      "totalTeams": "Total teams",
+      "checkedInTeams": "Checked-in teams",
+      "disqualifiedTeams": "Disqualified teams",
+      "distanceSection": "Distance Travelled",
+      "totalDistance": "Total distance",
+      "averageDistance": "Average distance",
+      "minDistance": "Shortest distance",
+      "maxDistance": "Longest distance",
+      "checkpointsSection": "Checkpoint Activity",
+      "totalCheckpoints": "Checkpoints",
+      "checkpointVerifications": "Checkpoint verifications",
+      "pointsSection": "Points & Bonuses",
+      "totalPoints": "Total points",
+      "distanceBonusPoints": "Distance bonus points",
+      "earlyFinishBonusCount": "Early-finish bonuses",
+      "noGameSelected": "Select a game first",
+      "failedToLoad": "Failed to load statistics"
     },
     "map": {
       "filters": "Filters",

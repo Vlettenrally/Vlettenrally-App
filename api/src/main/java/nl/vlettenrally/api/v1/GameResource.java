@@ -35,6 +35,7 @@ import nl.vlettenrally.data.dto.game.LocationTestResponse;
 import nl.vlettenrally.data.dto.game.TeamImportResponse;
 import nl.vlettenrally.data.dto.game.AssignTrackersResponse;
 import nl.vlettenrally.data.dto.game.BackfillResponse;
+import nl.vlettenrally.data.dto.game.GameStatisticsResponse;
 import nl.vlettenrally.data.dto.game.PublicMapTokenResponse;
 import nl.vlettenrally.data.converter.TeamConverter;
 import nl.vlettenrally.data.domain.Checkpoint;
@@ -54,6 +55,7 @@ import nl.vlettenrally.service.LocationIngestService;
 import nl.vlettenrally.service.AutomationService;
 import nl.vlettenrally.service.GameService;
 import nl.vlettenrally.service.RankingService;
+import nl.vlettenrally.service.StatisticsService;
 import nl.vlettenrally.service.CheckpointService;
 import nl.vlettenrally.service.EventDetailsService;
 import nl.vlettenrally.service.ImportResult;
@@ -83,6 +85,7 @@ import java.util.UUID;
  * - DELETE /api/v1/games/{gameId} - Delete a game
  * - GET /api/v1/games/{gameId}/checkpoints - Get checkpoints for a game
  * - GET /api/v1/games/{gameId}/rankings - Get team rankings for a game
+ * - GET /api/v1/games/{gameId}/statistics - Get game-wide statistics for the admin Statistics page
  * - POST /api/v1/games/{gameId}/import-teams - Import teams from pre-registration
  * - POST /api/v1/games/{gameId}/test-location-endpoint - Test location endpoint connection
  * - POST /api/v1/games/{gameId}/checkpoints - Create a checkpoint
@@ -130,6 +133,9 @@ public class GameResource {
 
     @Inject
     RankingService rankingService;
+
+    @Inject
+    StatisticsService statisticsService;
 
     @Inject
     nl.vlettenrally.service.LateFinishPenaltyService lateFinishPenaltyService;
@@ -275,6 +281,23 @@ public class GameResource {
         }
 
         return Response.ok(rankingService.buildRanking(gameId)).build();
+    }
+
+    /**
+     * Game-wide statistics for the admin Statistics page.
+     * <p>
+     * Staff-only: the class-level {@code @RolesAllowed} also grants TEAM, so this
+     * method-level annotation is required to keep teams' own clients out — it revokes
+     * the inherited TEAM grant rather than just picking the broadest admin role.
+     */
+    @GET
+    @Path("/{gameId}/statistics")
+    @RolesAllowed(SecurityRoles.STAFF)
+    public Response getStatistics(@PathParam("gameId") UUID gameId) {
+        if (gameService.findById(gameId).isEmpty()) {
+            return gameNotFoundResponse();
+        }
+        return Response.ok(statisticsService.buildStatistics(gameId)).build();
     }
 
     /**

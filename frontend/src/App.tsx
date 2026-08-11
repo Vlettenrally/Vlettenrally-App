@@ -59,7 +59,7 @@ const CheckIn = lazy(() => import('./pages/admin/CheckIn'));
 const Checkout = lazy(() => import('./pages/admin/Checkout'));
 const Zones = lazy(() => import('./pages/admin/Zones'));
 const Automations = lazy(() => import('./pages/admin/Automations'));
-const Analytics = lazy(() => import('./pages/admin/Analytics'));
+const Statistics = lazy(() => import('./pages/admin/Statistics'));
 const Settings = lazy(() => import('./pages/admin/Settings'));
 const AdminUsers = lazy(() => import('./pages/admin/AdminUsers'));
 const CheckpointStation = lazy(() => import('./pages/admin/CheckpointStation'));
@@ -788,12 +788,12 @@ function App() {
             }
           />
           <Route
-            path="/admin/analytics"
+            path="/admin/statistics"
             element={
               <AdminRoute>
                 <AdminLayout>
                   <Suspense fallback={<PageLoader />}>
-                    <Analytics />
+                    <Statistics />
                   </Suspense>
                 </AdminLayout>
               </AdminRoute>

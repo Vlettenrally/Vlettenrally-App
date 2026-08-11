@@ -41,6 +41,7 @@ import EditEntryDialog from '../../components/admin/EditEntryDialog';
 import CreateAdjustmentDialog from '../../components/admin/CreateAdjustmentDialog';
 import MapPopupDialog from '../../components/admin/MapPopupDialog';
 import { teamMatchesQuery } from '../../utils/teamSearch';
+import { formatDistance } from '../../utils/distance';
 import type { AdminTeam, Checkpoint, PointEntry, PointEntryType } from '../../types/entities';
 
 function formatTimestamp(iso: string): string {
@@ -51,17 +52,6 @@ function formatTimestamp(iso: string): string {
     hour: '2-digit',
     minute: '2-digit',
   });
-}
-
-/** Credited distance for a distance-bonus entry, as km (>= 1 km) or m. */
-function formatDistance(meters: number): string {
-  if (meters >= 1000) {
-    return `${(meters / 1000).toLocaleString(undefined, {
-      minimumFractionDigits: 1,
-      maximumFractionDigits: 1,
-    })} km`;
-  }
-  return `${Math.round(meters)} m`;
 }
 
 export default function PointsManagement() {

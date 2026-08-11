@@ -31,6 +31,12 @@ public interface PointEntryRepository {
     int sumCurrentAmountByTeam(UUID teamId);
 
     /**
+     * Sum of {@code currentAmount} across all entries for a game. Optional filter by entry
+     * type (null = all types). Returns 0 for a game with no matching entries.
+     */
+    int sumCurrentAmountByGame(UUID gameId, PointEntryType entryType);
+
+    /**
      * Count entries an admin created or last edited. Used to decide whether that admin can be
      * deleted outright without silently dropping the ledger's authorship trail.
      */

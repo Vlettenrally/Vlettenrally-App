@@ -42,6 +42,7 @@ import type {
   CheckpointTeamStatus,
   PointEntry,
   RankingEntry,
+  GameStatistics,
   PointEntryListResponse,
   PointEntryListParams,
   CreatePointAdjustmentRequest,
@@ -859,6 +860,11 @@ async getGames() : Promise<ApiResponse<Game[]>> {
   // Rankings endpoints
   async getRankings(gameId: string): Promise<ApiResponse<RankingEntry[]>> {
     return this.get(`/games/${gameId}/rankings`);
+  }
+
+  // Statistics endpoint
+  async getGameStatistics(gameId: string): Promise<ApiResponse<GameStatistics>> {
+    return this.get(`/games/${gameId}/statistics`);
   }
 
   // Reveal the final ranking to players (admin only). Persists the reveal and

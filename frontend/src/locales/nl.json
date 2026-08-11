@@ -272,6 +272,7 @@
       "trackers": "Trackers",
       "pointsManagement": "Puntenbeheer",
       "ranking": "Ranglijst",
+      "statistics": "Statistieken",
       "zones": "Zones",
       "adminUsers": "Admin Beheer",
       "checkpointStation": "Checkpoint Beheer",
@@ -832,11 +833,26 @@
       "downloadFailed": "Download voorbereiden mislukt.",
       "downloadMockNotice": "In demo-modus is er geen server om het zipbestand van te downloaden."
     },
-    "analytics": {
-      "title": "Analytics",
-      "teamActivity": "Team Activity",
-      "messageDelivery": "Message Delivery",
-      "noData": "No data available"
+    "statistics": {
+      "title": "Statistieken",
+      "teamsSection": "Teamdeelname",
+      "totalTeams": "Totaal aantal teams",
+      "checkedInTeams": "Ingecheckte teams",
+      "disqualifiedTeams": "Gediskwalificeerde teams",
+      "distanceSection": "Afgelegde afstand",
+      "totalDistance": "Totale afstand",
+      "averageDistance": "Gemiddelde afstand",
+      "minDistance": "Kortste afstand",
+      "maxDistance": "Langste afstand",
+      "checkpointsSection": "Checkpoint-activiteit",
+      "totalCheckpoints": "Aantal checkpoints",
+      "checkpointVerifications": "Geverifieerde checkpoints",
+      "pointsSection": "Punten & bonussen",
+      "totalPoints": "Totaal aantal punten",
+      "distanceBonusPoints": "Afstandsbonuspunten",
+      "earlyFinishBonusCount": "Vroege-finish bonussen",
+      "noGameSelected": "Selecteer eerst een game",
+      "failedToLoad": "Statistieken konden niet worden geladen"
     },
     "map": {
       "filters": "Filters",

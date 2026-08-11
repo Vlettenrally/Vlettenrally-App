@@ -350,6 +350,24 @@ export interface RankingEntry {
 }
 
 /**
+ * Game-wide statistics for the admin Statistics page. Mirrors backend GameStatisticsResponse.
+ */
+export interface GameStatistics {
+  totalTeams: number;
+  checkedInTeams: number;
+  disqualifiedTeams: number;
+  totalDistanceMeters: number;
+  averageDistanceMeters: number;
+  minDistanceMeters: number;
+  maxDistanceMeters: number;
+  totalCheckpoints: number;
+  checkpointVerifications: number;
+  totalPoints: number;
+  distanceBonusPoints: number;
+  earlyFinishBonusCount: number;
+}
+
+/**
  * @deprecated Use AdminTeam, PlayerTeam, or PublicTeam instead.
  * Kept for backward compatibility during migration.
  */
