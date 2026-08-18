@@ -1,10 +1,13 @@
 package nl.vlettenrally.service;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -16,6 +19,7 @@ import nl.vlettenrally.data.dto.game.RankingResponse;
 import nl.vlettenrally.data.repository.TeamRepository;
 import nl.vlettenrally.util.Csv;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -33,12 +37,30 @@ class RankingServiceTest {
 
     private final UUID gameId = UUID.randomUUID();
 
+    /** Totals handed to {@link #team}, replayed by the bulk-lookup stub below. */
+    private final Map<UUID, Integer> seededTotals = new HashMap<>();
+
+    /**
+     * Mirror the real {@code getAll} contract: an entry for every id asked for, so the ranking
+     * sees the same totals whether it reads them one at a time or in bulk.
+     */
+    @BeforeEach
+    void stubBulkTotals() {
+        lenient().when(pointsTotalsCache.getAll(any())).thenAnswer(invocation -> {
+            Collection<UUID> ids = invocation.getArgument(0);
+            Map<UUID, Integer> totals = new HashMap<>();
+            ids.forEach(id -> totals.put(id, seededTotals.getOrDefault(id, 0)));
+            return totals;
+        });
+    }
+
     private Team team(String name, int total, boolean checkedIn) {
         Team t = new Team();
         t.setId(UUID.randomUUID());
         t.setGameId(gameId);
         t.setName(name);
         t.setCheckedIn(checkedIn);
+        seededTotals.put(t.getId(), total);
         lenient().when(pointsTotalsCache.get(t.getId())).thenReturn(total);
         return t;
     }

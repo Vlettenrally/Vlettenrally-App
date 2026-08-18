@@ -6,7 +6,9 @@ import { useGameStore } from '../../store/useGameStore';
 import { useAdminResync } from '../../hooks/useAdminSync';
 import { teamService } from '../../services/teamService';
 import { gameService } from '../../services/gameService';
-import { websocket } from '../../services/websocket';
+import { websocket, WebSocketEventType } from '../../services/websocket';
+import type { WebSocketMessage } from '../../services/websocket';
+import { useAdminTopicHeartbeat, ADMIN_TOPICS } from '../../hooks/useAdminHeartbeat';
 import TeamDetailDialog from '../../components/TeamDetailDialog';
 import TrackerExportDialog from '../../components/TrackerExportDialog';
 import TeamCheckInChip from '../../components/TeamCheckInChip';
@@ -17,7 +19,7 @@ import { teamMatchesQuery } from '../../utils/teamSearch';
 import { checkInStatusRank } from '../../utils/checkInStatus';
 import { finishStatusRank } from '../../utils/finishStatus';
 import { trackerHandInStatusRank } from '../../utils/trackerHandInStatus';
-import type { AdminTeam, Game, TeamImportResult, TrackerAssignResult } from '../../types/entities';
+import type { AdminTeam, Game, RankingEntry, TeamImportResult, TrackerAssignResult } from '../../types/entities';
 
 type DetailDialog = { title: string; items: string[] };
 
@@ -116,17 +118,40 @@ export default function Teams() {
 
   useAdminResync(reloadGameAndTeams);
 
-  // Subscribe to WebSocket team events
+  // Subscribe to WebSocket team events.
+  //
+  // These are applied to local state rather than triggering a refetch: team:created and
+  // team:updated carry a complete team, team:deleted carries the id, so re-reading the list
+  // would only fetch back what the frame already contains. It also used to be one full list
+  // fetch per event — checking ~250 teams in at the rally desk meant ~250 fetches of all 250
+  // teams, per open admin tab. useAdminResync still does a full reload on reconnect / resume,
+  // which is what recovers anything missed while the socket was down.
   useEffect(() => {
     if (!selectedGameId) return;
 
-    const refreshTeams = () => {
-      teamService.getTeamsByGame(selectedGameId).then(setTeams);
+    const upsertTeam = (message: WebSocketMessage) => {
+      const team = message.payload as AdminTeam | null;
+      // Guard against a frame for the previously selected game arriving mid-switch.
+      if (!team?.id || team.gameId !== selectedGameId) return;
+      setTeams((current) => {
+        const index = current.findIndex((t) => t.id === team.id);
+        if (index === -1) return [...current, team];
+        const next = [...current];
+        next[index] = team;
+        return next;
+      });
     };
 
-    const unsubscribeCreated = websocket.on('team:created', refreshTeams);
-    const unsubscribeUpdated = websocket.on('team:updated', refreshTeams);
-    const unsubscribeDeleted = websocket.on('team:deleted', refreshTeams);
+    const removeTeam = (message: WebSocketMessage) => {
+      const { id } = (message.payload ?? {}) as { id?: string };
+      if (!id) return;
+      setTeams((current) => current.filter((t) => t.id !== id));
+    };
+
+    // Created is upserted rather than appended so a duplicate frame cannot double a row.
+    const unsubscribeCreated = websocket.on('team:created', upsertTeam);
+    const unsubscribeUpdated = websocket.on('team:updated', upsertTeam);
+    const unsubscribeDeleted = websocket.on('team:deleted', removeTeam);
 
     return () => {
       unsubscribeCreated();
@@ -134,6 +159,37 @@ export default function Teams() {
       unsubscribeDeleted();
     };
   }, [selectedGameId]);
+
+  // Keep the points column live. Points move on checkpoint verification, which has no team:*
+  // event of its own — while the list was refetched on every team event, those changes were
+  // picked up by accident rather than by design. The ranking topic carries the full live
+  // standings to staff on every points change (regardless of publish state or game status,
+  // see PointsLedgerService.publishStandings), so the totals are mapped onto the rows here.
+  // Topic-gated server-side: the heartbeat is what makes the backend build and send it at all.
+  useAdminTopicHeartbeat(ADMIN_TOPICS.RANKING);
+
+  useEffect(() => {
+    const unsubscribe = websocket.on(WebSocketEventType.RANKING_UPDATE, (message) => {
+      const entries = message.payload as RankingEntry[] | null;
+      if (!Array.isArray(entries)) return;
+      const pointsByTeam = new Map(entries.map((entry) => [entry.teamId, entry.points]));
+      setTeams((current) => {
+        let changed = false;
+        const next = current.map((team) => {
+          const total = pointsByTeam.get(team.id);
+          // The ranking only covers checked-in teams, so a team missing from it is not at
+          // zero — it is simply not represented. Leave those rows alone.
+          if (total === undefined || total === team.totalPoints) return team;
+          changed = true;
+          return { ...team, totalPoints: total };
+        });
+        // Ranking frames are frequent and mostly move nobody on this page; returning the
+        // same array keeps them from re-rendering the table for nothing.
+        return changed ? next : current;
+      });
+    });
+    return () => unsubscribe();
+  }, []);
 
   const handleRowClick = (team: AdminTeam) => {
     setSelectedTeam(team);

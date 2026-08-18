@@ -60,9 +60,15 @@ public class RankingService {
             .filter(Team::isCheckedIn)
             .toList();
 
+        // One bulk lookup rather than a get() per team: this runs on every points change for
+        // every admin session subscribed to the ranking topic, and per-team it was one Valkey
+        // round trip each (distinct keys, so the in-process L1 cannot collapse them).
+        Map<UUID, Integer> cached = pointsTotalsCache.getAll(
+            checkedIn.stream().map(Team::getId).toList());
+
         Map<UUID, Integer> totals = checkedIn.stream()
             .collect(Collectors.toMap(Team::getId,
-                t -> totalOverrides.getOrDefault(t.getId(), pointsTotalsCache.get(t.getId()))));
+                t -> totalOverrides.getOrDefault(t.getId(), cached.getOrDefault(t.getId(), 0))));
 
         // Disqualified teams sink to the bottom, outside the points-based positions
         // (position 0, rendered as "DSQ" by the client), sorted by points among
