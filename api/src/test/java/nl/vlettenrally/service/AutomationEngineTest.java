@@ -1026,8 +1026,9 @@ class AutomationEngineTest {
 
     private void lastLocationAt(Instant locationTime) {
         LocationData location = new LocationData();
+        location.setTeamId(teamId);
         location.setLocationTime(locationTime);
-        when(locationDataRepository.findLatestByTeamId(teamId)).thenReturn(Optional.of(location));
+        when(locationDataRepository.findLatestByGameId(gameId)).thenReturn(List.of(location));
     }
 
     @Test
@@ -1080,7 +1081,7 @@ class AutomationEngineTest {
         activeGame(now.minus(Duration.ofMinutes(10)), null);
         inactivityRule(null);
         when(teamRepository.findByGameId(gameId)).thenReturn(List.of(team));
-        when(locationDataRepository.findLatestByTeamId(teamId)).thenReturn(Optional.empty());
+        when(locationDataRepository.findLatestByGameId(gameId)).thenReturn(List.of());
 
         engine.evaluateTimeAndInactivity(now);
 

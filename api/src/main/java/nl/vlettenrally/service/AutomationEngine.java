@@ -35,6 +35,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Evaluates automation rules when domain events occur and executes their
@@ -445,6 +446,9 @@ public class AutomationEngine {
     /** Scheduler tick: evaluate TEAM_INACTIVITY rules. */
     public void evaluateInactivity(Instant now) {
         if (EXECUTING.get()) return;
+        // One latest-fix query per game rather than per team, reused across rules that target
+        // the same game. Scoped to this tick so a later sweep still sees fresh positions.
+        Map<UUID, Map<UUID, Instant>> lastSeenByGame = new HashMap<>();
         for (AutomationRule rule : ruleRepository.findEnabledByTriggerType(AutomationTriggerType.TEAM_INACTIVITY)) {
             try {
                 Game game = gameService.findById(rule.getGameId()).orElse(null);
@@ -455,13 +459,15 @@ public class AutomationEngine {
                 if (minutes == null || minutes <= 0) continue;
                 Instant threshold = now.minus(Duration.ofMinutes(minutes));
 
+                Map<UUID, Instant> lastSeenByTeam = lastSeenByGame.computeIfAbsent(game.getId(),
+                    id -> locationDataRepository.findLatestByGameId(id).stream()
+                        .collect(Collectors.toMap(LocationData::getTeamId, LocationData::getLocationTime, (a, b) -> a)));
+
                 for (Team team : teamRepository.findByGameId(game.getId())) {
                     if (!team.isCheckedIn() || !rule.appliesToTeam(team.getId())) continue;
                     // Teams that never reported are inactive once the game has
                     // been running longer than the threshold.
-                    Instant lastSeen = locationDataRepository.findLatestByTeamId(team.getId())
-                        .map(LocationData::getLocationTime)
-                        .orElse(game.getStartTime());
+                    Instant lastSeen = lastSeenByTeam.getOrDefault(team.getId(), game.getStartTime());
                     if (lastSeen == null || lastSeen.isAfter(threshold)) continue;
                     fireForTeam(rule, team.getId(), null);
                 }

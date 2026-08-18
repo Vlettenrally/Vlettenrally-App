@@ -12,10 +12,10 @@ import nl.vlettenrally.service.LocationService;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -44,11 +44,15 @@ public class LocationServiceImpl implements LocationService {
         Map<UUID, Team> teamMap = teams.stream()
             .collect(Collectors.toMap(Team::getId, t -> t));
 
-        List<TeamLocationResponse> locations = new ArrayList<>();
-        for (Team team : teams) {
-            locationDataRepository.findLatestByTeamId(team.getId())
-                .ifPresent(loc -> locations.add(toResponse(loc, teamMap.get(loc.getTeamId()))));
-        }
+        // One query for the whole game: a fix-per-team loop here meant one read-replica round
+        // trip per team, which is what made the admin map take seconds at full field size.
+        List<TeamLocationResponse> locations = locationDataRepository.findLatestByGameId(gameId).stream()
+            .map(loc -> {
+                Team team = teamMap.get(loc.getTeamId());
+                return team != null ? toResponse(loc, team) : null;
+            })
+            .filter(Objects::nonNull)
+            .toList();
         return Optional.of(locations);
     }
 

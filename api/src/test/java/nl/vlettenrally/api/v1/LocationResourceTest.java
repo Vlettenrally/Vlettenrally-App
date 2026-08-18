@@ -26,6 +26,9 @@ class LocationResourceTest {
     @Mock
     LocationService locationService;
 
+    @Mock
+    AdminMapLocationsCache adminMapLocationsCache;
+
     @InjectMocks
     LocationResource locationResource;
 
@@ -44,7 +47,7 @@ class LocationResourceTest {
     void getLatestTeamLocations_serviceReturnsList_returnsOkWithBody() {
         List<TeamLocationResponse> body = List.of(
             new TeamLocationResponse(teamId, "De Watervlooien", null, 52.37, 4.9, 10.0, 90.0, "2026-05-17T10:00:00Z"));
-        when(locationService.getLatestTeamLocations(gameId)).thenReturn(Optional.of(body));
+        when(adminMapLocationsCache.latestFor(gameId)).thenReturn(Optional.of(body));
 
         try (Response response = locationResource.getLatestTeamLocations(gameId)) {
             assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());
@@ -54,7 +57,7 @@ class LocationResourceTest {
 
     @Test
     void getLatestTeamLocations_serviceReturnsEmpty_returns404WithErrorResponse() {
-        when(locationService.getLatestTeamLocations(gameId)).thenReturn(Optional.empty());
+        when(adminMapLocationsCache.latestFor(gameId)).thenReturn(Optional.empty());
 
         try (Response response = locationResource.getLatestTeamLocations(gameId)) {
             assertEquals(Response.Status.NOT_FOUND.getStatusCode(), response.getStatus());

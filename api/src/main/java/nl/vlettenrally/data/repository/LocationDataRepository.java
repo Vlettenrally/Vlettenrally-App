@@ -42,6 +42,15 @@ public interface LocationDataRepository {
     Optional<LocationData> findLatestByTeamId(UUID teamId);
 
     /**
+     * The most recent location of every team in a game that has one, in a single query.
+     * Teams without a stored fix are omitted, so this is the batch equivalent of calling
+     * {@link #findLatestByTeamId} for each team of the game — which is what it replaces on
+     * the admin map and the per-game sweeps, where one query per team meant hundreds of
+     * round trips per request.
+     */
+    List<LocationData> findLatestByGameId(UUID gameId);
+
+    /**
      * Find a team's most recent locations, ordered by location_time descending, capped at
      * {@code limit}. Used by the ingest outlier filter, which needs the last two fixes to
      * derive the prior travel bearing without replaying the whole track.

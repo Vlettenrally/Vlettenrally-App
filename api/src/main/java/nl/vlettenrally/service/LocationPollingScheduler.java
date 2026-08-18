@@ -210,6 +210,12 @@ public class LocationPollingScheduler {
         Set<UUID> backfillLocked = backfillThrottle.lockedTeams(
             teamsByTrackerId.values().stream().map(Team::getId).toList());
 
+        // Likewise one round-trip for every team's last stored fix time. Taken here, before any
+        // ingest in this sweep, which is exactly what the offline-gap check below needs; a team
+        // appears at most once per sweep, so no entry goes stale within the loop.
+        Map<UUID, Instant> lastStoredByTeam = locationDataRepository.findLatestByGameId(game.getId()).stream()
+            .collect(Collectors.toMap(LocationData::getTeamId, LocationData::getLocationTime, (a, b) -> a));
+
         // Persist + notify each fix through the shared ingest path (guards, distance,
         // per-team WS), collecting the accepted ones for a single admin-map broadcast.
         List<TeamLocationResponse> broadcasts = new ArrayList<>();
@@ -250,9 +256,9 @@ public class LocationPollingScheduler {
                 continue;
             }
 
-            // Capture the last stored fix time BEFORE ingesting, to detect an offline gap below.
-            Instant lastStored = locationDataRepository.findLatestByTeamId(team.getId())
-                .map(LocationData::getLocationTime).orElse(null);
+            // Snapshot taken before the loop, so this is the last stored fix time as of BEFORE
+            // ingesting — what the offline-gap check further down needs.
+            Instant lastStored = lastStoredByTeam.get(team.getId());
             Instant fixTime = parseInstant(pl.getLocationTime());
 
             totalCount++;

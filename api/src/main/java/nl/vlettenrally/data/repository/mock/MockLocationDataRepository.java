@@ -168,6 +168,17 @@ public class MockLocationDataRepository implements LocationDataRepository {
     }
 
     @Override
+    public List<LocationData> findLatestByGameId(UUID gameId) {
+        return locations.values().stream()
+                .filter(l -> gameId.equals(l.getGameId()))
+                .collect(Collectors.groupingBy(LocationData::getTeamId,
+                        Collectors.maxBy(Comparator.comparing(LocationData::getLocationTime))))
+                .values().stream()
+                .flatMap(Optional::stream)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public List<LocationData> findRecentByTeamId(UUID teamId, int limit) {
         return locations.values().stream()
                 .filter(l -> teamId.equals(l.getTeamId()))

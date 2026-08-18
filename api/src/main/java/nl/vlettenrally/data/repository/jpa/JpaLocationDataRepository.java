@@ -88,6 +88,34 @@ public class JpaLocationDataRepository extends ReadReplicaAwareRepository implem
         return entities.stream().findFirst().map(LocationDataMapper::toDomain);
     }
 
+    /**
+     * Latest fix per team of a game in one round trip.
+     * <p>
+     * Driven off {@code teams} with a LATERAL LIMIT 1 rather than {@code DISTINCT ON (team_id)}:
+     * DISTINCT ON would have to sort the game's whole retention window, while the lateral form
+     * is one index seek per team against {@code idx_location_data_team_time}. Matching on
+     * {@code team_id} alone (no game_id predicate on location_data) keeps the semantics
+     * identical to the per-team calls this replaces.
+     */
+    @Override
+    public List<LocationData> findLatestByGameId(UUID gameId) {
+        List<LocationDataEntity> entities = getReadEntityManager().createNativeQuery(
+                "SELECT l.id, l.team_id, l.game_id, l.location, l.location_time, " +
+                "l.accuracy, l.altitude, l.speed, l.heading, l.created_at " +
+                "FROM teams t " +
+                "CROSS JOIN LATERAL ( " +
+                "  SELECT ld.* FROM location_data ld " +
+                "  WHERE ld.team_id = t.id " +
+                "  ORDER BY ld.location_time DESC " +
+                "  LIMIT 1 " +
+                ") l " +
+                "WHERE t.game_id = ?1",
+                LocationDataEntity.class)
+                .setParameter(1, gameId)
+                .getResultList();
+        return entities.stream().map(LocationDataMapper::toDomain).collect(Collectors.toList());
+    }
+
     @Override
     public List<LocationData> findRecentByTeamId(UUID teamId, int limit) {
         List<LocationDataEntity> entities = getReadEntityManager().createQuery(

@@ -34,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -75,7 +76,7 @@ class LocationServiceImplTest {
 
         assertTrue(result.isEmpty());
         verify(teamRepository, never()).findByGameId(any());
-        verify(locationDataRepository, never()).findLatestByTeamId(any());
+        verify(locationDataRepository, never()).findLatestByGameId(any());
     }
 
     @Test
@@ -89,8 +90,8 @@ class LocationServiceImplTest {
 
         when(gameService.findById(gameId)).thenReturn(Optional.of(new Game()));
         when(teamRepository.findByGameId(gameId)).thenReturn(List.of(team, second));
-        when(locationDataRepository.findLatestByTeamId(team.getId())).thenReturn(Optional.of(loc));
-        when(locationDataRepository.findLatestByTeamId(second.getId())).thenReturn(Optional.empty());
+        // The batch query omits teams without a stored fix, so `second` simply is not in the result.
+        when(locationDataRepository.findLatestByGameId(gameId)).thenReturn(List.of(loc));
 
         List<TeamLocationResponse> result = locationService.getLatestTeamLocations(gameId).orElseThrow();
 
@@ -103,6 +104,42 @@ class LocationServiceImplTest {
         assertEquals(12.5, response.speed(), 1e-9);
         assertEquals(180.0, response.heading(), 1e-9);
         assertNotNull(response.locationTime());
+    }
+
+    @Test
+    void getLatestTeamLocations_issuesOneQueryForTheWholeGame() {
+        Team second = new Team(UUID.randomUUID(), gameId, "Windkracht Tien", null);
+        Point pt = GEOMETRY_FACTORY.createPoint(new Coordinate(4.9, 52.37));
+        LocationData first = new LocationData(
+            UUID.randomUUID(), team.getId(), gameId, pt,
+            Instant.now(), null, null, null, null);
+        LocationData other = new LocationData(
+            UUID.randomUUID(), second.getId(), gameId, pt,
+            Instant.now(), null, null, null, null);
+
+        when(gameService.findById(gameId)).thenReturn(Optional.of(new Game()));
+        when(teamRepository.findByGameId(gameId)).thenReturn(List.of(team, second));
+        when(locationDataRepository.findLatestByGameId(gameId)).thenReturn(List.of(first, other));
+
+        assertEquals(2, locationService.getLatestTeamLocations(gameId).orElseThrow().size());
+
+        // Guards the fix for the admin map: a per-team fan-out here cost one round trip per team.
+        verify(locationDataRepository, times(1)).findLatestByGameId(gameId);
+        verify(locationDataRepository, never()).findLatestByTeamId(any());
+    }
+
+    @Test
+    void getLatestTeamLocations_skipsRowsForTeamsNotInTheGame() {
+        Point pt = GEOMETRY_FACTORY.createPoint(new Coordinate(4.9, 52.37));
+        LocationData stray = new LocationData(
+            UUID.randomUUID(), UUID.randomUUID(), gameId, pt,
+            Instant.now(), null, null, null, null);
+
+        when(gameService.findById(gameId)).thenReturn(Optional.of(new Game()));
+        when(teamRepository.findByGameId(gameId)).thenReturn(List.of(team));
+        when(locationDataRepository.findLatestByGameId(gameId)).thenReturn(List.of(stray));
+
+        assertTrue(locationService.getLatestTeamLocations(gameId).orElseThrow().isEmpty());
     }
 
     // ==================== getTeamLocationHistory ====================

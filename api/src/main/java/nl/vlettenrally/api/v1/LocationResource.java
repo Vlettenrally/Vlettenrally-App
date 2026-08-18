@@ -35,10 +35,13 @@ public class LocationResource {
     @Inject
     LocationService locationService;
 
+    @Inject
+    AdminMapLocationsCache adminMapLocationsCache;
+
     @GET
     @Path("/latest")
     public Response getLatestTeamLocations(@PathParam("gameId") UUID gameId) {
-        return locationService.getLatestTeamLocations(gameId)
+        return adminMapLocationsCache.latestFor(gameId)
             .map(locations -> Response.ok(locations).build())
             .orElseGet(() -> Response.status(Response.Status.NOT_FOUND)
                 .entity(new ErrorResponse("Game not found"))
