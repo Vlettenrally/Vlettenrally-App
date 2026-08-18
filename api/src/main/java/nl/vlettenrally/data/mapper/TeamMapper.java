@@ -20,7 +20,11 @@ public class TeamMapper {
 
     /**
      * Convert a JPA entity to a domain object.
-     * Note: This does NOT load rivals to avoid N+1 queries. Use toDomainWithRivals for full conversion.
+     * <p>
+     * Note: this reads {@code participants}, {@code emergencyPhoneNumbers} and {@code rivals}, all
+     * of which are lazy — mapping a list of entities initializes each one. They carry a
+     * {@code @BatchSize} so that costs a handful of queries per page rather than three per team;
+     * see {@code TeamEntity}.
      */
     public static Team toDomain(TeamEntity entity) {
         if (entity == null) {

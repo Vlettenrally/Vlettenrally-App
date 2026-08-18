@@ -3,7 +3,9 @@ package nl.vlettenrally.data.repository;
 import nl.vlettenrally.data.domain.PointEntry;
 import nl.vlettenrally.data.enums.PointEntryType;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -29,6 +31,16 @@ public interface PointEntryRepository {
      * Sum of {@code currentAmount} across all entries for a team. Returns 0 for a team with no entries.
      */
     int sumCurrentAmountByTeam(UUID teamId);
+
+    /**
+     * Same sum as {@link #sumCurrentAmountByTeam}, for many teams in one query. Serializing a
+     * list of teams needs every team's total at once; calling the single-team form per team is
+     * one round trip per team.
+     * <p>
+     * Teams with no ledger entries are <em>absent</em> from the map rather than mapped to 0 —
+     * callers should default a missing key to 0.
+     */
+    Map<UUID, Integer> sumCurrentAmountByTeams(Collection<UUID> teamIds);
 
     /**
      * Sum of {@code currentAmount} across all entries for a game. Optional filter by entry

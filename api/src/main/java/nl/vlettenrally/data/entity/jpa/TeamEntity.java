@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 import nl.vlettenrally.data.enums.CheckInMethod;
+import org.hibernate.annotations.BatchSize;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -25,6 +26,22 @@ import java.util.UUID;
 })
 public class TeamEntity {
 
+    /**
+     * Batch size for this entity's lazy collections.
+     * <p>
+     * Every list-of-teams read maps each row through {@code TeamMapper.toDomain}, which touches
+     * {@link #participants}, {@link #emergencyPhoneNumbers} and {@link #rivals}. Without batching
+     * that is three SELECTs per team — ~750 read-replica round trips for a full 250-team field,
+     * which is what made {@code GET /games/{gameId}/teams} take close to a second. Since the whole
+     * page of teams is loaded in one query, all their collections sit uninitialized in the same
+     * persistence context and Hibernate can fetch them a batch at a time instead.
+     * <p>
+     * A {@code LEFT JOIN FETCH} is not an option here: {@code participants} and
+     * {@code emergencyPhoneNumbers} are both {@code List} {@code @ElementCollection}s with an
+     * {@code @OrderColumn}, so fetching both in one query throws {@code MultipleBagFetchException}.
+     */
+    private static final int COLLECTION_BATCH_SIZE = 100;
+
     // Getters and Setters
     @Id
     @Column(name = "id", nullable = false, updatable = false)
@@ -45,6 +62,7 @@ public class TeamEntity {
     private String externalId;
 
     @ElementCollection
+    @BatchSize(size = COLLECTION_BATCH_SIZE)
     @CollectionTable(
         name = "team_participants",
         joinColumns = @JoinColumn(name = "team_id")
@@ -121,6 +139,7 @@ public class TeamEntity {
      * Each team manages their own list of rivals independently.
      */
     @ManyToMany(fetch = FetchType.LAZY)
+    @BatchSize(size = COLLECTION_BATCH_SIZE)
     @JoinTable(
         name = "team_rivals",
         joinColumns = @JoinColumn(name = "team_id"),
@@ -132,6 +151,7 @@ public class TeamEntity {
     private String notes;
 
     @ElementCollection
+    @BatchSize(size = COLLECTION_BATCH_SIZE)
     @CollectionTable(
         name = "team_emergency_phones",
         joinColumns = @JoinColumn(name = "team_id")

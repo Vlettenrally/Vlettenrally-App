@@ -8,6 +8,11 @@ import nl.vlettenrally.data.dto.team.TeamResponse;
 import nl.vlettenrally.data.domain.Team;
 import nl.vlettenrally.service.PointsTotalsCache;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
+
 @ApplicationScoped
 public class TeamConverter {
 
@@ -29,6 +34,30 @@ public class TeamConverter {
         if (domain == null) {
             return null;
         }
+        return toDto(domain, pointsTotalsCache.get(domain.getId()));
+    }
+
+    /**
+     * Serialize a list of teams, resolving every points total in one bulk lookup.
+     * <p>
+     * Prefer this over mapping {@link #toDto(Team)} across a list: that form resolves the total
+     * per team, which is one Valkey round trip per team.
+     */
+    public List<TeamResponse> toDtoList(List<Team> domains) {
+        if (domains == null || domains.isEmpty()) {
+            return List.of();
+        }
+        List<UUID> teamIds = domains.stream()
+                .filter(Objects::nonNull)
+                .map(Team::getId)
+                .toList();
+        Map<UUID, Integer> totals = pointsTotalsCache.getAll(teamIds);
+        return domains.stream()
+                .map(domain -> domain == null ? null : toDto(domain, totals.getOrDefault(domain.getId(), 0)))
+                .toList();
+    }
+
+    private TeamResponse toDto(Team domain, int totalPoints) {
         return new TeamResponse(
                 domain.getId(),
                 domain.getGameId(),
@@ -49,7 +78,7 @@ public class TeamConverter {
                 domain.getTrackerId(),
                 domain.isTrackerHandedIn(),
                 domain.getTrackerHandedInAt() != null ? domain.getTrackerHandedInAt().toString() : null,
-                pointsTotalsCache.get(domain.getId()),
+                totalPoints,
                 domain.getRivals(),
                 domain.getNotes(),
                 domain.getEmergencyPhoneNumbers(),

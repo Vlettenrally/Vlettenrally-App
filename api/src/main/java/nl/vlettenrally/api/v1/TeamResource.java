@@ -107,7 +107,7 @@ public class TeamResource {
     @Path("/teams")
     public Response getAllTeams() {
         List<Team> teams = teamService.findAll();
-        return Response.ok(teams.stream().map(teamConverter::toDto).toList()).build();
+        return Response.ok(teamConverter.toDtoList(teams)).build();
     }
 
     /**

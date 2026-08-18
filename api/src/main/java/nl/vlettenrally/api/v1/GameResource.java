@@ -254,7 +254,7 @@ public class GameResource {
             return gameNotFoundResponse();
         }
         List<Team> teams = teamService.findByGameId(gameId);
-        return Response.ok(teams.stream().map(teamConverter::toDto).toList()).build();
+        return Response.ok(teamConverter.toDtoList(teams)).build();
     }
 
     /**

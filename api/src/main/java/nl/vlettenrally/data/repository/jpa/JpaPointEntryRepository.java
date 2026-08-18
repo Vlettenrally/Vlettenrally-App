@@ -12,7 +12,10 @@ import nl.vlettenrally.data.enums.PointEntryType;
 import nl.vlettenrally.data.mapper.PointEntryMapper;
 import nl.vlettenrally.data.repository.PointEntryRepository;
 
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -74,6 +77,24 @@ public class JpaPointEntryRepository extends ReadReplicaAwareRepository implemen
                 .setParameter("teamId", teamId)
                 .getSingleResult();
         return result == null ? 0 : result.intValue();
+    }
+
+    @Override
+    public Map<UUID, Integer> sumCurrentAmountByTeams(Collection<UUID> teamIds) {
+        if (teamIds == null || teamIds.isEmpty()) {
+            // An empty IN list is not valid SQL, and there is nothing to sum anyway.
+            return Map.of();
+        }
+        List<Object[]> rows = getReadEntityManager()
+                .createQuery("SELECT e.team.id, COALESCE(SUM(e.currentAmount), 0) FROM PointEntryEntity e "
+                        + "WHERE e.team.id IN :teamIds GROUP BY e.team.id", Object[].class)
+                .setParameter("teamIds", teamIds)
+                .getResultList();
+        Map<UUID, Integer> totals = new HashMap<>(rows.size());
+        for (Object[] row : rows) {
+            totals.put((UUID) row[0], ((Number) row[1]).intValue());
+        }
+        return totals;
     }
 
     @Override

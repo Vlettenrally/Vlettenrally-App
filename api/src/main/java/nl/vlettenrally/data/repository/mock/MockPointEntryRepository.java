@@ -14,10 +14,13 @@ import org.locationtech.jts.geom.PrecisionModel;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -149,6 +152,19 @@ public class MockPointEntryRepository implements PointEntryRepository {
                 .filter(e -> teamId.equals(e.getTeamId()))
                 .mapToInt(PointEntry::getCurrentAmount)
                 .sum();
+    }
+
+    @Override
+    public Map<UUID, Integer> sumCurrentAmountByTeams(Collection<UUID> teamIds) {
+        if (teamIds == null || teamIds.isEmpty()) {
+            return Map.of();
+        }
+        Set<UUID> wanted = new HashSet<>(teamIds);
+        return entries.values().stream()
+                .filter(e -> wanted.contains(e.getTeamId()))
+                .collect(Collectors.groupingBy(
+                        PointEntry::getTeamId,
+                        Collectors.summingInt(PointEntry::getCurrentAmount)));
     }
 
     @Override
