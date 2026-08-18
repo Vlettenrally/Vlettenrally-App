@@ -32,8 +32,11 @@ spec:
               value: http://vlettenrally-api:8080
             - name: WS_URL
               value: ws://vlettenrally-api:8080
-            - name: SCENARIO
-              value: /scenario/scenario.json
+            # The game and its teams are discovered from the API by name marker, so this Job
+            # needs no scenario file. TEAM_COUNT only sizes the VU count up front; set it to
+            # the number of teams you seeded.
+            - name: TEAM_COUNT
+              value: "250"
             - name: DEVICES_PER_TEAM
               value: "3"
             - name: SESSION_SECONDS
@@ -42,6 +45,20 @@ spec:
               value: "2m"
             - name: HOLD
               value: "10m"
+            # k6 plays the rally desk in setup() (PUT /api/v1/teams/{id} needs staff auth), so
+            # it needs a staff account. Create it with:
+            #   kubectl create secret generic loadtest-admin \
+            #     --from-literal=username=<user> --from-literal=password=<pass>
+            - name: ADMIN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: loadtest-admin
+                  key: username
+            - name: ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: loadtest-admin
+                  key: password
             # - name: K6_PROMETHEUS_RW_SERVER_URL
             #   value: http://<prometheus-or-alloy>/api/v1/write
           resources:
@@ -51,13 +68,3 @@ spec:
             limits:
               cpu: "2"
               memory: 1Gi
-          volumeMounts:
-            - name: scenario
-              mountPath: /scenario
-              readOnly: true
-      volumes:
-        # Reuses the same ConfigMap the mock location server mounts:
-        # kubectl create configmap loadtest-scenario --from-file=scenario.json=loadtest/scenario/scenario.json
-        - name: scenario
-          configMap:
-            name: loadtest-scenario

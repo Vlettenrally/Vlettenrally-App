@@ -2,6 +2,7 @@ package nl.vlettenrally.data.repository.jpa;
 
 import io.quarkus.arc.profile.IfBuildProfile;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.NoResultException;
 import jakarta.transaction.Transactional;
 import nl.vlettenrally.data.domain.RefreshToken;
@@ -25,7 +26,27 @@ public class JpaRefreshTokenRepository extends ReadReplicaAwareRepository implem
 
     @Override
     public Optional<RefreshToken> findById(UUID id) {
-        RefreshTokenEntity entity = getReadEntityManager().find(RefreshTokenEntity.class, id);
+        // Primary read: same reasoning as findByToken — revocation state must never come
+        // from a lagging replica.
+        RefreshTokenEntity entity = getReadEntityManager(true).find(RefreshTokenEntity.class, id);
+        return Optional.ofNullable(RefreshTokenMapper.toDomain(entity));
+    }
+
+    @Override
+    public Optional<RefreshToken> findByIdFresh(UUID id) {
+        RefreshTokenEntity entity = getWriteEntityManager().find(RefreshTokenEntity.class, id);
+        if (entity == null) {
+            return Optional.empty();
+        }
+        try {
+            // refresh() is the only call that forces a managed instance to be reloaded from the
+            // database. find() and even a JPQL query would resolve against the persistence
+            // context and return the instance loaded before the bulk UPDATE committed.
+            getWriteEntityManager().refresh(entity);
+        } catch (EntityNotFoundException e) {
+            // Row deleted underneath us (cleanup, logout, check-in reset).
+            return Optional.empty();
+        }
         return Optional.ofNullable(RefreshTokenMapper.toDomain(entity));
     }
 
@@ -54,6 +75,24 @@ public class JpaRefreshTokenRepository extends ReadReplicaAwareRepository implem
         return entities.stream()
                 .map(RefreshTokenMapper::toDomain)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public Optional<RefreshToken> findActiveByFamily(UUID familyId) {
+        try {
+            // Primary read: the successor may have been written milliseconds ago by another pod.
+            RefreshTokenEntity entity = getReadEntityManager(true)
+                    .createQuery("SELECT r FROM RefreshTokenEntity r WHERE r.familyId = :familyId "
+                            + "AND r.revoked = false AND r.expiresAt > :now ORDER BY r.createdAt DESC",
+                            RefreshTokenEntity.class)
+                    .setParameter("familyId", familyId)
+                    .setParameter("now", Instant.now())
+                    .setMaxResults(1)
+                    .getSingleResult();
+            return Optional.ofNullable(RefreshTokenMapper.toDomain(entity));
+        } catch (NoResultException e) {
+            return Optional.empty();
+        }
     }
 
     @Override
@@ -114,6 +153,25 @@ public class JpaRefreshTokenRepository extends ReadReplicaAwareRepository implem
 
     @Override
     @Transactional
+    public void deleteByFamily(UUID familyId) {
+        getWriteEntityManager()
+                .createQuery("DELETE FROM RefreshTokenEntity r WHERE r.familyId = :familyId")
+                .setParameter("familyId", familyId)
+                .executeUpdate();
+    }
+
+    @Override
+    @Transactional
+    public void deleteBySubjectAndDevice(String subject, UUID deviceId) {
+        getWriteEntityManager()
+                .createQuery("DELETE FROM RefreshTokenEntity r WHERE r.subject = :subject AND r.deviceId = :deviceId")
+                .setParameter("subject", subject)
+                .setParameter("deviceId", deviceId)
+                .executeUpdate();
+    }
+
+    @Override
+    @Transactional
     public int markRevokedIfActive(UUID id, Instant revokedAt, String replacedByToken) {
         // Single conditional UPDATE: only the caller that flips revoked=false -> true wins
         // the rotation. Concurrent refreshes with the same token get 0 rows and fall back
@@ -127,6 +185,19 @@ public class JpaRefreshTokenRepository extends ReadReplicaAwareRepository implem
                 .setParameter("now", Instant.now())
                 .setParameter("id", id)
                 .executeUpdate();
+    }
+
+    @Override
+    @Transactional
+    public int incrementReplayCount(UUID id) {
+        getWriteEntityManager()
+                .createQuery("UPDATE RefreshTokenEntity r SET r.replayCount = r.replayCount + 1, "
+                        + "r.updatedAt = :now WHERE r.id = :id")
+                .setParameter("now", Instant.now())
+                .setParameter("id", id)
+                .executeUpdate();
+        // Bulk update again, so read the value back past the persistence context.
+        return findByIdFresh(id).map(RefreshToken::getReplayCount).orElse(0);
     }
 
     @Override

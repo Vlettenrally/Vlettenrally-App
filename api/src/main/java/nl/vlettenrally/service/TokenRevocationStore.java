@@ -46,7 +46,7 @@ public class TokenRevocationStore {
     @Inject
     ReactiveRedisDataSource reactiveRedisDataSource;
 
-    @ConfigProperty(name = "vlettenrally.jwt.access-token-expiry-minutes", defaultValue = "15")
+    @ConfigProperty(name = "vlettenrally.jwt.access-token-expiry-minutes", defaultValue = "60")
     int accessTokenExpiryMinutes;
 
     private ValueCommands<String, String> commands() {

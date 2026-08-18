@@ -56,6 +56,9 @@ public class AdminLoadTestResource {
             : DEFAULT_ENDPOINT_URL;
         boolean seedAutomations = request == null || request.seedAutomations() == null || request.seedAutomations();
         int startInMinutes = value(request == null ? null : request.startInMinutes(), DEFAULT_START_IN_MINUTES);
+        // Default false: the k6 driver plays the rally desk and the app, so check-in is part
+        // of the load test rather than something the seed quietly hands out.
+        boolean preCheckIn = request != null && Boolean.TRUE.equals(request.preCheckIn());
 
         if (teamCount < 1 || teamCount > 2000) {
             return badRequest("teamCount must be between 1 and 2000");
@@ -71,7 +74,7 @@ public class AdminLoadTestResource {
         }
 
         LoadTestScenarioResponse scenario =
-            seedService.seed(teamCount, checkpointCount, centerLat, centerLng, spreadKm, url, seedAutomations, startInMinutes);
+            seedService.seed(teamCount, checkpointCount, centerLat, centerLng, spreadKm, url, seedAutomations, startInMinutes, preCheckIn);
         return Response.ok(scenario).build();
     }
 

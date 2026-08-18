@@ -33,6 +33,11 @@ import java.util.UUID;
  * checkpoints (which double as the movement waypoints). Teams are created with <b>no emergency
  * phone numbers</b> so the Twilio SMS fallback can never fire during a run.
  * <p>
+ * Teams are created <b>not checked in</b>: the k6 driver plays the rally desk and then the app,
+ * so the check-in surge is part of what gets load-tested. Pass {@code preCheckIn=true} to flag
+ * them as checked in up front — only useful when running the location-ingestion half without
+ * k6, since the automation engine and ranking skip teams that are not checked in.
+ * <p>
  * The load-test marker is the game name prefix {@link #MARKER_PREFIX}: teardown refuses any game
  * that does not carry it, so a stray gameId can never delete a real game.
  */
@@ -73,7 +78,7 @@ public class LoadTestSeedService {
     public LoadTestScenarioResponse seed(int teamCount, int checkpointCount,
                                          double centerLat, double centerLng, double spreadKm,
                                          String locationEndpointUrl, boolean seedAutomations,
-                                         int startInMinutes) {
+                                         int startInMinutes, boolean preCheckIn) {
         Instant now = Instant.now();
         Instant startTime = now.plus(Duration.ofMinutes(startInMinutes));
 
@@ -115,11 +120,14 @@ public class LoadTestSeedService {
             team.setDescription("load-test");
             team.setTrackerId(trackerId);
             team.setTrackerAssignedAt(now);
-            // Pre-check-in so the app token exchange (register-device) works immediately.
-            team.setCheckedIn(true);
-            team.setCheckedInDigitally(true);
-            team.setCheckInMethod(CheckInMethod.DIGITAL);
-            // No emergency phone numbers -> Twilio SMS fallback can never fire.
+            if (preCheckIn) {
+                // Opt-in shortcut: skip the check-in surge entirely (ingestion-only runs).
+                team.setCheckedIn(true);
+                team.setCheckedInDigitally(true);
+                team.setCheckInMethod(CheckInMethod.DIGITAL);
+            }
+            // No emergency phone numbers -> Twilio SMS fallback can never fire. The digital
+            // check-in path does not need them for an already physically checked-in team.
             team = teamRepository.save(team);
             savedTeams.add(team);
             teams.add(new LoadTestScenarioResponse.TeamRef(team.getId(), team.getName(), trackerId));
@@ -130,8 +138,8 @@ public class LoadTestSeedService {
             seedAutomationRules(gameId);
         }
 
-        Log.infof("Seeded load-test game %s: %d teams, %d checkpoints, automations=%s, endpoint=%s",
-            gameId, teamCount, checkpointCount, seedAutomations, locationEndpointUrl);
+        Log.infof("Seeded load-test game %s: %d teams, %d checkpoints, automations=%s, preCheckIn=%s, endpoint=%s",
+            gameId, teamCount, checkpointCount, seedAutomations, preCheckIn, locationEndpointUrl);
 
         return new LoadTestScenarioResponse(
             gameId, game.getName(), locationEndpointUrl, game.getStartTime(), waypoints, teams);
@@ -167,7 +175,8 @@ public class LoadTestSeedService {
      * teams move: the built-in distance rule (per-fix accrual), a checkpoint-entry rule that awards
      * points + notifies admins (drives the ledger + ranking recompute + broadcasts on every pass),
      * a checkpoint-entry rule that messages the team (drives the message delivery pipeline), and a
-     * speed-alert rule (fires whenever a team's reported speed clears the threshold). All are
+     * speed-alert rule (fires whenever a team's reported speed clears the threshold). A
+     * check-in rule gives the check-in surge downstream work of its own. All are
      * {@code fireOnce=false} with a cooldown so they re-fire throughout the run without unbounded
      * write volume.
      */
@@ -188,6 +197,12 @@ public class LoadTestSeedService {
         createRule(gameId, "LT checkpoint message", AutomationTriggerType.CHECKPOINT_ENTRY, anyCheckpoint,
             List.of(new AutomationAction.SendMessage("Checkpoint bereikt! (load test)", MessageType.GENERAL, null, null)),
             5);
+
+        // Fires once per team as its main device completes digital check-in, so the check-in
+        // surge also drives the message delivery pipeline.
+        createRule(gameId, "LT check-in welcome", AutomationTriggerType.TEAM_CHECK_IN, null,
+            List.of(new AutomationAction.SendMessage("Welkom bij de rally! (load test)", MessageType.GENERAL, null, null)),
+            1);
 
         // Teams move at 6–22 km/h, so a 12 km/h threshold fires for roughly half of them.
         AutomationTriggerConfig speed =

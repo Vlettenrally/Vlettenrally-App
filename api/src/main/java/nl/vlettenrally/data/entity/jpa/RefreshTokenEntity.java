@@ -18,7 +18,8 @@ import java.util.UUID;
     @Index(name = "idx_refresh_tokens_token", columnList = "token"),
     @Index(name = "idx_refresh_tokens_subject", columnList = "subject"),
     @Index(name = "idx_refresh_tokens_expires_at", columnList = "expires_at"),
-    @Index(name = "idx_refresh_tokens_revoked", columnList = "revoked")
+    @Index(name = "idx_refresh_tokens_revoked", columnList = "revoked"),
+    @Index(name = "idx_refresh_tokens_subject_device", columnList = "subject, device_id")
 })
 @Getter
 @Setter
@@ -52,6 +53,17 @@ public class RefreshTokenEntity {
 
     @Column(name = "replaced_by_token", columnDefinition = "TEXT")
     private String replacedByToken;
+
+    /** Rotation lineage — see the domain class. Nullable: rows written by pre-V90 pods have none. */
+    @Column(name = "family_id")
+    private UUID familyId;
+
+    @Column(name = "device_id")
+    private UUID deviceId;
+
+    /** See the domain class. Incremented by {@code incrementReplayCount}, never by a save(). */
+    @Column(name = "replay_count", nullable = false)
+    private int replayCount;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

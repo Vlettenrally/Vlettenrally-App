@@ -142,7 +142,7 @@ describe('reactive refresh on 401', () => {
     tokens.access = makeJwt({ exp: expSecondsFromNow(3600) });
     tokens.refresh = 'refresh-1';
     fetchMock.mockImplementation(async (url: string) => {
-      if (REFRESH_URL.test(url)) return jsonResponse(503, {});
+      if (REFRESH_URL.test(url)) return jsonResponse(502, {});
       return jsonResponse(401, { message: 'expired' });
     });
 
@@ -153,6 +153,65 @@ describe('reactive refresh on 401', () => {
     expect(window.location.href).toBe(''); // no redirect
     expect(tokens.refresh).toBe('refresh-1'); // token preserved
     expect(result.status).toBe(401);
+  });
+
+  it('retries once when the backend defers the refresh (503) and succeeds', async () => {
+    // 503 means the backend could not resolve the rotation yet — typically a duplicate refresh
+    // in flight. That used to be a 401, which every client reads as "your session is over".
+    vi.useFakeTimers();
+    try {
+      tokens.access = makeJwt({ exp: expSecondsFromNow(3600) });
+      tokens.refresh = 'refresh-1';
+      const rotated = makeJwt({ exp: expSecondsFromNow(3600), sub: 'rotated' });
+      let refreshCalls = 0;
+      let gets = 0;
+      fetchMock.mockImplementation(async (url: string) => {
+        if (REFRESH_URL.test(url)) {
+          refreshCalls += 1;
+          return refreshCalls === 1
+            ? jsonResponse(503, { message: 'retry' })
+            : jsonResponse(200, { accessToken: rotated, refreshToken: 'refresh-2' });
+        }
+        gets += 1;
+        // The first GET 401s, which is what drives the reactive refresh.
+        return gets === 1 ? jsonResponse(401, { message: 'expired' }) : jsonResponse(200, []);
+      });
+
+      const api = await loadApi();
+      const pending = api.get('/games');
+      await vi.advanceTimersByTimeAsync(2500);
+      await pending;
+
+      expect(refreshCalls).toBe(2);
+      expect(tokens.refresh).toBe('refresh-2');
+      expect(storageMock.clearSession).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps the session when both 503 attempts fail', async () => {
+    vi.useFakeTimers();
+    try {
+      tokens.access = makeJwt({ exp: expSecondsFromNow(3600) });
+      tokens.refresh = 'refresh-1';
+      fetchMock.mockImplementation(async (url: string) => {
+        if (REFRESH_URL.test(url)) return jsonResponse(503, {});
+        return jsonResponse(401, { message: 'expired' });
+      });
+
+      const api = await loadApi();
+      const pending = api.get('/games');
+      await vi.advanceTimersByTimeAsync(2500);
+      await pending;
+
+      expect(refreshCallCount()).toBe(2); // one retry, not a loop
+      expect(tokens.refresh).toBe('refresh-1');
+      expect(storageMock.clearSession).not.toHaveBeenCalled();
+      expect(window.location.href).toBe('');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('does NOT clear the session when the refresh request throws (network error)', async () => {

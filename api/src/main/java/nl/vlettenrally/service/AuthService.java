@@ -9,6 +9,7 @@ import nl.vlettenrally.data.domain.Admin;
 import nl.vlettenrally.data.enums.Role;
 import nl.vlettenrally.data.enums.TokenType;
 import nl.vlettenrally.data.domain.Team;
+import nl.vlettenrally.data.dto.auth.RefreshOutcome;
 import nl.vlettenrally.data.dto.auth.TeamInvite;
 import nl.vlettenrally.data.dto.auth.TeamInviteLinkResponse;
 import nl.vlettenrally.data.dto.auth.TokenResult;
@@ -24,9 +25,12 @@ public interface AuthService {
     Optional<TokenResult> exchangeToken(String registrationToken);
 
     /**
-     * Refresh an access token using a refresh token
+     * Refresh an access token using a refresh token, rotating the refresh token in the process.
+     * <p>
+     * See {@link RefreshOutcome} for why the failure cases are split: only a Rejected outcome
+     * should end a session.
      */
-    Optional<TokenResult> refreshToken(String refreshToken);
+    RefreshOutcome refreshToken(String refreshToken);
 
     /**
      * Issue access + refresh tokens for a team without the check-in-token expiry check.
@@ -57,8 +61,8 @@ public interface AuthService {
 
     /**
      * Revoke tokens for a single device of a team (used when an admin removes a single
-     * device rather than resetting the whole team). The team's other devices remain
-     * valid. Refresh tokens are not deleted — they are subject-keyed, not device-keyed.
+     * device rather than resetting the whole team). The team's other devices remain valid.
+     * Deletes that device's refresh tokens as well as writing the access-token cutoff.
      */
     void revokeDeviceTokens(UUID teamId, UUID deviceId);
 

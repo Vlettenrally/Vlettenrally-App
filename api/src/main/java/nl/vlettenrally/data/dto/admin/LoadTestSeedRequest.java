@@ -19,6 +19,11 @@ import io.quarkus.runtime.annotations.RegisterForReflection;
  * @param startInMinutes      minutes from now until the game auto-starts (PLANNED → ACTIVE). The
  *                            game is created not-yet-started so teams check in and move during a
  *                            pre-start window. Null = default (7).
+ * @param preCheckIn          pre-flag the teams as checked in, skipping the check-in surge. Null
+ *                            = false, because the k6 driver performs the rally-desk and digital
+ *                            check-in itself. Set true only when running the location-ingestion
+ *                            half without k6 — the automation engine and ranking filter out
+ *                            teams that are not checked in.
  */
 @RegisterForReflection
 public record LoadTestSeedRequest(
@@ -29,5 +34,6 @@ public record LoadTestSeedRequest(
     Double spreadKm,
     String locationEndpointUrl,
     Boolean seedAutomations,
-    Integer startInMinutes
+    Integer startInMinutes,
+    Boolean preCheckIn
 ) {}

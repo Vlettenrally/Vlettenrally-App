@@ -30,6 +30,9 @@ public class RefreshTokenMapper {
         domain.setRevoked(entity.isRevoked());
         domain.setRevokedAt(entity.getRevokedAt());
         domain.setReplacedByToken(entity.getReplacedByToken());
+        domain.setFamilyId(entity.getFamilyId());
+        domain.setDeviceId(entity.getDeviceId());
+        domain.setReplayCount(entity.getReplayCount());
         domain.setCreatedAt(entity.getCreatedAt());
         domain.setUpdatedAt(entity.getUpdatedAt());
 
@@ -54,6 +57,9 @@ public class RefreshTokenMapper {
         entity.setRevoked(domain.isRevoked());
         entity.setRevokedAt(domain.getRevokedAt());
         entity.setReplacedByToken(domain.getReplacedByToken());
+        entity.setFamilyId(domain.getFamilyId());
+        entity.setDeviceId(domain.getDeviceId());
+        entity.setReplayCount(domain.getReplayCount());
         entity.setCreatedAt(domain.getCreatedAt());
         entity.setUpdatedAt(domain.getUpdatedAt());
 
@@ -62,6 +68,10 @@ public class RefreshTokenMapper {
 
     /**
      * Update an existing entity with values from a domain object.
+     * <p>
+     * {@code familyId} and {@code deviceId} are deliberately not copied: they are fixed when the
+     * row is created, and re-writing them on every save is how a chain would silently re-parent
+     * itself and escape family-scoped revocation.
      */
     public static void updateEntity(RefreshTokenEntity entity, RefreshToken domain) {
         if (entity == null || domain == null) {

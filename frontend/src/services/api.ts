@@ -200,9 +200,27 @@ class ApiService {
       return { success: true, reason: 'ok', accessToken: currentAccess };
     }
 
+    const first = await this.postRefresh();
+
+    // 503 means "unresolvable right now" — a duplicate refresh in flight, typically. One retry
+    // inside the lock turns that into a transparent success. Only one: a retry loop under the
+    // lock would serialise every other tab behind it.
+    if (first.retry) {
+      await new Promise((resolve) => setTimeout(resolve, 1000 + Math.random() * 1000));
+      const second = await this.postRefresh();
+      return second.result;
+    }
+    return first.result;
+  }
+
+  /**
+   * One POST to /auth/refresh. Re-reads the refresh token from storage every time, so a retry
+   * picks up a token another tab rotated in the meantime rather than replaying a stale one.
+   */
+  private async postRefresh(): Promise<{ result: RefreshResult; retry: boolean }> {
     const refreshToken = storage.getRefreshToken();
     if (!refreshToken) {
-      return { success: false, reason: 'invalid' };
+      return { result: { success: false, reason: 'invalid' }, retry: false };
     }
 
     try {
@@ -215,13 +233,19 @@ class ApiService {
       // Definitive rejection: the refresh token is invalid/expired/revoked. End the session.
       if (response.status === 401) {
         console.error('[API] Refresh token rejected (401)');
-        return { success: false, reason: 'invalid' };
+        return { result: { success: false, reason: 'invalid' }, retry: false };
+      }
+
+      // The backend could not resolve the rotation yet. Keep the tokens and come back.
+      if (response.status === 503) {
+        console.warn('[API] Token refresh deferred (503), will retry');
+        return { result: { success: false, reason: 'network' }, retry: true };
       }
 
       // Transient failure (5xx, etc.): keep tokens so a later request can retry.
       if (!response.ok) {
         console.warn('[API] Token refresh transient failure:', response.status);
-        return { success: false, reason: 'network' };
+        return { result: { success: false, reason: 'network' }, retry: false };
       }
 
       const data = await response.json();
@@ -235,15 +259,18 @@ class ApiService {
 
       console.log('[API] Token refreshed successfully');
       return {
-        success: true,
-        reason: 'ok',
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken,
+        result: {
+          success: true,
+          reason: 'ok',
+          accessToken: data.accessToken,
+          refreshToken: data.refreshToken,
+        },
+        retry: false,
       };
     } catch (error) {
       // Network error — do NOT discard tokens; this is exactly the flaky-network case.
       console.error('[API] Token refresh network error:', error);
-      return { success: false, reason: 'network' };
+      return { result: { success: false, reason: 'network' }, retry: false };
     }
   }
 
