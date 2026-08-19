@@ -42,7 +42,7 @@ spec:
       # Recovered cluster archives under a NEW serverName so it does not clobber
       # the source backups it was restored from (which live under the default
       # serverName == cluster name "vlettenrally-database").
-      serverName: vlettenrally-database-v2
+      serverName: vlettenrally-database-v3
   storage:
     size: 50Gi
   # One-shot recovery from the barman object store. Only acts on initial cluster
