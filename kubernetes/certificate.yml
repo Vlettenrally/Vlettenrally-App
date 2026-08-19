@@ -8,7 +8,7 @@ metadata:
 spec:
     secretName: vlettenrally-tls
     issuerRef:
-        name: letsencrypt-production
+        name: letsencrypt
         kind: ClusterIssuer
     commonName: game.vlettenrally.nl
     dnsNames:
