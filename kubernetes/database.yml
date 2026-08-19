@@ -45,7 +45,6 @@ spec:
       serverName: vlettenrally-database-v2
   storage:
     size: 50Gi
-    storageClass: ssd-large
   # One-shot recovery from the barman object store. Only acts on initial cluster
   # creation (bootstrap) — ignored on subsequent reconciles. To re-run, the
   # cluster and its PVCs must be deleted first.
@@ -59,7 +58,7 @@ spec:
         parameters:
           barmanObjectName: backups
           # Read from the OLD serverName (default == original cluster name).
-          serverName: vlettenrally-database
+          serverName: vlettenrally-database-v2
   env:
   - name: AWS_REQUEST_CHECKSUM_CALCULATION
     value: when_required
