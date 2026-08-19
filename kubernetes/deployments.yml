@@ -686,7 +686,6 @@ spec:
       spec:
         accessModes:
           - ReadWriteOnce
-        storageClassName: sata
         resources:
           requests:
             storage: 20Gi
