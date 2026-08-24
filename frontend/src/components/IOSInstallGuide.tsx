@@ -21,7 +21,7 @@ export function IOSInstallGuide({ onComplete, showInviteNote = false }: IOSInsta
   return (
     <Stack spacing={2}>
       <Typography variant="h6">{t('components.iosInstall.heading')}</Typography>
-      <Typography variant="body2" color="text.secondary">
+      <Typography variant="body2" color="textSecondary">
         {t('components.iosInstall.body')}
       </Typography>
 
@@ -36,7 +36,7 @@ export function IOSInstallGuide({ onComplete, showInviteNote = false }: IOSInsta
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5, ml: 1 }}>
             <IosShare sx={{ color: '#007AFF', fontSize: 24 }} />
-            <Typography variant="caption" color="text.secondary">{t('components.iosInstall.step1Caption')}</Typography>
+            <Typography variant="caption" color="textSecondary">{t('components.iosInstall.step1Caption')}</Typography>
           </Box>
         </Box>
 
@@ -46,7 +46,7 @@ export function IOSInstallGuide({ onComplete, showInviteNote = false }: IOSInsta
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5, ml: 1 }}>
             <AddBox sx={{ color: '#007AFF', fontSize: 24 }} />
-            <Typography variant="caption" color="text.secondary">{t('components.iosInstall.step2Caption')}</Typography>
+            <Typography variant="caption" color="textSecondary">{t('components.iosInstall.step2Caption')}</Typography>
           </Box>
         </Box>
 
@@ -64,7 +64,7 @@ export function IOSInstallGuide({ onComplete, showInviteNote = false }: IOSInsta
         {t('components.iosInstall.done')}
       </Button>
 
-      <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
+      <Typography variant="caption" color="textSecondary" sx={{ textAlign: 'center' }}>
         {t('components.iosInstall.failNote')}
       </Typography>
     </Stack>

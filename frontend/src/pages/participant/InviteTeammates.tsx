@@ -139,7 +139,7 @@ export default function InviteTeammatesPage() {
         <Typography variant="h4" component="h1">
           {t('participant.invite.title')}
         </Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" color="textSecondary">
           {t('participant.invite.subtitle', { team: team?.name ?? '' })}
         </Typography>
 
@@ -149,14 +149,18 @@ export default function InviteTeammatesPage() {
               <CircularProgress />
             </Box>
           ) : error ? (
-            <Stack spacing={2} alignItems="center">
+            <Stack spacing={2} sx={{
+              alignItems: "center"
+            }}>
               <Alert severity="error" sx={{ width: '100%' }}>{error}</Alert>
               <Button variant="outlined" onClick={() => void load()}>{t('common.retry')}</Button>
             </Stack>
           ) : (
-            <Stack spacing={2} alignItems="center">
+            <Stack spacing={2} sx={{
+              alignItems: "center"
+            }}>
               <QrIcon color="primary" />
-              <Typography variant="body2" align="center" color="text.secondary">
+              <Typography variant="body2" align="center" color="textSecondary">
                 {t('participant.invite.instructions')}
               </Typography>
               <Box
@@ -167,8 +171,10 @@ export default function InviteTeammatesPage() {
               {/* A teammate whose camera won't cooperate can type this into the app instead — the
                   codes are minted from an alphabet with no I/L/O/U precisely so that works. */}
               {code && (
-                <Stack spacing={0.5} alignItems="center">
-                  <Typography variant="caption" color="text.secondary">
+                <Stack spacing={0.5} sx={{
+                  alignItems: "center"
+                }}>
+                  <Typography variant="caption" color="textSecondary">
                     {t('participant.invite.codeLabel')}
                   </Typography>
                   <Typography

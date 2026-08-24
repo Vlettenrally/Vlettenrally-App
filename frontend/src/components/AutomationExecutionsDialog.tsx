@@ -106,7 +106,7 @@ export default function AutomationExecutionsDialog({
             <CircularProgress />
           </Box>
         ) : executions.length === 0 ? (
-          <Typography color="text.secondary" sx={{ p: 2 }}>
+          <Typography color="textSecondary" sx={{ p: 2 }}>
             {t('components.automationExecutions.noExecutions')}
           </Typography>
         ) : (

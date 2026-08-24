@@ -146,7 +146,7 @@ export default function Checkout() {
       <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold', mb: 1 }}>
         {t('admin.checkout.title')}
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
+      <Typography variant="body2" color="textSecondary" sx={{ mb: 4 }}>
         {t('admin.checkout.subtitle')}
       </Typography>
 
@@ -184,7 +184,9 @@ export default function Checkout() {
                     <Box sx={{ flexGrow: 1 }}>
                       <Typography variant="body1">{option.name}</Typography>
                       {option.description && (
-                        <Typography variant="caption" color="text.secondary" display="block">
+                        <Typography variant="caption" color="textSecondary" sx={{
+                          display: "block"
+                        }}>
                           {option.description}
                         </Typography>
                       )}
@@ -211,7 +213,7 @@ export default function Checkout() {
               {selectedTeam && (
                 <>
                   <Box>
-                    <Typography variant="overline" color="text.secondary" sx={{ display: 'block', lineHeight: 1.2 }}>
+                    <Typography variant="overline" color="textSecondary" sx={{ display: 'block', lineHeight: 1.2 }}>
                       {t('admin.checkout.groupNameLabel')}
                     </Typography>
                     <Typography variant="body1">

@@ -94,7 +94,12 @@ export function GameClockWidget({ collapsed = false }: GameClockWidgetProps) {
     return (
       <Box sx={{ textAlign: 'center', py: 1 }}>
         <ClockIcon color={statusConfig[status].color} />
-        <Typography variant="caption" display="block" sx={{ fontFamily: 'monospace' }}>
+        <Typography
+          variant="caption"
+          sx={{
+            display: "block",
+            fontFamily: 'monospace'
+          }}>
           {timeDisplay}
         </Typography>
       </Box>
@@ -106,7 +111,7 @@ export function GameClockWidget({ collapsed = false }: GameClockWidgetProps) {
       <CardContent sx={{ pb: '12px !important' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
           <ClockIcon sx={{ mr: 1, color: 'primary.main' }} fontSize="small" />
-          <Typography variant="subtitle2" color="text.secondary">
+          <Typography variant="subtitle2" color="textSecondary">
             Game Clock
           </Typography>
         </Box>

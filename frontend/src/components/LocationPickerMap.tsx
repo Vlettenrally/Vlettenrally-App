@@ -656,7 +656,7 @@ export default function LocationPickerMap({
 
       {/* Selected coordinates display + clear button */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.5 }}>
-        <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+        <Typography variant="caption" color="textSecondary" sx={{ fontFamily: 'monospace' }}>
           {value
             ? `📍 ${value.lat.toFixed(5)}, ${value.lng.toFixed(5)}`
             : zoneType === 'polygon'

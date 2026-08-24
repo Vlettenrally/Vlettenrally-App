@@ -160,7 +160,12 @@ export default function Pictures() {
   return (
     <Container maxWidth="md" sx={{ mt: 3, mb: 6 }}>
       <Stack spacing={2}>
-        <Box display="flex" alignItems="center" justifyContent="space-between">
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between"
+          }}>
           <Typography variant="h4" component="h1">
             {t('participant.pictures.title')}
           </Typography>
@@ -174,7 +179,7 @@ export default function Pictures() {
           </Button>
         </Box>
 
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" color="textSecondary">
           {t('participant.pictures.uploadLimit', { max: MAX_PICTURES, current: activeCount })}
         </Typography>
 
@@ -206,17 +211,22 @@ export default function Pictures() {
 
         {activeProgress.map((percent, i) => (
           <Box key={i}>
-            <Typography variant="caption" color="text.secondary">{t('participant.pictures.uploading', { percent })}</Typography>
+            <Typography variant="caption" color="textSecondary">{t('participant.pictures.uploading', { percent })}</Typography>
             <LinearProgress variant="determinate" value={percent} />
           </Box>
         ))}
 
         {loading ? (
-          <Box display="flex" justifyContent="center" sx={{ py: 4 }}>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              py: 4
+            }}>
             <CircularProgress />
           </Box>
         ) : pictures.length === 0 ? (
-          <Typography color="text.secondary">{t('participant.pictures.noPhotos')}</Typography>
+          <Typography color="textSecondary">{t('participant.pictures.noPhotos')}</Typography>
         ) : (
           <Box
             sx={{

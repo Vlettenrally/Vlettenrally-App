@@ -150,7 +150,7 @@ function FullScreenMessage({ text }: { text: string }) {
         textAlign: 'center',
       }}
     >
-      <Typography color="text.secondary">{text}</Typography>
+      <Typography color="textSecondary">{text}</Typography>
     </Box>
   );
 }

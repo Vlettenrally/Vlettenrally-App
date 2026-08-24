@@ -301,7 +301,7 @@ export default function Automations() {
         </Typography>
         <Card>
           <CardContent>
-            <Typography color="text.secondary">
+            <Typography color="textSecondary">
               {t('admin.automations.selectGameFirst')}
             </Typography>
           </CardContent>
@@ -350,7 +350,7 @@ export default function Automations() {
       ) : rules.length === 0 ? (
         <Card>
           <CardContent>
-            <Typography color="text.secondary">
+            <Typography color="textSecondary">
               {t('admin.automations.noAutomations')}
             </Typography>
           </CardContent>
@@ -414,7 +414,9 @@ export default function Automations() {
                 <TableRow key={rule.id} hover>
                   <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography variant="body1" fontWeight="medium">
+                      <Typography variant="body1" sx={{
+                        fontWeight: "medium"
+                      }}>
                         {rule.name}
                       </Typography>
                       {rule.system && <Chip size="small" label={t('admin.automations.systemLabel')} color="info" />}
@@ -422,7 +424,7 @@ export default function Automations() {
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2">{TRIGGER_LABELS[rule.triggerType]}</Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" color="textSecondary">
                       {describeTrigger(rule)}
                     </Typography>
                   </TableCell>
@@ -459,7 +461,9 @@ export default function Automations() {
                     {rule.lastFiredAt ? (
                       <>
                         <RelativeTime date={rule.lastFiredAt} />
-                        <Typography variant="caption" color="text.secondary" display="block">
+                        <Typography variant="caption" color="textSecondary" sx={{
+                          display: "block"
+                        }}>
                           {rule.executionCount}×
                         </Typography>
                       </>

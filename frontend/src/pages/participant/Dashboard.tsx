@@ -219,7 +219,13 @@ export function DashboardPage() {
           }}
         >
           {/* Stats Row */}
-          <Grid container spacing={2} alignItems="center" justifyContent="center">
+          <Grid
+            container
+            spacing={2}
+            sx={{
+              alignItems: "center",
+              justifyContent: "center"
+            }}>
             {/* Punten */}
             <Grid size={{ xs: 6, sm: 6 }}>
               <Box sx={{ 
@@ -286,7 +292,7 @@ export function DashboardPage() {
             />
             {messages.length > RECENT_MESSAGES_COUNT && (
               <Box sx={{ textAlign: 'center', mt: 2 }}>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" color="textSecondary">
                   {t('participant.dashboard.messagesLoaded', { count: messages.length })}
                 </Typography>
               </Box>
@@ -299,7 +305,7 @@ export function DashboardPage() {
             justifyContent: 'center',
             height: '100%',
           }}>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" color="textSecondary">
               {t('participant.dashboard.placeholder')}
             </Typography>
           </Box>

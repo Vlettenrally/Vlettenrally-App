@@ -275,7 +275,7 @@ const Games = () => {
       {games.length === 0 ? (
         <Card>
           <CardContent>
-            <Typography color="text.secondary">
+            <Typography color="textSecondary">
               {t('admin.games.noGames')}
             </Typography>
           </CardContent>
@@ -298,11 +298,13 @@ const Games = () => {
               {games.map((game) => (
                 <TableRow key={game.id} hover>
                   <TableCell>
-                    <Typography variant="body1" fontWeight="medium">
+                    <Typography variant="body1" sx={{
+                      fontWeight: "medium"
+                    }}>
                       {game.name}
                     </Typography>
                     {game.description && (
-                      <Typography variant="body2" color="text.secondary" noWrap sx={{ maxWidth: 200 }}>
+                      <Typography variant="body2" color="textSecondary" noWrap sx={{ maxWidth: 200 }}>
                         {game.description}
                       </Typography>
                     )}
@@ -311,7 +313,7 @@ const Games = () => {
                     {game.externalEventName ? (
                       <Typography variant="body2">{game.externalEventName}</Typography>
                     ) : (
-                      <Typography variant="body2" color="text.secondary">-</Typography>
+                      <Typography variant="body2" color="textSecondary">-</Typography>
                     )}
                   </TableCell>
                   <TableCell>
@@ -332,7 +334,7 @@ const Games = () => {
                         variant="outlined"
                       />
                     ) : (
-                      <Typography variant="body2" color="text.secondary">{t('admin.games.locationNotConfigured')}</Typography>
+                      <Typography variant="body2" color="textSecondary">{t('admin.games.locationNotConfigured')}</Typography>
                     )}
                   </TableCell>
                   <TableCell align="right">

@@ -13,7 +13,7 @@ export default function ParticipantInfoPage() {
         <Typography variant="h4" component="h1">
           {t('participant.info.title')}
         </Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" color="textSecondary">
           {t('participant.info.subtitle', { game: game?.name ?? 'dit spel' })}
         </Typography>
 
@@ -21,7 +21,7 @@ export default function ParticipantInfoPage() {
           {game?.participantInfo ? (
             <MarkdownContent>{game.participantInfo}</MarkdownContent>
           ) : (
-            <Typography color="text.secondary">
+            <Typography color="textSecondary">
               {t('participant.info.noInfo')}
             </Typography>
           )}

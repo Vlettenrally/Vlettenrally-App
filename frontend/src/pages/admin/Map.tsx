@@ -360,7 +360,7 @@ export default function AdminMap() {
         </Box>
       ) : !selectedGameId ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
-          <Typography color="text.secondary">Selecteer een game om de kaart te bekijken</Typography>
+          <Typography color="textSecondary">Selecteer een game om de kaart te bekijken</Typography>
         </Box>
       ) : (
         <Box
@@ -405,7 +405,7 @@ export default function AdminMap() {
                 bgcolor: connected ? 'success.main' : 'error.main',
               }}
             />
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" color="textSecondary">
               {teamLocations.length} teams · {checkpoints.length} checkpoints
             </Typography>
           </ButtonBase>

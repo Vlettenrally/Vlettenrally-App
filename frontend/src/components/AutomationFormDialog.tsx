@@ -787,7 +787,9 @@ export default function AutomationFormDialog({
                     <Box>
                       <Typography variant="body2">{option.name}</Typography>
                       {option.description && (
-                        <Typography variant="caption" color="text.secondary" display="block">
+                        <Typography variant="caption" color="textSecondary" sx={{
+                          display: "block"
+                        }}>
                           {option.description}
                         </Typography>
                       )}

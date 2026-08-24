@@ -118,7 +118,12 @@ export default function Rivals() {
   return (
     <Container maxWidth="md" sx={{ mt: 3, mb: 6 }}>
       <Stack spacing={2}>
-        <Box display="flex" alignItems="center" justifyContent="space-between">
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between"
+          }}>
           <Typography variant="h4" component="h1">
             {t('participant.rivals.title')}
           </Typography>
@@ -136,7 +141,7 @@ export default function Rivals() {
           )}
         </Box>
 
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" color="textSecondary">
           {t('participant.rivals.selectUpToN', { count: MAX_RIVALS })}
         </Typography>
 
@@ -180,7 +185,7 @@ export default function Rivals() {
         <DialogTitle>{t('participant.rivals.chooseRivals')}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" color="textSecondary">
               {t('participant.rivals.selectInstruction', { count: MAX_RIVALS })}
             </Typography>
             <Autocomplete
@@ -205,7 +210,9 @@ export default function Rivals() {
                   <Box>
                     <Typography variant="body2">{option.name}</Typography>
                     {option.description && (
-                      <Typography variant="caption" color="text.secondary" display="block">
+                      <Typography variant="caption" color="textSecondary" sx={{
+                        display: "block"
+                      }}>
                         {option.description}
                       </Typography>
                     )}

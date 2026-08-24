@@ -338,9 +338,10 @@ export default function AdminPictures() {
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
           spacing={2}
-          justifyContent="space-between"
-          alignItems={{ xs: 'flex-start', sm: 'center' }}
-        >
+          sx={{
+            justifyContent: "space-between",
+            alignItems: { xs: 'flex-start', sm: 'center' }
+          }}>
           <Typography variant="h4" component="h1">{t('admin.pictures.title')}</Typography>
           {canDownload && (
             <Button
@@ -385,7 +386,7 @@ export default function AdminPictures() {
             </Box>
             {uploadPercent !== null && (
               <Box>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" color="textSecondary">
                   {t('admin.pictures.uploading', { percent: uploadPercent })}
                 </Typography>
                 <LinearProgress variant="determinate" value={uploadPercent} />
@@ -393,11 +394,16 @@ export default function AdminPictures() {
             )}
           </Stack>
         ) : loading ? (
-          <Box display="flex" justifyContent="center" sx={{ py: 4 }}>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              py: 4
+            }}>
             <CircularProgress />
           </Box>
         ) : visiblePictures.length === 0 && !hasMore ? (
-          <Typography color="text.secondary">{t('admin.pictures.noPhotos')}</Typography>
+          <Typography color="textSecondary">{t('admin.pictures.noPhotos')}</Typography>
         ) : (
           <Box
             sx={{
@@ -428,10 +434,12 @@ export default function AdminPictures() {
                     {picture.teamDescription && (
                       <Typography
                         variant="caption"
-                        color="text.secondary"
+                        color="textSecondary"
                         noWrap
-                        display="block"
                         title={picture.teamDescription}
+                        sx={{
+                          display: "block"
+                        }}
                       >
                         {picture.teamDescription}
                       </Typography>
@@ -466,7 +474,13 @@ export default function AdminPictures() {
         )}
 
         {tab !== 'UPLOAD' && !loading && hasMore && (
-          <Box ref={sentinelRef} display="flex" justifyContent="center" sx={{ py: 3 }}>
+          <Box
+            ref={sentinelRef}
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              py: 3
+            }}>
             {loadingMore && <CircularProgress size={28} />}
           </Box>
         )}

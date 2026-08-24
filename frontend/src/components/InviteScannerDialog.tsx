@@ -132,7 +132,7 @@ export function InviteScannerDialog({ open, onClose, onCode }: InviteScannerDial
             <Alert severity="warning">{t('components.inviteScanner.cameraError')}</Alert>
           ) : (
             <>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="textSecondary">
                 {t('components.inviteScanner.hint')}
               </Typography>
               <Box
@@ -168,12 +168,12 @@ export function InviteScannerDialog({ open, onClose, onCode }: InviteScannerDial
           )}
 
           <Divider>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" color="textSecondary">
               {t('components.inviteScanner.manualDivider')}
             </Typography>
           </Divider>
 
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" color="textSecondary">
             {t('components.inviteScanner.manualHint')}
           </Typography>
           <TextField

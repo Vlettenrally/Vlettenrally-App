@@ -206,7 +206,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       {/* Widgets section - only shown on desktop when not collapsed */}
       {isDesktop && !sidebarCollapsed && (
         <Box sx={{ p: 2, flexGrow: 1, overflowY: 'auto' }}>
-          <Typography variant="overline" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+          <Typography variant="overline" color="textSecondary" sx={{ display: 'block', mb: 1 }}>
             {t('admin.layout.quickStats')}
           </Typography>
           <GameClockWidget collapsed={sidebarCollapsed} />

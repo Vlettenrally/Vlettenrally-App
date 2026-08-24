@@ -88,7 +88,7 @@ export default function CopyZonesDialog({
       <DialogTitle>{t('components.copyZones.title')}</DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" color="textSecondary">
             {t('components.copyZones.description')}
           </Typography>
 

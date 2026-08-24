@@ -507,7 +507,7 @@ export default function Teams() {
                 {filteredTeams.length === 0 && teams.length > 0 && (
                   <TableRow>
                     <TableCell colSpan={columns.length}>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" color="textSecondary">
                         {t('admin.teams.noResults')}
                       </Typography>
                     </TableCell>
@@ -541,7 +541,7 @@ export default function Teams() {
               count: teams.filter((team) => !team.trackerId).length,
             })}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" color="textSecondary">
             {t('admin.teams.trackerDialogHint')}
           </Typography>
         </DialogContent>
@@ -562,7 +562,7 @@ export default function Teams() {
         <DialogTitle>{detail?.title}</DialogTitle>
         <DialogContent dividers>
           {!detail || detail.items.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" color="textSecondary">
               {t('admin.teams.noResults')}
             </Typography>
           ) : (

@@ -182,13 +182,18 @@ export default function Photowall() {
         </Typography>
 
         {loading ? (
-          <Box display="flex" justifyContent="center" sx={{ py: 4 }}>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              py: 4
+            }}>
             <CircularProgress />
           </Box>
         ) : error ? (
           <Typography color="error">{error}</Typography>
         ) : pictures.length === 0 ? (
-          <Typography color="text.secondary">{t('participant.photowall.empty')}</Typography>
+          <Typography color="textSecondary">{t('participant.photowall.empty')}</Typography>
         ) : (
           <Box
             sx={{
@@ -213,10 +218,12 @@ export default function Photowall() {
                       {picture.teamDescription && (
                         <Typography
                           variant="caption"
-                          color="text.secondary"
+                          color="textSecondary"
                           noWrap
-                          display="block"
                           title={picture.teamDescription}
+                          sx={{
+                            display: "block"
+                          }}
                         >
                           {picture.teamDescription}
                         </Typography>
@@ -230,7 +237,13 @@ export default function Photowall() {
         )}
 
         {!loading && !error && hasMore && (
-          <Box ref={sentinelRef} display="flex" justifyContent="center" sx={{ py: 3 }}>
+          <Box
+            ref={sentinelRef}
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              py: 3
+            }}>
             {loadingMore && <CircularProgress size={28} />}
           </Box>
         )}

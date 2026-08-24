@@ -159,7 +159,9 @@ export default function SendMessageDialog({
       <DialogContent>
         {showRallydeskWarning ? (
           <Alert severity="warning" sx={{ mt: 1 }}>
-            <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+            <Typography variant="subtitle1" gutterBottom sx={{
+              fontWeight: "bold"
+            }}>
               {sendViaSms ? t('components.sendMessage.smsForcedWarning') : t('components.sendMessage.smsWarning')}
             </Typography>
             <Typography variant="body2">
@@ -199,7 +201,7 @@ export default function SendMessageDialog({
                 <li {...props} key={option.id}>
                   <Box>
                     <Typography variant="body1">{option.name}</Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" color="textSecondary">
                       {option.messageType} - {option.content.substring(0, 50)}...
                     </Typography>
                   </Box>
@@ -263,7 +265,9 @@ export default function SendMessageDialog({
                         {option.name}
                       </Typography>
                       {option.description && (
-                        <Typography variant="caption" color="text.secondary" display="block">
+                        <Typography variant="caption" color="textSecondary" sx={{
+                          display: "block"
+                        }}>
                           {option.description}
                         </Typography>
                       )}
@@ -329,7 +333,7 @@ export default function SendMessageDialog({
                 ) : undefined
               }
             />
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" color="textSecondary">
               {t('components.sendMessage.teamPlaceholderHint')}
             </Typography>
 

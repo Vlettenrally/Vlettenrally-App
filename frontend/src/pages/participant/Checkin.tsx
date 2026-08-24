@@ -755,7 +755,7 @@ export function CheckInPage() {
                 <Typography variant="h4" component="h1" gutterBottom>
                   Vlettenrally
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" color="textSecondary">
                   {step === 'install-app'
                     ? t('participant.checkin.descriptionInstallApp')
                     : step === 'permissions'
@@ -784,7 +784,14 @@ export function CheckInPage() {
                 >
                   {/* Slide 1: Welkom + Logo */}
                   <SwiperSlide>
-                    <Stack spacing={2} alignItems="center" sx={{ py: 2, height: '100%', justifyContent: 'space-between' }}>
+                    <Stack
+                      spacing={2}
+                      sx={{
+                        alignItems: "center",
+                        py: 2,
+                        height: '100%',
+                        justifyContent: 'space-between'
+                      }}>
                       {/* Logo bovenaan */}
                       <Box
                         component="img"
@@ -824,7 +831,7 @@ export function CheckInPage() {
                         <Typography 
                           variant="body1" 
                           align="center" 
-                          color="text.secondary"
+                          color="textSecondary"
                           sx={{ animation: 'slideInUp 0.8s ease-out 0.7s both' }}
                         >
                           {t('participant.checkin.slide1Body')}
@@ -855,7 +862,7 @@ export function CheckInPage() {
                       {/* Swipe hint */}
                       <Typography 
                         variant="caption" 
-                        color="text.secondary" 
+                        color="textSecondary" 
                         sx={{ 
                           animation: 'pulse 2s ease-in-out infinite',
                           pb: 1,
@@ -1163,7 +1170,14 @@ export function CheckInPage() {
 
                   {/* Slide 4: Call-to-Action */}
                   <SwiperSlide>
-                    <Stack spacing={3} alignItems="center" sx={{ py: 2, height: '100%', justifyContent: 'center' }}>
+                    <Stack
+                      spacing={3}
+                      sx={{
+                        alignItems: "center",
+                        py: 2,
+                        height: '100%',
+                        justifyContent: 'center'
+                      }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <PartyIcon sx={{ color: '#ffcb0f', fontSize: 40 }} />
                         <Typography variant="h4" align="center" sx={{ fontWeight: 700, color: '#165656' }}>
@@ -1219,7 +1233,7 @@ export function CheckInPage() {
                       >
                         {t('participant.checkin.haveInviteQr')}
                       </Button>
-                      <Typography variant="caption" color="text.secondary" align="center">
+                      <Typography variant="caption" color="textSecondary" align="center">
                         {t('participant.checkin.alreadyCheckedIn')}
                       </Typography>
                     </Stack>
@@ -1276,7 +1290,9 @@ export function CheckInPage() {
                       <Box sx={{ flexGrow: 1 }}>
                         <Typography variant="body1">{option.name}</Typography>
                         {option.description && (
-                          <Typography variant="caption" color="text.secondary" display="block">
+                          <Typography variant="caption" color="textSecondary" sx={{
+                            display: "block"
+                          }}>
                             {option.description}
                           </Typography>
                         )}
@@ -1301,7 +1317,9 @@ export function CheckInPage() {
                 />
                 {formError && (
                   <Alert severity="error">
-                    <Stack spacing={1} alignItems="flex-start">
+                    <Stack spacing={1} sx={{
+                      alignItems: "flex-start"
+                    }}>
                       <span>{formError}</span>
                       {/* The closed-window message tells them to go get their team's QR — so give
                           them the scanner right here. The welcome screen's scan button is skipped
@@ -1336,7 +1354,7 @@ export function CheckInPage() {
             {step === 'nickname' && (
               <Stack spacing={2}>
                 <Typography variant="h6">{t('participant.checkin.deviceName')}</Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" color="textSecondary">
                   {t('participant.checkin.deviceNameHint')}
                 </Typography>
                 <TextField
@@ -1362,7 +1380,7 @@ export function CheckInPage() {
             {step === 'details' && (
               <Stack spacing={2}>
                 <Typography variant="h6">{t('participant.checkin.teamDetails')}</Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" color="textSecondary">
                   {t('participant.checkin.teamDetails')}
                 </Typography>
                 <TextField
@@ -1399,7 +1417,7 @@ export function CheckInPage() {
             {step === 'traccar-setup' && traccarSetup && (
               <Stack spacing={2}>
                 <Typography variant="h6">{t('participant.checkin.traccarSetupTitle')}</Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" color="textSecondary">
                   {t('participant.checkin.traccarDescription')}
                 </Typography>
                 <Stack direction="row" spacing={1}>
@@ -1434,7 +1452,7 @@ export function CheckInPage() {
                 >
                   {t('participant.checkin.traccarOpenButton')}
                 </Button>
-                <Typography variant="caption" color="text.secondary" sx={{ mt: -1 }}>
+                <Typography variant="caption" color="textSecondary" sx={{ mt: -1 }}>
                   {t('participant.checkin.traccarOpenHint')}
                 </Typography>
 
@@ -1461,13 +1479,13 @@ export function CheckInPage() {
                   ) : (
                     <CircularProgress />
                   )}
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                  <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 1 }}>
                     {t('participant.checkin.traccarScanHint')}
                   </Typography>
                 </Box>
 
                 <Box>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                  <Typography variant="body2" color="textSecondary" gutterBottom>
                     {t('participant.checkin.traccarManualHint')}
                   </Typography>
                   <Stack spacing={1.5} sx={{ mt: 1 }}>
@@ -1513,7 +1531,7 @@ export function CheckInPage() {
             {step === 'rivals' && (
               <Stack spacing={2}>
                 <Typography variant="h6">{t('participant.checkin.selectRivals')}</Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" color="textSecondary">
                   {t('participant.checkin.selectRivalsDescription', { count: MAX_RIVALS })}
                 </Typography>
                 <Autocomplete
@@ -1539,7 +1557,9 @@ export function CheckInPage() {
                       <Box>
                         <Typography variant="body2">{option.name}</Typography>
                         {option.description && (
-                          <Typography variant="caption" color="text.secondary" display="block">
+                          <Typography variant="caption" color="textSecondary" sx={{
+                            display: "block"
+                          }}>
                             {option.description}
                           </Typography>
                         )}
@@ -1587,7 +1607,7 @@ export function CheckInPage() {
                     ? t('participant.checkin.waitingForLeader', { name: mainDeviceNickname })
                     : t('participant.checkin.waitingForMainPhone')}
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" color="textSecondary">
                   {t('participant.checkin.waitingDetails')}
                 </Typography>
               </Stack>
@@ -1596,7 +1616,7 @@ export function CheckInPage() {
             {step === 'permissions' && (
               <Stack spacing={2}>
                 <Typography variant="h6">{t('participant.checkin.allowNotifications')}</Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" color="textSecondary">
                   {t('participant.checkin.notificationsDesc')}
                 </Typography>
 

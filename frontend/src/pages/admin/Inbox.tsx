@@ -153,7 +153,7 @@ export default function AdminInbox() {
               </Box>
             ) : notifications.length === 0 ? (
               <Box sx={{ py: 5, textAlign: 'center' }}>
-                <Typography color="text.secondary">{t('admin.inbox.noNotifications')}</Typography>
+                <Typography color="textSecondary">{t('admin.inbox.noNotifications')}</Typography>
               </Box>
             ) : (
               <List disablePadding>
@@ -186,11 +186,11 @@ export default function AdminInbox() {
                       secondary={
                         <Box sx={{ display: 'flex', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
                           {notification.teamName && (
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" color="textSecondary">
                               {t('common.team')}: {notification.teamName}
                             </Typography>
                           )}
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant="caption" color="textSecondary">
                             {new Date(notification.createdAt).toLocaleString(undefined)}
                           </Typography>
                           <Chip size="small" variant="outlined" label={notification.source} />

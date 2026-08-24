@@ -208,7 +208,7 @@ const Zones = () => {
         </Typography>
         <Card>
           <CardContent>
-            <Typography color="text.secondary">
+            <Typography color="textSecondary">
               {t('admin.zones.selectGameFirst')}
             </Typography>
           </CardContent>
@@ -266,7 +266,7 @@ const Zones = () => {
       ) : checkpoints.length === 0 ? (
         <Card>
           <CardContent>
-            <Typography color="text.secondary">
+            <Typography color="textSecondary">
               {t('admin.zones.noZones')}
             </Typography>
           </CardContent>
@@ -289,7 +289,9 @@ const Zones = () => {
                 <TableRow key={cp.id} hover>
                   <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <Typography variant="body1" fontWeight="medium">
+                      <Typography variant="body1" sx={{
+                        fontWeight: "medium"
+                      }}>
                         {cp.name}
                       </Typography>
                       {cp.hidden && (
@@ -304,7 +306,7 @@ const Zones = () => {
                       )}
                     </Box>
                     {cp.externalId && (
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" color="textSecondary">
                         {t('admin.zones.external', { id: cp.externalId })}
                       </Typography>
                     )}
@@ -314,7 +316,7 @@ const Zones = () => {
                     <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
                       {formatLocation(cp.latitude, cp.longitude)}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" color="textSecondary">
                       {cp.zoneType === 'polygon'
                         ? t('admin.zones.polygon', { count: cp.polygonPoints?.length ?? 0 })
                         : t('admin.zones.circle', { radius: cp.radiusMeters ?? 50 })}

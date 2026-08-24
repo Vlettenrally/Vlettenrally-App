@@ -45,7 +45,9 @@ export function ActiveGamesWidget({ collapsed = false }: ActiveGamesWidgetProps)
     return (
       <Box sx={{ textAlign: 'center', py: 1 }}>
         <GamesIcon color="primary" />
-        <Typography variant="caption" display="block">
+        <Typography variant="caption" sx={{
+          display: "block"
+        }}>
           {activeGames.length}
         </Typography>
       </Box>
@@ -57,7 +59,7 @@ export function ActiveGamesWidget({ collapsed = false }: ActiveGamesWidgetProps)
       <CardContent sx={{ pb: '12px !important' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
           <GamesIcon sx={{ mr: 1, color: 'primary.main' }} fontSize="small" />
-          <Typography variant="subtitle2" color="text.secondary">
+          <Typography variant="subtitle2" color="textSecondary">
             Games
           </Typography>
         </Box>
@@ -69,7 +71,7 @@ export function ActiveGamesWidget({ collapsed = false }: ActiveGamesWidgetProps)
               <Typography variant="h4" component="span">
                 {activeGames.length}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="textSecondary">
                 active
               </Typography>
             </Box>
