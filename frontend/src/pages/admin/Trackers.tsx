@@ -93,6 +93,7 @@ export default function Trackers() {
   const [deleting, setDeleting] = useState(false);
   const [deleteResult, setDeleteResult] = useState<{ deleted: number } | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
 
   const loadTrackers = useCallback(async () => {
     try {
@@ -118,6 +119,12 @@ export default function Trackers() {
     const id = setInterval(() => void loadTrackers(), REFRESH_INTERVAL_MS);
     return () => clearInterval(id);
   }, [loadTrackers, picking]);
+
+  // Ticks the stale/fresh styling of last-seen timestamps between data refreshes.
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), REFRESH_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, []);
 
   const handleAddTrackers = async () => {
     // Split the pasted blob into individual tracker IDs (one per line, also
@@ -223,7 +230,7 @@ export default function Trackers() {
       );
     }
     const lastSeen = new Date(tracker.lastSeenAt);
-    const stale = Date.now() - lastSeen.getTime() > STALE_AFTER_MS;
+    const stale = now - lastSeen.getTime() > STALE_AFTER_MS;
     return (
       <Typography variant="body2" color={stale ? 'text.disabled' : 'text.primary'}>
         {lastSeen.toLocaleString(i18n.language)}

@@ -19,5 +19,13 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    rules: {
+      // React Compiler readiness rules, newly enforced by the eslint-plugin-react-hooks
+      // 7.1.1 bump. This project doesn't run the React Compiler, and satisfying these
+      // would mean restructuring effect-based data loading across most of the app.
+      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/refs': 'off',
+      'react-hooks/preserve-manual-memoization': 'off',
+    },
   },
 ])

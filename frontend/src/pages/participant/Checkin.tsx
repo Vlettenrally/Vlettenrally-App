@@ -293,6 +293,78 @@ export function CheckInPage() {
     void resolveInvite(code);
   }, [resolveInvite]);
 
+  const applyRegisterResponse = useCallback(async (response: RegisterDeviceResponse, teamGameId: string, teamId: string) => {
+    storage.setAuthToken(response.accessToken);
+    storage.setRefreshToken(response.refreshToken);
+    // Server assigns the canonical deviceId; persist it for future visits.
+    setDeviceId(response.deviceId);
+    setMainDeviceNickname(response.mainDeviceNickname ?? null);
+    setTraccarSetup(
+      response.traccarEnabled && response.traccarIdentifier && response.traccarServerUrl
+        ? { identifier: response.traccarIdentifier, serverUrl: response.traccarServerUrl }
+        : null
+    );
+
+    const teamResponse = await api.getMyTeam();
+    if (teamResponse.data) {
+      const teamData = teamResponse.data as PlayerTeam;
+      persistTeamData(teamData);
+    } else {
+      storage.setTeamId(teamId);
+      storage.setGameId(teamGameId);
+    }
+
+    // Gate app access on the server's per-device details state: registration has
+    // already persisted teamId/gameId above, so without this the route guard would
+    // admit a device that has not yet submitted its required details.
+    storage.setCheckInComplete(response.detailsSubmitted);
+
+    if (response.detailsSubmitted) {
+      setStep('permissions');
+    } else if (response.isMainDevice) {
+      setStep('details');
+    } else {
+      setStep('wait');
+    }
+  }, [persistTeamData, setDeviceId]);
+
+  /**
+   * Resume an interrupted check-in. A device that registered but has not yet
+   * submitted its required details (isCheckInComplete() === false) is bounced back
+   * to /check-in by the route guard — e.g. after the browser back button left the
+   * details step. Re-run the idempotent registration so applyRegisterResponse drops
+   * the user straight back on the right step (details / wait / permissions), skipping
+   * the game/team/nickname pickers. Returns false (so the caller falls back to the
+   * normal entry flow) if the stored team or nickname needed to resume is missing.
+   */
+  const resumePendingCheckIn = useCallback(async (): Promise<boolean> => {
+    const teamData = storage.getTeamData() as PlayerTeam | null;
+    const savedNickname = storedNickname.trim();
+    if (!teamData?.id || !teamData.gameId || savedNickname.length === 0) {
+      return false;
+    }
+    setResolvedTeam({ id: teamData.id, gameId: teamData.gameId, name: teamData.name });
+    setSelectedGameId(teamData.gameId);
+    setStep('loading');
+    try {
+      const response = await api.registerCheckInDevice({
+        gameId: teamData.gameId,
+        teamId: teamData.id,
+        deviceId: deviceId ?? null,
+        nickname: savedNickname,
+        inviteToken: null,
+      });
+      if (response.error || !response.data) {
+        return false;
+      }
+      await applyRegisterResponse(response.data, teamData.gameId, teamData.id);
+      return true;
+    } catch (err) {
+      console.error('resume check-in error:', err);
+      return false;
+    }
+  }, [storedNickname, deviceId, applyRegisterResponse]);
+
   // Entry: Show welcome screen for first-time users, then proceed to install-app or check-in.
   useEffect(() => {
     const hasInvite = parseInviteCode(searchParams.get('invite'));
@@ -390,78 +462,6 @@ export function CheckInPage() {
     setFormError(null);
     setStep('nickname');
   };
-
-  const applyRegisterResponse = useCallback(async (response: RegisterDeviceResponse, teamGameId: string, teamId: string) => {
-    storage.setAuthToken(response.accessToken);
-    storage.setRefreshToken(response.refreshToken);
-    // Server assigns the canonical deviceId; persist it for future visits.
-    setDeviceId(response.deviceId);
-    setMainDeviceNickname(response.mainDeviceNickname ?? null);
-    setTraccarSetup(
-      response.traccarEnabled && response.traccarIdentifier && response.traccarServerUrl
-        ? { identifier: response.traccarIdentifier, serverUrl: response.traccarServerUrl }
-        : null
-    );
-
-    const teamResponse = await api.getMyTeam();
-    if (teamResponse.data) {
-      const teamData = teamResponse.data as PlayerTeam;
-      persistTeamData(teamData);
-    } else {
-      storage.setTeamId(teamId);
-      storage.setGameId(teamGameId);
-    }
-
-    // Gate app access on the server's per-device details state: registration has
-    // already persisted teamId/gameId above, so without this the route guard would
-    // admit a device that has not yet submitted its required details.
-    storage.setCheckInComplete(response.detailsSubmitted);
-
-    if (response.detailsSubmitted) {
-      setStep('permissions');
-    } else if (response.isMainDevice) {
-      setStep('details');
-    } else {
-      setStep('wait');
-    }
-  }, [persistTeamData, setDeviceId]);
-
-  /**
-   * Resume an interrupted check-in. A device that registered but has not yet
-   * submitted its required details (isCheckInComplete() === false) is bounced back
-   * to /check-in by the route guard — e.g. after the browser back button left the
-   * details step. Re-run the idempotent registration so applyRegisterResponse drops
-   * the user straight back on the right step (details / wait / permissions), skipping
-   * the game/team/nickname pickers. Returns false (so the caller falls back to the
-   * normal entry flow) if the stored team or nickname needed to resume is missing.
-   */
-  const resumePendingCheckIn = useCallback(async (): Promise<boolean> => {
-    const teamData = storage.getTeamData() as PlayerTeam | null;
-    const savedNickname = storedNickname.trim();
-    if (!teamData?.id || !teamData.gameId || savedNickname.length === 0) {
-      return false;
-    }
-    setResolvedTeam({ id: teamData.id, gameId: teamData.gameId, name: teamData.name });
-    setSelectedGameId(teamData.gameId);
-    setStep('loading');
-    try {
-      const response = await api.registerCheckInDevice({
-        gameId: teamData.gameId,
-        teamId: teamData.id,
-        deviceId: deviceId ?? null,
-        nickname: savedNickname,
-        inviteToken: null,
-      });
-      if (response.error || !response.data) {
-        return false;
-      }
-      await applyRegisterResponse(response.data, teamData.gameId, teamData.id);
-      return true;
-    } catch (err) {
-      console.error('resume check-in error:', err);
-      return false;
-    }
-  }, [storedNickname, deviceId, applyRegisterResponse]);
 
   // Pre-render the Traccar config as a QR the app can scan to configure itself.
   useEffect(() => {
