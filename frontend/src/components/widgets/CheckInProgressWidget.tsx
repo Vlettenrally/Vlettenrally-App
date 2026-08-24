@@ -47,7 +47,9 @@ export function CheckInProgressWidget({ collapsed = false }: CheckInProgressWidg
     return (
       <Box sx={{ textAlign: 'center', py: 1 }}>
         <CheckInIcon color={progress === 100 ? 'success' : 'primary'} />
-        <Typography variant="caption" display="block">
+        <Typography variant="caption" sx={{
+          display: "block"
+        }}>
           {checkedIn}/{total}
         </Typography>
       </Box>
@@ -59,7 +61,7 @@ export function CheckInProgressWidget({ collapsed = false }: CheckInProgressWidg
       <CardContent sx={{ pb: '12px !important' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
           <CheckInIcon sx={{ mr: 1, color: 'primary.main' }} fontSize="small" />
-          <Typography variant="subtitle2" color="text.secondary">
+          <Typography variant="subtitle2" color="textSecondary">
             Check-In Progress
           </Typography>
         </Box>
@@ -71,7 +73,7 @@ export function CheckInProgressWidget({ collapsed = false }: CheckInProgressWidg
               <Typography variant="h4" component="span">
                 {checkedIn}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="textSecondary">
                 / {total} teams
               </Typography>
             </Box>

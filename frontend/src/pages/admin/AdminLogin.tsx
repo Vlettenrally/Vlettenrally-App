@@ -101,7 +101,7 @@ export function AdminLogin() {
             <Typography variant="h5" component="h1" gutterBottom>
               {t('admin.adminLogin.title')}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" color="textSecondary">
               {t('admin.adminLogin.subtitle')}
             </Typography>
           </Box>

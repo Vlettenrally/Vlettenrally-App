@@ -341,7 +341,7 @@ export default function AdminMessages() {
                   ) : messages.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                        <Typography color="text.secondary">
+                        <Typography color="textSecondary">
                           {t('admin.messages.noMessages')}
                         </Typography>
                       </TableCell>
@@ -550,7 +550,7 @@ export default function AdminMessages() {
                   ) : templates.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
-                        <Typography color="text.secondary">
+                        <Typography color="textSecondary">
                           {t('admin.messages.noTemplates')}
                         </Typography>
                       </TableCell>
@@ -561,7 +561,9 @@ export default function AdminMessages() {
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             {template.icon && <span>{template.icon}</span>}
-                            <Typography fontWeight="medium">{template.name}</Typography>
+                            <Typography sx={{
+                              fontWeight: "medium"
+                            }}>{template.name}</Typography>
                           </Box>
                         </TableCell>
                         <TableCell>

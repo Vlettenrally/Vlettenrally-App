@@ -106,7 +106,9 @@ export default function Ranking() {
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
       <Stack spacing={2}>
-        <Stack direction="row" spacing={1.5} alignItems="center">
+        <Stack direction="row" spacing={1.5} sx={{
+          alignItems: "center"
+        }}>
           <Typography variant="h4" component="h1">{t('admin.ranking.title')}</Typography>
           {loading && <CircularProgress size={20} />}
           <Box sx={{ flex: 1 }} />
@@ -119,7 +121,7 @@ export default function Ranking() {
             {t('admin.ranking.export')}
           </Button>
         </Stack>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" color="textSecondary">
           {t('admin.ranking.subtitle')}
         </Typography>
 

@@ -33,7 +33,7 @@ export function MessageList({ messages, emptyText }: MessageListProps) {
   if (messages.length === 0) {
     return (
       <Box sx={{ p: 2, textAlign: 'center' }}>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" color="textSecondary">
           {effectiveEmptyText}
         </Typography>
       </Box>

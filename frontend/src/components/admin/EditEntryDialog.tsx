@@ -75,7 +75,7 @@ export default function EditEntryDialog({ open, onClose, entry, onSaved }: EditE
       <DialogTitle>{t('components.editEntry.title')}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" color="textSecondary">
             {t('components.editEntry.subtitle', { original: entry.originalAmount, current: entry.currentAmount })}
             {entry.description ? ` · ${entry.description}` : ''}
           </Typography>
@@ -90,7 +90,7 @@ export default function EditEntryDialog({ open, onClose, entry, onSaved }: EditE
             error={!amountIsValid && amount.trim() !== ''}
           />
           {delta !== 0 && (
-            <Typography variant="caption" color={delta < 0 ? 'error' : 'success.main'}>
+            <Typography variant="caption" color={delta < 0 ? 'error' : 'success'}>
               {t('components.editEntry.change')} {delta > 0 ? '+' : ''}{delta}
             </Typography>
           )}

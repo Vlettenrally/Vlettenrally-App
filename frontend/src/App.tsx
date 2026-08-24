@@ -184,7 +184,7 @@ function MockModeLauncher() {
             <Typography variant="h5" component="h1">
               Mock modus
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" color="textSecondary">
               Kies welke interface je wilt openen. Beide openen in een nieuw tabblad.
             </Typography>
             <Button variant="contained" onClick={openInterface(seedMockAdminSession, '/admin/map')}>

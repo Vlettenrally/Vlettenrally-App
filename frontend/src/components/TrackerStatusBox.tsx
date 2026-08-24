@@ -44,7 +44,7 @@ export default function TrackerStatusBox({
     >
       <TrackerIcon color={trackerId ? 'primary' : 'disabled'} />
       <Box sx={{ flexGrow: 1 }}>
-        <Typography variant="overline" color="text.secondary" sx={{ display: 'block', lineHeight: 1.2 }}>
+        <Typography variant="overline" color="textSecondary" sx={{ display: 'block', lineHeight: 1.2 }}>
           {label}
         </Typography>
         <Typography variant="h6" sx={{ wordBreak: 'break-all' }}>
@@ -52,7 +52,7 @@ export default function TrackerStatusBox({
         </Typography>
         {trackerId && tracker !== undefined && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-            <Typography variant="caption" color={stale ? 'warning.main' : 'text.secondary'}>
+            <Typography variant="caption" color={stale ? 'warning' : 'textSecondary'}>
               {t('admin.trackers.columnLastSeen')}: {lastSeenText}
             </Typography>
             {tracker?.batteryPercentage != null && (

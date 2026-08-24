@@ -456,7 +456,7 @@ export default function CheckpointStation() {
       {selectedCheckpointId && (
         <>
           {selectedCheckpoint && (
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
               {t('admin.checkpointStation.defaultPoints', { points: selectedCheckpoint.points })}
             </Typography>
           )}
@@ -473,10 +473,12 @@ export default function CheckpointStation() {
                   {visibleTeams.map((team) => (
                     <Box key={team.teamId} sx={{ p: 2 }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
-                        <Typography variant="subtitle1" fontWeight="medium">{team.teamName}</Typography>
+                        <Typography variant="subtitle1" sx={{
+                          fontWeight: "medium"
+                        }}>{team.teamName}</Typography>
                         {statusChip(team)}
                       </Box>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: actionable(team.achievementStatus) ? 1.5 : 0 }}>
+                      <Typography variant="body2" color="textSecondary" sx={{ mb: actionable(team.achievementStatus) ? 1.5 : 0 }}>
                         {t('admin.checkpointStation.detected', { time: formatTime(team.detectedAt) })}
                       </Typography>
                       {actionable(team.achievementStatus) && (
@@ -714,7 +716,9 @@ export default function CheckpointStation() {
                 <Box>
                   <Typography variant="body2">{option.name}</Typography>
                   {option.description && (
-                    <Typography variant="caption" color="text.secondary" display="block">
+                    <Typography variant="caption" color="textSecondary" sx={{
+                      display: "block"
+                    }}>
                       {option.description}
                     </Typography>
                   )}

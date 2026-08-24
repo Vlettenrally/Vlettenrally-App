@@ -273,7 +273,7 @@ export default function CheckIn() {
       <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold', mb: 1 }}>
         {t('admin.checkIn.title')}
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
+      <Typography variant="body2" color="textSecondary" sx={{ mb: 4 }}>
         {t('admin.checkIn.subtitle')}
       </Typography>
 
@@ -313,7 +313,9 @@ export default function CheckIn() {
                       <Box sx={{ flexGrow: 1 }}>
                         <Typography variant="body1">{option.name}</Typography>
                         {option.description && (
-                          <Typography variant="caption" color="text.secondary" display="block">
+                          <Typography variant="caption" color="textSecondary" sx={{
+                            display: "block"
+                          }}>
                             {option.description}
                           </Typography>
                         )}
@@ -390,7 +392,7 @@ export default function CheckIn() {
                       {t('admin.checkIn.manualCheckIn')}
                     </Button>
                   </Stack>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
+                  <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 1.5 }}>
                     {t('admin.checkIn.digitalDescription')}
                   </Typography>
                 </Box>
@@ -405,7 +407,7 @@ export default function CheckIn() {
             {step === 'manual' && selectedTeam && (
               <Stack spacing={2}>
                 <Typography variant="h6">{t('admin.checkIn.manualCheckInTitle', { name: selectedTeam.name })}</Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" color="textSecondary">
                   {t('admin.checkIn.digitalDescription')}
                 </Typography>
 

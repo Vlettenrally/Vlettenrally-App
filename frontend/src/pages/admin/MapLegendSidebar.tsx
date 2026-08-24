@@ -212,9 +212,9 @@ export function MapLegendSidebar({
             />
             <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
               {teams.length === 0 ? (
-                <Typography variant="body2" color="text.secondary">{t('admin.map.noTeams')}</Typography>
+                <Typography variant="body2" color="textSecondary">{t('admin.map.noTeams')}</Typography>
               ) : filteredTeams.length === 0 ? (
-                <Typography variant="body2" color="text.secondary">{t('admin.map.noTeamsFound')}</Typography>
+                <Typography variant="body2" color="textSecondary">{t('admin.map.noTeamsFound')}</Typography>
               ) : (
                 <List dense disablePadding>
                   {filteredTeams.map(team => {
@@ -307,7 +307,7 @@ export function MapLegendSidebar({
             </Box>
             <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
               {checkpoints.length === 0 ? (
-                <Typography variant="body2" color="text.secondary">{t('admin.map.noCheckpoints')}</Typography>
+                <Typography variant="body2" color="textSecondary">{t('admin.map.noCheckpoints')}</Typography>
               ) : (
                 <List dense disablePadding>
                   {checkpoints.map(cp => {

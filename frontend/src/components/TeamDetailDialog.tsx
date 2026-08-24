@@ -679,7 +679,7 @@ export default function TeamDetailDialog({
                   />
                 )}
                 {team.traccarEnabled && team.traccarIdentifier && (
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1, wordBreak: 'break-all' }}>
+                  <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 1, wordBreak: 'break-all' }}>
                     {t('components.teamDetail.traccarDeviceId', { id: team.traccarIdentifier })}
                   </Typography>
                 )}
@@ -734,7 +734,7 @@ export default function TeamDetailDialog({
                     </Button>
                     <Typography
                       variant="caption"
-                      color="text.secondary"
+                      color="textSecondary"
                       sx={{ display: 'block', mt: 0.5 }}
                     >
                       {t('components.teamDetail.backfillHint')}
@@ -827,7 +827,7 @@ export default function TeamDetailDialog({
                     ))}
                   </Box>
                 ) : (
-                  <Typography color="text.secondary">{t('components.teamDetail.noRivalTeams')}</Typography>
+                  <Typography color="textSecondary">{t('components.teamDetail.noRivalTeams')}</Typography>
                 )}
               </Box>
 
@@ -847,8 +847,13 @@ export default function TeamDetailDialog({
                       {t('components.teamDetail.showInviteQr')}
                     </Button>
                   ) : (
-                    <Stack spacing={1} alignItems="center" sx={{ py: 1 }}>
-                      <Typography variant="caption" color="text.secondary" align="center">
+                    <Stack
+                      spacing={1}
+                      sx={{
+                        alignItems: "center",
+                        py: 1
+                      }}>
+                      <Typography variant="caption" color="textSecondary" align="center">
                         {t('components.teamDetail.inviteQrHint')}
                       </Typography>
                       {qrPending ? (
@@ -861,8 +866,10 @@ export default function TeamDetailDialog({
                             <canvas ref={qrCanvasRef} />
                           </Box>
                           {inviteCode && (
-                            <Stack spacing={0.5} alignItems="center">
-                              <Typography variant="caption" color="text.secondary">
+                            <Stack spacing={0.5} sx={{
+                              alignItems: "center"
+                            }}>
+                              <Typography variant="caption" color="textSecondary">
                                 {t('components.teamDetail.inviteCodeLabel')}
                               </Typography>
                               <Typography
@@ -899,7 +906,7 @@ export default function TeamDetailDialog({
                 {loadingDevices ? (
                   <CircularProgress size={20} />
                 ) : devices.length === 0 ? (
-                  <Typography color="text.secondary">{t('components.teamDetail.noDevices')}</Typography>
+                  <Typography color="textSecondary">{t('components.teamDetail.noDevices')}</Typography>
                 ) : (
                   <Stack spacing={1}>
                     {devices.map((device) => (
@@ -924,7 +931,7 @@ export default function TeamDetailDialog({
                               <Chip size="small" color="primary" label={t('components.teamDetail.mainPhone')} />
                             )}
                           </Box>
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant="caption" color="textSecondary">
                             {t('components.teamDetail.lastSeen', { time: new Date(device.lastSeen).toLocaleString() })}
                           </Typography>
                         </Box>

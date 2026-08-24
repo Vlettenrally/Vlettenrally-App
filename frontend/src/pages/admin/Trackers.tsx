@@ -240,7 +240,7 @@ export default function Trackers() {
   const renderLastSeen = (tracker: Tracker) => {
     if (!tracker.lastSeenAt) {
       return (
-        <Typography variant="body2" color="text.disabled">
+        <Typography variant="body2" color="textDisabled">
           {t('admin.trackers.neverSeen')}
         </Typography>
       );
@@ -248,7 +248,7 @@ export default function Trackers() {
     const lastSeen = new Date(tracker.lastSeenAt);
     const stale = now - lastSeen.getTime() > STALE_AFTER_MS;
     return (
-      <Typography variant="body2" color={stale ? 'text.disabled' : 'text.primary'}>
+      <Typography variant="body2" color={stale ? 'textDisabled' : 'textPrimary'}>
         {lastSeen.toLocaleString(i18n.language)}
       </Typography>
     );
@@ -322,7 +322,7 @@ export default function Trackers() {
               <CircularProgress />
             </Box>
           ) : trackers.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" color="textSecondary">
               {t('admin.trackers.noTrackers')}
             </Typography>
           ) : (
@@ -396,7 +396,7 @@ export default function Trackers() {
       <Dialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{t('admin.trackers.addDialogTitle')}</DialogTitle>
         <DialogContent dividers>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
             {t('admin.trackers.addDialogHint')}
           </Typography>
           <TextField
@@ -431,7 +431,7 @@ export default function Trackers() {
       >
         <DialogTitle>{t('admin.trackers.deleteDialogTitle')}</DialogTitle>
         <DialogContent dividers>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" color="textSecondary">
             {t('admin.trackers.deleteDialogHint')}
           </Typography>
           {deleteError && (
@@ -452,7 +452,7 @@ export default function Trackers() {
               </ListItemIcon>
               <ListItemText
                 primary={t('admin.trackers.selectAll')}
-                slotProps={{ primary: { fontWeight: 'bold' } }}
+                slotProps={{ primary: { sx: { fontWeight: 'bold' } } }}
               />
             </ListItemButton>
             {trackers.map((tracker) => {

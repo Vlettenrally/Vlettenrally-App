@@ -545,7 +545,7 @@ export default function GameFormDialog({
           {/* Per-game ingest guard overrides — collapsed by default; blank inherits the system default. */}
           <Accordion disableGutters elevation={0} sx={{ '&:before': { display: 'none' }, border: 1, borderColor: 'divider', borderRadius: 1 }}>
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Typography variant="subtitle2" color="text.secondary">
+              <Typography variant="subtitle2" color="textSecondary">
                 {t('components.gameForm.guardOverrides', { defaultValue: 'Ingest guard overrides' })}
               </Typography>
             </AccordionSummary>
@@ -590,14 +590,14 @@ export default function GameFormDialog({
                   {locationTestResult.success ? (
                     <>
                       <SuccessIcon color="success" />
-                      <Typography color="success.main">
+                      <Typography color="success">
                         {t('components.gameForm.connected', { count: locationTestResult.participantCount })}
                       </Typography>
                     </>
                   ) : (
                     <>
                       <ErrorIcon color="error" />
-                      <Typography color="error.main">
+                      <Typography color="error">
                         {locationTestResult.errorMessage || t('components.gameForm.connectionFailed')}
                       </Typography>
                     </>

@@ -314,7 +314,7 @@ export default function ZoneFormDialog({
         </Box>
 
         {formData.zoneType === 'polygon' && (
-          <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+          <Typography variant="caption" color="textSecondary" sx={{ mb: 1, display: 'block' }}>
             {t('components.zoneForm.clickMap')}
           </Typography>
         )}
@@ -474,7 +474,7 @@ export default function ZoneFormDialog({
               backgroundColor: 'transparent',
             }}
           />
-          <Typography variant="body2" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+          <Typography variant="body2" color="textSecondary" sx={{ fontFamily: 'monospace' }}>
             {formData.color ?? '#ff9800'}
           </Typography>
         </Box>

@@ -541,7 +541,7 @@ export default function AdminUsersPage() {
                 label={
                   <Box>
                     <Typography variant="body2">{role.replace(/_/g, ' ')}</Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" color="textSecondary">
                       {getRolePages(role).join(', ')}
                     </Typography>
                   </Box>
@@ -577,7 +577,7 @@ export default function AdminUsersPage() {
                 label={
                   <Box>
                     <Typography variant="body2">{role.replace(/_/g, ' ')}</Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" color="textSecondary">
                       {getRolePages(role).join(', ')}
                     </Typography>
                   </Box>
@@ -621,7 +621,7 @@ export default function AdminUsersPage() {
                 }}
                 margin="normal"
               />
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" color="textSecondary">
                 {t('admin.adminUsers.shareSecurely')}
               </Typography>
             </>
@@ -706,7 +706,7 @@ export default function AdminUsersPage() {
               <Typography>
                 {t('admin.adminUsers.deleteConfirmText', { username: deletingAdmin?.username })}
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
                 {t('admin.adminUsers.deleteWarningIrreversible')}
               </Typography>
             </>

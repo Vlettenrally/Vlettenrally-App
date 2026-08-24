@@ -97,7 +97,7 @@ export default function Rankings() {
         <Typography variant="h4" component="h1">
           {t('participant.rankings.title')}
         </Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" color="textSecondary">
           {t('participant.rankings.subtitle', { game: game?.name ?? 'het spel' })}
         </Typography>
 

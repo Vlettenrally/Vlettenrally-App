@@ -244,7 +244,7 @@ export function Settings() {
             <DeviceIcon sx={{ fontSize: 32, color: '#1a237e', mr: 2 }} />
             <Typography variant="h6">{t('admin.settings.myDevices')}</Typography>
           </Box>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
             {t('admin.settings.devicesDescription')}
           </Typography>
 
@@ -253,7 +253,7 @@ export function Settings() {
           {devicesLoading ? (
             <CircularProgress size={24} />
           ) : devices.length === 0 ? (
-            <Typography color="text.secondary">
+            <Typography color="textSecondary">
               {t('admin.settings.noDevices')}
             </Typography>
           ) : (
@@ -292,7 +292,7 @@ export function Settings() {
                           {isCurrent && <Chip size="small" color="primary" label={t('admin.settings.thisDevice')} />}
                         </Box>
                       )}
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" color="textSecondary">
                         {t('admin.settings.lastSeen')} {new Date(device.lastSeen).toLocaleString()}
                       </Typography>
                     </Box>

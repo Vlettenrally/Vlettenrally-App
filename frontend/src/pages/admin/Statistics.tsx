@@ -32,7 +32,7 @@ function StatTile({ icon, label, value }: StatTileProps) {
         <CardContent>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
             <Box sx={{ mr: 1, color: 'primary.main', display: 'flex' }}>{icon}</Box>
-            <Typography variant="subtitle2" color="text.secondary">
+            <Typography variant="subtitle2" color="textSecondary">
               {label}
             </Typography>
           </Box>

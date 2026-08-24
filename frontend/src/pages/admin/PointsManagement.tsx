@@ -202,12 +202,15 @@ export default function PointsManagement() {
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         spacing={1.5}
-        alignItems={{ xs: 'stretch', sm: 'center' }}
-        justifyContent="space-between"
-        sx={{ mb: 2 }}
-      >
+        sx={{
+          alignItems: { xs: 'stretch', sm: 'center' },
+          justifyContent: "space-between",
+          mb: 2
+        }}>
         <Typography variant="h4">{t('admin.pointsManagement.title')}</Typography>
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+        <Stack direction="row" spacing={1} useFlexGap sx={{
+          flexWrap: "wrap"
+        }}>
           <Button
             variant="outlined"
             startIcon={<RefreshIcon />}
@@ -242,7 +245,9 @@ export default function PointsManagement() {
                   <Box>
                     <Typography variant="body2">{option.name}</Typography>
                     {option.description && (
-                      <Typography variant="caption" color="text.secondary" display="block">
+                      <Typography variant="caption" color="textSecondary" sx={{
+                        display: "block"
+                      }}>
                         {option.description}
                       </Typography>
                     )}
@@ -307,7 +312,7 @@ export default function PointsManagement() {
                     {entries.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={9} align="center">
-                          <Typography variant="body2" color="text.secondary">
+                          <Typography variant="body2" color="textSecondary">
                             {t('admin.pointsManagement.noEntries')}
                           </Typography>
                         </TableCell>
@@ -364,7 +369,9 @@ export default function PointsManagement() {
                           <TableCell align="right">
                             <strong>{entry.currentAmount}</strong>
                             {isDistance && entry.distanceMeters != null && (
-                              <Typography variant="caption" color="text.secondary" display="block">
+                              <Typography variant="caption" color="textSecondary" sx={{
+                                display: "block"
+                              }}>
                                 {formatDistance(entry.distanceMeters)}
                               </Typography>
                             )}
@@ -426,7 +433,7 @@ export default function PointsManagement() {
               {reasonPopover.entry.editReason || t('admin.pointsManagement.noReason')}
             </Typography>
             {reasonPopover.entry.editedAt && (
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" color="textSecondary">
                 {t('admin.pointsManagement.editedAt', { date: formatTimestamp(reasonPopover.entry.editedAt) })}
               </Typography>
             )}

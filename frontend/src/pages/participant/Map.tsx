@@ -141,7 +141,7 @@ export default function ParticipantMap() {
         </Box>
       ) : !gameId ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
-          <Typography color="text.secondary">{t('participant.map.noGame')}</Typography>
+          <Typography color="textSecondary">{t('participant.map.noGame')}</Typography>
         </Box>
       ) : (
         <Box sx={{ flex: 1, position: 'relative' }}>
@@ -179,7 +179,7 @@ export default function ParticipantMap() {
                 bgcolor: connected ? 'success.main' : 'warning.main',
               }}
             />
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" color="textSecondary">
               {myLocation ? t('participant.map.locationAvailable') : t('participant.map.waitingForLocation')}
             </Typography>
           </Box>
