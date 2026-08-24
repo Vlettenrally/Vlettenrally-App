@@ -95,6 +95,8 @@ export default function Trackers() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
+  // Refresh from event handlers after add/delete; the periodic effect below
+  // owns the initial load and the background refresh.
   const loadTrackers = useCallback(async () => {
     try {
       setTrackers(await trackerService.getTrackers());
@@ -107,18 +109,32 @@ export default function Trackers() {
   }, [t]);
 
   // Hold the refresh while the delete dialogs are open, so rows don't shift
-  // under the user mid-selection.
+  // under the user mid-selection. Reopening the stream (dialog closed) fetches
+  // immediately, so the list is fresh right after a delete.
   const picking = deleteDialogOpen || confirmOpen;
 
   useEffect(() => {
-    void loadTrackers();
-  }, [loadTrackers]);
-
-  useEffect(() => {
     if (picking) return;
-    const id = setInterval(() => void loadTrackers(), REFRESH_INTERVAL_MS);
-    return () => clearInterval(id);
-  }, [loadTrackers, picking]);
+    let cancelled = false;
+    async function refresh() {
+      try {
+        const data = await trackerService.getTrackers();
+        if (cancelled) return;
+        setTrackers(data);
+        setLoadError(null);
+      } catch {
+        if (!cancelled) setLoadError(t('admin.trackers.loadFailed'));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    void refresh();
+    const id = setInterval(() => void refresh(), REFRESH_INTERVAL_MS);
+    return () => {
+      clearInterval(id);
+      cancelled = true;
+    };
+  }, [picking, t]);
 
   // Ticks the stale/fresh styling of last-seen timestamps between data refreshes.
   useEffect(() => {

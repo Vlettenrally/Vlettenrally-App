@@ -60,7 +60,7 @@ const Zones = () => {
   const selectedGame = games.find((g) => g.id === selectedGameId) ?? null;
 
   const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(() => !!selectedGameId);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -97,13 +97,36 @@ const Zones = () => {
     }
   }, [selectedGameId, t]);
 
+  // Drop the previous game's checkpoints the moment the selection changes
+  // (adjust-state-during-render, not an effect).
+  const [prevGameId, setPrevGameId] = useState(selectedGameId);
+  if (prevGameId !== selectedGameId) {
+    setPrevGameId(selectedGameId);
+    setCheckpoints([]);
+    setError(null);
+    setLoading(!!selectedGameId);
+  }
+
   useEffect(() => {
-    if (selectedGameId) {
-      fetchCheckpoints();
-    } else {
-      setCheckpoints([]);
-    }
-  }, [selectedGameId, fetchCheckpoints]);
+    if (!selectedGameId) return;
+    let cancelled = false;
+    api
+      .getCheckpoints(selectedGameId)
+      .then((response) => {
+        if (cancelled) return;
+        if (response.data) setCheckpoints(response.data);
+        else setError(response.error || t('admin.zones.loadFailed'));
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : t('admin.zones.loadFailed'));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedGameId, t]);
 
   const handleCreate = () => {
     setSelectedCheckpoint(null);

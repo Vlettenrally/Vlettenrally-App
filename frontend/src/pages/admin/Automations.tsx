@@ -164,7 +164,7 @@ export default function Automations() {
   const [rules, setRules] = useState<AutomationRule[]>([]);
   const [orderBy, setOrderBy] = useState<SortColumn>('name');
   const [order, setOrder] = useState<SortOrder>('asc');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(() => !!selectedGameId);
   const [error, setError] = useState<string | null>(null);
 
   const [formDialogOpen, setFormDialogOpen] = useState(false);
@@ -194,15 +194,41 @@ export default function Automations() {
     } finally {
       setLoading(false);
     }
-  }, [selectedGameId, t]);
+    // setError/setRules/setLoading are stable useState setters — listed to satisfy
+    // react-hooks/preserve-manual-memoization's dependency inference, not because
+    // they're reactive.
+  }, [selectedGameId, t, setError, setRules, setLoading]);
+
+  // Drop the previous game's rules the moment the selection changes
+  // (adjust-state-during-render, not an effect).
+  const [prevGameId, setPrevGameId] = useState(selectedGameId);
+  if (prevGameId !== selectedGameId) {
+    setPrevGameId(selectedGameId);
+    setRules([]);
+    setError(null);
+    setLoading(!!selectedGameId);
+  }
 
   useEffect(() => {
-    if (selectedGameId) {
-      fetchRules();
-    } else {
-      setRules([]);
-    }
-  }, [selectedGameId, fetchRules]);
+    if (!selectedGameId) return;
+    let cancelled = false;
+    api
+      .getAutomations(selectedGameId)
+      .then((response) => {
+        if (cancelled) return;
+        if (response.data) setRules(response.data);
+        else setError(response.error || t('admin.automations.loadFailed'));
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : t('admin.automations.loadFailed'));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedGameId, t]);
 
   // Recover any AUTOMATION_TRIGGERED events missed while the page was backgrounded.
   useAdminResync(() => void fetchRules());

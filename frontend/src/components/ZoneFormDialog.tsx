@@ -23,7 +23,7 @@ import {
   Add as AddIcon,
   Delete as DeleteIcon,
 } from '@mui/icons-material';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../services/api';
 import { formatForDateTimeLocalInput } from '../utils/dateTime';
@@ -90,7 +90,13 @@ export default function ZoneFormDialog({
 
   const isCreateMode = !checkpoint;
 
-  useEffect(() => {
+  // Populate the form the moment the dialog (re)opens or the edited checkpoint
+  // changes (adjust-state-during-render, not an effect).
+  const [prevFormKey, setPrevFormKey] = useState<{ checkpoint: typeof checkpoint; open: boolean }>(
+    { checkpoint, open },
+  );
+  if (prevFormKey.checkpoint !== checkpoint || prevFormKey.open !== open) {
+    setPrevFormKey({ checkpoint, open });
     if (checkpoint) {
       setFormData({
         name: checkpoint.name,
@@ -121,7 +127,7 @@ export default function ZoneFormDialog({
       });
     }
     setError(null);
-  }, [checkpoint, open]);
+  }
 
   const formatToISOString = (localDateTime: string): string | undefined => {
     if (!localDateTime) return undefined;

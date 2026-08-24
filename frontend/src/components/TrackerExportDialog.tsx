@@ -16,7 +16,7 @@ import {
   Box,
 } from '@mui/material';
 import { ArrowUpward, ArrowDownward } from '@mui/icons-material';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { gameService } from '../services/gameService';
 import { downloadFile } from '../utils/download';
@@ -65,7 +65,10 @@ export default function TrackerExportDialog({ open, onClose, gameId }: TrackerEx
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  // Reset the form the moment the dialog opens (adjust-state-during-render).
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
     if (open) {
       setColumns(DEFAULT_COLUMNS);
       setIncludeUnassigned(false);
@@ -73,7 +76,7 @@ export default function TrackerExportDialog({ open, onClose, gameId }: TrackerEx
       setSinceLocal(defaultSinceLocal());
       setError(null);
     }
-  }, [open]);
+  }
 
   const updateColumn = (index: number, patch: Partial<ColumnChoice>) => {
     setColumns((prev) => prev.map((c, i) => (i === index ? { ...c, ...patch } : c)));

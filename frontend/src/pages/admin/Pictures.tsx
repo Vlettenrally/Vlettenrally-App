@@ -174,9 +174,41 @@ export default function AdminPictures() {
     onLoadMore: loadMore,
   });
 
+  // Reset the list view the moment the tab or game changes
+  // (adjust-state-during-render, not an effect); the effect below refetches.
+  const listKey = `${tab}|${selectedGameId ?? ''}`;
+  const [prevListKey, setPrevListKey] = useState(listKey);
+  if (prevListKey !== listKey) {
+    setPrevListKey(listKey);
+    setLoading(tab !== 'UPLOAD');
+    setError(null);
+  }
+
   useEffect(() => {
-    load();
-  }, [load]);
+    if (tab === 'UPLOAD') return;
+    let cancelled = false;
+    fetchPage()
+      .then((res) => {
+        if (cancelled) return;
+        if (res.data) {
+          setModerationPictures(res.data.pictures);
+          setCursor(cursorOf(res.data));
+          setHasMore(res.data.hasMore);
+        } else {
+          setError(res.error || t('admin.pictures.loadFailed'));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setError(t('admin.pictures.loadFailed'));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, fetchPage]);
 
   useAdminResync(load);
 

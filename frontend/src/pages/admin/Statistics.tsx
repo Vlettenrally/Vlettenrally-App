@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, type ReactNode } from 'react';
 import { Box, Typography, Card, CardContent, Grid, CircularProgress, Alert } from '@mui/material';
 import {
   Groups as TeamsIcon,
@@ -14,6 +14,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useGameStore } from '../../store/useGameStore';
 import { useAdminResync } from '../../hooks/useAdminSync';
+import { useAsyncData, asErrorMessage } from '../../hooks/useAsyncData';
 import api from '../../services/api';
 import { formatDistance } from '../../utils/distance';
 import type { GameStatistics } from '../../types/entities';
@@ -47,31 +48,21 @@ function StatTile({ icon, label, value }: StatTileProps) {
 export default function Statistics() {
   const { t } = useTranslation();
   const selectedGameId = useGameStore((s) => s.selectedGameId);
-  const [stats, setStats] = useState<GameStatistics | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const loadStats = useCallback(async () => {
-    if (!selectedGameId) return;
-    setLoading(true);
-    try {
-      const response = await api.getGameStatistics(selectedGameId);
-      if (response.error || !response.data) {
-        setError(response.error || t('admin.statistics.failedToLoad'));
-        return;
-      }
-      setError(null);
-      setStats(response.data);
-    } finally {
-      setLoading(false);
+  const fetchStats = useCallback(async (): Promise<GameStatistics> => {
+    const response = await api.getGameStatistics(selectedGameId!);
+    if (response.error || !response.data) {
+      throw new Error(response.error || t('admin.statistics.failedToLoad'));
     }
+    return response.data;
   }, [selectedGameId, t]);
 
-  useEffect(() => {
-    void loadStats();
-  }, [loadStats]);
+  const { data: stats, loading, error: loadError, reload } = useAsyncData(fetchStats, {
+    enabled: !!selectedGameId,
+  });
+  const error = asErrorMessage(loadError);
 
-  useAdminResync(loadStats);
+  useAdminResync(reload);
 
   return (
     <Box sx={{ p: 3 }}>

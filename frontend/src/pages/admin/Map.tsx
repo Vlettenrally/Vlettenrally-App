@@ -15,6 +15,7 @@ import {useGameStore} from '../../store/useGameStore';
 import {useWebSocketSubscription} from '../../hooks/useWebSocket';
 import {useAdminResync} from '../../hooks/useAdminSync';
 import {useAdminTopicHeartbeat, ADMIN_TOPICS} from '../../hooks/useAdminHeartbeat';
+import {useLatestRef} from '../../hooks/useLatestRef';
 import api from '../../services/api';
 import MapLegendSidebar, {type TrackWindowMinutes} from './MapLegendSidebar';
 import {STALE_AFTER_MS, TEAM_COLOR} from './mapConstants';
@@ -47,14 +48,11 @@ export default function AdminMap() {
 
   // Drop stale history responses if the user changed the window or untoggled the team while the fetch was in flight.
   const trackRequestIdRef = useRef(0);
-  const trackTeamIdsRef = useRef(trackTeamIds);
-  trackTeamIdsRef.current = trackTeamIds;
-  const windowMinutesRef = useRef(windowMinutes);
-  windowMinutesRef.current = windowMinutes;
+  const trackTeamIdsRef = useLatestRef(trackTeamIds);
+  const windowMinutesRef = useLatestRef(windowMinutes);
   // Latest locations, kept in a ref so the WebSocket handler can compare a new fix's
   // timestamp against the previously-known one without re-subscribing on every update.
-  const teamLocationsRef = useRef(teamLocations);
-  teamLocationsRef.current = teamLocations;
+  const teamLocationsRef = useLatestRef(teamLocations);
 
   const mapRef = useRef<MapViewHandle>(null);
 
@@ -67,16 +65,13 @@ export default function AdminMap() {
     return () => clearInterval(id);
   }, []);
 
-  // Fetch the latest location/checkpoint snapshot. Used on game change and on
-  // resync (app resume / reconnect) to top up state that missed WebSocket events.
-  const fetchData = useCallback(async () => {
-    if (!selectedGameId) return;
-    try {
-      const [locationsResponse, checkpointsResponse] = await Promise.all([
-        api.getLatestTeamLocations(selectedGameId),
-        api.getCheckpoints(selectedGameId),
-      ]);
-
+  // Apply a location/checkpoint snapshot to state. Only ever called from async
+  // continuations (fetch .then / resync), never synchronously from an effect.
+  const applyMapData = useCallback(
+    (
+      locationsResponse: Awaited<ReturnType<typeof api.getLatestTeamLocations>>,
+      checkpointsResponse: Awaited<ReturnType<typeof api.getCheckpoints>>,
+    ) => {
       if (locationsResponse.data) {
         setTeamLocations(locationsResponse.data);
       }
@@ -86,19 +81,48 @@ export default function AdminMap() {
       if (locationsResponse.error) {
         setError(locationsResponse.error);
       }
+    },
+    [],
+  );
+
+  // Fetch the latest location/checkpoint snapshot on resync (app resume /
+  // reconnect) to top up state that missed WebSocket events.
+  const fetchData = useCallback(async () => {
+    if (!selectedGameId) return;
+    try {
+      const [locationsResponse, checkpointsResponse] = await Promise.all([
+        api.getLatestTeamLocations(selectedGameId),
+        api.getCheckpoints(selectedGameId),
+      ]);
+      applyMapData(locationsResponse, checkpointsResponse);
     } catch (err) {
       console.error('Failed to load map data:', err);
       setError('Kon kaartdata niet laden');
     } finally {
       setLoading(false);
     }
-  }, [selectedGameId]);
+  }, [selectedGameId, applyMapData]);
 
   // Fetch initial data when game changes
   useEffect(() => {
     if (!selectedGameId) return;
-    void fetchData();
-  }, [selectedGameId, fetchData]);
+    let cancelled = false;
+    Promise.all([api.getLatestTeamLocations(selectedGameId), api.getCheckpoints(selectedGameId)])
+      .then(([locationsResponse, checkpointsResponse]) => {
+        if (!cancelled) applyMapData(locationsResponse, checkpointsResponse);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        console.error('Failed to load map data:', err);
+        setError('Kon kaartdata niet laden');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedGameId, applyMapData]);
 
   useAdminResync(fetchData);
 
@@ -120,7 +144,7 @@ export default function AdminMap() {
         }
       })();
     }
-  }, [selectedGameId]);
+  }, [selectedGameId, trackTeamIdsRef, windowMinutesRef]);
 
   // Subscribe to real-time location updates
   const handleLocationUpdate = useCallback((message: { payload: unknown }) => {
@@ -141,7 +165,7 @@ export default function AdminMap() {
     setTeamLocations(prev => mergeLocations(prev, incoming));
     setTeamTracks(prev => appendTrackPoints(prev, freshUpdates, trackTeamIdsRef.current));
     refetchTracks(staleTracked);
-  }, [refetchTracks]);
+  }, [refetchTracks, teamLocationsRef, trackTeamIdsRef]);
 
   useEffect(() => {
     if (!selectedGameId) return;
@@ -213,13 +237,16 @@ export default function AdminMap() {
     [checkpoints],
   );
 
+  // Clear the drawn tracks the moment the last team is untoggled
+  // (adjust-state-during-render; the fetch effect below never runs for an empty set).
+  if (trackTeamIds.size === 0 && Object.keys(teamTracks).length > 0) {
+    setTeamTracks({});
+  }
+
   // Fetch (or refetch) history for every currently-tracked team whenever the set or window changes.
   useEffect(() => {
     if (!selectedGameId) return;
-    if (trackTeamIds.size === 0) {
-      setTeamTracks({});
-      return;
-    }
+    if (trackTeamIds.size === 0) return;
     const requestId = ++trackRequestIdRef.current;
     const ids = Array.from(trackTeamIds);
     let cancelled = false;

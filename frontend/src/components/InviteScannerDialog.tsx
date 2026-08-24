@@ -60,14 +60,22 @@ export function InviteScannerDialog({ open, onClose, onCode }: InviteScannerDial
     onCode(code);
   }, [onCode]);
 
+  // Reset scan state the moment the dialog opens (adjust-state-during-render).
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setStarting(true);
+      setCameraFailed(false);
+      setManualCode('');
+      setManualError(null);
+    }
+  }
+
   useEffect(() => {
     if (!open) return;
 
     handledRef.current = false;
-    setStarting(true);
-    setCameraFailed(false);
-    setManualCode('');
-    setManualError(null);
 
     let scanner: QrScanner | null = null;
     let cancelled = false;

@@ -118,17 +118,30 @@ export default function GameFormDialog({
 
   // Load external events when dialog opens
   useEffect(() => {
-    if (open) {
+    if (!open) return;
+    let cancelled = false;
+    async function loadEvents() {
       setLoadingEvents(true);
-      gameService.getExternalEvents()
-        .then(setExternalEvents)
-        .catch((err) => console.error('Failed to load external events:', err))
-        .finally(() => setLoadingEvents(false));
+      try {
+        const events = await gameService.getExternalEvents();
+        if (!cancelled) setExternalEvents(events);
+      } catch (err) {
+        console.error('Failed to load external events:', err);
+      } finally {
+        if (!cancelled) setLoadingEvents(false);
+      }
     }
+    void loadEvents();
+    return () => {
+      cancelled = true;
+    };
   }, [open]);
 
-  // Populate form when editing
-  useEffect(() => {
+  // Populate the form when the dialog (re)opens or the edited game changes
+  // (adjust-state-during-render, not an effect).
+  const [prevFormKey, setPrevFormKey] = useState<{ game: typeof game; open: boolean }>({ game, open });
+  if (prevFormKey.game !== game || prevFormKey.open !== open) {
+    setPrevFormKey({ game, open });
     if (game) {
       setFormData({
         name: game.name,
@@ -179,7 +192,7 @@ export default function GameFormDialog({
     }
     setError(null);
     setLocationTestResult(null);
-  }, [game, open]);
+  }
 
   const formatToISOString = (localDateTime: string): string | undefined => {
     if (!localDateTime) return undefined;

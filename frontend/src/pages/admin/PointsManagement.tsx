@@ -89,12 +89,17 @@ export default function PointsManagement() {
   const [mapTarget, setMapTarget] = useState<PointEntry | null>(null);
   const [reasonPopover, setReasonPopover] = useState<{ anchor: HTMLElement; entry: PointEntry } | null>(null);
 
+  // Drop the previous game's teams/checkpoints the moment the selection changes
+  // (adjust-state-during-render, not an effect).
+  const [prevGameId, setPrevGameId] = useState(selectedGameId);
+  if (prevGameId !== selectedGameId) {
+    setPrevGameId(selectedGameId);
+    setTeams([]);
+    setCheckpoints([]);
+  }
+
   useEffect(() => {
-    if (!selectedGameId) {
-      setTeams([]);
-      setCheckpoints([]);
-      return;
-    }
+    if (!selectedGameId) return;
     let cancelled = false;
     teamService.getTeamsByGame(selectedGameId).then((data) => {
       if (!cancelled) setTeams(data);

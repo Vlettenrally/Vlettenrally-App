@@ -46,14 +46,20 @@ export default function CopyZonesDialog({
     [games, gameId],
   );
 
-  useEffect(() => {
+  // Reset the form the moment the dialog opens (adjust-state-during-render).
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
     if (open) {
       setSourceGameId('');
       setError(null);
       setResult(null);
-      if (games.length === 0) {
-        fetchGames();
-      }
+    }
+  }
+
+  useEffect(() => {
+    if (open && games.length === 0) {
+      fetchGames();
     }
   }, [open, games.length, fetchGames]);
 

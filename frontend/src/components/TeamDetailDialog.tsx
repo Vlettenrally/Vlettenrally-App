@@ -103,7 +103,13 @@ export default function TeamDetailDialog({
   const isCreateMode = !team;
   const isSuperAdmin = storage.isSuperAdmin();
 
-  useEffect(() => {
+  // Reset the dialog's form the moment the team/game/open state changes
+  // (adjust-state-during-render); the effect below only kicks off the async loads.
+  const [prevDialogKey, setPrevDialogKey] = useState<{ team: typeof team; gameId: string; open: boolean }>(
+    { team, gameId, open },
+  );
+  if (prevDialogKey.team !== team || prevDialogKey.gameId !== gameId || prevDialogKey.open !== open) {
+    setPrevDialogKey({ team, gameId, open });
     if (team) {
       setFormData({
         name: team.name,
@@ -122,48 +128,13 @@ export default function TeamDetailDialog({
       setIsEditing(false);
       setBackfillMessage(null);
       setBackfillError(false);
-
-      // Load the pool of unassigned trackers for the picker.
-      gameService
-        .getAvailableTrackers(team.gameId)
-        .then(setAvailableTrackers)
-        .catch((err) => {
-          console.error('Failed to load available trackers:', err);
-          setAvailableTrackers([]);
-        });
-
-      // Load rival teams
       if (team.rivals && team.rivals.length > 0) {
         setLoadingRivals(true);
-        Promise.all(
-          team.rivals.map((rivalId: string) => 
-            teamService.getTeam(rivalId, team.gameId)
-          )
-        )
-          .then((rivals) => {
-            setRivalTeams(rivals.filter((r: AdminTeam | null): r is AdminTeam => r !== null));
-          })
-          .catch((err) => {
-            console.error('Failed to load rival teams:', err);
-          })
-          .finally(() => {
-            setLoadingRivals(false);
-          });
       } else {
         setRivalTeams([]);
       }
-
       setLoadingDevices(true);
       setDeviceError(null);
-      teamService
-        .listDevices(team.id)
-        .then((list) => setDevices(list))
-        .catch((err) => {
-          console.error('Failed to load devices:', err);
-          setDeviceError(t('components.teamDetail.devicesLoadFailed'));
-          setDevices([]);
-        })
-        .finally(() => setLoadingDevices(false));
     } else {
       setFormData({
         name: '',
@@ -194,7 +165,62 @@ export default function TeamDetailDialog({
     setInviteUrl(null);
     setInviteCode(null);
     setInviteCopied(false);
-  }, [team, gameId, open, t]);
+  }
+
+  // Load trackers / rivals / devices for the selected team; every state update
+  // happens in a promise continuation.
+  useEffect(() => {
+    if (!team) return;
+    let cancelled = false;
+
+    // Load the pool of unassigned trackers for the picker.
+    gameService
+      .getAvailableTrackers(team.gameId)
+      .then((trackers) => {
+        if (!cancelled) setAvailableTrackers(trackers);
+      })
+      .catch((err) => {
+        console.error('Failed to load available trackers:', err);
+        if (!cancelled) setAvailableTrackers([]);
+      });
+
+    // Load rival teams
+    if (team.rivals && team.rivals.length > 0) {
+      Promise.all(
+        team.rivals.map((rivalId: string) =>
+          teamService.getTeam(rivalId, team.gameId)
+        )
+      )
+        .then((rivals) => {
+          if (!cancelled) setRivalTeams(rivals.filter((r: AdminTeam | null): r is AdminTeam => r !== null));
+        })
+        .catch((err) => {
+          console.error('Failed to load rival teams:', err);
+        })
+        .finally(() => {
+          if (!cancelled) setLoadingRivals(false);
+        });
+    }
+
+    teamService
+      .listDevices(team.id)
+      .then((list) => {
+        if (!cancelled) setDevices(list);
+      })
+      .catch((err) => {
+        console.error('Failed to load devices:', err);
+        if (cancelled) return;
+        setDeviceError(t('components.teamDetail.devicesLoadFailed'));
+        setDevices([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingDevices(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [team, t]);
 
   const refreshDevices = useCallback(async () => {
     if (!team) return;

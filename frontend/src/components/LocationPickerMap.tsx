@@ -23,6 +23,7 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { resolveMapStyle, DEFAULT_CENTER, DEFAULT_ZOOM } from '../utils/mapStyle';
 import turfCircle from '@turf/circle';
+import { useLatestRef } from '../hooks/useLatestRef';
 
 interface LocationPickerMapProps {
   /** Current value — null means nothing selected yet */
@@ -105,16 +106,11 @@ export default function LocationPickerMap({
   const [searchError, setSearchError] = useState<string | null>(null);
 
   // Stable refs so the map event handlers always see the latest callbacks/values
-  const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
-  const onPolygonPointsChangeRef = useRef(onPolygonPointsChange);
-  onPolygonPointsChangeRef.current = onPolygonPointsChange;
-  const zoneTypeRef = useRef(zoneType);
-  zoneTypeRef.current = zoneType;
-  const radiusMetersRef = useRef(radiusMeters);
-  radiusMetersRef.current = radiusMeters;
-  const polygonPointsRef = useRef(polygonPoints);
-  polygonPointsRef.current = polygonPoints;
+  const onChangeRef = useLatestRef(onChange);
+  const onPolygonPointsChangeRef = useLatestRef(onPolygonPointsChange);
+  const zoneTypeRef = useLatestRef(zoneType);
+  const radiusMetersRef = useLatestRef(radiusMeters);
+  const polygonPointsRef = useLatestRef(polygonPoints);
 
   // Track the last-placed marker position so zone shape updates use it immediately
   const lastPlacedRef = useRef<{ lat: number; lng: number } | null>(value);
@@ -179,7 +175,7 @@ export default function LocationPickerMap({
       type: 'FeatureCollection',
       features: feature ? [feature] : [],
     });
-  }, []);
+  }, [polygonPointsRef, radiusMetersRef, zoneTypeRef]);
 
   // Flag to suppress click events during/after marker drags
   const isDraggingRef = useRef(false);
@@ -250,7 +246,7 @@ export default function LocationPickerMap({
 
       vertexMarkersRef.current.push(marker);
     });
-  }, [drawZoneShape]);
+  }, [drawZoneShape, onPolygonPointsChangeRef, polygonPointsRef]);
 
   /** Place or move the center marker and notify parent */
   const placeMarker = useCallback((lat: number, lng: number, flyTo = false) => {
@@ -340,7 +336,7 @@ export default function LocationPickerMap({
     onChangeRef.current(lat, lng);
     // Immediately redraw the zone shape with the new coordinates
     drawZoneShape({ lat, lng });
-  }, [drawZoneShape, updateVertexMarkers]);
+  }, [drawZoneShape, updateVertexMarkers, onChangeRef, onPolygonPointsChangeRef, polygonPointsRef, zoneTypeRef]);
 
   // Initialize map
   useEffect(() => {

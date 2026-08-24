@@ -3,6 +3,11 @@
  */
 import { create } from 'zustand';
 
+// A live arrival only triggers the in-app banner when it is this recent. Keeps
+// banners meaningful for genuinely-new messages while skipping older messages
+// replayed through addMessage by background-sync when the app reopens.
+const BANNER_RECENT_WINDOW_MS = 2 * 60 * 1000;
+
 export interface Message {
   id: string;
   teamId: string;
@@ -19,11 +24,11 @@ interface MessageState {
   unreadCount: number;
   isLoading: boolean;
   error: string | null;
-  // Signal for the most recent genuinely-new message added via addMessage.
-  // Bumped only on real live arrivals (WebSocket / push), never on bulk load,
-  // so UI (e.g. the in-app new-message banner) can react without banner-spam on
-  // refresh. The nonce re-fires consumers even for otherwise-equal arrivals.
-  latestArrival: { message: Message; nonce: number } | null;
+  // Undismissed recent live arrivals for the in-app new-message banner. Only
+  // fed by addMessage (WebSocket / push), never by bulk load, so refreshing
+  // doesn't cause banner-spam. The banner shows the head and clears the queue
+  // on view/dismiss.
+  bannerQueue: Message[];
 
   setMessages: (messages: Message[]) => void;
   addMessage: (message: Message) => void;
@@ -32,6 +37,7 @@ interface MessageState {
   markAllAsRead: () => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
+  clearBannerQueue: () => void;
   reset: () => void;
 }
 
@@ -40,7 +46,7 @@ export const useMessageStore = create<MessageState>((set) => ({
   unreadCount: 0,
   isLoading: false,
   error: null,
-  latestArrival: null,
+  bannerQueue: [],
 
   setMessages: (messages) =>
     set({
@@ -55,10 +61,16 @@ export const useMessageStore = create<MessageState>((set) => ({
         return state;
       }
       const messages = [message, ...state.messages];
+      const age = Date.now() - new Date(message.sentAt).getTime();
+      const bannerWorthy =
+        !message.read &&
+        !Number.isNaN(age) &&
+        age <= BANNER_RECENT_WINDOW_MS &&
+        !state.bannerQueue.some((m) => m.id === message.id);
       return {
         messages,
         unreadCount: messages.filter((m) => !m.read).length,
-        latestArrival: { message, nonce: state.latestArrival ? state.latestArrival.nonce + 1 : 1 },
+        bannerQueue: bannerWorthy ? [...state.bannerQueue, message] : state.bannerQueue,
       };
     }),
 
@@ -95,5 +107,6 @@ export const useMessageStore = create<MessageState>((set) => ({
 
   setLoading: (isLoading) => set({ isLoading }),
   setError: (error) => set({ error }),
-  reset: () => set({ messages: [], unreadCount: 0, isLoading: false, error: null, latestArrival: null }),
+  clearBannerQueue: () => set({ bannerQueue: [] }),
+  reset: () => set({ messages: [], unreadCount: 0, isLoading: false, error: null, bannerQueue: [] }),
 }));
