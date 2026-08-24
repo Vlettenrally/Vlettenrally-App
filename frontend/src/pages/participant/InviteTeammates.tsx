@@ -41,8 +41,21 @@ export default function InviteTeammatesPage() {
   // comes back unchanged (which is the normal case — the backend slides the same code).
   const [expiry, setExpiry] = useState<{ seconds: number } | null>(null);
 
-  // `silent` is for the background re-mints: they must not flash the spinner or clear the
-  // "copied" confirmation out from under the user.
+  // Store a minted invite in state. `silent` is for the background re-mints:
+  // they must not surface errors or flash UI out from under the user.
+  const applyInvite = useCallback((response: Awaited<ReturnType<typeof api.getTeamInviteToken>>, silent: boolean) => {
+    if (response.error || !response.data) {
+      if (!silent) setError(t('participant.invite.error'));
+      return;
+    }
+    setLink(response.data.url);
+    setQrUrl(response.data.qrUrl);
+    setCode(response.data.token);
+    setExpiry({ seconds: response.data.expiresInSeconds });
+  }, [t]);
+
+  // Re-mint from timers / visibility changes / the retry button; the mount
+  // effect below owns the first load.
   const load = useCallback(async (silent = false) => {
     if (!silent) {
       setLoading(true);
@@ -51,25 +64,35 @@ export default function InviteTeammatesPage() {
     }
     try {
       const response = await api.getTeamInviteToken();
-      if (response.error || !response.data) {
-        if (!silent) setError(t('participant.invite.error'));
-        return;
-      }
-      setLink(response.data.url);
-      setQrUrl(response.data.qrUrl);
-      setCode(response.data.token);
-      setExpiry({ seconds: response.data.expiresInSeconds });
+      applyInvite(response, silent);
     } catch (err) {
       console.error('invite token error:', err);
       if (!silent) setError(t('participant.invite.error'));
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [t]);
+  }, [applyInvite, t]);
 
+  // First mint. loading starts true and error/copied start clear, so the
+  // non-silent presets in load() would be no-ops here anyway.
   useEffect(() => {
-    void load();
-  }, [load]);
+    let cancelled = false;
+    api
+      .getTeamInviteToken()
+      .then((response) => {
+        if (!cancelled) applyInvite(response, false);
+      })
+      .catch((err: unknown) => {
+        console.error('invite token error:', err);
+        if (!cancelled) setError(t('participant.invite.error'));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [applyInvite, t]);
 
   // The code expires, so re-mint a minute before it does. A team can leave this page open
   // on a table for the whole rally; the QR has to still work when someone finally scans it.

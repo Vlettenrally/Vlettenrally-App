@@ -22,7 +22,7 @@ import {
   Divider,
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../services/api';
 import { formatDateTime, formatForDateTimeLocalInput } from '../utils/dateTime';
@@ -128,20 +128,31 @@ export default function AutomationFormDialog({
   const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([]);
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
 
-  const loadOptions = useCallback(async () => {
-    const [teamsResponse, checkpointsResponse, templatesResponse] = await Promise.all([
+  // Load the team/checkpoint/template pickers when the dialog opens; every
+  // state update happens in the promise continuation.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void Promise.all([
       api.getTeamsByGame(gameId),
       api.getCheckpoints(gameId),
       api.getMessageTemplates(),
-    ]);
-    if (teamsResponse.data) setTeams(teamsResponse.data);
-    if (checkpointsResponse.data) setCheckpoints(checkpointsResponse.data);
-    if (templatesResponse.data) setTemplates(templatesResponse.data);
-  }, [gameId]);
+    ]).then(([teamsResponse, checkpointsResponse, templatesResponse]) => {
+      if (cancelled) return;
+      if (teamsResponse.data) setTeams(teamsResponse.data);
+      if (checkpointsResponse.data) setCheckpoints(checkpointsResponse.data);
+      if (templatesResponse.data) setTemplates(templatesResponse.data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, gameId]);
 
-  useEffect(() => {
-    if (!open) return;
-    loadOptions();
+  // Populate the form the moment the dialog (re)opens or the edited rule
+  // changes (adjust-state-during-render, not an effect).
+  const [prevFormKey, setPrevFormKey] = useState<{ open: boolean; rule: typeof rule }>({ open, rule });
+  if (prevFormKey.open !== open || prevFormKey.rule !== rule) {
+    setPrevFormKey({ open, rule });
     setError(null);
     if (rule) {
       setName(rule.name);
@@ -164,7 +175,7 @@ export default function AutomationFormDialog({
       setCooldownMinutes('');
       setTriggerForFinishedTeams(false);
     }
-  }, [open, rule, loadOptions]);
+  }
 
   const isDistance = triggerType === 'DISTANCE_TRAVELED';
 

@@ -16,7 +16,7 @@ import {
   Box,
   Alert,
 } from '@mui/material';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../services/api';
 import type { AutomationExecution, AutomationRule } from '../types/entities';
@@ -58,36 +58,39 @@ export default function AutomationExecutionsDialog({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchExecutions = useCallback(async () => {
-    if (!rule) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await api.getAutomationExecutions(gameId, rule.id, page, pageSize);
-      if (response.data) {
-        setExecutions(response.data.executions);
-        setTotalCount(response.data.totalCount);
-      } else {
-        setError(response.error || t('components.automationExecutions.loadFailed'));
+  useEffect(() => {
+    if (!open || !rule) return;
+    let cancelled = false;
+    async function loadExecutions() {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await api.getAutomationExecutions(gameId, rule!.id, page, pageSize);
+        if (cancelled) return;
+        if (response.data) {
+          setExecutions(response.data.executions);
+          setTotalCount(response.data.totalCount);
+        } else {
+          setError(response.error || t('components.automationExecutions.loadFailed'));
+        }
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : t('components.automationExecutions.loadFailed'));
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('components.automationExecutions.loadFailed'));
-    } finally {
-      setLoading(false);
     }
-  }, [gameId, rule, page, pageSize, t]);
+    void loadExecutions();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, gameId, rule, page, pageSize, t]);
 
-  useEffect(() => {
-    if (open) {
-      fetchExecutions();
-    }
-  }, [open, fetchExecutions]);
-
-  useEffect(() => {
-    if (!open) {
-      setPage(0);
-    }
-  }, [open]);
+  // Jump back to the first page when the dialog closes (adjust-state-during-render).
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (!open) setPage(0);
+  }
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>

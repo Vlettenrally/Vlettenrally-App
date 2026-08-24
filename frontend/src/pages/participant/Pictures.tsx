@@ -54,9 +54,16 @@ export default function Pictures() {
   // mockApi mirrors the picture methods of api; treat it as the same shape.
   const apiToUse = (config.useMocks ? mockApi : api) as unknown as typeof api;
 
+  // Show the spinner the moment the resolved team changes
+  // (adjust-state-during-render); the effect below only fetches.
+  const [prevTeam, setPrevTeam] = useState(team);
+  if (prevTeam !== team) {
+    setPrevTeam(team);
+    if (team) setLoading(true);
+  }
+
   useEffect(() => {
     if (!team) return;
-    setLoading(true);
     apiToUse.getMyPictures(team.id)
       .then((res) => {
         if (res.data) setPictures(res.data as Picture[]);

@@ -23,6 +23,7 @@
 import { useEffect, useRef } from 'react';
 import { create } from 'zustand';
 import { websocket } from '../services/websocket';
+import { useLatestRef } from './useLatestRef';
 
 interface AdminSyncState {
   /** Monotonic counter; bumped once per (throttled) resync trigger. */
@@ -91,8 +92,7 @@ export function useAdminSync() {
  * mount). onResync is held in a ref, so callers don't need a stable reference.
  */
 export function useAdminResync(onResync: () => void) {
-  const callbackRef = useRef(onResync);
-  callbackRef.current = onResync;
+  const callbackRef = useLatestRef(onResync);
 
   const seenNonce = useRef(useAdminSyncStore.getState().nonce);
 
@@ -102,7 +102,7 @@ export function useAdminResync(onResync: () => void) {
       seenNonce.current = state.nonce;
       callbackRef.current();
     });
-  }, []);
+  }, [callbackRef]);
 }
 
 export default useAdminSync;

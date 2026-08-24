@@ -37,7 +37,8 @@ export default function PublicMap() {
   const token = searchParams.get('t');
 
   const [data, setData] = useState<PublicMapResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  // A link without game/token can never start loading; both come from the URL and never change.
+  const [loading, setLoading] = useState(() => !!(gameId && token));
   // Only set for failures a retry cannot fix — a bad token or a game that does not exist.
   const [fatalError, setFatalError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -70,22 +71,20 @@ export default function PublicMap() {
   // Poll, pausing while the tab is hidden and refreshing immediately when it comes back — a display
   // that was backgrounded should not paint a stale frame before its next scheduled tick.
   useEffect(() => {
-    if (!gameId || !token) {
-      setLoading(false);
-      return;
-    }
+    if (!gameId || !token) return;
 
     const controller = new AbortController();
-    load(controller.signal);
+    function poll() {
+      void load(controller.signal);
+    }
+    poll();
 
     const id = setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        load(controller.signal);
-      }
+      if (document.visibilityState === 'visible') poll();
     }, POLL_INTERVAL_MS);
 
     const onVisible = () => {
-      if (document.visibilityState === 'visible') load(controller.signal);
+      if (document.visibilityState === 'visible') poll();
     };
     document.addEventListener('visibilitychange', onVisible);
 

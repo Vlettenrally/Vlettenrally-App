@@ -140,8 +140,15 @@ export default function CheckpointStation() {
   }, [selectedGameId, checkpoints.length]);
 
   useEffect(() => {
-    if (selectedCheckpointId) fetchTeams();
-  }, [selectedCheckpointId, fetchTeams]);
+    if (!selectedGameId || !selectedCheckpointId) return;
+    let cancelled = false;
+    void api.getTeamsNearCheckpoint(selectedGameId, selectedCheckpointId).then((res) => {
+      if (!cancelled && res.data) setTeams(res.data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedGameId, selectedCheckpointId]);
 
   useEffect(() => {
     if (!selectedCheckpointId) return;

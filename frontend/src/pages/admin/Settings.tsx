@@ -1,7 +1,7 @@
 /**
  * Admin Settings Page - Change password, manage admin account, manage own devices
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Box,
@@ -24,6 +24,7 @@ import {
   Close as CloseIcon,
   Delete as DeleteIcon,
 } from '@mui/icons-material';
+import { useAsyncData, asErrorMessage } from '../../hooks/useAsyncData';
 import api from '../../services/api';
 import storage from '../../services/storage';
 import type { CheckInDevice } from '../../types/entities';
@@ -45,33 +46,26 @@ export function Settings() {
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const [devices, setDevices] = useState<CheckInDevice[]>([]);
-  const [devicesLoading, setDevicesLoading] = useState(false);
-  const [devicesError, setDevicesError] = useState<string | null>(null);
+  // Errors from rename/remove actions; load errors come from useAsyncData.
+  const [deviceActionError, setDeviceActionError] = useState<string | null>(null);
   const [editingDeviceId, setEditingDeviceId] = useState<string | null>(null);
   const [editingNickname, setEditingNickname] = useState('');
   const [deviceActionPending, setDeviceActionPending] = useState(false);
 
   const currentDeviceId = storage.getAdminDeviceId();
 
-  const loadDevices = useCallback(async () => {
-    setDevicesLoading(true);
-    setDevicesError(null);
-    try {
-      const response = await api.getMyAdminDevices();
-      if (response.error) {
-        setDevicesError(response.error);
-        return;
-      }
-      setDevices(response.data ?? []);
-    } finally {
-      setDevicesLoading(false);
-    }
+  const fetchDevices = useCallback(async (): Promise<CheckInDevice[]> => {
+    const response = await api.getMyAdminDevices();
+    if (response.error) throw new Error(response.error);
+    return response.data ?? [];
   }, []);
-
-  useEffect(() => {
-    void loadDevices();
-  }, [loadDevices]);
+  const {
+    data: devices = [],
+    loading: devicesLoading,
+    error: devicesLoadError,
+    reload: reloadDevices,
+  } = useAsyncData(fetchDevices);
+  const devicesError = deviceActionError ?? asErrorMessage(devicesLoadError);
 
   const startRename = (device: CheckInDevice) => {
     setEditingDeviceId(device.deviceId);
@@ -85,15 +79,15 @@ export function Settings() {
 
   const saveRename = async (deviceId: string) => {
     setDeviceActionPending(true);
-    setDevicesError(null);
+    setDeviceActionError(null);
     try {
       const response = await api.renameMyAdminDevice(deviceId, editingNickname.trim());
       if (response.error) {
-        setDevicesError(response.error);
+        setDeviceActionError(response.error);
         return;
       }
       cancelRename();
-      await loadDevices();
+      reloadDevices();
     } finally {
       setDeviceActionPending(false);
     }
@@ -101,14 +95,14 @@ export function Settings() {
 
   const removeDevice = async (deviceId: string) => {
     setDeviceActionPending(true);
-    setDevicesError(null);
+    setDeviceActionError(null);
     try {
       const response = await api.removeMyAdminDevice(deviceId);
       if (response.error) {
-        setDevicesError(response.error);
+        setDeviceActionError(response.error);
         return;
       }
-      await loadDevices();
+      reloadDevices();
     } finally {
       setDeviceActionPending(false);
     }

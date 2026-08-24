@@ -111,10 +111,32 @@ export default function Teams() {
     setTeams(teamData);
   }, [selectedGameId]);
 
-  // Load game and teams when game changes
+  // Load game and teams when game changes; the old game's rows are dropped by
+  // the render guard below, so this only has to fetch.
   useEffect(() => {
-    void reloadGameAndTeams();
-  }, [reloadGameAndTeams]);
+    if (!selectedGameId) return;
+    let cancelled = false;
+    void Promise.all([
+      gameService.getGame(selectedGameId),
+      teamService.getTeamsByGame(selectedGameId),
+    ]).then(([gameData, teamData]) => {
+      if (cancelled) return;
+      setGame(gameData);
+      setTeams(teamData);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedGameId]);
+
+  // Drop the previous game's data the moment the selection changes
+  // (adjust-state-during-render, not an effect).
+  const [prevGameId, setPrevGameId] = useState(selectedGameId);
+  if (prevGameId !== selectedGameId) {
+    setPrevGameId(selectedGameId);
+    setGame(null);
+    setTeams([]);
+  }
 
   useAdminResync(reloadGameAndTeams);
 

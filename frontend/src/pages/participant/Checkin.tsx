@@ -188,17 +188,6 @@ export function CheckInPage() {
     }
   }, [t]);
 
-  const loadTeamsForGame = useCallback(async (gameId: string) => {
-    setError(null);
-    setFormError(null);
-    const response = await api.getCheckInTeams(gameId);
-    if (response.error) {
-      setFormError(t('participant.checkin.errorLoadingTeams') + ': ' + response.error);
-      return;
-    }
-    setTeamOptions(response.data ?? []);
-  }, [t]);
-
   // Silent refresh used by the polling loop — does not clear errors so "needs rally desk"
   // messages stay visible while the team is waiting for physical check-in.
   const refreshTeamsForGame = useCallback(async (gameId: string) => {
@@ -293,104 +282,6 @@ export function CheckInPage() {
     void resolveInvite(code);
   }, [resolveInvite]);
 
-  // Entry: Show welcome screen for first-time users, then proceed to install-app or check-in.
-  useEffect(() => {
-    const hasInvite = parseInviteCode(searchParams.get('invite'));
-
-    // Resume an interrupted check-in (details still pending) straight where it left
-    // off, unless a fresh invite takes precedence. If nothing resumable is stored,
-    // fall through to the normal entry flow.
-    if (!hasInvite && !storage.isCheckInComplete()) {
-      void resumePendingCheckIn().then((resumed) => {
-        if (!resumed) beginCheckIn();
-      });
-      return;
-    }
-
-    const hasSeenWelcome = localStorage.getItem('vlettenrally_welcome_seen');
-    const isReturningUser = localStorage.getItem('vlettenrally_device_id');
-
-    // Invite arrivals skip the welcome/choice carousel (they already came via an
-    // invite, so the "start check-in vs scan QR" choice is only confusing). They're
-    // treated like returning users here; beginCheckIn() reads `?invite=` and jumps
-    // straight to the nickname step. On iOS-not-installed we still route through the
-    // install guide first — invitePending stays false there, so its onComplete is
-    // beginCheckIn, which re-reads the invite after the guide.
-    if (hasInvite || (isReturningUser && hasSeenWelcome)) {
-      if (shouldPromptHomescreenInstall()) {
-        setStep('install-app');
-      } else {
-        beginCheckIn();
-      }
-    } else {
-      // New user: show welcome
-      setStep('welcome');
-      localStorage.setItem('vlettenrally_welcome_seen', 'true');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Whenever a game is chosen and we don't yet have a resolved team, fetch its teams.
-  useEffect(() => {
-    if (step === 'select-team' && selectedGameId && teamOptions.length === 0 && !resolvedTeam) {
-      void loadTeamsForGame(selectedGameId);
-    }
-  }, [step, selectedGameId, teamOptions.length, resolvedTeam, loadTeamsForGame]);
-
-  // Poll the team list every 5 s while on select-team so the physical check-in chip
-  // updates automatically without a manual page reload.
-  useEffect(() => {
-    if (step !== 'select-team' || !selectedGameId) return;
-    const interval = setInterval(() => { void refreshTeamsForGame(selectedGameId); }, POLL_STATE_INTERVAL_MS);
-    return () => clearInterval(interval);
-  }, [step, selectedGameId, refreshTeamsForGame]);
-
-  // When the polled team list arrives, sync selectedTeam so the chip flips to green
-  // and the "needs rally desk" error clears as soon as physical check-in is recorded.
-  useEffect(() => {
-    if (!selectedTeam) return;
-    const updated = teamOptions.find(t => t.id === selectedTeam.id);
-    if (updated && updated.checkedIn !== selectedTeam.checkedIn) {
-      setSelectedTeam(updated);
-      if (updated.checkedIn) setFormError(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teamOptions]); // intentionally omits selectedTeam to avoid a state-update loop
-
-  const sortedTeamOptions = useMemo(() => {
-    return [...teamOptions].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '', 'nl', { sensitivity: 'base' }));
-  }, [teamOptions]);
-
-  const handleGameSelection = (gameId: string) => {
-    setSelectedGameId(gameId);
-    setStep('select-team');
-  };
-
-  const handleTeamSelection = () => {
-    if (!selectedTeam || !selectedGameId) {
-      setFormError(t('participant.checkin.selectTeamFirst'));
-      return;
-    }
-
-    // Validate that team has physically checked in at Rally Desk first
-    if (!selectedTeam.checkedIn) {
-      setFormError(t('participant.checkin.needsRallyDeskFull'));
-      return;
-    }
-
-    // Digital check-in window: once a team's physical check-in was more than the
-    // configured window ago, the regular selection screen no longer lets devices join —
-    // they must scan the team's (or an admin's) invite QR instead.
-    if (selectedTeam.acceptingNewDevices === false) {
-      setFormError(t('participant.checkin.windowClosed'));
-      return;
-    }
-
-    setResolvedTeam({ id: selectedTeam.id, gameId: selectedGameId, name: selectedTeam.name });
-    setFormError(null);
-    setStep('nickname');
-  };
-
   const applyRegisterResponse = useCallback(async (response: RegisterDeviceResponse, teamGameId: string, teamId: string) => {
     storage.setAuthToken(response.accessToken);
     storage.setRefreshToken(response.refreshToken);
@@ -426,49 +317,173 @@ export function CheckInPage() {
     }
   }, [persistTeamData, setDeviceId]);
 
-  /**
-   * Resume an interrupted check-in. A device that registered but has not yet
-   * submitted its required details (isCheckInComplete() === false) is bounced back
-   * to /check-in by the route guard — e.g. after the browser back button left the
-   * details step. Re-run the idempotent registration so applyRegisterResponse drops
-   * the user straight back on the right step (details / wait / permissions), skipping
-   * the game/team/nickname pickers. Returns false (so the caller falls back to the
-   * normal entry flow) if the stored team or nickname needed to resume is missing.
-   */
-  const resumePendingCheckIn = useCallback(async (): Promise<boolean> => {
-    const teamData = storage.getTeamData() as PlayerTeam | null;
-    const savedNickname = storedNickname.trim();
-    if (!teamData?.id || !teamData.gameId || savedNickname.length === 0) {
-      return false;
-    }
-    setResolvedTeam({ id: teamData.id, gameId: teamData.gameId, name: teamData.name });
-    setSelectedGameId(teamData.gameId);
-    setStep('loading');
-    try {
-      const response = await api.registerCheckInDevice({
-        gameId: teamData.gameId,
-        teamId: teamData.id,
-        deviceId: deviceId ?? null,
-        nickname: savedNickname,
-        inviteToken: null,
-      });
-      if (response.error || !response.data) {
-        return false;
+  // Entry: Show welcome screen for first-time users, then proceed to install-app or check-in.
+  useEffect(() => {
+    const hasInvite = parseInviteCode(searchParams.get('invite'));
+
+    // Resume an interrupted check-in (details still pending) straight where it left
+    // off, unless a fresh invite takes precedence. If nothing resumable is stored,
+    // fall through to the normal entry flow.
+    if (!hasInvite && !storage.isCheckInComplete()) {
+      /**
+       * Resume an interrupted check-in. A device that registered but has not yet
+       * submitted its required details (isCheckInComplete() === false) is bounced back
+       * to /check-in by the route guard — e.g. after the browser back button left the
+       * details step. Re-run the idempotent registration so applyRegisterResponse drops
+       * the user straight back on the right step (details / wait / permissions), skipping
+       * the game/team/nickname pickers. Returns false (so the caller falls back to the
+       * normal entry flow) if the stored team or nickname needed to resume is missing.
+       */
+      async function resumePendingCheckIn(): Promise<boolean> {
+        const teamData = storage.getTeamData() as PlayerTeam | null;
+        const savedNickname = storedNickname.trim();
+        if (!teamData?.id || !teamData.gameId || savedNickname.length === 0) {
+          return false;
+        }
+        setResolvedTeam({ id: teamData.id, gameId: teamData.gameId, name: teamData.name });
+        setSelectedGameId(teamData.gameId);
+        setStep('loading');
+        try {
+          const response = await api.registerCheckInDevice({
+            gameId: teamData.gameId,
+            teamId: teamData.id,
+            deviceId: deviceId ?? null,
+            nickname: savedNickname,
+            inviteToken: null,
+          });
+          if (response.error || !response.data) {
+            return false;
+          }
+          await applyRegisterResponse(response.data, teamData.gameId, teamData.id);
+          return true;
+        } catch (err) {
+          console.error('resume check-in error:', err);
+          return false;
+        }
       }
-      await applyRegisterResponse(response.data, teamData.gameId, teamData.id);
-      return true;
-    } catch (err) {
-      console.error('resume check-in error:', err);
-      return false;
+      void resumePendingCheckIn().then((resumed) => {
+        if (!resumed) beginCheckIn();
+      });
+      return;
     }
-  }, [storedNickname, deviceId, applyRegisterResponse]);
+
+    function chooseEntryStep() {
+      const hasSeenWelcome = localStorage.getItem('vlettenrally_welcome_seen');
+      const isReturningUser = localStorage.getItem('vlettenrally_device_id');
+
+      // Invite arrivals skip the welcome/choice carousel (they already came via an
+      // invite, so the "start check-in vs scan QR" choice is only confusing). They're
+      // treated like returning users here; beginCheckIn() reads `?invite=` and jumps
+      // straight to the nickname step. On iOS-not-installed we still route through the
+      // install guide first — invitePending stays false there, so its onComplete is
+      // beginCheckIn, which re-reads the invite after the guide.
+      if (hasInvite || (isReturningUser && hasSeenWelcome)) {
+        if (shouldPromptHomescreenInstall()) {
+          setStep('install-app');
+        } else {
+          beginCheckIn();
+        }
+      } else {
+        // New user: show welcome
+        setStep('welcome');
+        localStorage.setItem('vlettenrally_welcome_seen', 'true');
+      }
+    }
+    chooseEntryStep();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Whenever a game is chosen and we don't yet have a resolved team, fetch its teams.
+  useEffect(() => {
+    if (step !== 'select-team' || !selectedGameId || teamOptions.length > 0 || resolvedTeam) return;
+    const gameId = selectedGameId;
+    let cancelled = false;
+    async function loadTeamsForGame() {
+      setError(null);
+      setFormError(null);
+      const response = await api.getCheckInTeams(gameId);
+      if (cancelled) return;
+      if (response.error) {
+        setFormError(t('participant.checkin.errorLoadingTeams') + ': ' + response.error);
+        return;
+      }
+      setTeamOptions(response.data ?? []);
+    }
+    void loadTeamsForGame();
+    return () => {
+      cancelled = true;
+    };
+  }, [step, selectedGameId, teamOptions.length, resolvedTeam, t]);
+
+  // Poll the team list every 5 s while on select-team so the physical check-in chip
+  // updates automatically without a manual page reload.
+  useEffect(() => {
+    if (step !== 'select-team' || !selectedGameId) return;
+    const interval = setInterval(() => { void refreshTeamsForGame(selectedGameId); }, POLL_STATE_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [step, selectedGameId, refreshTeamsForGame]);
+
+  // When the polled team list arrives, sync selectedTeam so the chip flips to green
+  // and the "needs rally desk" error clears as soon as physical check-in is recorded.
+  // Adjust-state-during-render keyed on the list identity, so a selectedTeam update
+  // cannot re-trigger it (the old effect had to omit selectedTeam from its deps for
+  // the same reason).
+  const [prevTeamOptions, setPrevTeamOptions] = useState(teamOptions);
+  if (prevTeamOptions !== teamOptions) {
+    setPrevTeamOptions(teamOptions);
+    if (selectedTeam) {
+      const updated = teamOptions.find(t => t.id === selectedTeam.id);
+      if (updated && updated.checkedIn !== selectedTeam.checkedIn) {
+        setSelectedTeam(updated);
+        if (updated.checkedIn) setFormError(null);
+      }
+    }
+  }
+
+  const sortedTeamOptions = useMemo(() => {
+    return [...teamOptions].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '', 'nl', { sensitivity: 'base' }));
+  }, [teamOptions]);
+
+  const handleGameSelection = (gameId: string) => {
+    setSelectedGameId(gameId);
+    setStep('select-team');
+  };
+
+  const handleTeamSelection = () => {
+    if (!selectedTeam || !selectedGameId) {
+      setFormError(t('participant.checkin.selectTeamFirst'));
+      return;
+    }
+
+    // Validate that team has physically checked in at Rally Desk first
+    if (!selectedTeam.checkedIn) {
+      setFormError(t('participant.checkin.needsRallyDeskFull'));
+      return;
+    }
+
+    // Digital check-in window: once a team's physical check-in was more than the
+    // configured window ago, the regular selection screen no longer lets devices join —
+    // they must scan the team's (or an admin's) invite QR instead.
+    if (selectedTeam.acceptingNewDevices === false) {
+      setFormError(t('participant.checkin.windowClosed'));
+      return;
+    }
+
+    setResolvedTeam({ id: selectedTeam.id, gameId: selectedGameId, name: selectedTeam.name });
+    setFormError(null);
+    setStep('nickname');
+  };
+
+  // Drop a stale QR the moment Traccar setup goes away (adjust-state-during-render).
+  const [prevTraccarSetup, setPrevTraccarSetup] = useState(traccarSetup);
+  if (prevTraccarSetup !== traccarSetup) {
+    setPrevTraccarSetup(traccarSetup);
+    if (!traccarSetup) setTraccarQr(null);
+  }
 
   // Pre-render the Traccar config as a QR the app can scan to configure itself.
   useEffect(() => {
-    if (!traccarSetup) {
-      setTraccarQr(null);
-      return;
-    }
+    if (!traccarSetup) return;
     let cancelled = false;
     const configUrl = buildTraccarQrConfig(traccarSetup.serverUrl, traccarSetup.identifier);
     QRCode.toDataURL(configUrl, { width: 256, margin: 2, errorCorrectionLevel: 'Q' })
@@ -586,23 +601,24 @@ export function CheckInPage() {
   useEffect(() => {
     if (step !== 'rivals' || !resolvedTeam) return;
 
+    const team = resolvedTeam;
     let cancelled = false;
-    setLoadingRivals(true);
-    teamService
-      .getEligibleRivalTeams(resolvedTeam.gameId, resolvedTeam.id)
-      .then((teams) => {
+    async function loadRivals() {
+      setLoadingRivals(true);
+      try {
+        const teams = await teamService.getEligibleRivalTeams(team.gameId, team.id);
         if (cancelled) return;
         teams.sort((a, b) => a.name.localeCompare(b.name, 'nl'));
         setRivalOptions(teams);
-      })
-      .catch((err) => {
+      } catch (err) {
         if (cancelled) return;
         console.warn('Failed to load eligible rivals', err);
         setFormError(t('participant.checkin.loadRivalsFailed'));
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoadingRivals(false);
-      });
+      }
+    }
+    void loadRivals();
 
     return () => {
       cancelled = true;

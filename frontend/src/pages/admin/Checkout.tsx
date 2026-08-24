@@ -20,10 +20,11 @@ import {
   Typography,
 } from '@mui/material';
 import { AssignmentTurnedIn as HandedInIcon } from '@mui/icons-material';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useGameStore } from '../../store/useGameStore';
 import { useAdminResync } from '../../hooks/useAdminSync';
+import { useAsyncData } from '../../hooks/useAsyncData';
 import { teamService } from '../../services/teamService';
 import { trackerService } from '../../services/trackerService';
 import TrackerStatusBox from '../../components/TrackerStatusBox';
@@ -37,14 +38,12 @@ export default function Checkout() {
   const [teams, setTeams] = useState<AdminTeam[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<AdminTeam | null>(null);
 
-  // undefined = health not fetched yet, null = fetched but no matching pool record.
-  const [selectedTrackerHealth, setSelectedTrackerHealth] = useState<Tracker | null | undefined>(undefined);
-  const latestTrackerRequestRef = useRef<string | undefined>(undefined);
-
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  // Refetch for handlers (awaited so the list is fresh before the flow resets)
+  // and for resync; the game-keyed effect below owns the initial load.
   const reloadTeams = useCallback(async () => {
     if (!selectedGameId) {
       setTeams([]);
@@ -55,44 +54,55 @@ export default function Checkout() {
   }, [selectedGameId]);
 
   useEffect(() => {
-    void reloadTeams();
-  }, [reloadTeams]);
+    if (!selectedGameId) return;
+    let cancelled = false;
+    void teamService.getTeamsByGame(selectedGameId).then((teamData) => {
+      if (!cancelled) setTeams(teamData);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedGameId]);
 
   useAdminResync(reloadTeams);
 
-  // Fetch the selected team's tracker health for the hand-in box. Guarded against
-  // out-of-order responses: if the team is switched again before this resolves,
-  // latestTrackerRequestRef will have moved on and the stale result is dropped.
-  useEffect(() => {
-    const trackerId = selectedTeam?.trackerId ?? undefined;
-    latestTrackerRequestRef.current = trackerId;
-    if (!trackerId) {
-      setSelectedTrackerHealth(undefined);
-      return;
+  // Fetch the selected team's tracker health for the hand-in box.
+  // useAsyncData drops a response if the team switched while it was in flight.
+  const selectedTrackerId = selectedTeam?.trackerId;
+  const fetchTrackerHealth = useCallback(async (): Promise<Tracker | null> => {
+    try {
+      const trackers = await trackerService.getTrackers();
+      return trackers.find((tr) => tr.trackerId === selectedTrackerId) ?? null;
+    } catch (err) {
+      console.error('Failed to load tracker health:', err);
+      throw err;
     }
-    setSelectedTrackerHealth(undefined);
-    trackerService
-      .getTrackers()
-      .then((trackers) => {
-        if (latestTrackerRequestRef.current !== trackerId) return;
-        setSelectedTrackerHealth(trackers.find((tr) => tr.trackerId === trackerId) ?? null);
-      })
-      .catch((err) => {
-        console.error('Failed to load tracker health:', err);
-        if (latestTrackerRequestRef.current !== trackerId) return;
-        setSelectedTrackerHealth(null);
-      });
-  }, [selectedTeam?.trackerId]);
+  }, [selectedTrackerId]);
+  const {
+    data: trackerHealthData,
+    loading: trackerHealthLoading,
+    error: trackerHealthError,
+  } = useAsyncData(fetchTrackerHealth, { enabled: !!selectedTrackerId });
+  // undefined = no tracker / not fetched yet, null = fetched but no pool record (or failed).
+  const selectedTrackerHealth: Tracker | null | undefined = !selectedTrackerId || trackerHealthLoading
+    ? undefined
+    : trackerHealthError
+      ? null
+      : trackerHealthData;
 
   const resetToSearch = useCallback(() => {
     setSelectedTeam(null);
     setError(null);
   }, []);
 
-  // When the selected game changes, abandon any in-progress checkout.
-  useEffect(() => {
+  // When the selected game changes, abandon any in-progress checkout and drop
+  // the old game's team list (adjust-state-during-render, not an effect).
+  const [prevGameId, setPrevGameId] = useState(selectedGameId);
+  if (prevGameId !== selectedGameId) {
+    setPrevGameId(selectedGameId);
+    setTeams([]);
     resetToSearch();
-  }, [selectedGameId, resetToSearch]);
+  }
 
   const sortedTeams = useMemo(
     () =>

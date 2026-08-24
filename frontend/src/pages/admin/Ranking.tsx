@@ -42,20 +42,11 @@ export default function Ranking() {
   const game = useGameStore((s) => s.games.find((g) => g.id === s.selectedGameId) ?? null);
   const { t } = useTranslation();
   const [rankings, setRankings] = useState<RankingEntry[]>([]);
-  const [loading, setLoading] = useState(false);
+  // Which game the standings in state belong to; `loading` derives from it.
+  const [loadedGameId, setLoadedGameId] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
-
-  const loadRankings = useCallback(async () => {
-    if (!selectedGameId) return;
-    setLoading(true);
-    try {
-      const response = await api.getRankings(selectedGameId);
-      if (response.data) setRankings(response.data as RankingEntry[]);
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedGameId]);
 
   // The file holds more than this table shows — scouting group and the admin-only team
   // notes — so it is built server-side rather than from the rows in state.
@@ -76,11 +67,22 @@ export default function Ranking() {
   // Only receive ranking events from the backend while this page is mounted.
   useAdminTopicHeartbeat(ADMIN_TOPICS.RANKING);
 
-  // Initial load + reload after a reconnect/resync.
+  // Initial load + reload after a reconnect/resync. Rankings state is shared
+  // with the RANKING_UPDATE stream below, so both writers set it from async
+  // callbacks and the last arrival wins (same as before this was restructured).
   useEffect(() => {
-    void loadRankings();
-  }, [loadRankings]);
-  useAdminResync(() => void loadRankings());
+    if (!selectedGameId) return;
+    let cancelled = false;
+    void api.getRankings(selectedGameId).then((response) => {
+      if (cancelled) return;
+      if (response.data) setRankings(response.data as RankingEntry[]);
+      setLoadedGameId(selectedGameId);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedGameId, reloadNonce]);
+  useAdminResync(useCallback(() => setReloadNonce((n) => n + 1), []));
 
   // Live standings: replace with the freshly-computed ranking on each update.
   useEffect(() => {
@@ -89,6 +91,8 @@ export default function Ranking() {
     });
     return () => unsubscribe();
   }, []);
+
+  const loading = !!selectedGameId && loadedGameId !== selectedGameId;
 
   if (!selectedGameId) {
     return (

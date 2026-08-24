@@ -6,55 +6,35 @@
  * commonly suppressed by mobile browsers, so this gives players a visible cue
  * on any team page (not just the Dashboard feed).
  *
- * It reacts to `latestArrival` from the message store, which is bumped only on
- * genuine live arrivals (WebSocket / push), never on bulk page-load — so a
- * refresh with existing unread messages does not trigger a banner.
+ * It renders the message store's `bannerQueue`, which addMessage only feeds on
+ * genuine recent live arrivals (WebSocket / push), never on bulk page-load — so
+ * a refresh with existing unread messages does not trigger a banner.
  *
  * The banner is persistent (no auto-hide): it stays until the player taps it
  * (→ open the Dashboard feed, mark read) or closes it (✕).
  */
-import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Alert, Box, Chip, Collapse, IconButton, Typography } from '@mui/material';
 import { Close as CloseIcon } from '@mui/icons-material';
-import { useMessageStore, type Message } from '../store/useMessageStore';
+import { useMessageStore } from '../store/useMessageStore';
 import { getMessageIcon } from '../utils/messageAppearance';
-
-// Only banner arrivals whose sentAt is within this window. Guards against stale
-// messages replayed through addMessage by background-sync when the app reopens.
-const RECENT_WINDOW_MS = 2 * 60 * 1000;
 
 export function NewMessageBanner() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const latestArrival = useMessageStore((s) => s.latestArrival);
+  // Queue of undismissed arrivals; the head is displayed. Eligibility (unread,
+  // recent, deduped) is decided by the store's addMessage action.
+  const queue = useMessageStore((s) => s.bannerQueue);
   const markAsRead = useMessageStore((s) => s.markAsRead);
-
-  // Queue of undismissed arrivals; the head is displayed.
-  const [queue, setQueue] = useState<Message[]>([]);
-
-  useEffect(() => {
-    if (!latestArrival) return;
-    const { message } = latestArrival;
-    if (message.read) return;
-    const age = Date.now() - new Date(message.sentAt).getTime();
-    if (Number.isNaN(age) || age > RECENT_WINDOW_MS) return;
-
-    setQueue((prev) => {
-      if (prev.some((m) => m.id === message.id)) return prev;
-      return [...prev, message];
-    });
-    // Key on nonce so repeated arrivals each fire, even if otherwise equal.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [latestArrival?.nonce]);
+  const clearBannerQueue = useMessageStore((s) => s.clearBannerQueue);
 
   const head = queue[0];
   const extra = queue.length - 1;
 
   const handleView = () => {
     if (head) markAsRead(head.id);
-    setQueue([]);
+    clearBannerQueue();
     navigate('/dashboard');
   };
 
@@ -62,7 +42,7 @@ export function NewMessageBanner() {
     // Don't let the close click bubble to the Alert's onClick (which navigates).
     e.stopPropagation();
     // Dismiss all pending banners; they remain unread in the Dashboard feed.
-    setQueue([]);
+    clearBannerQueue();
   };
 
   const time = head

@@ -31,10 +31,11 @@ import {
   Smartphone as DigitalIcon,
   EditNote as ManualIcon,
 } from '@mui/icons-material';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useGameStore } from '../../store/useGameStore';
 import { useAdminResync } from '../../hooks/useAdminSync';
+import { useAsyncData } from '../../hooks/useAsyncData';
 import { teamService } from '../../services/teamService';
 import { gameService } from '../../services/gameService';
 import { trackerService } from '../../services/trackerService';
@@ -54,10 +55,6 @@ export default function CheckIn() {
   const [step, setStep] = useState<Step>('search');
   const [selectedTeam, setSelectedTeam] = useState<AdminTeam | null>(null);
 
-  // undefined = health not fetched yet, null = fetched but no matching pool record.
-  const [selectedTrackerHealth, setSelectedTrackerHealth] = useState<Tracker | null | undefined>(undefined);
-  const latestTrackerRequestRef = useRef<string | undefined>(undefined);
-
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -69,6 +66,8 @@ export default function CheckIn() {
   const [trackerId, setTrackerId] = useState('');
   const [availableTrackers, setAvailableTrackers] = useState<string[]>([]);
 
+  // Refetch for handlers (awaited so the list is fresh before the flow resets)
+  // and for resync; the game-keyed effect below owns the initial load.
   const reloadTeams = useCallback(async () => {
     if (!selectedGameId) {
       setTeams([]);
@@ -79,35 +78,41 @@ export default function CheckIn() {
   }, [selectedGameId]);
 
   useEffect(() => {
-    void reloadTeams();
-  }, [reloadTeams]);
+    if (!selectedGameId) return;
+    let cancelled = false;
+    void teamService.getTeamsByGame(selectedGameId).then((teamData) => {
+      if (!cancelled) setTeams(teamData);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedGameId]);
 
   useAdminResync(reloadTeams);
 
-  // Fetch the selected team's tracker health for the "verify tracker" box. Guarded
-  // against out-of-order responses: if the team is switched again before this
-  // resolves, latestTrackerRequestRef will have moved on and the stale result is
-  // dropped.
-  useEffect(() => {
-    const trackerId = selectedTeam?.trackerId ?? undefined;
-    latestTrackerRequestRef.current = trackerId;
-    if (!trackerId) {
-      setSelectedTrackerHealth(undefined);
-      return;
+  // Fetch the selected team's tracker health for the "verify tracker" box.
+  // useAsyncData drops a response if the team switched while it was in flight.
+  const selectedTrackerId = selectedTeam?.trackerId;
+  const fetchTrackerHealth = useCallback(async (): Promise<Tracker | null> => {
+    try {
+      const trackers = await trackerService.getTrackers();
+      return trackers.find((tr) => tr.trackerId === selectedTrackerId) ?? null;
+    } catch (err) {
+      console.error('Failed to load tracker health:', err);
+      throw err;
     }
-    setSelectedTrackerHealth(undefined);
-    trackerService
-      .getTrackers()
-      .then((trackers) => {
-        if (latestTrackerRequestRef.current !== trackerId) return;
-        setSelectedTrackerHealth(trackers.find((tr) => tr.trackerId === trackerId) ?? null);
-      })
-      .catch((err) => {
-        console.error('Failed to load tracker health:', err);
-        if (latestTrackerRequestRef.current !== trackerId) return;
-        setSelectedTrackerHealth(null);
-      });
-  }, [selectedTeam?.trackerId]);
+  }, [selectedTrackerId]);
+  const {
+    data: trackerHealthData,
+    loading: trackerHealthLoading,
+    error: trackerHealthError,
+  } = useAsyncData(fetchTrackerHealth, { enabled: !!selectedTrackerId });
+  // undefined = no tracker / not fetched yet, null = fetched but no pool record (or failed).
+  const selectedTrackerHealth: Tracker | null | undefined = !selectedTrackerId || trackerHealthLoading
+    ? undefined
+    : trackerHealthError
+      ? null
+      : trackerHealthData;
 
   // Reset the whole flow back to team search (after a completed check-in, or on
   // game change).
@@ -122,10 +127,14 @@ export default function CheckIn() {
     setAvailableTrackers([]);
   }, []);
 
-  // When the selected game changes, abandon any in-progress check-in.
-  useEffect(() => {
+  // When the selected game changes, abandon any in-progress check-in and drop
+  // the old game's team list (adjust-state-during-render, not an effect).
+  const [prevGameId, setPrevGameId] = useState(selectedGameId);
+  if (prevGameId !== selectedGameId) {
+    setPrevGameId(selectedGameId);
+    setTeams([]);
     resetToSearch();
-  }, [selectedGameId, resetToSearch]);
+  }
 
   const sortedTeams = useMemo(
     () =>
