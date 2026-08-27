@@ -160,7 +160,7 @@
         <dependency>
             <groupId>org.hibernate.orm</groupId>
             <artifactId>hibernate-spatial</artifactId>
-            <version>7.4.5.Final</version>
+            <version>7.4.6.Final</version>
         </dependency>
         <!-- PostGIS JDBC driver -->
         <dependency>
