@@ -7,7 +7,8 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import maplibregl from 'maplibre-gl';
+import '../utils/maplibreWorker';
+import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { resolveMapStyle, DEFAULT_CENTER } from '../utils/mapStyle';
 import { formatRelativeTime, formatTime } from '../utils/dateTime';

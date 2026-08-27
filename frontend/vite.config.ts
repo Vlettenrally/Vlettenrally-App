@@ -51,6 +51,11 @@ export default defineConfig({
       },
     }),
   ],
+  // maplibre-gl v6 loads its worker with `new Worker(url, { type: 'module' })`,
+  // so the chunk Vite emits for it has to be a real ES module.
+  worker: {
+    format: 'es',
+  },
   server: {
     port: 5173,
     proxy: {
