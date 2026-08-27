@@ -19,7 +19,8 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { Search as SearchIcon, Clear as ClearIcon } from '@mui/icons-material';
-import maplibregl from 'maplibre-gl';
+import '../utils/maplibreWorker';
+import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { resolveMapStyle, DEFAULT_CENTER, DEFAULT_ZOOM } from '../utils/mapStyle';
 import turfCircle from '@turf/circle';
