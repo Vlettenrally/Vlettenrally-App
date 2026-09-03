@@ -38,5 +38,5 @@ describe('map modules', () => {
 
   it('imports LocationPickerMap without throwing', async () => {
     await expect(import('./LocationPickerMap')).resolves.toBeDefined();
-  }, 10_000);
-});
+  });
+}, 10_000);
