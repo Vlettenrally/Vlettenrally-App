@@ -69,8 +69,13 @@ data:
     # Valkey Sentinel Configuration
     port 26379
     
-    # Monitor the master named "vlettenrally-valkey-master"
-    # The last number (2) is the quorum: number of sentinels that must agree on failover
+    # Monitor the master named "vlettenrally-valkey-master".
+    # The last number (2) is the quorum: how many sentinels must agree the master is
+    # down. Three sentinels run, one per Valkey pod, so 2 is a majority.
+    #
+    # This names pod 0 rather than an IP on purpose. Sentinel re-resolves it on every
+    # start, and because each sentinel is a sidecar of the pod it watches, a reschedule
+    # restarts the sentinel alongside it -- so the address can never go stale.
     sentinel monitor vlettenrally-valkey-master vlettenrally-valkey-0.vlettenrally-valkey-headless 6379 2
     
     # Time in ms before a master is considered down

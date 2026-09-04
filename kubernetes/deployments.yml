@@ -133,7 +133,7 @@ spec:
             - name: VALKEY_CLIENT_TYPE
               value: "sentinel"
             - name: VALKEY_HOSTS
-              value: "redis://vlettenrally-valkey-sentinel-0.vlettenrally-valkey-sentinel-headless:26379,redis://vlettenrally-valkey-sentinel-1.vlettenrally-valkey-sentinel-headless:26379,redis://vlettenrally-valkey-sentinel-2.vlettenrally-valkey-sentinel-headless:26379"
+              value: "redis://vlettenrally-valkey-0.vlettenrally-valkey-headless:26379,redis://vlettenrally-valkey-1.vlettenrally-valkey-headless:26379,redis://vlettenrally-valkey-2.vlettenrally-valkey-headless:26379"
             - name: VALKEY_SENTINEL_MASTER
               value: "vlettenrally-valkey-master"
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
@@ -359,7 +359,7 @@ spec:
             - name: VALKEY_CLIENT_TYPE
               value: "sentinel"
             - name: VALKEY_HOSTS
-              value: "redis://vlettenrally-valkey-sentinel-0.vlettenrally-valkey-sentinel-headless:26379,redis://vlettenrally-valkey-sentinel-1.vlettenrally-valkey-sentinel-headless:26379,redis://vlettenrally-valkey-sentinel-2.vlettenrally-valkey-sentinel-headless:26379"
+              value: "redis://vlettenrally-valkey-0.vlettenrally-valkey-headless:26379,redis://vlettenrally-valkey-1.vlettenrally-valkey-headless:26379,redis://vlettenrally-valkey-2.vlettenrally-valkey-headless:26379"
             - name: VALKEY_SENTINEL_MASTER
               value: "vlettenrally-valkey-master"
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
@@ -579,7 +579,11 @@ metadata:
     app: vlettenrally-valkey
 spec:
   serviceName: vlettenrally-valkey-headless
-  replicas: 2
+  # Three, not two: Sentinel elects a failover leader by MAJORITY of sentinels, not
+  # by the quorum. With the sentinels running as sidecars, two pods means two
+  # sentinels, and losing the master's pod leaves 1 of 2 -- a majority is then
+  # unreachable and no failover can ever run.
+  replicas: 3
   selector:
     matchLabels:
       app: vlettenrally-valkey
@@ -613,6 +617,22 @@ spec:
                   matchLabels:
                     app: vlettenrally-valkey
                 topologyKey: kubernetes.io/hostname
+      initContainers:
+        # Sentinel rewrites its config file at runtime, so it needs a writable copy.
+        # Keeping that copy on an emptyDir rather than the data PVC is the point of
+        # this whole arrangement: every pod start begins from the pristine ConfigMap,
+        # which is what discards stale peer/master IPs left over from a reschedule.
+        - name: copy-sentinel-config
+          image: valkey/valkey:8-alpine
+          command:
+            - /bin/sh
+            - -c
+            - cp /etc/valkey-sentinel-readonly/sentinel.conf /etc/valkey-sentinel/sentinel.conf
+          volumeMounts:
+            - name: sentinel-config-readonly
+              mountPath: /etc/valkey-sentinel-readonly
+            - name: sentinel-config
+              mountPath: /etc/valkey-sentinel
       containers:
         - name: valkey
           image: valkey/valkey:8-alpine
@@ -676,88 +696,28 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 5
             timeoutSeconds: 3
-      volumes:
-        - name: config
-          configMap:
-            name: vlettenrally-valkey-config
-  volumeClaimTemplates:
-    - metadata:
-        name: data
-      spec:
-        accessModes:
-          - ReadWriteOnce
-        resources:
-          requests:
-            storage: 20Gi
-
----
-# =============================================================================
-# Valkey Sentinel StatefulSet
-# =============================================================================
-# 3 Sentinel instances monitor the Valkey master and handle automatic failover.
-# Sentinel rewrites its config at runtime, so we use an initContainer to copy
-# the ConfigMap to a writable emptyDir volume.
-# =============================================================================
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: vlettenrally-valkey-sentinel
-  labels:
-    app: vlettenrally-valkey-sentinel
-spec:
-  serviceName: vlettenrally-valkey-sentinel-headless
-  replicas: 3
-  selector:
-    matchLabels:
-      app: vlettenrally-valkey-sentinel
-  template:
-    metadata:
-      labels:
-        app: vlettenrally-valkey-sentinel
-    spec:
-      affinity:
-        nodeAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 80
-              preference:
-                matchExpressions:
-                  - key: servers.ngpc.rxt.io/type
-                    operator: In
-                    values:
-                    - spot
-            - weight: 20
-              preference:
-                matchExpressions:
-                  - key: servers.ngpc.rxt.io/type
-                    operator: In
-                    values:
-                    - ondemand
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              podAffinityTerm:
-                labelSelector:
-                  matchLabels:
-                    app: vlettenrally-valkey-sentinel
-                topologyKey: kubernetes.io/hostname
-      initContainers:
-        - name: copy-sentinel-config
+        # Sentinel runs beside the Valkey it watches so the two can never drift apart:
+        # any reschedule that moves a Valkey pod restarts that pod's sentinel too, and
+        # it re-resolves the topology from DNS instead of holding a dead pod IP.
+        - name: sentinel
           image: valkey/valkey:8-alpine
           command:
             - /bin/sh
             - -c
-            - cp /etc/valkey-readonly/sentinel.conf /etc/valkey/sentinel.conf
-          volumeMounts:
-            - name: sentinel-config-readonly
-              mountPath: /etc/valkey-readonly
-            - name: sentinel-config
-              mountPath: /etc/valkey
-      containers:
-        - name: sentinel
-          image: valkey/valkey:8-alpine
-          command:
-            - valkey-sentinel
-            - /etc/valkey/sentinel.conf
+            - |
+              # Sentinel resolves the monitored master when it parses its config and
+              # exits if the name does not resolve, so wait for pod 0 to answer first.
+              # Bounded at ~60s: if pod 0 never comes up we start anyway and let the
+              # container restart, rather than holding this sentinel out of the quorum
+              # indefinitely.
+              i=0
+              while [ "$i" -lt 30 ]; do
+                valkey-cli -h vlettenrally-valkey-0.vlettenrally-valkey-headless ping >/dev/null 2>&1 && break
+                echo "waiting for vlettenrally-valkey-0 to answer..."
+                i=$((i + 1))
+                sleep 2
+              done
+              exec valkey-sentinel /etc/valkey-sentinel/sentinel.conf
           env:
             - name: TZ
               value: "Europe/Amsterdam"
@@ -773,7 +733,7 @@ spec:
               containerPort: 26379
           volumeMounts:
             - name: sentinel-config
-              mountPath: /etc/valkey
+              mountPath: /etc/valkey-sentinel
           livenessProbe:
             exec:
               command:
@@ -781,7 +741,9 @@ spec:
                 - -p
                 - "26379"
                 - ping
-            initialDelaySeconds: 30
+            # Must clear the ~60s startup wait above, or the probe kills the container
+            # while it is still waiting for pod 0.
+            initialDelaySeconds: 90
             periodSeconds: 10
             timeoutSeconds: 3
           readinessProbe:
@@ -795,11 +757,24 @@ spec:
             periodSeconds: 5
             timeoutSeconds: 3
       volumes:
+        - name: config
+          configMap:
+            name: vlettenrally-valkey-config
         - name: sentinel-config-readonly
           configMap:
             name: vlettenrally-valkey-sentinel-config
         - name: sentinel-config
           emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 20Gi
+
 ---
 apiVersion: autoscaling/v1
 kind: HorizontalPodAutoscaler

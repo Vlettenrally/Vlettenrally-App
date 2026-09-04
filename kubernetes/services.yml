@@ -70,7 +70,8 @@ spec:
     app: vlettenrally-valkey
 
 ---
-# Headless service for StatefulSet DNS resolution
+# Headless service for StatefulSet DNS resolution. Now also the address of the
+# sentinels, which run as sidecars in these same pods.
 apiVersion: v1
 kind: Service
 metadata:
@@ -80,33 +81,22 @@ metadata:
 spec:
   type: ClusterIP
   clusterIP: None
+  # Required, not cosmetic. Pod readiness now includes the sentinel sidecar, and that
+  # sidecar waits for vlettenrally-valkey-0 to resolve through this service. Without
+  # this the two deadlock: no A record until the pod is ready, and no readiness until
+  # the record exists.
+  publishNotReadyAddresses: true
   ports:
     - port: 6379
       targetPort: valkey
       protocol: TCP
       name: valkey
-  selector:
-    app: vlettenrally-valkey
-
----
-# Headless service for Sentinel StatefulSet DNS resolution
-# Provides stable DNS: vlettenrally-valkey-sentinel-{0,1,2}.vlettenrally-valkey-sentinel-headless
-apiVersion: v1
-kind: Service
-metadata:
-  name: vlettenrally-valkey-sentinel-headless
-  labels:
-    app: vlettenrally-valkey-sentinel
-spec:
-  type: ClusterIP
-  clusterIP: None
-  ports:
     - port: 26379
       targetPort: sentinel
       protocol: TCP
       name: sentinel
   selector:
-    app: vlettenrally-valkey-sentinel
+    app: vlettenrally-valkey
 
 ---
 # Sentinel service for client discovery
@@ -124,4 +114,4 @@ spec:
       protocol: TCP
       name: sentinel
   selector:
-    app: vlettenrally-valkey-sentinel
+    app: vlettenrally-valkey
