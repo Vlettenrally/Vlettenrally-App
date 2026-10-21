@@ -140,12 +140,12 @@
         <dependency>
             <groupId>com.googlecode.libphonenumber</groupId>
             <artifactId>libphonenumber</artifactId>
-            <version>9.0.40</version>
+            <version>9.0.41</version>
         </dependency>
         <dependency>
             <groupId>com.twilio.sdk</groupId>
             <artifactId>twilio</artifactId>
-            <version>13.0.2</version>
+            <version>13.1.0</version>
         </dependency>
         <dependency>
             <groupId>org.brotli</groupId>
@@ -160,7 +160,7 @@
         <dependency>
             <groupId>org.hibernate.orm</groupId>
             <artifactId>hibernate-spatial</artifactId>
-            <version>7.4.12.Final</version>
+            <version>7.4.13.Final</version>
         </dependency>
         <!-- PostGIS JDBC driver -->
         <dependency>
