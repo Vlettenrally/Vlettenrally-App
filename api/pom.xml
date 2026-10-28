@@ -14,7 +14,7 @@
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
         <quarkus.platform.version>3.40.1</quarkus.platform.version>
         <skipITs>true</skipITs>
-        <surefire-plugin.version>3.6.0</surefire-plugin.version>
+        <surefire-plugin.version>3.6.1</surefire-plugin.version>
         <!-- Bundle libphonenumber metadata for phone number validation in native image -->
         <quarkus.native.include-resources>com/google/i18n/phonenumbers/data/**</quarkus.native.include-resources>
     </properties>
@@ -140,7 +140,7 @@
         <dependency>
             <groupId>com.googlecode.libphonenumber</groupId>
             <artifactId>libphonenumber</artifactId>
-            <version>9.0.41</version>
+            <version>9.0.42</version>
         </dependency>
         <dependency>
             <groupId>com.twilio.sdk</groupId>
@@ -160,7 +160,7 @@
         <dependency>
             <groupId>org.hibernate.orm</groupId>
             <artifactId>hibernate-spatial</artifactId>
-            <version>7.4.13.Final</version>
+            <version>7.4.14.Final</version>
         </dependency>
         <!-- PostGIS JDBC driver -->
         <dependency>
