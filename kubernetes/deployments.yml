@@ -537,7 +537,7 @@ spec:
         - name: ghcr-creds
       containers:
         - name: vlettenrally-tileserver
-          image: ghcr.io/joostvanviegen/vlettenrally-tileserver:2026-03-17
+          image: ghcr.io/joostvanviegen/vlettenrally-tileserver:2026-11-03
           resources:
             requests:
               memory: "256Mi"
