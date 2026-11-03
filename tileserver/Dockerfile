@@ -6,7 +6,7 @@
 # Config is mounted at runtime via Kubernetes ConfigMap.
 # =============================================================================
 
-FROM ghcr.io/maplibre/martin:1.4.0
+FROM ghcr.io/maplibre/martin:1.16.0
 
 
 EXPOSE 3000
