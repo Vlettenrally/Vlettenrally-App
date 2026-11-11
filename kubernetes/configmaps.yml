@@ -73,9 +73,10 @@ data:
     # The last number (2) is the quorum: how many sentinels must agree the master is
     # down. Three sentinels run, one per Valkey pod, so 2 is a majority.
     #
-    # This names pod 0 rather than an IP on purpose. Sentinel re-resolves it on every
-    # start, and because each sentinel is a sidecar of the pod it watches, a reschedule
-    # restarts the sentinel alongside it -- so the address can never go stale.
+    # This names pod 0 rather than an IP on purpose: Sentinel re-resolves it on every
+    # start. Replicas and the other sentinels are discovered at runtime instead, and
+    # Sentinel keeps every peer it has ever seen -- so those announce their DNS names
+    # too (replica-announce-ip on valkey, announce-ip appended by the init container).
     sentinel monitor vlettenrally-valkey-master vlettenrally-valkey-0.vlettenrally-valkey-headless 6379 2
     
     # Time in ms before a master is considered down

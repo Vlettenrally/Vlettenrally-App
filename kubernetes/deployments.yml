@@ -627,7 +627,13 @@ spec:
           command:
             - /bin/sh
             - -c
-            - cp /etc/valkey-sentinel-readonly/sentinel.conf /etc/valkey-sentinel/sentinel.conf
+            - |
+              cp /etc/valkey-sentinel-readonly/sentinel.conf /etc/valkey-sentinel/sentinel.conf
+              # Announce this pod's stable DNS name rather than its IP. Peers remember every
+              # sentinel they have seen and never forget one on their own, so an announced
+              # IP lingers after a reschedule -- and gets dialled long after another pod has
+              # been handed it. A name survives the reschedule.
+              echo "sentinel announce-ip $HOSTNAME.vlettenrally-valkey-headless" >> /etc/valkey-sentinel/sentinel.conf
           volumeMounts:
             - name: sentinel-config-readonly
               mountPath: /etc/valkey-sentinel-readonly
@@ -642,6 +648,10 @@ spec:
             - |
               # Determine ordinal index from hostname (e.g., vlettenrally-valkey-0 → 0)
               ORDINAL=$(echo "$HOSTNAME" | rev | cut -d'-' -f1 | rev)
+              # Sentinel discovers replicas from the master's INFO and keeps them forever,
+              # so announce the stable DNS name instead of the pod IP (see the sentinel
+              # init container). Set on pod 0 too: after a failover it is a replica.
+              ANNOUNCE="$HOSTNAME.vlettenrally-valkey-headless"
               if [ "$ORDINAL" != "0" ]; then
                 echo "Starting as replica of vlettenrally-valkey-0.vlettenrally-valkey-headless"
                 exec valkey-server /etc/valkey/valkey.conf \
@@ -649,14 +659,16 @@ spec:
                   --appendonly yes \
                   --appendfsync everysec \
                   --dir /data \
-                  --port 6379
+                  --port 6379 \
+                  --replica-announce-ip "$ANNOUNCE"
               else
                 echo "Starting as master"
                 exec valkey-server /etc/valkey/valkey.conf \
                   --appendonly yes \
                   --appendfsync everysec \
                   --dir /data \
-                  --port 6379
+                  --port 6379 \
+                  --replica-announce-ip "$ANNOUNCE"
               fi
           env:
             - name: TZ
