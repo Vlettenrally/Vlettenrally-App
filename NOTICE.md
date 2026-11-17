@@ -27,6 +27,21 @@ If you fork or redeploy this software for another event or organisation, replace
 
 The icon files are generated from `source-app-icon.png` by `frontend/scripts/generate-notification-assets.py`, so replacing that one image and re-running the script regenerates the set.
 
+### Renaming
+
+The name is shown to users in these places:
+
+- `frontend/src/locales/nl.json` and `frontend/src/locales/en.json`: most visible text, including page titles, game status messages and image alt texts. Search for "Vlettenrally".
+- `frontend/vite.config.ts`: `name`, `short_name` and `description` in the PWA manifest, shown when the app is installed.
+- `frontend/index.html`: the browser tab `<title>`.
+- `frontend/src/components/TeamLayout.tsx` and `frontend/src/pages/participant/Checkin.tsx`: the name as a header in the team layout and on the check-in screen.
+- `frontend/src/App.tsx` and `frontend/src/service-worker.ts`: the fallback title for push notifications. `App.tsx` also contains the Dutch notification permission prompt, and its theme has the brand colours.
+- `frontend/src/components/LocationPickerMap.tsx`: the `User-Agent` sent to the Nominatim place search.
+
+Deployment settings name the production domain (`game.vlettenrally.nl`), the Firebase project and the container images. A redeploy replaces these with its own values anyway: see `frontend/.env.production`, `api/src/main/resources/application.properties` (CORS origins, pre-registration and Traccar URLs), `tileserver/config.yaml`, `kubernetes/` and `.github/workflows/`.
+
+Internal identifiers such as the Java package `nl.vlettenrally`, the `vlettenrally.*` configuration keys, database and Kubernetes resource names, and browser storage keys are never shown to users and do not need to change. Renaming the browser storage keys would also make existing installs lose their saved device and check-in state.
+
 ## Fonts
 
 No font files are stored in this repository. The frontend build bundles the following fonts from npm and writes their licence texts to `licenses/` in the build output (see `fontLicenses` in `frontend/vite.config.ts`). The licences of all other bundled packages are written to `THIRD-PARTY-LICENSES.txt`.
