@@ -49,7 +49,8 @@ jobs:
 
   test-api:
     name: Test API
-    runs-on: arc-runner-set-vlettenrally
+    # Pull requests (possibly from forks) must never run on the self-hosted cluster runner.
+    runs-on: ${{ github.event_name == 'pull_request' && 'ubuntu-latest' || 'arc-runner-set-vlettenrally' }}
     container:
       image: eclipse-temurin:25.0.3_9-jdk
     if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
@@ -73,7 +74,8 @@ jobs:
 
   test-frontend:
     name: Build/Test Frontend
-    runs-on: arc-runner-set-vlettenrally
+    # Pull requests (possibly from forks) must never run on the self-hosted cluster runner.
+    runs-on: ${{ github.event_name == 'pull_request' && 'ubuntu-latest' || 'arc-runner-set-vlettenrally' }}
     container:
       image: ubuntu:latest
     if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
