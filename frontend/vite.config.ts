@@ -1,11 +1,67 @@
-import { defineConfig } from 'vite'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { EOL } from 'node:os'
+import { fileURLToPath } from 'node:url'
+import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import license, { type Dependency } from 'rollup-plugin-license'
+
+const outDir = fileURLToPath(new URL('./dist', import.meta.url))
+
+// The app and the service worker are separate Rollup builds, each with its own
+// license plugin instance. Both feed this map, and every write emits the union,
+// so THIRD-PARTY-LICENSES.txt lists everything regardless of which build ends last.
+const bundledDependencies = new Map<string, Dependency>()
+
+function thirdPartyLicenses() {
+  return license({
+    thirdParty: {
+      includePrivate: false,
+      output: (dependencies) => {
+        for (const dependency of dependencies) {
+          bundledDependencies.set(`${dependency.name}@${dependency.version}`, dependency)
+        }
+        const sorted = [...bundledDependencies.values()].sort((a, b) =>
+          (a.name ?? '').localeCompare(b.name ?? ''),
+        )
+        mkdirSync(outDir, { recursive: true })
+        writeFileSync(
+          `${outDir}/THIRD-PARTY-LICENSES.txt`,
+          sorted.map((dependency) => dependency.text()).join(`${EOL}${EOL}---${EOL}${EOL}`),
+        )
+      },
+    },
+  })
+}
+
+// The fonts are imported as CSS. rollup-plugin-license only counts modules that
+// render JavaScript, so it misses some of them (Roboto, for one); their OFL texts
+// are copied here explicitly.
+function fontLicenses(): Plugin {
+  const fonts = ['poppins', 'roboto']
+  return {
+    name: 'font-licenses',
+    apply: 'build',
+    generateBundle() {
+      for (const font of fonts) {
+        this.emitFile({
+          type: 'asset',
+          fileName: `licenses/${font}-OFL.txt`,
+          source: readFileSync(
+            fileURLToPath(new URL(`./node_modules/@fontsource/${font}/LICENSE`, import.meta.url)),
+          ),
+        })
+      }
+    },
+  }
+}
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(),
+    { ...(thirdPartyLicenses() as Plugin), apply: 'build' },
+    fontLicenses(),
     VitePWA({
       registerType: 'autoUpdate',
       strategies: 'injectManifest',
@@ -44,6 +100,9 @@ export default defineConfig({
       },
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        buildPlugins: {
+          rollup: [thirdPartyLicenses()],
+        },
       },
       devOptions: {
         enabled: true,
