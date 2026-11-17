@@ -68,7 +68,7 @@ Every domain repository has three implementations:
 - JPA implementation in `data/repository/jpa/` (e.g., `JpaGameRepository`)
 - In-memory mock in `data/repository/mock/` (e.g., `MockGameRepository`)
 
-`RepositoryConfig` selects JPA or mock at startup based on profile. The `mock` profile provides prefilled data for development without a database. The `@UsesPrimary` annotation routes writes to the primary datasource; reads go to the read replica when available.
+Implementations are selected at build time via `@IfBuildProfile`: mocks (with prefilled data) in `dev`/`test`, JPA in `prod`. JPA repositories extend `ReadReplicaAwareRepository`: writes and reads inside an active transaction go to the primary; reads outside a transaction go to the read replica (`getReadEntityManager(true)` forces the primary).
 
 ### WebSocket Clustering via Valkey
 

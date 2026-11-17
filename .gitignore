@@ -1,3 +1,5 @@
 .firebase/**
 .idea/**
 /api/src/main/resources/*.pem
+.quarkus/
+.DS_Store
