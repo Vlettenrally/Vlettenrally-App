@@ -143,7 +143,7 @@
         <dependency>
             <groupId>com.google.auth</groupId>
             <artifactId>google-auth-library-oauth2-http</artifactId>
-            <version>1.57.0</version>
+            <version>1.58.0</version>
         </dependency>
         <dependency>
             <groupId>com.googlecode.libphonenumber</groupId>
@@ -168,7 +168,7 @@
         <dependency>
             <groupId>org.hibernate.orm</groupId>
             <artifactId>hibernate-spatial</artifactId>
-            <version>7.4.15.Final</version>
+            <version>7.4.16.Final</version>
         </dependency>
         <!-- PostGIS JDBC driver -->
         <dependency>
